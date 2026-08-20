@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,6 +15,7 @@ from app.cli.serve import (
     _configure_llm,
     _llm_is_configured,
     _open_browser_when_ready,
+    _uvicorn_log_config,
 )
 
 
@@ -38,6 +41,7 @@ def test_browser_host_maps_wildcard_to_loopback():
 
 def test_auto_mode_detects_anthropic_key(monkeypatch):
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
+    monkeypatch.setenv("ABDA_CLAUDE_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     assert _llm_is_configured() is True
 
@@ -72,3 +76,30 @@ def test_browser_opens_only_after_readiness(monkeypatch):
     _open_browser_when_ready("http://127.0.0.1:8000", timeout_seconds=0.1)
 
     assert opened == ["http://127.0.0.1:8000"]
+
+
+def test_server_disables_query_string_access_logs(monkeypatch):
+    called: dict = {}
+    fake_uvicorn = SimpleNamespace(run=lambda *args, **kwargs: called.update(kwargs))
+    monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
+    monkeypatch.setattr(serve, "_load_environment", lambda: None)
+    monkeypatch.setattr(serve, "_choose_port", lambda _host, requested: requested or 8000)
+    monkeypatch.setattr(serve, "_configure_llm", lambda _mode: False)
+
+    assert serve.main(["--port", "8765", "--no-browser"]) == 0
+    assert called["host"] == "127.0.0.1"
+    assert called["port"] == 8765
+    assert called["access_log"] is False
+    assert called["log_config"]["loggers"]["app"] == {
+        "handlers": ["default"],
+        "level": "INFO",
+        "propagate": False,
+    }
+
+
+def test_application_log_config_is_an_independent_copy():
+    first = _uvicorn_log_config()
+    first["loggers"]["app"]["level"] = "ERROR"
+    second = _uvicorn_log_config()
+
+    assert second["loggers"]["app"]["level"] == "INFO"

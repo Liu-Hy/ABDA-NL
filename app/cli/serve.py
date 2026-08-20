@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import os
 import socket
 import sys
@@ -14,10 +15,22 @@ from pathlib import Path
 from typing import Sequence
 
 from dotenv import load_dotenv
+from uvicorn.config import LOGGING_CONFIG
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
+def _uvicorn_log_config() -> dict:
+    """Return Uvicorn logging with normalized ABDA application logs enabled."""
+    config = deepcopy(LOGGING_CONFIG)
+    config["loggers"]["app"] = {
+        "handlers": ["default"],
+        "level": "INFO",
+        "propagate": False,
+    }
+    return config
 
 
 def _load_environment(root: Path = REPO_ROOT) -> None:
@@ -34,9 +47,36 @@ def _llm_is_configured() -> bool:
     backend = (os.getenv("ABDA_LLM_BACKEND") or "claude").strip().lower()
     if backend == "ollama":
         return True
-    return backend == "claude" and bool(
-        (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    if backend != "claude":
+        return False
+
+    provider = (os.getenv("ABDA_CLAUDE_PROVIDER") or "anthropic").strip().lower()
+    if provider == "anthropic":
+        return bool((os.getenv("ANTHROPIC_API_KEY") or "").strip())
+    if provider != "foundry":
+        return False
+
+    has_key = any(
+        (os.getenv(name) or "").strip()
+        for name in (
+            "AZURE_ANTHROPIC_API_KEY",
+            "ANTHROPIC_FOUNDRY_API_KEY",
+            "AZURE_OPENAI_API_KEY",
+            "ANTHROPIC_FOUNDRY_AUTH_TOKEN",
+            "AZURE_OPENAI_AUTH_TOKEN",
+        )
     )
+    has_endpoint = any(
+        (os.getenv(name) or "").strip()
+        for name in (
+            "AZURE_ANTHROPIC_ENDPOINT",
+            "ANTHROPIC_FOUNDRY_BASE_URL",
+            "ANTHROPIC_FOUNDRY_RESOURCE",
+            "ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT",
+            "AZURE_OPENAI_ENDPOINT",
+        )
+    )
+    return bool(has_key and has_endpoint)
 
 
 def _configure_llm(mode: str) -> bool:
@@ -83,7 +123,8 @@ def _choose_port(host: str, requested: int | None) -> int:
 
 
 def _browser_host(host: str) -> str:
-    return "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    # Non-loopback binding requires a separate explicit CLI opt-in.
+    return "127.0.0.1" if host in {"0.0.0.0", "::"} else host  # noqa: S104
 
 
 def _open_browser_when_ready(base_url: str, timeout_seconds: float = 30.0) -> None:
@@ -91,7 +132,8 @@ def _open_browser_when_ready(base_url: str, timeout_seconds: float = 30.0) -> No
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(ready_url, timeout=0.75) as response:
+            # The caller constructs this URL from a validated host and integer port.
+            with urllib.request.urlopen(ready_url, timeout=0.75) as response:  # noqa: S310
                 if response.status == 200:
                     webbrowser.open(base_url)
                     return
@@ -154,6 +196,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         port=port,
         reload=args.reload,
         log_level="info",
+        log_config=_uvicorn_log_config(),
+        # The application emits normalized route logs with request IDs.
+        # Uvicorn's access log includes query strings, which can contain a
+        # short-lived OIDC authorization code on the callback request.
+        access_log=False,
     )
     return 0
 

@@ -5,6 +5,8 @@ responses shaped as `{"errors": [{"code", "path", "message"}, ...]}`.
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -12,6 +14,7 @@ from fastapi.responses import JSONResponse
 from app.abda_bridge import ArgumentConstructionError
 from app.api.models import ErrorDetail, ErrorResponse
 from app.scenario.diff_ops import DiffOpError
+from app.scenario.catalog import ScenarioNotFoundError
 from app.scenario.loader import ScenarioValidationError
 from app.scenario.save import (
     InvalidScenarioId,
@@ -20,8 +23,7 @@ from app.scenario.save import (
 )
 
 
-class ScenarioNotFoundError(Exception):
-    """Raised when a scenario_id doesn't map to a directory under examples/."""
+log = logging.getLogger(__name__)
 
 
 def _response(status_code: int, errors: list[ErrorDetail]) -> JSONResponse:
@@ -112,6 +114,25 @@ async def _request_validation_handler(
     return _response(422, details)
 
 
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None)
+    log.exception(
+        "request_unhandled request_id=%s exception=%s",
+        request_id,
+        type(exc).__name__,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": {
+                "code": "internal_error",
+                "message": "The request could not be completed.",
+                "request_id": request_id,
+            }
+        },
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ScenarioValidationError, _scenario_validation_handler)
     app.add_exception_handler(DiffOpError, _diff_op_handler)
@@ -121,3 +142,4 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ScenarioIdCollision, _scenario_id_collision_handler)
     app.add_exception_handler(SaveVerificationFailed, _save_verification_failed_handler)
     app.add_exception_handler(RequestValidationError, _request_validation_handler)
+    app.add_exception_handler(Exception, _unhandled_exception_handler)

@@ -8,72 +8,176 @@ permissions:
   contents: read
 
 jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ABDA_CI_GITLEAKS_VERSION: 8.30.1
+      ABDA_CI_GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Scan the complete Git history for secrets
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${ABDA_CI_GITLEAKS_VERSION}/gitleaks_${ABDA_CI_GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "${ABDA_CI_GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | \
+            sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" \
+            -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --verbose .
+
   test:
+    name: Python ${{ matrix.python_version }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.13"]
+        include:
+          - python_version: "3.10"
+            dev_lock: requirements.py310.lock
+            runtime_lock: requirements.runtime.py310.lock
+          - python_version: "3.13"
+            dev_lock: requirements.lock
+            runtime_lock: requirements.runtime.lock
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python_version }}
           cache: pip
+          cache-dependency-path: ${{ matrix.dev_lock }}
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[dev]'
-      - run: python -m ruff check app tests
+      - run: python -m pip install --require-hashes -r "${{ matrix.dev_lock }}"
+      - run: python -m pip install --no-build-isolation --no-deps -e .
+      - run: python -m ruff check app migrations tests
+      - run: python -m ruff check --select S app
+      - name: Audit hash-locked dependencies
+        run: |
+          python -m pip_audit \
+            --disable-pip --require-hashes \
+            --requirement "${{ matrix.runtime_lock }}"
+          python -m pip_audit \
+            --disable-pip --require-hashes \
+            --requirement "${{ matrix.dev_lock }}"
+      - name: Verify native dependency locks
+        run: |
+          python -m piptools compile \
+            --allow-unsafe \
+            --generate-hashes \
+            --output-file "${{ matrix.runtime_lock }}" \
+            --quiet \
+            --strip-extras \
+            pyproject.toml
+          python -m piptools compile \
+            --allow-unsafe \
+            --extra dev \
+            --generate-hashes \
+            --output-file "${{ matrix.dev_lock }}" \
+            --quiet \
+            --strip-extras \
+            pyproject.toml
+          git diff --exit-code -- \
+            "${{ matrix.runtime_lock }}" "${{ matrix.dev_lock }}"
+      - name: Verify database migration parity
+        run: |
+          export ABDA_DATABASE_URL="sqlite+pysqlite:///$RUNNER_TEMP/abda-ci.db"
+          python -m alembic upgrade head
+          python -m alembic check
       - run: python -m pytest -q
 
-  browser-smoke:
+  postgres-acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-          cache: pip
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[dev,browser]'
-      - run: python -m playwright install --with-deps chromium
-      - name: Exercise the paper demo in Chromium
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-bookworm@sha256:60f4761b9035e0b8d5218f701a8c3382f641bf12b1604822574cf5be3baeb537
         env:
-          ABDA_BROWSER_TESTS: "1"
-        run: python -m pytest -q tests/test_browser_smoke.py
-
-  package-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+          POSTGRES_DB: abda
+          POSTGRES_USER: abdaadmin
+          POSTGRES_PASSWORD: ci-only-admin-database-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abdaadmin -d abda"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ABDA_POSTGRES_TEST_ADMIN_URL: postgresql+psycopg://abdaadmin:ci-only-admin-database-password@127.0.0.1:5432/abda
+      ABDA_POSTGRES_TEST_APP_PASSWORD: ci-only-application-database-password-32-chars
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
           cache: pip
+          cache-dependency-path: requirements.lock
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[dev]'
-      - name: Build and exercise the installed wheel
+      - run: python -m pip install --require-hashes -r requirements.lock
+      - run: python -m pip install --no-build-isolation --no-deps -e .
+      - name: Exercise restricted-role PostgreSQL flows
+        run: python -m pytest -q tests/test_postgres_acceptance.py
+
+  deployment-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ABDA_CI_BICEP_VERSION: v0.46.1
+      ABDA_CI_BICEP_SHA256: 3e011d629ea4311b7a7dd8f0040ab2b1a072ea4ff5d02cb75e0e55a9a6703fb9
+      ABDA_DEPLOY_POSTGRES_ADMIN_PASSWORD: ci-only-database-password
+      ABDA_DEPLOY_POSTGRES_APP_PASSWORD: ci-only-app-database-password-32-chars
+      ABDA_DEPLOY_ENVIRONMENT_NAME: abda-ci-environment
+      ABDA_DEPLOY_REGISTRY_NAME: abdaciregistry
+      ABDA_DEPLOY_PULL_IDENTITY_NAME: abda-ci-pull
+      ABDA_DEPLOY_IMAGE: abdaciregistry.azurecr.io/abda-nl:ci
+      ABDA_DEPLOY_OIDC_METADATA_URL: https://example.invalid/.well-known/openid-configuration
+      ABDA_DEPLOY_OIDC_ISSUER: https://example.invalid
+      ABDA_DEPLOY_OIDC_CLIENT_ID: ci-client
+      ABDA_DEPLOY_FOUNDRY_ENDPOINT: https://example.invalid/anthropic/v1/messages
+      ABDA_DEPLOY_POSTGRES_HOST: abda-ci.postgres.database.azure.com
+      ABDA_DEPLOY_SESSION_SECRET: ci-session-secret-with-more-than-32-characters
+      ABDA_DEPLOY_MCP_TOKEN_PEPPER: ci-mcp-pepper-with-more-than-32-characters
+      ABDA_DEPLOY_METRICS_TOKEN: ci-metrics-token-with-more-than-32-characters
+      ABDA_DEPLOY_OIDC_CLIENT_SECRET: ci-oidc-secret
+      ABDA_DEPLOY_FOUNDRY_API_KEY: ci-foundry-key
+      ABDA_DEPLOY_OPENROUTER_API_KEY: ci-openrouter-key
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --require-hashes -r requirements.lock
+      - name: Build and smoke test the installed wheel
         run: |
           set -Eeuo pipefail
-          python -m build --wheel --outdir "$RUNNER_TEMP/dist"
+          python -m build --no-isolation --wheel --outdir "$RUNNER_TEMP/dist"
           python -m pip install --force-reinstall --no-deps \
             "$RUNNER_TEMP"/dist/abda_nl-*.whl
+          abda-nl-release-check --help >/dev/null
           cd "$RUNNER_TEMP"
-          abda-nl --host 127.0.0.1 --port 18001 --no-browser --basic \
+          XDG_STATE_HOME="$RUNNER_TEMP/state" \
+            abda-nl --host 127.0.0.1 --port 18001 --no-browser --basic \
             >"$RUNNER_TEMP/wheel-server.log" 2>&1 &
-          ABDA_CI_SERVER_PID=$!
+          ABDA_CI_WHEEL_PID=$!
           cleanup() {
             ABDA_CI_EXIT_CODE=$?
             if [ "$ABDA_CI_EXIT_CODE" -ne 0 ]; then
               sed -n '1,200p' "$RUNNER_TEMP/wheel-server.log"
             fi
-            kill "$ABDA_CI_SERVER_PID" 2>/dev/null || true
-            wait "$ABDA_CI_SERVER_PID" 2>/dev/null || true
+            kill "$ABDA_CI_WHEEL_PID" 2>/dev/null || true
+            wait "$ABDA_CI_WHEEL_PID" 2>/dev/null || true
             exit "$ABDA_CI_EXIT_CODE"
           }
           trap cleanup EXIT
+
           ABDA_CI_READY=0
           for ABDA_CI_ATTEMPT in $(seq 1 30); do
             if curl --fail --silent --show-error \
@@ -88,4 +192,93 @@ jobs:
             curl --fail --silent --show-error \
               http://127.0.0.1:18001/scenarios |
               python -c 'import json,sys; print(len(json.load(sys.stdin)["scenarios"]))'
-          )" -eq 6
+          )" -ge 6
+      - name: Verify Bicep deployment modules
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/Azure/bicep/releases/download/${ABDA_CI_BICEP_VERSION}/bicep-linux-x64" \
+            --output "$RUNNER_TEMP/bicep"
+          echo "${ABDA_CI_BICEP_SHA256}  $RUNNER_TEMP/bicep" | sha256sum --check
+          chmod 0755 "$RUNNER_TEMP/bicep"
+          for ABDA_CI_MODULE in deploy/azure/*.bicep; do
+            "$RUNNER_TEMP/bicep" build "$ABDA_CI_MODULE" --stdout >/dev/null
+          done
+          for ABDA_CI_PARAMETERS in deploy/azure/*.bicepparam; do
+            "$RUNNER_TEMP/bicep" build-params "$ABDA_CI_PARAMETERS" --stdout >/dev/null
+          done
+      - name: Build the production container
+        run: docker build --tag "abda-nl-ci:${GITHUB_SHA}" .
+      - name: Smoke test the production container
+        run: |
+          set -Eeuo pipefail
+          ABDA_CI_CONTAINER_ID="$(
+            docker run --detach \
+              --publish 127.0.0.1:18000:8000 \
+              "abda-nl-ci:${GITHUB_SHA}" \
+              /opt/venv/bin/python -m app.cli.serve \
+              --host 0.0.0.0 --port 8000 --no-browser \
+              --allow-non-loopback --basic
+          )"
+          cleanup() {
+            ABDA_CI_EXIT_CODE=$?
+            if [ "$ABDA_CI_EXIT_CODE" -ne 0 ]; then
+              docker logs "$ABDA_CI_CONTAINER_ID"
+            fi
+            docker rm --force "$ABDA_CI_CONTAINER_ID" >/dev/null
+            exit "$ABDA_CI_EXIT_CODE"
+          }
+          trap cleanup EXIT
+
+          ABDA_CI_READY=0
+          for ABDA_CI_ATTEMPT in $(seq 1 30); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:18000/health/ready >/dev/null; then
+              ABDA_CI_READY=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ABDA_CI_READY" -eq 1
+          curl --fail --silent --show-error \
+            http://127.0.0.1:18000/health/live >/dev/null
+          curl --fail --silent --show-error \
+            http://127.0.0.1:18000/config >/dev/null
+          curl --fail --silent --show-error \
+            http://127.0.0.1:18000/privacy.html >/dev/null
+          curl --fail --silent --show-error \
+            http://127.0.0.1:18000/terms.html >/dev/null
+
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --require-hashes -r requirements.lock
+      - run: python -m pip install --no-build-isolation --no-deps -e .
+      - name: Install the pinned browser runtime
+        run: python -m playwright install --with-deps "${{ matrix.browser }}"
+      - name: Exercise the browser workspace and accessibility
+        env:
+          ABDA_BROWSER_TESTS: "1"
+          ABDA_BROWSER_ENGINE: "${{ matrix.browser }}"
+          ABDA_BROWSER_ARTIFACT_DIR: artifacts/browser
+        run: python -m pytest -q tests/test_browser_e2e.py
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-acceptance-${{ matrix.browser }}-${{ github.sha }}
+          path: artifacts/browser
+          if-no-files-found: ignore
+          retention-days: 14

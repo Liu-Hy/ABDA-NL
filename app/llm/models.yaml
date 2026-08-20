@@ -1,0 +1,345 @@
+version: 3
+updated: "2026-08-17"
+
+# Model prices are current public direct-provider reference prices in USD per
+# million tokens as of the catalog date.
+# OpenRouter routes carry conservative cost ceilings, then settle from the
+# exact cost returned in each response. CloudBank billing remains governed by
+# the Azure subscription.
+models:
+  claude-sonnet-4-6:
+    family: anthropic
+    display_name: Claude Sonnet 4.6
+    input_usd_per_million: "3.00"
+    output_usd_per_million: "15.00"
+    cache_read_usd_per_million: "0.30"
+    cache_write_usd_per_million: "3.75"
+    context_tokens: 1000000
+    structured_tools: true
+  claude-sonnet-5:
+    family: anthropic
+    display_name: Claude Sonnet 5
+    # Introductory direct price through 2026-08-31. OpenRouter admission uses
+    # the announced standard $3/$15 price as its conservative ceiling.
+    input_usd_per_million: "2.00"
+    output_usd_per_million: "10.00"
+    cache_read_usd_per_million: "0.20"
+    cache_write_usd_per_million: "2.50"
+    context_tokens: 1000000
+    structured_tools: true
+  gpt-5.4-mini:
+    family: openai
+    display_name: GPT-5.4 mini
+    input_usd_per_million: "0.75"
+    output_usd_per_million: "4.50"
+    cache_read_usd_per_million: "0.075"
+    cache_write_usd_per_million: "0"
+    context_tokens: 400000
+    structured_tools: true
+    max_token_field: max_completion_tokens
+  gpt-5.5:
+    family: openai
+    display_name: GPT-5.5
+    input_usd_per_million: "5.00"
+    output_usd_per_million: "30.00"
+    cache_read_usd_per_million: "0.50"
+    cache_write_usd_per_million: "0"
+    context_tokens: 1050000
+    structured_tools: true
+    max_token_field: max_completion_tokens
+  gpt-5.6-luna:
+    family: openai
+    display_name: GPT-5.6 Luna
+    input_usd_per_million: "0.20"
+    output_usd_per_million: "1.20"
+    cache_read_usd_per_million: "0.02"
+    cache_write_usd_per_million: "0.25"
+    context_tokens: 1050000
+    structured_tools: true
+    max_token_field: max_completion_tokens
+  gpt-5.6-terra:
+    family: openai
+    display_name: GPT-5.6 Terra
+    input_usd_per_million: "2.00"
+    output_usd_per_million: "12.00"
+    cache_read_usd_per_million: "0.20"
+    cache_write_usd_per_million: "2.50"
+    context_tokens: 1050000
+    structured_tools: true
+    max_token_field: max_completion_tokens
+  gpt-5.6-sol:
+    family: openai
+    display_name: GPT-5.6 Sol
+    input_usd_per_million: "5.00"
+    output_usd_per_million: "30.00"
+    cache_read_usd_per_million: "0.50"
+    cache_write_usd_per_million: "6.25"
+    context_tokens: 1050000
+    structured_tools: true
+    max_token_field: max_completion_tokens
+  gemini-3.6-flash:
+    family: google
+    display_name: Gemini 3.6 Flash
+    input_usd_per_million: "0.75"
+    output_usd_per_million: "3.75"
+    cache_read_usd_per_million: "0.075"
+    cache_write_usd_per_million: "0"
+    context_tokens: 1048576
+    structured_tools: true
+  gemini-3.7-flash:
+    family: google
+    display_name: Gemini 3.7 Flash
+    input_usd_per_million: "0.75"
+    output_usd_per_million: "3.75"
+    cache_read_usd_per_million: "0.075"
+    cache_write_usd_per_million: "0"
+    context_tokens: 1048576
+    structured_tools: true
+  deepseek-v4-flash:
+    family: deepseek
+    display_name: DeepSeek V4 Flash
+    input_usd_per_million: "0.0826"
+    output_usd_per_million: "0.1652"
+    cache_read_usd_per_million: "0.01652"
+    cache_write_usd_per_million: "0"
+    context_tokens: 1048576
+    structured_tools: true
+  deepseek-v4-pro:
+    family: deepseek
+    display_name: DeepSeek V4 Pro
+    input_usd_per_million: "1.32"
+    output_usd_per_million: "3.96"
+    cache_read_usd_per_million: "0.044"
+    cache_write_usd_per_million: "0"
+    context_tokens: 1048576
+    structured_tools: true
+  qwen3.6-plus:
+    family: qwen
+    display_name: Qwen 3.6 Plus
+    input_usd_per_million: "0.325"
+    output_usd_per_million: "1.95"
+    cache_read_usd_per_million: "0"
+    cache_write_usd_per_million: "0.40625"
+    context_tokens: 1000000
+    structured_tools: true
+  qwen3.6-flash:
+    family: qwen
+    display_name: Qwen3.6 Flash
+    input_usd_per_million: "0.1875"
+    output_usd_per_million: "1.125"
+    cache_read_usd_per_million: "0"
+    cache_write_usd_per_million: "0.234375"
+    context_tokens: 1000000
+    structured_tools: true
+
+profiles:
+  economy:
+    display_name: Economy
+    description: Lowest funded cost, pending ABDA quality acceptance.
+    public_ready: false
+    primary_route: cloudbank-gpt-5.4-mini
+    fallback_route: openrouter-gemini-3.7-flash
+  balanced:
+    display_name: Balanced
+    description: Validated baseline for interactive explanations and edits.
+    public_ready: true
+    primary_route: cloudbank-claude-sonnet-4-6
+    fallback_route: openrouter-gemini-3.7-flash
+  quality:
+    display_name: Quality
+    description: Higher reasoning budget for difficult authoring requests.
+    public_ready: false
+    primary_route: cloudbank-gpt-5.5
+    fallback_route: openrouter-gpt-5.6-terra
+
+routes:
+  cloudbank-claude-sonnet-4-6:
+    adapter: anthropic
+    provider: azure-foundry
+    billing_source: cloudbank
+    model: claude-sonnet-4-6
+    model_env: ANTHROPIC_FOUNDRY_CLAUDE_SONNET_4_6_MODEL
+  cloudbank-claude-sonnet-5:
+    adapter: anthropic
+    provider: azure-foundry
+    billing_source: cloudbank
+    model: claude-sonnet-5
+    model_env: ANTHROPIC_FOUNDRY_CLAUDE_SONNET_5_MODEL
+  cloudbank-gpt-5.4-mini:
+    adapter: openai-responses
+    provider: azure-foundry
+    billing_source: cloudbank
+    model: gpt-5.4-mini
+    model_env: AZURE_OPENAI_GPT_5_4_MINI_DEPLOYMENT
+  cloudbank-gpt-5.5:
+    adapter: openai-responses
+    provider: azure-foundry
+    billing_source: cloudbank
+    model: gpt-5.5
+    model_env: AZURE_OPENAI_GPT_5_5_DEPLOYMENT
+  cloudbank-gpt-5.6-terra:
+    adapter: openai-responses
+    provider: azure-foundry
+    billing_source: cloudbank
+    model: gpt-5.6-terra
+    model_env: AZURE_OPENAI_GPT_5_6_TERRA_DEPLOYMENT
+  cloudbank-deepseek-v4-flash:
+    adapter: openai-compatible
+    provider: azure-foundry
+    billing_source: cloudbank
+    model: deepseek-v4-flash
+    model_env: AZURE_OPENAI_DEEPSEEK_V4_FLASH_DEPLOYMENT
+  cloudbank-qwen3.6-plus:
+    adapter: openai-compatible
+    provider: azure-foundry
+    billing_source: cloudbank
+    model: qwen3.6-plus
+    model_env: AZURE_OPENAI_QWEN3_6_PLUS_DEPLOYMENT
+  openrouter-claude-sonnet-5:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: claude-sonnet-5
+    request_model: anthropic/claude-sonnet-5
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "3.00"
+      output_usd_per_million: "15.00"
+      cache_read_usd_per_million: "0.30"
+      cache_write_usd_per_million: "3.75"
+  openrouter-gpt-5.6-luna:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: gpt-5.6-luna
+    request_model: openai/gpt-5.6-luna
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "0.20"
+      output_usd_per_million: "1.20"
+      cache_read_usd_per_million: "0.02"
+      cache_write_usd_per_million: "0.25"
+  openrouter-gpt-5.6-terra:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: gpt-5.6-terra
+    request_model: openai/gpt-5.6-terra
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "2.00"
+      output_usd_per_million: "12.00"
+      cache_read_usd_per_million: "0.20"
+      cache_write_usd_per_million: "2.50"
+  openrouter-gpt-5.6-sol:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: gpt-5.6-sol
+    request_model: openai/gpt-5.6-sol
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "5.00"
+      output_usd_per_million: "30.00"
+      cache_read_usd_per_million: "0.50"
+      cache_write_usd_per_million: "6.25"
+  openrouter-gemini-3.6-flash:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: gemini-3.6-flash
+    request_model: google/gemini-3.6-flash
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "1.50"
+      output_usd_per_million: "7.50"
+      cache_read_usd_per_million: "1.50"
+      cache_write_usd_per_million: "1.50"
+  openrouter-gemini-3.7-flash:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: gemini-3.7-flash
+    request_model: google/gemini-3.7-flash
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "1.50"
+      output_usd_per_million: "7.50"
+      cache_read_usd_per_million: "1.50"
+      cache_write_usd_per_million: "1.50"
+  openrouter-deepseek-v4-flash:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: deepseek-v4-flash
+    request_model: deepseek/deepseek-v4-flash
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "0.20"
+      output_usd_per_million: "0.40"
+      cache_read_usd_per_million: "0.04"
+      cache_write_usd_per_million: "0.20"
+  openrouter-deepseek-v4-pro:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: deepseek-v4-pro
+    request_model: deepseek/deepseek-v4-pro
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "1.32"
+      output_usd_per_million: "3.96"
+      cache_read_usd_per_million: "0.044"
+      cache_write_usd_per_million: "1.32"
+  openrouter-qwen3.6-plus:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: qwen3.6-plus
+    request_model: qwen/qwen3.6-plus
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "1.30"
+      output_usd_per_million: "3.90"
+      cache_read_usd_per_million: "1.30"
+      cache_write_usd_per_million: "1.625"
+  openrouter-qwen3.6-flash:
+    adapter: openai-compatible
+    provider: openrouter
+    billing_source: openrouter-emergency
+    model: qwen3.6-flash
+    request_model: qwen/qwen3.6-flash
+    use_provider_reported_cost: true
+    billing_multiplier: "1.055"
+    cost_ceiling:
+      input_usd_per_million: "0.75"
+      output_usd_per_million: "3.00"
+      cache_read_usd_per_million: "0.75"
+      cache_write_usd_per_million: "0.9375"
+
+byok_defaults:
+  anthropic:
+    display_name: Anthropic
+    model: claude-sonnet-5
+    request_model: claude-sonnet-5
+  openai:
+    display_name: OpenAI
+    model: gpt-5.6-terra
+    request_model: gpt-5.6-terra
+  google:
+    display_name: Google Gemini
+    model: gemini-3.7-flash
+    request_model: gemini-3.7-flash
+  openrouter:
+    display_name: OpenRouter
+    model: claude-sonnet-5
+    request_model: anthropic/claude-sonnet-5

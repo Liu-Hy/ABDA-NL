@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from app.llm.chat_service import _format_diff_ops, validate_response
+from app.llm.chat_service import _format_diff_ops, run_turn, validate_response
+from app.llm.client import LLMResponse
 from app.scenario.loader import load_scenario
 
 EXAMPLES_ROOT = Path(__file__).resolve().parent.parent / "examples"
@@ -123,3 +124,65 @@ def test_non_empty_diff_ops_framed_as_present_state():
     # Op id and kind are still surfaced so the model knows what differs.
     assert "add-assumption" in out
     assert "equity_compromise_open" in out
+
+
+class _SequencedClient:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    def complete(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.responses.pop(0)
+
+
+def test_retry_that_remains_ungrounded_returns_safe_fallback(
+    popov, popov_af
+):
+    client = _SequencedClient(
+        [
+            LLMResponse(
+                text="The `made_up_first_rule` decides the case.",
+                stop_reason="end_turn",
+                usage={"input_tokens": 100, "output_tokens": 10},
+                latency_ms=20,
+                model="primary-model",
+                provider="foundry",
+                billing_source="cloudbank",
+                route="balanced-primary",
+                cost_microusd=30,
+            ),
+            LLMResponse(
+                text="The `made_up_second_rule` decides the case.",
+                stop_reason="end_turn",
+                usage={"input_tokens": 120, "output_tokens": 12},
+                latency_ms=25,
+                model="fallback-model",
+                provider="openrouter",
+                billing_source="emergency",
+                route="balanced-fallback",
+                cost_microusd=40,
+            ),
+        ]
+    )
+
+    result = run_turn(
+        popov,
+        popov_af,
+        [],
+        [{"role": "user", "content": "Who should prevail?"}],
+        scenario_dir=EXAMPLES_ROOT / "popov_v_hayashi",
+        client=client,
+    )
+
+    assert result.stop_reason == "grounding_rejected"
+    assert "made_up" not in result.text
+    assert result.retried is True
+    assert result.validator_flags
+    assert result.usage == {"input_tokens": 220, "output_tokens": 22}
+    assert result.latency_ms == 45
+    assert result.cost_microusd == 70
+    assert result.provider == "openrouter"
+    assert result.billing_source == "emergency"
+    assert result.route == "balanced-fallback"
+    assert len(client.calls) == 2

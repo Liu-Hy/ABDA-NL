@@ -17,19 +17,30 @@ import os
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
 class LLMResponse:
-    """Minimal response envelope, provider-agnostic."""
+    """Minimal response envelope with mutually exclusive usage categories.
+
+    ``input_tokens`` contains only normal-rate input. Cached reads and cache
+    creation are reported separately so cost accounting never charges a token
+    in more than one category.
+    """
 
     text: str
     stop_reason: str
     usage: dict[str, int]
     latency_ms: int
     model: str
+    provider: str = "unknown"
+    billing_source: str = "unknown"
+    route: str = "unknown"
+    cost_microusd: int = 0
+    provider_cost_microusd: int | None = None
 
 
 @dataclass
@@ -48,6 +59,11 @@ class ToolCallResponse:
     usage: dict[str, int]
     latency_ms: int
     model: str
+    provider: str = "unknown"
+    billing_source: str = "unknown"
+    route: str = "unknown"
+    cost_microusd: int = 0
+    provider_cost_microusd: int | None = None
 
 
 class LLMClient(Protocol):
@@ -76,12 +92,99 @@ class LLMClient(Protocol):
         ...
 
 
-DEFAULT_MODEL = "claude-sonnet-5"
+DEFAULT_MODEL = "claude-sonnet-4-6"
+
+
+def resolve_claude_provider() -> str:
+    """Select the API route used for Claude.
+
+    ``anthropic`` preserves the original direct-API behavior. ``foundry``
+    uses the Anthropic-compatible endpoint on Microsoft Foundry and can
+    reuse the Azure OpenAI key funded through CloudBank.
+    """
+    provider = (os.getenv("ABDA_CLAUDE_PROVIDER") or "anthropic").strip().lower()
+    if provider not in {"anthropic", "foundry"}:
+        raise RuntimeError(
+            f"unsupported ABDA_CLAUDE_PROVIDER={provider!r}; "
+            "expected 'anthropic' or 'foundry'"
+        )
+    return provider
+
+
+def _configured_env(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    value = value.strip()
+    if not value or "YOUR-RESOURCE" in value:
+        return None
+    return value
+
+
+def _foundry_base_url() -> str:
+    """Resolve an Azure resource/project endpoint to the Messages base URL."""
+    explicit = (
+        _configured_env("AZURE_ANTHROPIC_ENDPOINT")
+        or _configured_env("ANTHROPIC_FOUNDRY_BASE_URL")
+    )
+    if explicit:
+        endpoint = explicit.rstrip("/")
+    else:
+        resource = _configured_env("ANTHROPIC_FOUNDRY_RESOURCE")
+        if resource:
+            return f"https://{resource}.services.ai.azure.com/anthropic"
+        endpoint = (
+            _configured_env("ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT")
+            or _configured_env("AZURE_OPENAI_ENDPOINT")
+            or ""
+        ).rstrip("/")
+
+    if not endpoint:
+        raise RuntimeError(
+            "Foundry Claude endpoint is not configured; set "
+            "AZURE_ANTHROPIC_ENDPOINT, ANTHROPIC_FOUNDRY_BASE_URL, "
+            "ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT, or AZURE_OPENAI_ENDPOINT"
+        )
+
+    parsed = urlparse(endpoint)
+    host = parsed.netloc
+    if host.endswith(".openai.azure.com"):
+        resource = host.split(".", 1)[0]
+        return f"https://{resource}.services.ai.azure.com/anthropic"
+    if host.endswith(".services.ai.azure.com"):
+        prefix = ""
+        if "/anthropic" in parsed.path:
+            prefix = parsed.path.split("/anthropic", 1)[0].rstrip("/")
+        return f"{parsed.scheme or 'https'}://{host}{prefix}/anthropic"
+    return endpoint
+
+
+def foundry_credentials() -> tuple[str | None, str | None, str]:
+    """Return Foundry API-key/token auth and its Anthropic base URL."""
+    api_key = (
+        _configured_env("AZURE_ANTHROPIC_API_KEY")
+        or _configured_env("ANTHROPIC_FOUNDRY_API_KEY")
+        or _configured_env("AZURE_OPENAI_API_KEY")
+    )
+    auth_token = (
+        _configured_env("ANTHROPIC_FOUNDRY_AUTH_TOKEN")
+        or _configured_env("AZURE_OPENAI_AUTH_TOKEN")
+    )
+    return api_key, auth_token, _foundry_base_url()
 
 
 def _resolve_model() -> str:
     """Pick the Claude model id from the env, with a Sonnet default."""
-    return os.getenv("ABDA_LLM_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    explicit = (os.getenv("ABDA_LLM_MODEL") or "").strip()
+    if explicit:
+        return explicit
+    if resolve_claude_provider() == "foundry":
+        foundry_model = (
+            os.getenv("ANTHROPIC_FOUNDRY_CLAUDE_SONNET_4_6_MODEL") or ""
+        ).strip()
+        if foundry_model:
+            return foundry_model
+    return DEFAULT_MODEL
 
 
 class ClaudeClient:
@@ -92,13 +195,50 @@ class ClaudeClient:
     envelope.
     """
 
-    def __init__(self, model: str | None = None) -> None:
+    def __init__(
+        self,
+        model: str | None = None,
+        *,
+        provider: str | None = None,
+        api_key: str | None = None,
+        auth_token: str | None = None,
+        base_url: str | None = None,
+        billing_source: str | None = None,
+        route: str | None = None,
+    ) -> None:
         # Lazy-import so non-LLM mode never pays the import cost.
         import anthropic
 
         self._anthropic = anthropic
-        self._client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+        self.provider = provider or resolve_claude_provider()
+        if self.provider not in {"anthropic", "foundry"}:
+            raise ValueError(f"unsupported Claude provider {self.provider!r}")
+        if self.provider == "foundry":
+            if not base_url:
+                configured_key, configured_token, configured_url = foundry_credentials()
+                api_key = api_key or configured_key
+                auth_token = auth_token or configured_token
+                base_url = configured_url
+            if not (api_key or auth_token):
+                raise RuntimeError(
+                    "Foundry Claude credentials are not configured; set "
+                    "AZURE_ANTHROPIC_API_KEY, ANTHROPIC_FOUNDRY_API_KEY, "
+                    "or AZURE_OPENAI_API_KEY"
+                )
+            self._client = anthropic.Anthropic(
+                api_key=api_key,
+                auth_token=auth_token if not api_key else None,
+                base_url=base_url,
+            )
+        else:
+            self._client = anthropic.Anthropic(
+                api_key=api_key or _configured_env("ANTHROPIC_API_KEY")
+            )
         self.model = model or _resolve_model()
+        self.billing_source = billing_source or (
+            "cloudbank" if self.provider == "foundry" else "server-configured"
+        )
+        self.route = route or f"{self.provider}:{self.model}"
 
     def complete(
         self,
@@ -152,6 +292,9 @@ class ClaudeClient:
             usage=usage,
             latency_ms=latency_ms,
             model=self.model,
+            provider="azure-foundry" if self.provider == "foundry" else "anthropic",
+            billing_source=self.billing_source,
+            route=self.route,
         )
 
     def tool_call(
@@ -220,6 +363,9 @@ class ClaudeClient:
             usage=usage,
             latency_ms=latency_ms,
             model=self.model,
+            provider="azure-foundry" if self.provider == "foundry" else "anthropic",
+            billing_source=self.billing_source,
+            route=self.route,
         )
 
 
@@ -403,6 +549,9 @@ class OllamaClient:
             usage=usage,
             latency_ms=latency_ms,
             model=self.model,
+            provider="ollama",
+            billing_source="local",
+            route=f"ollama:{self.model}",
         )
 
     def tool_call(
@@ -486,4 +635,7 @@ class OllamaClient:
             usage=usage,
             latency_ms=latency_ms,
             model=self.model,
+            provider="ollama",
+            billing_source="local",
+            route=f"ollama:{self.model}",
         )

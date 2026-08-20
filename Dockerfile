@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1.7
+
+FROM python:3.13-slim-bookworm AS build
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /build
+RUN python -m venv /opt/venv
+COPY requirements.runtime.lock ./
+RUN /opt/venv/bin/python -m pip install \
+      --require-hashes \
+      --requirement requirements.runtime.lock
+
+FROM python:3.13-slim-bookworm AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN groupadd --system --gid 10001 abda \
+    && useradd --system --uid 10001 --gid abda --create-home abda
+
+WORKDIR /srv/abda
+COPY --from=build /opt/venv /opt/venv
+COPY --chown=abda:abda alembic.ini pyproject.toml README.md ./
+COPY --chown=abda:abda app ./app
+COPY --chown=abda:abda examples ./examples
+COPY --chown=abda:abda migrations ./migrations
+
+USER 10001:10001
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["/opt/venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+
+CMD ["/opt/venv/bin/python", "-m", "app.cli.serve", "--host", "0.0.0.0", "--port", "8000", "--no-browser", "--allow-non-loopback", "--llm"]

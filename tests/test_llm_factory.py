@@ -90,9 +90,33 @@ def test_make_llm_client_routes_to_claude(monkeypatch):
     call the network, so it's safe at test time.
     """
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
+    monkeypatch.delenv("ABDA_CLAUDE_PROVIDER", raising=False)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-dummy-not-a-real-key")
     client = make_llm_client()
     assert isinstance(client, ClaudeClient)
+    assert client.provider == "anthropic"
+
+
+def test_make_llm_client_routes_claude_through_foundry(monkeypatch):
+    monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
+    monkeypatch.setenv("ABDA_CLAUDE_PROVIDER", "foundry")
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "azure-test-key")
+    monkeypatch.setenv(
+        "ANTHROPIC_FOUNDRY_BASE_URL",
+        "https://example.services.ai.azure.com/anthropic",
+    )
+    monkeypatch.setenv(
+        "ANTHROPIC_FOUNDRY_CLAUDE_SONNET_4_6_MODEL", "foundry-sonnet"
+    )
+
+    client = make_llm_client()
+
+    assert isinstance(client, ClaudeClient)
+    assert client.provider == "foundry"
+    assert str(client._client.base_url).rstrip("/") == (
+        "https://example.services.ai.azure.com/anthropic"
+    )
+    assert client.model == "foundry-sonnet"
 
 
 # --- Preflight: startup-time backend prereq check ---
@@ -111,6 +135,7 @@ def test_preflight_claude_without_key_raises(monkeypatch):
     from app.api.main import _preflight_llm_config
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ABDA_CLAUDE_PROVIDER", raising=False)
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
     with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
         _preflight_llm_config(True)
@@ -120,8 +145,22 @@ def test_preflight_claude_with_key_passes(monkeypatch):
     from app.api.main import _preflight_llm_config
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-dummy")
+    monkeypatch.delenv("ABDA_CLAUDE_PROVIDER", raising=False)
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
     _preflight_llm_config(True)  # should not raise
+
+
+def test_preflight_foundry_with_azure_key_passes(monkeypatch):
+    from app.api.main import _preflight_llm_config
+
+    monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
+    monkeypatch.setenv("ABDA_CLAUDE_PROVIDER", "foundry")
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "azure-test-key")
+    monkeypatch.setenv(
+        "ANTHROPIC_FOUNDRY_BASE_URL",
+        "https://example.services.ai.azure.com/anthropic",
+    )
+    _preflight_llm_config(True)
 
 
 def test_preflight_ollama_skips_key_requirement(monkeypatch):

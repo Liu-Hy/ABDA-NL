@@ -19,7 +19,8 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 @pytest.fixture(scope="module")
 def client() -> TestClient:
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def test_liveness_probe(client: TestClient):
@@ -35,6 +36,27 @@ def test_readiness_probe(client: TestClient):
 
 
 # --- GET /config ---
+
+
+def _assert_config(response, *, llm_enabled: bool):
+    assert response.status_code == 200
+    body = response.json()
+    assert body["llm_enabled"] is llm_enabled
+    assert body["llm_auth_required"] is False
+    assert body["byok_enabled"] is llm_enabled
+    assert body["byok_keys_stored"] is False
+    assert body["default_profile"] == "balanced"
+    assert [profile["id"] for profile in body["profiles"]] == ["balanced"]
+    providers = {provider["id"]: provider for provider in body["byok_providers"]}
+    assert set(providers) == {"anthropic", "openai", "google", "openrouter"}
+    assert providers["openai"]["default_model"] == "gpt-5.6-terra"
+    openrouter_models = {
+        model["id"] for model in providers["openrouter"]["models"]
+    }
+    assert "gemini-3.7-flash" in openrouter_models
+    assert "qwen3.6-plus" not in openrouter_models
+    assert "qwen3.6-flash" not in openrouter_models
+    assert all(provider["models"] for provider in providers.values())
 
 
 # --- static-asset cache headers ---
@@ -59,6 +81,30 @@ def test_static_css_sets_no_cache(client: TestClient):
     assert resp.headers.get("cache-control") == "no-cache, must-revalidate"
 
 
+def test_browser_security_headers_are_applied(client: TestClient):
+    response = client.get("/")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["cross-origin-opener-policy"] == "same-origin"
+    csp = response.headers["content-security-policy"]
+    assert "script-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "unsafe-inline" not in csp.split("script-src", 1)[1].split(";", 1)[0]
+
+
+@pytest.mark.parametrize("path", ["/privacy.html", "/terms.html"])
+def test_public_policy_pages_are_served_with_browser_security_headers(
+    client: TestClient,
+    path: str,
+):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["cache-control"] == "no-cache, must-revalidate"
+    assert response.headers["x-frame-options"] == "DENY"
+
+
 def test_api_json_does_not_get_no_cache(client: TestClient):
     """/config returns JSON and must not receive the static-asset
     cache-control header -- API responses aren't browser-cached anyway,
@@ -70,25 +116,19 @@ def test_api_json_does_not_get_no_cache(client: TestClient):
 
 def test_config_llm_disabled_by_default(client: TestClient, monkeypatch):
     monkeypatch.delenv("ABDA_ENABLE_LLM", raising=False)
-    resp = client.get("/config")
-    assert resp.status_code == 200
-    assert resp.json() == {"llm_enabled": False}
+    _assert_config(client.get("/config"), llm_enabled=False)
 
 
 @pytest.mark.parametrize("truthy", ["1", "true", "True", "yes", "on"])
 def test_config_llm_enabled_when_env_truthy(client: TestClient, monkeypatch, truthy):
     monkeypatch.setenv("ABDA_ENABLE_LLM", truthy)
-    resp = client.get("/config")
-    assert resp.status_code == 200
-    assert resp.json() == {"llm_enabled": True}
+    _assert_config(client.get("/config"), llm_enabled=True)
 
 
 @pytest.mark.parametrize("falsy", ["0", "false", "no", "off", ""])
 def test_config_llm_disabled_when_env_falsy(client: TestClient, monkeypatch, falsy):
     monkeypatch.setenv("ABDA_ENABLE_LLM", falsy)
-    resp = client.get("/config")
-    assert resp.status_code == 200
-    assert resp.json() == {"llm_enabled": False}
+    _assert_config(client.get("/config"), llm_enabled=False)
 
 
 # --- GET /scenarios ---
@@ -301,7 +341,15 @@ def test_chat_disabled_returns_503(client: TestClient, monkeypatch):
 def test_chat_happy_path_returns_message_and_usage(client: TestClient, monkeypatch):
     from app.api import main as main_module
 
-    fake = _FakeLLMClient([_llm_response("The ball is undecided because both parties have equal claims.")])
+    fake = _FakeLLMClient([
+        _llm_response(
+            "The ball is undecided because both parties have equal claims.",
+            provider="foundry",
+            billing_source="cloudbank",
+            route="balanced-primary",
+            cost_microusd=321,
+        )
+    ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
     monkeypatch.setattr(main_module, "_llm_client", fake)
 
@@ -320,6 +368,12 @@ def test_chat_happy_path_returns_message_and_usage(client: TestClient, monkeypat
     assert body["retried"] is False
     assert body["stop_reason"] == "end_turn"
     assert body["usage"]["output_tokens"] == 50
+    assert body["provider"] == "foundry"
+    assert body["billing_source"] == "cloudbank"
+    assert body["route"] == "balanced-primary"
+    assert body["cost_microusd"] == 321
+    assert body["request_id"] == resp.headers["x-request-id"]
+    assert len(body["request_id"]) == 32
     assert len(fake.calls) == 1
     # System prompt should contain the scenario title and some state.
     assert "Popov" in fake.calls[0]["system"] or "popov" in fake.calls[0]["system"]
@@ -794,9 +848,9 @@ def test_propose_unknown_premise_is_advisory_not_blocking(client: TestClient, mo
     assert "store_open" not in warning["message"]
 
 
-def test_propose_unknown_premise_without_notes_still_advisory(client: TestClient, monkeypatch):
-    """If the Proposer forgot to annotate new_premise_notes, the warning
-    falls back to the raw Validator message -- still non-blocking."""
+def test_propose_unknown_premise_without_notes_gets_readable_fallback(
+    client: TestClient, monkeypatch
+):
     from app.api import main as main_module
 
     op = {
@@ -828,6 +882,10 @@ def test_propose_unknown_premise_without_notes_still_advisory(client: TestClient
     assert body["proposer_attempts"] == 1
     assert len(body["review_issues"]) == 1
     assert body["review_issues"][0]["severity"] == "warning"
+    assert body["op"]["new_premise_notes"] == [
+        {"id": "store_open", "description": "the store is open"}
+    ]
+    assert "the store is open" in body["review_issues"][0]["message"]
 
 
 def test_propose_retry_exhausted_on_persistent_id_collision(client: TestClient, monkeypatch):
@@ -864,15 +922,19 @@ def test_propose_retry_exhausted_on_persistent_id_collision(client: TestClient, 
 
 
 def test_propose_modify_rule_coerces_id(client: TestClient, monkeypatch):
-    """Proposer emits wrong id for modify-rule; service coerces to existing_id."""
+    """A narrow modification coerces the id and preserves omitted metadata."""
     from app.api import main as main_module
 
     tool_input = {
         "id": "unrelated",  # Proposer confused
         "rule": {
             "type": "defeasible",
-            "premises": ["popov_preposs_interest", "mob_attacked_popov"],
-            "conclusion": "popov_qual_right",
+            "premises": ["r1_valid", "ball_hit_stands"],
+            "conclusion": "hayashi_no_return",
+            "category": "wrong-category",
+            "source": "wrong-source",
+            "block": 9,
+            "active": False,
         },
     }
     fake = _FakeLLMClient(tool_responses=[
@@ -888,12 +950,17 @@ def test_propose_modify_rule_coerces_id(client: TestClient, monkeypatch):
             "scenario_id": "popov_v_hayashi",
             "diff_ops": [],
             "task": "modify-rule",
-            "existing_id": "mc1",
-            "instruction": "Make the rule require both the efforts and the mob attack.",
+            "existing_id": "r1",
+            "instruction": "Add ball-hit-stands as a premise and keep all metadata.",
         },
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["op"]["id"] == "mc1"
+    operation = resp.json()["op"]
+    assert operation["id"] == "r1"
+    assert operation["rule"]["category"] == "hayashi-possession"
+    assert operation["rule"]["source"] == "Metropolitan Life Ins. Co. v. SF Bank"
+    assert operation["rule"]["block"] == 1
+    assert operation["rule"]["active"] is True
 
 
 def test_propose_modify_rule_requires_existing_id(client: TestClient, monkeypatch):
@@ -987,6 +1054,132 @@ def test_propose_reviewer_issues_surface_with_severity(client: TestClient, monke
     assert "overstates" in body["review_issues"][0]["message"]
 
 
+def test_propose_discards_reviewer_reference_hallucination(client: TestClient, monkeypatch):
+    from app.api import main as main_module
+
+    tool_input = {
+        "id": "risk_partner",
+        "rule": {
+            "type": "defeasible",
+            "premises": ["popov_preposs_interest", "mob_attacked_popov"],
+            "conclusion": "popov_legit_claim",
+        },
+    }
+    fake = _FakeLLMClient(
+        tool_responses=[
+            _tool_response("propose_add_rule", tool_input),
+            _review_response(
+                [
+                    {
+                        "severity": "warning",
+                        "message": (
+                            "The current state does not list "
+                            "popov_preposs_interest, so the premise is an "
+                            "undeclared term."
+                        ),
+                    },
+                    {
+                        "severity": "note",
+                        "message": (
+                            "The proposed category matches the scenario vocabulary "
+                            "and is consistent with the rule."
+                        ),
+                    },
+                    {
+                        "severity": "note",
+                        "message": (
+                            "The rule uses category legitimacy even though the user "
+                            "did not specify a category; it is an invented label "
+                            "choice."
+                        ),
+                    },
+                    {
+                        "severity": "note",
+                        "message": (
+                            "The edit is not a duplicate and does not look like a "
+                            "bridging rule."
+                        ),
+                    },
+                    {
+                        "severity": "warning",
+                        "message": (
+                            "The premise wording differs from the user's prose, but "
+                            "this is still a faithful formalization of the request."
+                        ),
+                    },
+                    {
+                        "severity": "warning",
+                        "message": (
+                            "The edit introduces a new support path instead of an "
+                            "existing line."
+                        ),
+                    },
+                    {
+                        "severity": "note",
+                        "message": "No further structural issues are apparent.",
+                    },
+                ]
+            ),
+        ]
+    )
+    monkeypatch.setattr(main_module, "ENABLE_LLM", True)
+    monkeypatch.setattr(main_module, "_llm_client", fake)
+
+    response = client.post(
+        "/propose",
+        json={
+            "scenario_id": "popov_v_hayashi",
+            "diff_ops": [],
+            "task": "add-rule",
+            "instruction": "Add a rule using the current Popov facts.",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["review_issues"] == []
+
+
+def test_propose_adds_deterministic_duplicate_warning(client: TestClient, monkeypatch):
+    from app.api import main as main_module
+
+    tool_input = {
+        "id": "cs6_copy",
+        "rule": {
+            "type": "defeasible",
+            "premises": ["cs6_valid", "popov_qual_right"],
+            "conclusion": "popov_legit_claim",
+            "category": "legitimacy",
+            "block": 1,
+        },
+    }
+    fake = _FakeLLMClient(tool_responses=[
+        _tool_response("propose_add_rule", tool_input),
+        _review_response([]),
+    ])
+    monkeypatch.setattr(main_module, "ENABLE_LLM", True)
+    monkeypatch.setattr(main_module, "_llm_client", fake)
+
+    response = client.post(
+        "/propose",
+        json={
+            "scenario_id": "popov_v_hayashi",
+            "diff_ops": [],
+            "task": "add-rule",
+            "instruction": "Add another copy of the legitimate-claim rule.",
+        },
+    )
+    assert response.status_code == 200
+    issues = response.json()["review_issues"]
+    assert issues == [
+        {
+            "severity": "note",
+            "message": (
+                "The proposed rule duplicates an existing rule with the same "
+                "premises and conclusion."
+            ),
+        }
+    ]
+
+
 def test_propose_output_is_a_valid_diff_op(client: TestClient, monkeypatch):
     """End-to-end: Proposer output, once applied via POST /state, adds a rule."""
     from app.api import main as main_module
@@ -1055,6 +1248,8 @@ def test_propose_reviewer_sees_the_proposed_edit(client: TestClient, monkeypatch
     assert "tag_xyz" in reviewer_system
     assert "Add any rule." in reviewer_system
     assert "<current_state>" in reviewer_system
+    assert "Complete declared-item vocabulary" in reviewer_system
+    assert "`mob_attacked_popov`" in reviewer_system
 
 
 # --- Original forestry smp-permit regression guard ---

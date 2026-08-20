@@ -5,7 +5,8 @@ The LLM is bound to cited state via the system prompt, and a
 deterministic post-hoc scan checks that every identifier and label it
 asserts exists in the scenario / AF. On failure, the turn is retried
 once with corrective feedback (silent to the user). If the retry still
-flags, the second response is returned as-is.
+fails validation, the service returns a safe grounded fallback instead
+of exposing the rejected draft.
 """
 from __future__ import annotations
 
@@ -35,6 +36,10 @@ class ChatTurnResult:
     usage: dict[str, int]
     model: str
     latency_ms: int
+    provider: str = "unknown"
+    billing_source: str = "unknown"
+    route: str = "unknown"
+    cost_microusd: int = 0
     validator_flags: list[str] = field(default_factory=list)
     retried: bool = False
 
@@ -239,6 +244,49 @@ def build_state_block(scenario: Any, af: dict[str, Any], diff_ops: list[dict[str
     return "\n\n".join(sections)
 
 
+def _format_edit_vocabulary(scenario: Any) -> str:
+    """List every declared item for proposer and reviewer reference checks."""
+    sections: list[str] = ["### Complete declared-item vocabulary"]
+    for heading, attribute in (
+        ("Facts", "facts"),
+        ("Assumptions", "assumptions"),
+        ("Propositions", "propositions"),
+        ("Conclusions", "conclusions"),
+    ):
+        items = getattr(scenario, attribute, None) or {}
+        sections.append(f"\n#### {heading}")
+        if not items:
+            sections.append("- (none)")
+            continue
+        for item_id, item in items.items():
+            description = getattr(item, "description", "") or ""
+            sections.append(f"- `{item_id}`: {description}")
+
+    sections.append("\n#### Rules")
+    rules = getattr(scenario, "rules", None) or {}
+    if not rules:
+        sections.append("- (none)")
+    else:
+        for rule_id, rule in rules.items():
+            premises = ", ".join(f"`{value}`" for value in rule.premises) or "(none)"
+            sections.append(
+                f"- `{rule_id}` ({rule.type}, block={rule.block}): "
+                f"{premises} -> `{rule.conclusion}`"
+            )
+    return "\n".join(sections)
+
+
+def build_edit_state_block(
+    scenario: Any,
+    af: dict[str, Any],
+    diff_ops: list[dict[str, Any]],
+) -> str:
+    """Build the state plus complete vocabulary used by edit agents."""
+    return build_state_block(scenario, af, diff_ops) + "\n\n" + _format_edit_vocabulary(
+        scenario
+    )
+
+
 def build_scenario_block(scenario: Any) -> str:
     title = getattr(scenario, "title", "") or ""
     description = (getattr(scenario, "description", "") or "").strip()
@@ -400,6 +448,10 @@ def run_turn(
             usage=first.usage,
             model=first.model,
             latency_ms=first.latency_ms,
+            provider=first.provider,
+            billing_source=first.billing_source,
+            route=first.route,
+            cost_microusd=first.cost_microusd,
             validator_flags=[],
             retried=False,
         )
@@ -422,15 +474,27 @@ def run_turn(
         for k in set(first.usage) | set(second.usage)
     }
     remaining = validate_response(second.text, scenario, af)
+    safe_text = second.text
+    stop_reason = second.stop_reason
     if remaining:
         log.warning("chat_validator_retry_still_flagged issues=%d", len(remaining))
+        safe_text = (
+            "I could not produce an answer that passed the scenario grounding "
+            "check. Please ask a more specific question about the displayed "
+            "conclusions, assumptions, or rules."
+        )
+        stop_reason = "grounding_rejected"
 
     return ChatTurnResult(
-        text=second.text,
-        stop_reason=second.stop_reason,
+        text=safe_text,
+        stop_reason=stop_reason,
         usage=total_usage,
         model=second.model,
         latency_ms=first.latency_ms + second.latency_ms,
+        provider=second.provider,
+        billing_source=second.billing_source,
+        route=second.route,
+        cost_microusd=first.cost_microusd + second.cost_microusd,
         validator_flags=remaining,
         retried=True,
     )

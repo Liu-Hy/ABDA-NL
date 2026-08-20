@@ -3,34 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ABDA-NL — Argumentation Explorer</title>
+  <title>ABDA-NL: Argumentation Explorer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to argumentation explorer</a>
+  <div class="global-status" id="global-status" role="status" aria-live="polite" hidden></div>
 
   <!-- Top Bar -->
-  <div class="topbar">
+  <header class="topbar">
     <div class="topbar-left">
-      <span class="app-title">ABDA-NL</span>
+      <span class="app-brand">
+        <span class="app-title">ABDA-NL</span>
+        <span class="app-lab">iDAKS Lab</span>
+      </span>
       <span class="sep">&gt;</span>
       <span class="scenario-name" id="scenario-name">Loading...</span>
+      <span class="context-indicator" id="context-indicator">Example</span>
       <span class="modified-indicator" id="modified-indicator" hidden></span>
     </div>
     <div class="topbar-right">
+      <label class="visually-hidden" for="scenario-select">Choose an example scenario</label>
       <select class="scenario-select" id="scenario-select"></select>
       <label class="compact-switch" title="Compact view: flat list with category badges instead of category headers">
-        <input type="checkbox" id="compact-toggle" checked onchange="toggleCompactView()">
+        <input type="checkbox" id="compact-toggle" checked>
         <span class="compact-switch-slider"></span>
         <span class="compact-switch-label">Compact</span>
       </label>
-      <button class="btn" id="aspic-btn" onclick="openAspicModal()" title="Show the current scenario as ASPIC- syntax">Show ASPIC-</button>
-      <button class="btn" id="reset-btn" onclick="resetToBaseline()">Reset</button>
-      <button class="btn btn-primary" id="save-btn" onclick="openSaveModal()" title="Save the current state as a new scenario">Save</button>
+      <button class="btn" id="aspic-btn" title="Show the current scenario as ASPIC- syntax">Show ASPIC-</button>
+      <button class="btn" id="reset-btn">Reset</button>
+      <button class="btn access-chip llm-only" id="ai-access-btn" type="button">AI: Balanced</button>
+      <button class="btn" id="workspace-btn" type="button">Workspace</button>
+      <button class="btn btn-primary" id="save-btn" type="button" title="Save this analysis as a private project">Save project</button>
+      <nav class="service-links" aria-label="Service policies">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
     </div>
-  </div>
+  </header>
 
   <!-- Two-Panel Layout -->
-  <div class="main-area">
+  <main class="main-area" id="main-content" tabindex="-1">
 
     <!-- Left Panel -->
     <div class="left-panel" id="left-panel">
@@ -41,15 +54,15 @@
           <div class="panel-header conclusions-header-row">
             <span class="conclusions-title">
               Conclusions
-              <button class="btn btn-small btn-view-af" id="view-af-btn" onclick="openAFModal()" title="View the argumentation framework as a graph">View Graph</button>
+              <button class="btn btn-small btn-view-af" id="view-af-btn" title="View the argumentation framework as a graph">View Graph</button>
             </span>
             <div class="concl-filters">
-              <button class="concl-filter active" data-filter="key" onclick="switchConclusionFilter('key')">Key</button>
-              <button class="concl-filter" data-filter="accepted" onclick="switchConclusionFilter('accepted')">Accepted</button>
-              <button class="concl-filter" data-filter="rejected" onclick="switchConclusionFilter('rejected')">Rejected</button>
-              <button class="concl-filter" data-filter="undecided" onclick="switchConclusionFilter('undecided')">Undecided</button>
-              <button class="concl-filter" data-filter="absent" onclick="switchConclusionFilter('absent')">Absent</button>
-              <button class="concl-filter" data-filter="all" onclick="switchConclusionFilter('all')">All</button>
+              <button class="concl-filter active" data-filter="key">Key</button>
+              <button class="concl-filter" data-filter="accepted">Accepted</button>
+              <button class="concl-filter" data-filter="rejected">Rejected</button>
+              <button class="concl-filter" data-filter="undecided">Undecided</button>
+              <button class="concl-filter" data-filter="absent">Absent</button>
+              <button class="concl-filter" data-filter="all">All</button>
             </div>
           </div>
           <div class="conclusions-list" id="conclusions-list"></div>
@@ -60,15 +73,15 @@
             <span>Facts &amp; Assumptions</span>
           </div>
           <div class="facts-filter-bar">
-            <button class="facts-filter active" data-filter="facts" onclick="switchFactsFilter('facts')">Facts</button>
-            <button class="facts-filter" data-filter="assumptions" onclick="switchFactsFilter('assumptions')">Assumptions</button>
-            <button class="facts-filter" data-filter="modified" onclick="switchFactsFilter('modified')">Modified</button>
-            <button class="facts-filter" data-filter="suspended" onclick="switchFactsFilter('suspended')">Suspended</button>
+            <button class="facts-filter active" data-filter="facts">Facts</button>
+            <button class="facts-filter" data-filter="assumptions">Assumptions</button>
+            <button class="facts-filter" data-filter="modified">Modified</button>
+            <button class="facts-filter" data-filter="suspended">Suspended</button>
             <div class="toolbar-spacer"></div>
-            <button class="btn btn-small btn-primary llm-only" onclick="openEditModal('add-fact')" title="Add a new fact via natural-language instruction">+ Fact</button>
-            <button class="btn btn-small btn-primary llm-only" onclick="openEditModal('add-assumption')" title="Add a new assumption via natural-language instruction">+ Assumption</button>
+            <button class="btn btn-small btn-primary llm-only" data-edit-task="add-fact" title="Add a new fact via natural-language instruction">+ Fact</button>
+            <button class="btn btn-small btn-primary llm-only" data-edit-task="add-assumption" title="Add a new assumption via natural-language instruction">+ Assumption</button>
           </div>
-          <div class="facts-list" id="facts-list"></div>
+          <div class="facts-list" id="facts-list" tabindex="0" aria-label="Facts and assumptions"></div>
         </div>
       </div>
 
@@ -78,15 +91,15 @@
       <div class="rules-section" id="rules-section">
         <div class="panel-header">Rules</div>
         <div class="rules-toolbar">
-          <button class="btn btn-small btn-primary llm-only" onclick="openEditModal('add-rule')" title="Add a new rule via natural-language instruction">+ New Rule</button>
+          <button class="btn btn-small btn-primary llm-only" data-edit-task="add-rule" title="Add a new rule via natural-language instruction">+ New Rule</button>
           <div class="kb-search">
-            <input type="text" id="kb-search-input" placeholder="Search rules..." oninput="filterKB(this.value)">
+            <input type="text" id="kb-search-input" placeholder="Search rules...">
           </div>
           <div class="kb-tabs">
-            <button class="kb-tab active" data-tab="all" onclick="switchKBTab('all')">All Rules</button>
-            <button class="kb-tab" data-tab="conflicts" onclick="switchKBTab('conflicts')" title="Show rebut and undercut conflicts; set preferences">Conflicts</button>
-            <button class="kb-tab" data-tab="modified" onclick="switchKBTab('modified')">Modified</button>
-            <button class="kb-tab" data-tab="suspended" onclick="switchKBTab('suspended')">Suspended</button>
+            <button class="kb-tab active" data-tab="all">All Rules</button>
+            <button class="kb-tab" data-tab="conflicts" title="Show rebut and undercut conflicts; set preferences">Conflicts</button>
+            <button class="kb-tab" data-tab="modified">Modified</button>
+            <button class="kb-tab" data-tab="suspended">Suspended</button>
           </div>
           <div class="toolbar-spacer"></div>
         </div>
@@ -97,86 +110,304 @@
     <div class="v-resize-handle main-resize llm-only" id="resize-handle" title="Drag to resize"></div>
 
     <!-- Right Panel: Chat -->
-    <div class="right-panel llm-only" id="right-panel">
-      <div class="panel-header">Chat &amp; Exploration</div>
-      <div class="chat-messages" id="chat-messages"></div>
+    <section class="right-panel llm-only" id="right-panel" aria-labelledby="chat-panel-title">
+      <div class="panel-header chat-header-row">
+        <span id="chat-panel-title">Chat &amp; Exploration</span>
+        <button class="chat-access-button" id="chat-access-button" type="button">Balanced</button>
+      </div>
+      <div class="chat-access-note" id="chat-access-note" role="status"></div>
+      <div class="chat-messages" id="chat-messages" aria-live="polite"></div>
       <div class="h-resize-handle" id="h-resize-chat" title="Drag to resize"></div>
       <div class="chat-input-area" id="chat-input-area">
-        <textarea id="chat-input" rows="4" placeholder="Ask about the case, a rule, or a conclusion..."
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
-        <button class="btn btn-primary" id="chat-send-btn" onclick="sendChatMessage()">Ask</button>
+        <label class="visually-hidden" for="chat-input">Ask about the current scenario</label>
+        <textarea id="chat-input" rows="4" placeholder="Ask about the case, a rule, or a conclusion..."></textarea>
+        <button class="btn btn-primary" id="chat-send-btn">Ask</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Account, projects, model access, and MCP workspace -->
+  <div class="modal-backdrop" id="modal-workspace">
+    <div class="modal-content modal-workspace-content" role="dialog" aria-modal="true" aria-labelledby="workspace-modal-title">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="workspace-modal-title">Research workspace</div>
+          <div class="modal-subtitle">Private projects, model access, and agent connections</div>
+        </div>
+        <button class="modal-close" id="workspace-close-btn" type="button" aria-label="Close workspace">&times;</button>
+      </div>
+      <div class="workspace-layout">
+        <div class="workspace-tabs" role="tablist" aria-label="Workspace sections">
+          <button class="workspace-tab active" id="workspace-tab-account" type="button" role="tab" aria-selected="true" aria-controls="workspace-panel-account" data-workspace-tab="account">Account</button>
+          <button class="workspace-tab" id="workspace-tab-projects" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-projects" data-workspace-tab="projects">Projects</button>
+          <button class="workspace-tab llm-only" id="workspace-tab-ai" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-ai" data-workspace-tab="ai">AI access</button>
+          <button class="workspace-tab" id="workspace-tab-mcp" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-mcp" data-workspace-tab="mcp">Codex and Claude</button>
+        </div>
+        <div class="workspace-panels">
+          <section class="workspace-panel active" id="workspace-panel-account" role="tabpanel" aria-labelledby="workspace-tab-account" tabindex="0">
+            <h2>Account</h2>
+            <div id="account-signed-out">
+              <p class="workspace-lead">Browse the examples without an account. Sign in with a verified email to save private projects, claim trial credit, share work, and connect an AI coding agent.</p>
+              <a class="btn btn-primary" id="oidc-login-link" href="/auth/login" hidden>Sign in or register</a>
+              <p class="account-policy-note" id="shared-login-note" hidden>Sign-in opens in another tab so this private share token stays in the current URL fragment. Return here after signing in.</p>
+              <form class="workspace-form" id="dev-login-form" hidden>
+                <div class="form-field">
+                  <label for="dev-login-email">Development email</label>
+                  <input id="dev-login-email" name="email" type="email" autocomplete="email" required maxlength="320" placeholder="researcher@example.edu">
+                </div>
+                <div class="form-field">
+                  <label for="dev-login-name">Display name <span class="optional-label">optional</span></label>
+                  <input id="dev-login-name" name="display_name" type="text" autocomplete="name" maxlength="200" placeholder="Researcher name">
+                </div>
+                <div class="development-notice">Local development login is active. Public deployments use hosted verified-email sign-in.</div>
+                <button class="btn btn-primary" type="submit">Continue locally</button>
+              </form>
+            </div>
+            <div id="account-signed-in" hidden>
+              <div class="identity-card">
+                <div>
+                  <div class="identity-name" id="account-display-name"></div>
+                  <div class="identity-email" id="account-email"></div>
+                </div>
+                <span class="verified-badge">Verified email</span>
+              </div>
+              <div class="trial-card llm-only">
+                <div class="workspace-section-heading">
+                  <div>
+                    <h3>Funded model trial</h3>
+                    <p>Eligible users can claim $5 of metered CloudBank-funded usage.</p>
+                  </div>
+                  <button class="btn btn-primary" id="trial-activate-btn" type="button">Activate trial</button>
+                </div>
+                <div class="trial-balance" id="trial-balance" hidden>
+                  <div class="trial-balance-row">
+                    <span id="trial-balance-label">$0.00 available</span>
+                    <span id="trial-spent-label">$0.00 used</span>
+                  </div>
+                  <div class="trial-meter" role="progressbar" aria-label="Trial credit remaining" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <span id="trial-meter-fill"></span>
+                  </div>
+                </div>
+                <div class="workspace-status" id="trial-status" role="status" aria-live="polite"></div>
+              </div>
+              <button class="btn" id="logout-btn" type="button">Sign out</button>
+            </div>
+            <div class="workspace-status" id="account-status" role="status" aria-live="polite"></div>
+            <p class="account-policy-note">This is a public research service. Review the <a href="/privacy.html">privacy notice</a> and <a href="/terms.html">terms of use</a> before registering or sending material to a model provider.</p>
+          </section>
+
+          <section class="workspace-panel" id="workspace-panel-projects" role="tabpanel" aria-labelledby="workspace-tab-projects" tabindex="0" hidden>
+            <div class="workspace-section-heading">
+              <div>
+                <h2>Private projects</h2>
+                <p>Save an exploration, reopen it later, and share a read-only link.</p>
+              </div>
+              <button class="btn" id="projects-refresh-btn" type="button">Refresh</button>
+            </div>
+            <div class="signed-in-required" id="projects-signin-required">Sign in with a verified email to use private projects.</div>
+            <div id="projects-authenticated" hidden>
+              <div class="current-project-card" id="current-project-card" hidden></div>
+              <form class="workspace-form project-create-form" id="project-create-form">
+                <h3 id="project-create-heading">Save current analysis as a new project</h3>
+                <div class="form-field">
+                  <label for="project-name-input">Project name</label>
+                  <input id="project-name-input" name="name" type="text" required maxlength="120" placeholder="Popov analysis for COMMA">
+                </div>
+                <div class="form-field">
+                  <label for="project-description-input">Description <span class="optional-label">optional</span></label>
+                  <textarea id="project-description-input" name="description" rows="2" maxlength="4000" placeholder="What this version explores"></textarea>
+                </div>
+                <button class="btn btn-primary" id="project-create-btn" type="submit">Create private project</button>
+              </form>
+              <div class="project-list-heading">
+                <h3>Your projects</h3>
+                <span id="project-count"></span>
+              </div>
+              <div class="project-list" id="project-list"></div>
+            </div>
+            <div class="workspace-status" id="projects-status" role="status" aria-live="polite"></div>
+          </section>
+
+          <section class="workspace-panel" id="workspace-panel-ai" role="tabpanel" aria-labelledby="workspace-tab-ai" tabindex="0" hidden>
+            <h2>AI access for this browser tab</h2>
+            <p class="workspace-lead">Choose funded trial access or bring your own provider key. The LLM translates and explains. ABDA still computes every argument and conclusion label.</p>
+            <form class="workspace-form" id="ai-access-form">
+              <fieldset class="choice-card-group">
+                <legend>Usage source</legend>
+                <label class="choice-card">
+                  <input type="radio" name="ai-mode" value="funded" checked>
+                  <span>
+                    <strong>Funded access</strong>
+                    <small>Uses activated trial credit and the project-managed CloudBank route.</small>
+                  </span>
+                </label>
+                <label class="choice-card" id="byok-choice-card">
+                  <input type="radio" name="ai-mode" value="byok">
+                  <span>
+                    <strong>Bring your own API key</strong>
+                    <small>Uses your selected provider without consuming trial credit.</small>
+                  </span>
+                </label>
+              </fieldset>
+              <div id="funded-settings">
+                <div class="form-field">
+                  <label for="funded-profile-select">Funded model profile</label>
+                  <select id="funded-profile-select"></select>
+                  <div class="form-help" id="funded-profile-description"></div>
+                </div>
+              </div>
+              <div class="byok-settings" id="byok-settings" hidden>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label for="byok-provider-select">Provider</label>
+                    <select id="byok-provider-select"></select>
+                  </div>
+                  <div class="form-field">
+                    <label for="byok-model-select">Model</label>
+                    <select id="byok-model-select"></select>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="byok-api-key">Provider API key</label>
+                  <div class="secret-input-row">
+                    <input id="byok-api-key" type="password" autocomplete="off" spellcheck="false" maxlength="4096" placeholder="Paste a key for this tab only">
+                    <button class="btn" id="byok-reveal-btn" type="button" aria-pressed="false">Show</button>
+                    <button class="btn" id="byok-clear-btn" type="button">Clear</button>
+                  </div>
+                  <div class="privacy-note">The key stays in browser memory, is sent only with each model request, and is never saved in a cookie, project, share link, browser storage, or server database.</div>
+                </div>
+              </div>
+              <button class="btn btn-primary" type="submit">Use this access setting</button>
+            </form>
+            <div class="workspace-status" id="ai-access-status" role="status" aria-live="polite"></div>
+          </section>
+
+          <section class="workspace-panel" id="workspace-panel-mcp" role="tabpanel" aria-labelledby="workspace-tab-mcp" tabindex="0" hidden>
+            <h2>Connect Codex or Claude Code</h2>
+            <p class="workspace-lead">Create a revocable personal token for the ABDA-NL MCP server. Agent edits use private projects and optimistic version checks.</p>
+            <div class="signed-in-required" id="mcp-signin-required">Sign in with a verified email to create an agent token.</div>
+            <div id="mcp-authenticated" hidden>
+              <form class="workspace-form" id="mcp-token-form">
+                <div class="form-row">
+                  <div class="form-field">
+                    <label for="mcp-token-name">Credential name</label>
+                    <input id="mcp-token-name" type="text" required maxlength="100" value="Codex or Claude Code">
+                  </div>
+                  <div class="form-field">
+                    <label for="mcp-token-expiry">Expires after</label>
+                    <select id="mcp-token-expiry">
+                      <option value="30">30 days</option>
+                      <option value="90" selected>90 days</option>
+                      <option value="180">180 days</option>
+                      <option value="365">365 days</option>
+                    </select>
+                  </div>
+                </div>
+                <fieldset class="scope-fieldset">
+                  <legend>Permissions</legend>
+                  <label><input type="checkbox" name="mcp-scope" value="projects:read" checked> Read examples and private projects</label>
+                  <label><input type="checkbox" name="mcp-scope" value="projects:write" checked> Create and update private projects</label>
+                  <label><input type="checkbox" name="mcp-scope" value="llm:use" checked> Use metered model tools</label>
+                </fieldset>
+                <button class="btn btn-primary" type="submit">Create token</button>
+              </form>
+              <div class="one-time-secret" id="mcp-secret-panel" hidden>
+                <h3>Save this token now</h3>
+                <p>It is displayed once. ABDA-NL stores only a digest and cannot recover it.</p>
+                <div class="secret-input-row">
+                  <input id="mcp-secret-value" type="password" readonly autocomplete="off" spellcheck="false" aria-label="New MCP token">
+                  <button class="btn" id="mcp-secret-reveal-btn" type="button" aria-pressed="false">Show</button>
+                  <button class="btn" id="mcp-secret-copy-btn" type="button">Copy</button>
+                </div>
+                <div class="config-block">
+                  <div class="config-block-heading"><span>Codex config</span><button class="btn btn-small" id="mcp-codex-copy-btn" type="button">Copy</button></div>
+                  <pre id="mcp-codex-config"></pre>
+                </div>
+                <div class="config-block">
+                  <div class="config-block-heading"><span>Claude Code command</span><button class="btn btn-small" id="mcp-claude-copy-btn" type="button">Copy</button></div>
+                  <pre id="mcp-claude-command"></pre>
+                </div>
+              </div>
+              <div class="project-list-heading">
+                <h3>Agent credentials</h3>
+                <button class="btn btn-small" id="mcp-refresh-btn" type="button">Refresh</button>
+              </div>
+              <div class="credential-list" id="mcp-token-list"></div>
+            </div>
+            <div class="workspace-status" id="mcp-status" role="status" aria-live="polite"></div>
+          </section>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Game Explorer modal (opened from the Explain button on a conclusion) -->
-  <div class="modal-backdrop" id="modal-game" onclick="if(event.target===this)closeModal('modal-game')">
+  <div class="modal-backdrop" id="modal-game">
     <div class="modal-content modal-game-content">
       <div class="modal-header">
         <span class="modal-title" id="game-modal-title">Explain</span>
-        <button class="modal-close" onclick="closeModal('modal-game')">&times;</button>
+        <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body" id="game-modal-body"></div>
     </div>
   </div>
 
   <!-- View-AF modal: layered graph of the abstract argumentation framework -->
-  <div class="modal-backdrop" id="modal-af" onclick="if(event.target===this)closeModal('modal-af')">
+  <div class="modal-backdrop" id="modal-af">
     <div class="modal-content modal-af-content">
       <div class="modal-header">
         <span class="modal-title">Abstract Argumentation Framework</span>
-        <button class="modal-close" onclick="closeModal('modal-af')">&times;</button>
+        <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body" id="af-modal-body"></div>
     </div>
   </div>
 
   <!-- Edit modal: Propose / Refine / Apply for add-rule, modify-rule, add-fact, add-assumption -->
-  <div class="modal-backdrop" id="modal-edit" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal-backdrop" id="modal-edit">
     <div class="modal-content modal-edit-content">
       <div class="modal-header">
         <span class="modal-title" id="edit-modal-title">Edit</span>
-        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
         <div class="edit-instruction-wrap">
           <label for="edit-instruction" id="edit-instruction-label">Describe the edit you want:</label>
           <textarea id="edit-instruction" rows="4"
-            placeholder="e.g. 'Add a rule saying that if the patient has low bone density then long-term PPI elevates fracture risk.'"
-            onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();sendPropose();}"></textarea>
+            placeholder="e.g. 'Add a rule saying that if the patient has low bone density then long-term PPI elevates fracture risk.'"></textarea>
           <div class="edit-hint">Press <kbd>Cmd/Ctrl</kbd>+<kbd>Enter</kbd> to propose.</div>
         </div>
         <div class="edit-status" id="edit-status"></div>
         <div class="edit-preview" id="edit-preview"></div>
       </div>
       <div class="modal-footer edit-footer" id="edit-footer">
-        <button class="btn" id="edit-cancel-btn" onclick="closeEditModal()">Cancel</button>
-        <button class="btn btn-primary" id="edit-propose-btn" onclick="sendPropose()">Propose</button>
+        <button class="btn" id="edit-cancel-btn" data-edit-action="cancel">Cancel</button>
+        <button class="btn btn-primary" id="edit-propose-btn" data-edit-action="propose">Propose</button>
       </div>
     </div>
   </div>
 
   <!-- Save-as-new-scenario modal -->
-  <div class="modal-backdrop" id="modal-save" onclick="if(event.target===this)closeModal('modal-save')">
+  <div class="modal-backdrop" id="modal-save">
     <div class="modal-content modal-save-content">
       <div class="modal-header">
         <span class="modal-title">Save as new scenario</span>
-        <button class="modal-close" onclick="closeModal('modal-save')">&times;</button>
+        <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
         <div class="save-field">
           <label for="save-title">Scenario title</label>
-          <input type="text" id="save-title" placeholder="e.g. 'Popov with equity extension'" oninput="onSaveTitleInput()">
+          <input type="text" id="save-title" placeholder="e.g. 'Popov with equity extension'">
           <div class="save-hint">The human-readable name shown in the scenario switcher.</div>
         </div>
         <div class="save-field">
           <label for="save-id">Scenario id</label>
-          <input type="text" id="save-id" placeholder="e.g. popov_with_equity" oninput="onSaveIdInput()">
+          <input type="text" id="save-id" placeholder="e.g. popov_with_equity">
           <div class="save-hint">Used as the directory name. Letters, digits, and underscores only; starts with a letter or underscore.</div>
         </div>
         <div class="save-field save-overwrite-field">
           <label class="save-overwrite-label">
-            <input type="checkbox" id="save-overwrite-source" onchange="onSaveOverwriteToggle()">
+            <input type="checkbox" id="save-overwrite-source">
             <span>Overwrite the current scenario</span>
           </label>
           <div class="save-hint">Replace the current scenario's file with your edits. The regression snapshot (<code>expected_labels.yaml</code>) is preserved.</div>
@@ -184,53 +415,53 @@
         <div class="save-status" id="save-status"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeModal('modal-save')">Cancel</button>
-        <button class="btn btn-primary" id="save-submit-btn" onclick="submitSave(false)">Save</button>
+        <button class="btn" id="save-cancel-btn">Cancel</button>
+        <button class="btn btn-primary" id="save-submit-btn">Save</button>
       </div>
     </div>
   </div>
 
   <!-- Save-overwrite-source confirm modal: explicit yes/no before wiping current scenario -->
-  <div class="modal-backdrop" id="modal-save-overwrite-confirm" onclick="if(event.target===this)closeModal('modal-save-overwrite-confirm')">
+  <div class="modal-backdrop" id="modal-save-overwrite-confirm">
     <div class="modal-content modal-save-collision-content">
       <div class="modal-header">
         <span class="modal-title">Overwrite the current scenario?</span>
-        <button class="modal-close" onclick="closeModal('modal-save-overwrite-confirm')">&times;</button>
+        <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
         <p id="save-overwrite-confirm-body">This will replace the current scenario's <code>scenario.yaml</code> with your edits. The regression snapshot is preserved, but the original rule text will be gone.</p>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeModal('modal-save-overwrite-confirm')">Cancel</button>
-        <button class="btn btn-primary" onclick="onSaveOverwriteConfirm()">Overwrite</button>
+        <button class="btn" id="save-overwrite-cancel-btn">Cancel</button>
+        <button class="btn btn-primary" id="save-overwrite-confirm-btn">Overwrite</button>
       </div>
     </div>
   </div>
 
   <!-- Save-collision modal: target id already exists; confirm overwrite -->
-  <div class="modal-backdrop" id="modal-save-collision" onclick="if(event.target===this)closeModal('modal-save-collision')">
+  <div class="modal-backdrop" id="modal-save-collision">
     <div class="modal-content modal-save-collision-content">
       <div class="modal-header">
         <span class="modal-title">Scenario already exists</span>
-        <button class="modal-close" onclick="closeModal('modal-save-collision')">&times;</button>
+        <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
         <p id="save-collision-body">A scenario with that id already exists.</p>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="onSaveCollisionCancel()">Cancel</button>
-        <button class="btn" onclick="onSaveCollisionRename()">Rename</button>
-        <button class="btn btn-primary" onclick="onSaveCollisionOverwrite()">Overwrite</button>
+        <button class="btn" id="save-collision-cancel-btn">Cancel</button>
+        <button class="btn" id="save-collision-rename-btn">Rename</button>
+        <button class="btn btn-primary" id="save-collision-overwrite-btn">Overwrite</button>
       </div>
     </div>
   </div>
 
   <!-- Suspend-impact modal: preview conclusion-label changes before committing a toggle -->
-  <div class="modal-backdrop" id="modal-suspend-impact" onclick="if(event.target===this)cancelSuspendImpact()">
+  <div class="modal-backdrop" id="modal-suspend-impact">
     <div class="modal-content modal-suspend-impact-content">
       <div class="modal-header">
         <span class="modal-title" id="suspend-impact-title">Preview change</span>
-        <button class="modal-close" onclick="cancelSuspendImpact()">&times;</button>
+        <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body">
         <div class="suspend-impact-summary" id="suspend-impact-summary"></div>
@@ -238,23 +469,23 @@
         <div class="suspend-impact-list" id="suspend-impact-list"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="cancelSuspendImpact()">Cancel</button>
-        <button class="btn btn-primary" id="suspend-impact-apply-btn" onclick="applySuspendImpact()">Apply</button>
+        <button class="btn" id="suspend-impact-cancel-btn">Cancel</button>
+        <button class="btn btn-primary" id="suspend-impact-apply-btn">Apply</button>
       </div>
     </div>
   </div>
 
   <!-- Show-ASPIC- modal: current scenario rendered as ASPIC- syntax -->
-  <div class="modal-backdrop" id="modal-aspic" onclick="if(event.target===this)closeModal('modal-aspic')">
+  <div class="modal-backdrop" id="modal-aspic">
     <div class="modal-content modal-aspic-content">
       <div class="modal-header">
         <span class="modal-title">ASPIC- Rules</span>
         <div class="aspic-header-actions">
-          <button class="btn btn-small" id="aspic-copy-btn" onclick="copyAspicToClipboard()">Copy</button>
-          <button class="modal-close" onclick="closeModal('modal-aspic')">&times;</button>
+          <button class="btn btn-small" id="aspic-copy-btn">Copy</button>
+          <button class="modal-close">&times;</button>
         </div>
       </div>
-      <div class="modal-body"><pre class="aspic-pre" id="aspic-pre"></pre></div>
+      <div class="modal-body"><pre class="aspic-pre" id="aspic-pre" tabindex="0" aria-label="Current scenario in ASPIC syntax"></pre></div>
     </div>
   </div>
 
@@ -262,5 +493,6 @@
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
+  <script src="workspace.js"></script>
 </body>
 </html>

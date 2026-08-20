@@ -1,123 +1,188 @@
 # ABDA-NL
 
-[![CI](https://github.com/idaks/ABDA-NL/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/idaks/ABDA-NL/actions/workflows/ci.yml)
+> **Development branch:** This branch contains experimental hosted-service,
+> identity, usage-quota, model-routing, and MCP work. For the stable demo that
+> accompanies the COMMA 2026 paper, use [`main`](../../tree/main).
 
 ABDA-NL is a browser-based natural-language scenario explorer for
-argument-based reasoning. It lets users inspect, explain, and modify ASPIC-
-scenarios while the deterministic ABDA engine remains authoritative for
-argument construction, attacks, and grounded labels.
+argument-based reasoning.
 
-![ABDA-NL exploring the Popov v. Hayashi scenario](docs/screenshot.png)
+## Run the demo
 
-## What the demo supports
-
-- Explore six included scenarios, including the Popov v. Hayashi legal case.
-- Inspect conclusions labeled accepted, rejected, undecided, or absent.
-- Open an interactive explanation of the grounded discussion game.
-- Suspend assumptions and rules, and change rule preferences in the Conflicts
-  view to explore alternatives.
-- View the argumentation framework as a graph or inspect the underlying ASPIC-
-  representation.
-- Save a modified scenario as a new local scenario.
-- With an optional language model, ask corpus-grounded questions and propose
-  new facts, assumptions, and rules in natural language. Proposals are checked
-  before they can be applied, and all argumentation reasoning remains in ABDA.
-
-The `development` branch contains experimental work on hosted accounts, usage
-quotas, additional model routing, and MCP access. It is not part of the paper
-artifact on `main`.
-
-## Quick start
-
-ABDA-NL requires Python 3.10 or newer. No API key is needed for the
-deterministic explorer.
+Python 3.10 or newer is supported. Create the local environment and install the
+application:
 
 ```bash
-git clone https://github.com/idaks/ABDA-NL.git
-cd ABDA-NL
 python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -e .
-.venv/bin/abda-nl --basic
+make install
+.venv/bin/abda-nl
 ```
 
-The final command starts the server on the loopback interface, waits for it to
-be ready, and opens the default browser. If a browser cannot be opened, follow
-the local URL printed in the terminal. Press `Ctrl+C` in that terminal to stop
-the server.
+`make install` selects a hash-pinned lock for the active Python version.
+Python 3.10 has dedicated locks because several current scientific packages
+have ended 3.10 support. Python 3.11 through 3.13 use the main locks. Use
+`make install-dev` for the test and browser tooling. Native Python 3.10 and
+3.13 CI jobs independently regenerate their locks, so a lock update cannot
+silently drop the advertised minimum version.
 
-Start with the Popov v. Hayashi scenario. The upper panels show conclusions,
-facts, and assumptions, while the lower panel shows rules. Use **Explain** on a
-conclusion to inspect its discussion-game trace. Use **View Graph** and
-**Show ASPIC-** to inspect the formal structures behind the natural-language
-interface.
+The last command starts on loopback, waits for the application to be ready,
+and opens the default browser. It enables LLM features when a valid local
+configuration exists, otherwise it starts the complete deterministic demo.
+Use `abda-nl --basic`, `abda-nl --llm`, or `abda-nl --no-browser` to choose
+explicit behavior.
 
-## Optional language-model features
-
-Chat and natural-language authoring require either an Anthropic API key or a
-local model served by [Ollama](https://ollama.com/). For Anthropic, create a
-gitignored `.env` file in the repository root:
-
-```dotenv
-ANTHROPIC_API_KEY=replace-with-your-key
-# ABDA_LLM_MODEL=replace-with-a-model-available-to-your-account
-```
-
-Then run:
+For the CloudBank-funded LLM features, place the Azure/Foundry credentials in
+the gitignored `.env` file and select Foundry in `.env.local`:
 
 ```bash
-.venv/bin/abda-nl --llm
+ABDA_CLAUDE_PROVIDER=foundry
 ```
 
-For a local Ollama model, set its installed model name explicitly:
+The supported fields are `AZURE_ANTHROPIC_ENDPOINT` or
+`ANTHROPIC_FOUNDRY_BASE_URL` for the endpoint, and
+`AZURE_ANTHROPIC_API_KEY`, `ANTHROPIC_FOUNDRY_API_KEY`, or
+`AZURE_OPENAI_API_KEY` for authentication. ABDA-NL also understands an Azure
+OpenAI endpoint and derives the matching Foundry Messages endpoint. See the
+[CloudBank LLM setup tutorial](https://github.com/Liu-Hy/cloudbank-llm-setup)
+for how those values are provisioned.
 
-```bash
-ABDA_LLM_BACKEND=ollama ABDA_OLLAMA_MODEL=your-model \
-  .venv/bin/abda-nl --llm
-```
-
-API keys belong only in `.env` or the shell environment. Never commit them.
-
-## NCSA Delta
-
-iDAKS developers can start the repository through the shared launcher from any
-Delta login node:
+On NCSA Delta, start the full demo through the user-level launcher:
 
 ```bash
 demo
 ```
 
-The launcher reads `.demo.json`, manages the server in the background, and
-keeps it on the pinned login node. On the laptop, keep `ssh delta-demo` open to
-forward the service, then visit <http://127.0.0.1:8765>. Run `demo doctor` on
-Delta if the tunnel or launcher needs diagnosis. A remote loopback address is
-not directly reachable from a laptop without that SSH session.
+The launcher uses the repository's `.demo.json`, runs the process detached,
+and always serves it through the same bookmarked address,
+<http://127.0.0.1:8765>. Run `demo status`, `demo logs`, or `demo stop` from any
+directory. On the laptop, keep one ordinary `ssh delta-demo` session open while
+using the browser. That session carries the loopback port forward. Run
+`demo doctor` on Delta to inspect the pinned launcher profile. This login-node
+mode is for short, lightweight development sessions; use a Delta Open OnDemand
+or Slurm session for persistent hosting or heavy work.
 
-## Tests
-
-Install the development dependencies and run the test suite:
+The server-only repository command remains available on other systems:
 
 ```bash
-.venv/bin/python -m pip install -e '.[dev]'
-make test
-.venv/bin/python -m ruff check app tests
+make run
 ```
 
-The CI workflow also checks a clean wheel installation and exercises the main
-reader path in a real Chromium browser.
+Then open <http://127.0.0.1:8000>. `make run-basic` starts the deterministic
+argumentation UI without an LLM, `make demo-local` opens a local browser, and
+`make test` runs the test suite.
 
-## Paper and citation
+## Funded models and BYOK
 
-ABDA-NL accompanies:
+Public funded requests require a verified account and an activated trial. The
+first 100 successful activations receive $5 of metered model usage. The server
+reserves enough credit before each physical provider call and settles the
+reservation from the returned token counts.
 
-> Shawn Bowers, Martin Caminada, Haoyang Liu, and Bertram Ludäscher.
-> **ABDA-NL: A Natural-Language Scenario Explorer for Argument-Based
-> Reasoning.** Demonstration paper, COMMA 2026.
+CloudBank Azure Foundry is the primary funded route. OpenRouter is used only
+after bounded retries establish a transport, throttling, or provider-service
+failure. The project-paid OpenRouter ledger defaults to a hard $500 cap.
+Increasing it above $500 requires an explicit deployment acknowledgement, and
+the application refuses values above $1,000.
 
-Machine-readable citation metadata is available in
-[`CITATION.cff`](CITATION.cff). Please use the paper citation when referring to
-the research contribution.
+Registered users may instead include a provider key in the `llm.byok` object of
+a `/chat` or `/propose` request. BYOK supports Anthropic, OpenAI, Google Gemini,
+and OpenRouter through fixed official endpoints. The key is request-scoped and
+is never persisted by the server. BYOK calls do not require or consume trial
+credit. Never place an API key in a URL, project record, or share link.
 
-## License
+`GET /config` lists the currently available funded profiles and supported BYOK
+models without exposing deployment credentials. Candidate funded profiles are
+kept out of the public list until they pass the repository evaluation gate.
 
-ABDA-NL is released under the [MIT License](LICENSE).
+### Browser workspace
+
+The webpage keeps anonymous example exploration available while placing private
+and metered features in the **Workspace** dialog:
+
+1. **Account** signs in through hosted verified-email OIDC in public deployments.
+   Local and Delta development use a visibly labeled development login instead.
+2. **Projects** saves the current analysis as a private database record. Reopened
+   projects continue deterministic changes, grounded chat, and reviewed edits
+   from the saved project state. The Save changes button uses an optimistic
+   project version so another browser tab cannot be overwritten silently.
+3. **AI access** chooses an approved funded profile or an Anthropic, OpenAI,
+   Google, or OpenRouter key supplied by the user. A personal key exists only in
+   memory for the current browser tab. Reloading or signing out clears it.
+4. **Codex and Claude** creates, lists, and revokes scoped MCP credentials. A new
+   secret is disclosed once and never stored in recoverable form.
+
+The first Save project action creates a private project. A project owner can
+create a revocable read-only link. The bearer token stays in the URL fragment,
+and a recipient cannot toggle assumptions, change preferences, call models, or
+save over the owner's project. A signed-in recipient can save a validated
+private copy.
+
+The interface supports keyboard dialog navigation, visible focus, reduced
+motion, narrow-screen reflow, and screen-reader status announcements. The
+argumentation panels and all workspace panels pass the repository's automated
+WCAG A and AA browser scan. Automated checks complement, but do not replace,
+manual keyboard and assistive-technology review before a public release.
+
+## Codex and Claude Code through MCP
+
+A verified user can create a personal MCP token through `POST /api/mcp/tokens`.
+The token is displayed once, expires after 90 days by default, and can be
+revoked at any time. The server stores only an HMAC-SHA-256 digest. Each token
+can receive any subset of these scopes:
+
+- `projects:read` lists examples and reads private projects.
+- `projects:write` creates projects and applies version-checked edits.
+- `llm:use` asks grounded questions and proposes edits using trial credit.
+
+Set the one-time token in your shell without adding it to source control:
+
+```bash
+export ABDA_NL_MCP_TOKEN='the-token-shown-once'
+```
+
+Then add this entry to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.abda_nl]
+url = "https://YOUR_ABDA_HOST/mcp/"
+bearer_token_env_var = "ABDA_NL_MCP_TOKEN"
+default_tools_approval_mode = "writes"
+tool_timeout_sec = 180
+```
+
+The write approval mode lets Codex use read-only exploration directly while
+asking before project mutations. The longer tool timeout accommodates funded
+model calls, which can legitimately exceed Codex's default MCP timeout.
+
+Claude Code accepts the same endpoint and environment variable. Its CLI
+requires every option to appear before the server name:
+
+```bash
+claude mcp add --transport http \
+  --header "Authorization: Bearer ${ABDA_NL_MCP_TOKEN}" \
+  abda-nl "https://YOUR_ABDA_HOST/mcp/"
+```
+
+The MCP tools never accept a provider API key. Use the browser BYOK flow for a
+personal Anthropic, OpenAI, Google, or OpenRouter key. That keeps the provider
+secret request-scoped and out of agent transcripts and MCP configuration.
+
+MCP writes require the project version returned by the preceding read. An LLM
+proposal never changes a project. Review its operation and advisory issues,
+then call `apply_project_ops` explicitly with the unchanged expected version.
+
+## Public service operation
+
+The public service uses the same application entrypoint in a non-root,
+hash-locked container, with Azure Container Apps, private PostgreSQL, verified
+email OIDC, and an explicit migration job. Operator documentation is tracked in:
+
+- [Azure deployment](docs/operations/public-deployment.md)
+- [Auth0 email OTP](docs/operations/auth0-email-otp.md)
+- [Funded model promotion](docs/operations/model-promotion.md)
+- [Public and COMMA release checklist](docs/operations/release-checklist.md)
+- [Public security and operations decision](docs/decisions/0006-public-service-security-and-operations.md)
+
+Local and Delta launch behavior remains independent of public hosting. A normal
+local `abda-nl` command opens the browser automatically. Delta continues to use
+`demo` plus the laptop's persistent `ssh delta-demo` tunnel.

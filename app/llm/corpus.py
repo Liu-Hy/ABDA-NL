@@ -13,6 +13,7 @@ PDFs in the raw-corpus path are extracted via `pdftotext`.
 """
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -35,16 +36,19 @@ def _read_corpus_file(path: Path) -> str:
     if not path.is_file():
         raise CorpusLoadError(f"missing corpus file: {path}")
     if path.suffix.lower() == ".pdf":
+        executable = shutil.which("pdftotext")
+        if executable is None:
+            raise CorpusLoadError(
+                "pdftotext not found; install poppler-utils or add a .txt variant"
+            )
         try:
-            result = subprocess.run(
-                ["pdftotext", "-layout", str(path), "-"],
+            # The executable is resolved to an absolute path, and scenario
+            # validation confines the document to a bundled corpus directory.
+            result = subprocess.run(  # noqa: S603
+                [executable, "-layout", str(path), "-"],
                 check=True,
                 capture_output=True,
                 text=True,
-            )
-        except FileNotFoundError:
-            raise CorpusLoadError(
-                "pdftotext not found; install poppler-utils or add a .txt variant"
             )
         except subprocess.CalledProcessError as e:
             raise CorpusLoadError(f"pdftotext failed on {path}: {e.stderr}")

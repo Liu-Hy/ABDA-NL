@@ -9,64 +9,75 @@
   "properties": {
     "title": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 300
     },
     "description": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 10000
     },
     "facts": {
       "type": "object",
+      "maxProperties": 500,
       "propertyNames": { "$ref": "#/$defs/identifier" },
       "additionalProperties": { "$ref": "#/$defs/fact" }
     },
     "assumptions": {
       "type": "object",
+      "maxProperties": 500,
       "propertyNames": { "$ref": "#/$defs/identifier" },
       "additionalProperties": { "$ref": "#/$defs/assumption" }
     },
     "propositions": {
       "type": "object",
+      "maxProperties": 500,
       "propertyNames": { "$ref": "#/$defs/identifier" },
       "additionalProperties": { "$ref": "#/$defs/proposition" }
     },
     "conclusions": {
       "type": "object",
+      "maxProperties": 500,
       "propertyNames": { "$ref": "#/$defs/identifier" },
       "additionalProperties": { "$ref": "#/$defs/proposition" }
     },
     "rules": {
       "type": "object",
+      "maxProperties": 250,
       "propertyNames": { "$ref": "#/$defs/identifier" },
       "additionalProperties": { "$ref": "#/$defs/rule" }
     },
     "corpus": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 }
+      "maxItems": 100,
+      "items": { "type": "string", "minLength": 1, "maxLength": 255 }
     }
   },
   "$defs": {
     "identifier": {
       "type": "string",
+      "maxLength": 100,
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
     },
     "literal": {
       "description": "A proposition or rule-name reference, optionally negated with a leading '-'.",
       "type": "string",
+      "maxLength": 101,
       "pattern": "^-?[A-Za-z_][A-Za-z0-9_]*$"
     },
     "block": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "maximum": 1000
     },
     "fact": {
       "type": "object",
       "required": ["description"],
       "additionalProperties": false,
       "properties": {
-        "description": { "type": "string", "minLength": 1 },
-        "negated_description": { "type": "string", "minLength": 1 },
-        "category": { "type": "string" },
-        "source": { "type": "string" }
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "negated_description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "category": { "type": "string", "maxLength": 200 },
+        "source": { "type": "string", "maxLength": 2000 }
       }
     },
     "assumption": {
@@ -74,10 +85,10 @@
       "required": ["description"],
       "additionalProperties": false,
       "properties": {
-        "description": { "type": "string", "minLength": 1 },
-        "negated_description": { "type": "string", "minLength": 1 },
-        "category": { "type": "string" },
-        "source": { "type": "string" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "negated_description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "category": { "type": "string", "maxLength": 200 },
+        "source": { "type": "string", "maxLength": 2000 },
         "active": { "type": "boolean" },
         "block": { "$ref": "#/$defs/block" }
       }
@@ -87,9 +98,9 @@
       "required": ["description"],
       "additionalProperties": false,
       "properties": {
-        "description": { "type": "string", "minLength": 1 },
-        "negated_description": { "type": "string", "minLength": 1 },
-        "category": { "type": "string" }
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "negated_description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "category": { "type": "string", "maxLength": 200 }
       }
     },
     "rule": {
@@ -106,16 +117,18 @@
         "type": { "const": "strict" },
         "premises": {
           "type": "array",
+          "maxItems": 50,
           "items": { "$ref": "#/$defs/literal" }
         },
         "conclusion": { "$ref": "#/$defs/literal" },
         "negated_description": {
           "description": "NL rendering of the undercut literal '-<rule_id>'. Used by the UI when this rule is undercut.",
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 2000
         },
-        "category": { "type": "string" },
-        "source": { "type": "string" },
+        "category": { "type": "string", "maxLength": 200 },
+        "source": { "type": "string", "maxLength": 2000 },
         "block": { "$ref": "#/$defs/block" }
       }
     },
@@ -127,16 +140,18 @@
         "type": { "const": "defeasible" },
         "premises": {
           "type": "array",
+          "maxItems": 50,
           "items": { "$ref": "#/$defs/literal" }
         },
         "conclusion": { "$ref": "#/$defs/literal" },
         "negated_description": {
           "description": "NL rendering of the undercut literal '-<rule_id>'. Used by the UI when this rule is undercut.",
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 2000
         },
-        "category": { "type": "string" },
-        "source": { "type": "string" },
+        "category": { "type": "string", "maxLength": 200 },
+        "source": { "type": "string", "maxLength": 2000 },
         "block": { "$ref": "#/$defs/block" },
         "active": { "type": "boolean" }
       }

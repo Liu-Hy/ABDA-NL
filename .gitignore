@@ -37,6 +37,7 @@ dist/
 
 # Environments
 .venv
+.venv-*/
 venv/
 env/
 
@@ -47,6 +48,13 @@ Thumbs.db
 # Temp / scratch
 tmp/
 *.log
+artifacts/
+
+# Local application state
+.abda/
+*.db
+*.sqlite
+*.sqlite3
 
 # Markdown files (except standard repo docs)
 *.md

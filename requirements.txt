@@ -1,0 +1,17 @@
+networkx>=2.5
+matplotlib>=3.3.4
+mcp>=2.0
+pyyaml>=6.0
+jsonschema>=4.0
+pytest>=7.0
+fastapi>=0.100
+uvicorn>=0.25
+httpx>=0.25
+anthropic>=0.90
+python-dotenv>=1.0
+sqlalchemy>=2.0
+alembic>=1.16
+authlib>=1.6
+itsdangerous>=2.2
+email-validator>=2.2
+psycopg[binary]>=3.2

@@ -1,41 +1,57 @@
 # ABDA-NL Makefile
 
 PY := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+PY_MINOR := $(shell $(PY) -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+ifeq ($(PY_MINOR),3.10)
+DEV_LOCK := requirements.py310.lock
+RUNTIME_LOCK := requirements.runtime.py310.lock
+else
+DEV_LOCK := requirements.lock
+RUNTIME_LOCK := requirements.runtime.lock
+endif
 PORT ?= 8000
 HOST ?= 127.0.0.1
 LLM ?= 0
 BACKEND ?= claude
 MODEL ?=
 
-.PHONY: help install install-dev demo-local demo-server run run-basic run-qwen run-llama run-phi validate-scenario test test-browser clean
+.PHONY: help install install-dev lock migrate demo-local run run-basic run-qwen run-llama run-phi validate-scenario test clean
 
 help:
 	@echo "Targets:"
-	@echo "  install           Install Python dependencies via pip"
-	@echo "  install-dev       Install test and browser dependencies"
+	@echo "  install           Install hash-pinned runtime dependencies and the app"
+	@echo "  install-dev       Install hash-pinned development dependencies and the app"
+	@echo "  lock              Rebuild locks for the active Python minor version"
+	@echo "  migrate           Apply all database migrations"
 	@echo "  demo-local        Start locally and open the default browser"
-	@echo "  run               Start the app with Claude features enabled"
+	@echo "  run               Start the app with LLM features (Claude via Foundry or Anthropic)"
 	@echo "  run-basic         Start the app without LLM features (no API key needed)"
 	@echo "  run-qwen          Start with local Ollama backend, Qwen 3 8B"
 	@echo "  run-llama         Start with local Ollama backend, Llama 3.1 8B"
 	@echo "  run-phi           Start with local Ollama backend, Phi-4-mini 3.8B"
 	@echo "  validate-scenario Validate a scenario directory (S=examples/<name>/)"
 	@echo "  test              Run the pytest suite"
-	@echo "  test-browser      Run the real-browser smoke test"
 	@echo "  clean             Remove Python bytecode caches"
 
 install:
-	$(PY) -m pip install -e .
+	$(PY) -m pip install --require-hashes -r $(RUNTIME_LOCK)
+	$(PY) -m pip install --no-build-isolation --no-deps -e .
 
 install-dev:
-	$(PY) -m pip install -e '.[dev,browser]'
+	$(PY) -m pip install --require-hashes -r $(DEV_LOCK)
+	$(PY) -m pip install --no-build-isolation --no-deps -e .
+
+lock:
+	$(PY) -m piptools compile --quiet --generate-hashes --allow-unsafe \
+	    --strip-extras --output-file $(RUNTIME_LOCK) pyproject.toml
+	$(PY) -m piptools compile --quiet --extra dev --generate-hashes --allow-unsafe \
+	    --strip-extras --output-file $(DEV_LOCK) pyproject.toml
+
+migrate:
+	$(PY) -m alembic upgrade head
 
 demo-local:
 	$(PY) -m app.cli.serve
-
-# Foreground server used by managed launchers such as `demo` on Delta.
-demo-server:
-	exec $(PY) -m app.cli.serve --host $(HOST) --port $(PORT) --no-browser
 
 # Internal target used by the run-* variants.
 _serve:
@@ -75,9 +91,6 @@ validate-scenario:
 
 test:
 	$(PY) -m pytest tests/ -q
-
-test-browser:
-	ABDA_BROWSER_TESTS=1 $(PY) -m pytest tests/test_browser_smoke.py -q
 
 clean:
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

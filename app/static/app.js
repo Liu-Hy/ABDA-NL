@@ -12,6 +12,25 @@ const state = {
   baseline: null,       // scenario object at baseline (zero ops)
   bundle: null,         // current {scenario, af} from the server
   diff_ops: [],         // ops appended since baseline
+  config: null,
+  authSession: { authenticated: false, auth_mode: 'disabled', user: null },
+  trial: null,
+  projects: [],
+  mcpTokens: [],
+  activeProject: null,
+  activeShares: [],
+  sharesLoadedFor: null,
+  latestShare: null,
+  viewKind: 'example',  // 'example' | 'project' | 'shared'
+  sharedProject: null,
+  readOnly: false,
+  llmAccess: {
+    mode: 'funded',
+    profile: null,
+    provider: null,
+    model: null,
+    apiKey: '',
+  },
   // UI state
   conclusionFilter: 'key',
   factsFilter: 'facts',
@@ -38,33 +57,70 @@ const state = {
 // never has to reject a too-long message list.
 const CHAT_TURN_CAP = 20;
 
+// Assistant text is untrusted even when it came from a funded provider. Keep
+// the Markdown surface deliberately smaller than DOMPurify's general HTML
+// profile, and insert the sanitized fragment without reparsing it in a wrapper.
+const CHAT_MARKDOWN_ALLOWED_TAGS = Object.freeze([
+  'a', 'blockquote', 'br', 'code', 'del', 'em', 'h1', 'h2', 'h3', 'h4',
+  'h5', 'h6', 'hr', 'li', 'ol', 'p', 'pre', 'strong', 'table', 'tbody',
+  'td', 'th', 'thead', 'tr', 'ul',
+]);
+const CHAT_MARKDOWN_ALLOWED_ATTR = Object.freeze([
+  'align', 'colspan', 'href', 'rowspan', 'scope', 'start', 'title',
+]);
+
+
+function apiErrorMessage(body, fallback) {
+  const detail = body?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail.message === 'string') return detail.message;
+  if (Array.isArray(body?.errors) && body.errors[0]?.message) return body.errors[0].message;
+  return fallback;
+}
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, options);
+  if (response.status === 204) return null;
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(apiErrorMessage(body, `${options.method || 'GET'} ${path}: ${response.status}`));
+    error.status = response.status;
+    error.code = body?.detail?.code || body?.errors?.[0]?.code || null;
+    error.body = body;
+    throw error;
+  }
+  return body;
+}
+
 
 /* ── API wrappers ─────────────────────────────────────── */
 
 async function apiListScenarios() {
-  const r = await fetch('/scenarios');
-  if (!r.ok) throw new Error(`GET /scenarios: ${r.status}`);
-  return (await r.json()).scenarios;
+  return (await apiRequest('/scenarios')).scenarios;
 }
 
 async function apiGetConfig() {
-  const r = await fetch('/config');
-  if (!r.ok) throw new Error(`GET /config: ${r.status}`);
-  return await r.json();  // { llm_enabled: bool }
+  return await apiRequest('/config');
 }
 
 async function apiPostState(scenario_id, diff_ops, signal) {
-  const r = await fetch('/state', {
+  const project = state.activeProject;
+  const path = project ? `/api/projects/${encodeURIComponent(project.id)}/state` : '/state';
+  const payload = project
+    ? { expected_version: project.version, diff_ops }
+    : { scenario_id, diff_ops };
+  const r = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scenario_id, diff_ops }),
+    body: JSON.stringify(payload),
     signal,
   });
   const body = await r.json();
   if (!r.ok) {
-    const err = new Error(body?.errors?.[0]?.message || `POST /state: ${r.status}`);
+    const err = new Error(apiErrorMessage(body, `POST ${path}: ${r.status}`));
     err.errors = body.errors || [];
     err.status = r.status;
+    err.code = body?.detail?.code || body?.errors?.[0]?.code || null;
     throw err;
   }
   return body;  // { scenario, af }
@@ -107,25 +163,121 @@ function isAbortError(e) {
 }
 
 
+function initBaseUI() {
+  document.getElementById('compact-toggle')?.addEventListener('change', toggleCompactView);
+  document.getElementById('aspic-btn')?.addEventListener('click', openAspicModal);
+  document.getElementById('reset-btn')?.addEventListener('click', resetToBaseline);
+  document.getElementById('view-af-btn')?.addEventListener('click', openAFModal);
+  document.querySelector('.concl-filters')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-filter]');
+    if (button) switchConclusionFilter(button.dataset.filter);
+  });
+  document.querySelector('.facts-filter-bar')?.addEventListener('click', event => {
+    const button = event.target.closest('.facts-filter[data-filter]');
+    if (button) switchFactsFilter(button.dataset.filter);
+  });
+  document.querySelector('.rules-toolbar')?.addEventListener('click', event => {
+    const button = event.target.closest('.kb-tab[data-tab]');
+    if (button) switchKBTab(button.dataset.tab);
+  });
+  document.querySelectorAll('[data-edit-task]').forEach(button => {
+    button.addEventListener('click', () => openEditModal(button.dataset.editTask));
+  });
+  document.getElementById('kb-search-input')?.addEventListener('input', event => filterKB(event.target.value));
+  document.getElementById('chat-send-btn')?.addEventListener('click', () => sendChatMessage());
+  document.getElementById('chat-input')?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendChatMessage();
+    }
+  });
+  document.getElementById('edit-instruction')?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      sendPropose();
+    }
+  });
+  document.getElementById('edit-footer')?.addEventListener('click', event => {
+    const action = event.target.closest('[data-edit-action]')?.dataset.editAction;
+    if (action === 'cancel') closeEditModal();
+    if (action === 'refine') refineProposal();
+    if (action === 'apply') applyProposal();
+    if (action === 'propose') sendPropose();
+  });
+
+  document.querySelectorAll('.modal-close').forEach(button => {
+    button.addEventListener('click', () => requestCloseModal(button.closest('.modal-backdrop').id));
+  });
+  document.getElementById('save-title')?.addEventListener('input', onSaveTitleInput);
+  document.getElementById('save-id')?.addEventListener('input', onSaveIdInput);
+  document.getElementById('save-overwrite-source')?.addEventListener('change', onSaveOverwriteToggle);
+  document.getElementById('save-cancel-btn')?.addEventListener('click', () => closeModal('modal-save'));
+  document.getElementById('save-submit-btn')?.addEventListener('click', () => submitSave(false));
+  document.getElementById('save-overwrite-cancel-btn')?.addEventListener('click', () => closeModal('modal-save-overwrite-confirm'));
+  document.getElementById('save-overwrite-confirm-btn')?.addEventListener('click', onSaveOverwriteConfirm);
+  document.getElementById('save-collision-cancel-btn')?.addEventListener('click', onSaveCollisionCancel);
+  document.getElementById('save-collision-rename-btn')?.addEventListener('click', onSaveCollisionRename);
+  document.getElementById('save-collision-overwrite-btn')?.addEventListener('click', onSaveCollisionOverwrite);
+  document.getElementById('suspend-impact-cancel-btn')?.addEventListener('click', cancelSuspendImpact);
+  document.getElementById('suspend-impact-apply-btn')?.addEventListener('click', applySuspendImpact);
+  document.getElementById('aspic-copy-btn')?.addEventListener('click', copyAspicToClipboard);
+}
+
+
 /* ── Bootstrap ────────────────────────────────────────── */
 
 document.addEventListener('DOMContentLoaded', async () => {
+  initBaseUI();
   initResize();
+  initModalAccessibility();
+  initWorkspaceUI();
   try {
     // Fetch config first so LLM-only DOM is hidden before first paint of
     // scenario content — avoids a flash of chat/save/add buttons on
     // servers that run with ABDA_ENABLE_LLM unset (the default).
-    const config = await apiGetConfig();
+    const [config, authSession, scenarios] = await Promise.all([
+      apiGetConfig(),
+      apiRequest('/api/auth/session'),
+      apiListScenarios(),
+    ]);
+    state.config = config;
+    state.authSession = authSession;
+    state.scenarios = scenarios;
+    initializeLLMAccess(config);
     document.body.classList.toggle('llm-disabled', !config.llm_enabled);
-    state.scenarios = await apiListScenarios();
     populateScenarioSelect();
-    // Pick a reasonable default: popov_v_hayashi if present, else the first.
-    const defaultId = state.scenarios.some(s => s.id === 'popov_v_hayashi')
-      ? 'popov_v_hayashi'
-      : state.scenarios[0]?.id;
-    if (defaultId) {
-      await loadScenario(defaultId);
+    renderAccountUI();
+    renderAISettings();
+    renderAccessSummary();
+
+    const authError = new URLSearchParams(window.location.search).get('auth_error');
+    if (authError) {
+      const messages = {
+        email_verification_required: 'Sign-in was not completed because the provider did not verify the email address.',
+        account_link_required: 'This email already belongs to another sign-in identity. Use the original sign-in method.',
+        account_unavailable: 'This account is not available. Contact the project team if this is unexpected.',
+        identity_claims_invalid: 'The sign-in provider returned an identity that this service could not verify.',
+      };
+      showGlobalStatus(
+        messages[authError] || 'Sign-in could not be completed. Please try again.',
+        'error',
+      );
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('auth_error');
+      window.history.replaceState({}, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
     }
+
+    const shareToken = new URLSearchParams(window.location.hash.slice(1)).get('share');
+    if (shareToken) {
+      await loadSharedProject(shareToken);
+    } else {
+      // Pick a reasonable default: popov_v_hayashi if present, else the first.
+      const defaultId = state.scenarios.some(s => s.id === 'popov_v_hayashi')
+        ? 'popov_v_hayashi'
+        : state.scenarios[0]?.id;
+      if (defaultId) await loadScenario(defaultId);
+    }
+    await refreshAuthenticatedWorkspace({ quiet: true });
   } catch (e) {
     showGlobalError(`Failed to initialize: ${e.message}`);
   }
@@ -134,6 +286,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 function populateScenarioSelect() {
   const sel = document.getElementById('scenario-select');
   sel.innerHTML = '';
+  if (state.activeProject) {
+    const current = document.createElement('option');
+    current.value = '__current_project__';
+    current.textContent = `Project: ${state.activeProject.name}`;
+    sel.appendChild(current);
+  } else if (state.sharedProject) {
+    const current = document.createElement('option');
+    current.value = '__shared_project__';
+    current.textContent = `Shared: ${state.sharedProject.name}`;
+    sel.appendChild(current);
+  }
   for (const s of state.scenarios) {
     const opt = document.createElement('option');
     opt.value = s.id;
@@ -144,7 +307,107 @@ function populateScenarioSelect() {
   // populateScenarioSelect() on every save to refresh the list, which
   // would stack a new handler each time. `onchange =` idempotently
   // replaces whatever was there.
-  sel.onchange = e => loadScenario(e.target.value);
+  sel.onchange = e => requestScenarioLoad(e.target.value);
+}
+
+function hasUnsavedChanges() {
+  return state.diff_ops.length > 0;
+}
+
+function requestScenarioLoad(id) {
+  if (id === '__current_project__' || id === '__shared_project__') return;
+  if (hasUnsavedChanges() && !window.confirm('Discard the unsaved changes in the current view?')) {
+    populateScenarioSelect();
+    return;
+  }
+  loadScenario(id);
+}
+
+function setViewContext(kind, project = null) {
+  const previousProjectId = state.activeProject?.id || null;
+  state.viewKind = kind;
+  state.activeProject = kind === 'project' ? project : null;
+  state.sharedProject = kind === 'shared' ? project : null;
+  state.readOnly = kind === 'shared';
+  if (kind !== 'project' || project?.id !== previousProjectId) {
+    state.activeShares = [];
+    state.sharesLoadedFor = null;
+    state.latestShare = null;
+  }
+  document.body.classList.toggle('shared-view', state.readOnly);
+
+  const indicator = document.getElementById('context-indicator');
+  indicator.classList.remove('context-project', 'context-shared');
+  if (kind === 'project') {
+    indicator.textContent = 'Private project';
+    indicator.classList.add('context-project');
+  } else if (kind === 'shared') {
+    indicator.textContent = 'Shared read-only';
+    indicator.classList.add('context-shared');
+  } else {
+    indicator.textContent = 'Example';
+  }
+  renderAccountUI();
+  const resetButton = document.getElementById('reset-btn');
+  if (resetButton) resetButton.disabled = state.readOnly;
+  const saveButton = document.getElementById('save-btn');
+  if (saveButton) saveButton.textContent = kind === 'project' ? 'Save changes' : 'Save project';
+  renderChatAccess();
+}
+
+async function loadProject(projectId) {
+  if (hasUnsavedChanges() && !window.confirm('Discard the unsaved changes in the current view?')) return;
+  setWorkspaceStatus('projects-status', 'Opening project...', 'info');
+  try {
+    const project = await apiRequest(`/api/projects/${encodeURIComponent(projectId)}`);
+    setViewContext('project', project);
+    state.scenario_id = project.source_scenario_id;
+    state.baseline = project.scenario;
+    state.bundle = { scenario: project.scenario, af: project.af };
+    state.diff_ops = [];
+    state.chatMessages = [];
+    resetViewFilters();
+    indexBundle();
+    populateScenarioSelect();
+    renderAll();
+    renderProjectsUI();
+    closeModal('modal-workspace');
+    showGlobalStatus(`Opened private project "${project.name}".`, 'success');
+  } catch (error) {
+    setWorkspaceStatus('projects-status', error.message, 'error');
+  }
+}
+
+async function loadSharedProject(token) {
+  if (!token || token.length > 256) throw new Error('This shared project link is invalid.');
+  const project = await apiRequest('/api/shares/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  setViewContext('shared', project);
+  state.scenario_id = null;
+  state.baseline = project.scenario;
+  state.bundle = { scenario: project.scenario, af: project.af };
+  state.diff_ops = [];
+  state.chatMessages = [];
+  resetViewFilters();
+  indexBundle();
+  populateScenarioSelect();
+  renderAll();
+  showGlobalStatus(`Viewing shared project "${project.name}" in read-only mode.`, 'info');
+}
+
+function resetViewFilters() {
+  state.conclusionFilter = 'key';
+  state.factsFilter = 'facts';
+  state.kbTab = 'all';
+  state.searchQuery = '';
+  const searchInput = document.getElementById('kb-search-input');
+  if (searchInput) searchInput.value = '';
+  document.querySelectorAll('.concl-filter').forEach(button => button.classList.toggle('active', button.dataset.filter === 'key'));
+  document.querySelectorAll('.facts-filter').forEach(button => button.classList.toggle('active', button.dataset.filter === 'facts'));
+  document.querySelectorAll('.kb-tab').forEach(button => button.classList.toggle('active', button.dataset.tab === 'all'));
 }
 
 
@@ -152,22 +415,15 @@ function populateScenarioSelect() {
 
 async function loadScenario(id) {
   const ctrl = beginRequest();
+  setViewContext('example');
   state.scenario_id = id;
   state.diff_ops = [];
   // Reset UI-local state that is only meaningful for the prior scenario
   // (tab selection, search query). Without this a user coming from the
   // Modified tab lands on an empty view for a pristine scenario and
   // thinks the UI is broken.
-  state.conclusionFilter = 'key';
-  state.factsFilter = 'facts';
-  state.kbTab = 'all';
-  state.searchQuery = '';
   state.chatMessages = [];
-  const searchInput = document.getElementById('kb-search-input');
-  if (searchInput) searchInput.value = '';
-  document.querySelectorAll('.concl-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === 'key'));
-  document.querySelectorAll('.facts-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === 'facts'));
-  document.querySelectorAll('.kb-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'all'));
+  resetViewFilters();
 
   try {
     const bundle = await apiPostState(id, [], ctrl.signal);
@@ -175,6 +431,7 @@ async function loadScenario(id) {
     state.baseline = bundle.scenario;
     setBundle(bundle);
     indexBundle();
+    populateScenarioSelect();
     document.getElementById('scenario-select').value = id;
     renderAll();
   } catch (e) {
@@ -209,6 +466,10 @@ async function applyOp(op) {
 // ops at once; applying them as a batch avoids two intermediate renders.
 async function applyOps(ops) {
   if (!ops || ops.length === 0) return;
+  if (state.readOnly) {
+    showGlobalStatus('Shared projects are read-only. Open an example or private project to make changes.', 'info');
+    return;
+  }
   const ctrl = beginRequest();
   const prevOps = state.diff_ops.slice();
   state.diff_ops = [...state.diff_ops, ...ops];
@@ -238,6 +499,12 @@ async function applyOps(ops) {
 let pendingSuspendImpact = null;
 
 async function previewAndConfirmToggle(op, meta) {
+  if (state.readOnly) {
+    renderFacts();
+    renderKB();
+    showGlobalStatus('Shared projects are read-only.', 'info');
+    return;
+  }
   const ctrl = beginRequest();
   const prospectiveOps = [...state.diff_ops, op];
   let projected;
@@ -260,7 +527,7 @@ async function previewAndConfirmToggle(op, meta) {
   document.getElementById('suspend-impact-title').textContent = meta.title;
   document.getElementById('suspend-impact-summary').innerHTML = meta.summary;
   document.getElementById('suspend-impact-list').innerHTML = renderImpactDiffs(diffs);
-  document.getElementById('modal-suspend-impact').classList.add('visible');
+  openModal('modal-suspend-impact', '#suspend-impact-apply-btn');
 }
 
 // Returns an array of { id, description, before, after } for every
@@ -409,6 +676,7 @@ function renderAll() {
   renderFacts();
   renderKB();
   renderChat();
+  if (state.authSession.authenticated) renderProjectsUI();
   // If the Explain modal is open, its derivation tree was built against
   // the pre-update state bundle; refresh it now so edits made through
   // the Conflicts view (or anywhere else) flow through immediately.
@@ -420,7 +688,10 @@ function renderAll() {
 
 function renderScenarioName() {
   const scn = state.bundle?.scenario;
-  document.getElementById('scenario-name').textContent = scn?.title || '';
+  const label = state.activeProject?.name || state.sharedProject?.name || scn?.title || '';
+  const element = document.getElementById('scenario-name');
+  element.textContent = label;
+  element.title = scn?.title && scn.title !== label ? `Scenario: ${scn.title}` : '';
 }
 
 function renderModifiedIndicator() {
@@ -433,7 +704,8 @@ function renderModifiedIndicator() {
     return;
   }
   indicator.hidden = false;
-  indicator.textContent = `Modified from baseline: ${count} ${count === 1 ? 'change' : 'changes'}`;
+  const prefix = state.activeProject ? 'Unsaved' : 'Modified from baseline';
+  indicator.textContent = `${prefix}: ${count} ${count === 1 ? 'change' : 'changes'}`;
 }
 
 function renderConclusions() {
@@ -481,7 +753,7 @@ function renderConclusions() {
       <span class="conclusion-label">${escapeHtml(entry.description)}</span>
       <div class="conclusion-actions">
         ${explain}
-        <span class="rule-info" data-desc="${escapeAttr(entry.description)}" title="Ask about this conclusion">?</span>
+        <button type="button" class="rule-info" data-desc="${escapeAttr(entry.description)}" title="Ask about this conclusion" aria-label="Ask AI about ${escapeAttr(entry.description)}">?</button>
       </div>
     </div>`;
   }).join('');
@@ -651,8 +923,8 @@ function renderFactLikeCard(id, entry, kind) {
     return `<div class="${cls}">
       ${text}
       ${badge}
-      <span class="rule-info" data-desc="${desc}" title="${info}">?</span>
-      <input type="checkbox" ${active ? 'checked' : ''} data-asm-id="${escapeAttr(id)}" title="Active -- uncheck to deactivate this assumption">
+      <button type="button" class="rule-info" data-desc="${desc}" title="${info}" aria-label="Ask AI about this ${kind}: ${desc}">?</button>
+      <input type="checkbox" ${active ? 'checked' : ''} ${state.readOnly ? 'disabled' : ''} data-asm-id="${escapeAttr(id)}" aria-label="${active ? 'Suspend' : 'Unsuspend'} assumption ${desc}" title="Active -- uncheck to deactivate this assumption">
     </div>`;
   }
   const divergent = isFactModified(id);
@@ -660,7 +932,7 @@ function renderFactLikeCard(id, entry, kind) {
   return `<div class="${cls}">
     ${text}
     ${badge}
-    <span class="rule-info" data-desc="${desc}" title="${info}">?</span>
+    <button type="button" class="rule-info" data-desc="${desc}" title="${info}" aria-label="Ask AI about this ${kind}: ${desc}">?</button>
   </div>`;
 }
 
@@ -848,7 +1120,7 @@ function renderConflictCard(conflict, kind) {
   const dataAttrs = `data-a-id="${escapeAttr(a.id)}" data-a-target="${escapeAttr(a.target)}" data-b-id="${escapeAttr(b.id)}" data-b-target="${escapeAttr(b.target)}" data-conflict-op="${kind}"`;
   const radio = (value, label, checked) => `
     <label class="pref-option">
-      <input type="radio" name="${cardId}" value="${value}" ${checked ? 'checked' : ''} ${dataAttrs}/>
+      <input type="radio" name="${cardId}" value="${value}" ${checked ? 'checked' : ''} ${state.readOnly ? 'disabled' : ''} ${dataAttrs}/>
       <span>${label}</span>
     </label>`;
   const aTag = `<span class="inline-id">[${escapeHtml(a.id)}]</span>`;
@@ -947,20 +1219,20 @@ function renderRuleCard(id, rule) {
     : `${connective} ${conclusionLit}`;
 
   const checkbox = rule.type === 'defeasible'
-    ? `<input type="checkbox" class="rule-active-toggle" data-rule-id="${escapeAttr(id)}" ${inactive ? '' : 'checked'} title="Active -- uncheck to deactivate this rule">`
+    ? `<input type="checkbox" class="rule-active-toggle" data-rule-id="${escapeAttr(id)}" ${inactive ? '' : 'checked'} ${state.readOnly ? 'disabled' : ''} aria-label="${inactive ? 'Unsuspend' : 'Suspend'} rule ${escapeAttr(id)}" title="Active -- uncheck to deactivate this rule">`
     : '';
   const info = rule.source ? escapeAttr(rule.source) : 'Ask about this rule';
   const idInline = `<span class="inline-id">[${escapeHtml(id)}]</span>`;
 
   const badge = state.compactView ? categoryBadge(rule.category) : '';
-  const editBtn = `<button class="btn btn-small btn-rule-modify llm-only" data-edit-rule-id="${escapeAttr(id)}" title="Modify this rule via natural-language instruction">Modify</button>`;
+  const editBtn = state.readOnly ? '' : `<button class="btn btn-small btn-rule-modify llm-only" data-edit-rule-id="${escapeAttr(id)}" title="Modify this rule via natural-language instruction">Modify</button>`;
   return `<div class="${cls}">
     <div class="rule-body">
       <div class="rule-text">${body} ${idInline}</div>
     </div>
     <div class="rule-actions">
       ${badge}
-      <span class="rule-info" data-desc="${escapeAttr(plainBody)}" title="${info}">?</span>
+      <button type="button" class="rule-info" data-desc="${escapeAttr(plainBody)}" title="${info}" aria-label="Ask AI about rule ${escapeAttr(id)}">?</button>
       ${editBtn}
       ${checkbox}
     </div>
@@ -995,57 +1267,115 @@ function filterKB(q) {
 /* ── Chat ─────────────────────────────────────────────── */
 
 async function apiPostChat(scenario_id, diff_ops, messages, signal) {
-  const r = await fetch('/chat', {
+  const project = state.activeProject;
+  const path = project ? `/api/projects/${encodeURIComponent(project.id)}/chat` : '/chat';
+  const payload = project
+    ? { expected_version: project.version, diff_ops, messages, llm: currentLLMOptions() }
+    : { scenario_id, diff_ops, messages, llm: currentLLMOptions() };
+  const r = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scenario_id, diff_ops, messages }),
+    body: JSON.stringify(payload),
     signal,
   });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const msg = body?.detail || body?.errors?.[0]?.message || `POST /chat: ${r.status}`;
+    const msg = apiErrorMessage(body, `POST ${path}: ${r.status}`);
     const err = new Error(msg);
     err.status = r.status;
+    err.code = body?.detail?.code || body?.errors?.[0]?.code || null;
     throw err;
   }
   return body;
 }
 
+function appendAssistantMarkdown(bubble, content) {
+  const text = String(content ?? '');
+  if (typeof window.marked !== 'undefined' && typeof window.DOMPurify !== 'undefined') {
+    try {
+      const fragment = window.DOMPurify.sanitize(
+        window.marked.parse(text, { breaks: true, gfm: true }),
+        {
+          ALLOWED_ATTR: CHAT_MARKDOWN_ALLOWED_ATTR,
+          ALLOWED_TAGS: CHAT_MARKDOWN_ALLOWED_TAGS,
+          RETURN_DOM_FRAGMENT: true,
+        }
+      );
+      fragment.querySelectorAll('a[href]').forEach(anchor => {
+        anchor.setAttribute('rel', 'nofollow noopener noreferrer');
+        anchor.setAttribute('referrerpolicy', 'no-referrer');
+      });
+      bubble.append(fragment);
+      return;
+    } catch {
+      // A parser or sanitizer failure must degrade to inert text.
+    }
+  }
+  bubble.classList.add('chat-bubble-plain');
+  bubble.textContent = text;
+}
+
 function renderChat() {
   const container = document.getElementById('chat-messages');
   if (!container) return;
+  container.replaceChildren();
   if (state.chatMessages.length === 0 && !state.chatPending) {
-    container.innerHTML = `<div class="chat-empty">Ask a question about this scenario. Try clicking a <span class="rule-info-demo">?</span> next to any item to start.</div>`;
+    const empty = document.createElement('div');
+    empty.className = 'chat-empty';
+    empty.append('Ask a question about this scenario. Try clicking a ');
+    const example = document.createElement('span');
+    example.className = 'rule-info-demo';
+    example.textContent = '?';
+    empty.append(example, ' next to any item to start.');
+    container.append(empty);
+    renderChatAccess();
     return;
   }
-  const parts = state.chatMessages.map(m => {
+  state.chatMessages.forEach(m => {
+    const message = document.createElement('div');
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
     if (m.role === 'user') {
-      return `<div class="chat-msg chat-msg-user"><div class="chat-bubble">${escapeHtml(m.content)}</div></div>`;
-    }
-    // Assistant: render markdown, then sanitize. If either library is missing
-    // (CDN unreachable), fall back to escaped plain text with line-breaks.
-    let html;
-    if (typeof window.marked !== 'undefined' && typeof window.DOMPurify !== 'undefined') {
-      html = window.DOMPurify.sanitize(
-        window.marked.parse(m.content, { breaks: true, gfm: true })
-      );
+      message.className = 'chat-msg chat-msg-user';
+      bubble.textContent = String(m.content ?? '');
     } else {
-      html = escapeHtml(m.content).replace(/\n/g, '<br>');
+      message.className = 'chat-msg chat-msg-assistant';
+      appendAssistantMarkdown(bubble, m.content);
+      if (m.meta) {
+        const meta = document.createElement('div');
+        meta.className = 'chat-response-meta';
+        meta.textContent = String(m.meta);
+        bubble.append(meta);
+      }
     }
-    return `<div class="chat-msg chat-msg-assistant"><div class="chat-bubble">${html}</div></div>`;
+    message.append(bubble);
+    container.append(message);
   });
   if (state.chatPending) {
-    parts.push(
-      `<div class="chat-msg chat-msg-assistant chat-msg-loading">` +
-      `<div class="chat-bubble"><span class="chat-dot"></span><span class="chat-dot"></span><span class="chat-dot"></span></div></div>`
-    );
+    const pending = document.createElement('div');
+    const bubble = document.createElement('div');
+    pending.className = 'chat-msg chat-msg-assistant chat-msg-loading';
+    bubble.className = 'chat-bubble';
+    for (let index = 0; index < 3; index += 1) {
+      const dot = document.createElement('span');
+      dot.className = 'chat-dot';
+      bubble.append(dot);
+    }
+    pending.append(bubble);
+    container.append(pending);
   }
-  container.innerHTML = parts.join('');
   container.scrollTop = container.scrollHeight;
+  renderChatAccess();
 }
 
 async function sendChatMessage(prefilledText) {
   if (state.chatPending) return;
+  const accessIssue = llmAccessIssue();
+  if (accessIssue) {
+    openWorkspace(accessIssue.tab);
+    showGlobalStatus(accessIssue.message, 'info');
+    return;
+  }
   const input = document.getElementById('chat-input');
   let text;
   if (typeof prefilledText === 'string') {
@@ -1062,11 +1392,22 @@ async function sendChatMessage(prefilledText) {
 
   // Trim history to the last CHAT_TURN_CAP messages before POSTing. The
   // backend enforces its own cap; this just keeps the wire small.
-  const messages = state.chatMessages.slice(-CHAT_TURN_CAP);
+  const messages = state.chatMessages
+    .slice(-CHAT_TURN_CAP)
+    .map(message => ({ role: message.role, content: message.content }));
 
   try {
     const resp = await apiPostChat(state.scenario_id, state.diff_ops, messages);
-    state.chatMessages.push({ role: 'assistant', content: resp.message });
+    const source = resp.billing_source === 'byok' ? 'Own key' : 'Funded';
+    const cost = resp.cost_microusd > 0 ? `, ${formatUSD(resp.cost_microusd)}` : '';
+    state.chatMessages.push({
+      role: 'assistant',
+      content: resp.message,
+      meta: `${source}, ${resp.model}${cost}, ${resp.latency_ms} ms`,
+    });
+    if (state.llmAccess.mode === 'funded' && state.authSession.authenticated) {
+      refreshTrialBalanceQuietly();
+    }
   } catch (e) {
     state.chatMessages.push({
       role: 'assistant',
@@ -1080,9 +1421,7 @@ async function sendChatMessage(prefilledText) {
 
 // Delegated click handler: any `.rule-info[data-desc]` anywhere in the left
 // panel pre-fills a chat question using the item's NL description and
-// auto-submits. Silent no-op when LLM mode is disabled (body.llm-disabled
-// already hides the right panel, but the `?` spans remain clickable if a
-// user somehow reaches them — a no-op is safer than a failed POST).
+// auto-submits. The controls are hidden when LLM mode is disabled.
 document.addEventListener('click', (e) => {
   const target = e.target.closest('.rule-info');
   if (!target) return;
@@ -1122,8 +1461,7 @@ function escapeHtml(s) {
 }
 
 function escapeAttr(s) {
-  // Attributes only need quote escaping; keep & intact for entity round-tripping.
-  return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return escapeHtml(s);
 }
 
 
@@ -1282,7 +1620,7 @@ let afScope = 'key';
 
 function openAFModal() {
   renderAFView();
-  document.getElementById('modal-af').classList.add('visible');
+  openModal('modal-af', '.modal-close');
   // Fit the graph to the available viewport once the modal is painted.
   // computeAFFit() needs non-zero clientWidth/Height on the scroll
   // container, which is only true after the modal becomes visible and
@@ -1917,18 +2255,21 @@ function openExplainModal(conclusionId) {
       gameRootId = root.id;
       gameFocusId = root.id;
       renderGame();
-      document.getElementById('modal-game').classList.add('visible');
+      openModal('modal-game', '.modal-close');
       return;
     }
   }
 
   renderArgumentPicker();
-  document.getElementById('modal-game').classList.add('visible');
+  openModal('modal-game', '.modal-close');
 }
 
 function closeModal(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.remove('visible');
+  if (!el) return;
+  el.classList.remove('visible');
+  el.setAttribute('aria-hidden', 'true');
+  if (typeof restoreModalFocus === 'function') restoreModalFocus(id);
 }
 
 // --- Edit modal: Propose / Refine / Apply for add-rule, modify-rule, add-fact, add-assumption ---
@@ -1942,6 +2283,16 @@ const editState = {
 };
 
 function openEditModal(task, existingId = null) {
+  if (state.readOnly) {
+    showGlobalStatus('Shared projects are read-only.', 'info');
+    return;
+  }
+  const accessIssue = llmAccessIssue();
+  if (accessIssue) {
+    openWorkspace(accessIssue.tab || 'ai');
+    showGlobalStatus(accessIssue.message, 'info');
+    return;
+  }
   editState.task = task;
   editState.existingId = existingId;
   editState.lastProposal = null;
@@ -1987,7 +2338,7 @@ function openEditModal(task, existingId = null) {
   document.getElementById('edit-preview').innerHTML = '';
   _renderEditFooter();
 
-  document.getElementById('modal-edit').classList.add('visible');
+  openModal('modal-edit', '#edit-instruction');
   setTimeout(() => ta.focus(), 0);
 }
 
@@ -1996,7 +2347,7 @@ function closeEditModal() {
   editState.existingId = null;
   editState.lastProposal = null;
   editState.inFlight = false;
-  document.getElementById('modal-edit').classList.remove('visible');
+  closeModal('modal-edit');
 }
 
 async function sendPropose() {
@@ -2014,16 +2365,21 @@ async function sendPropose() {
   document.getElementById('edit-preview').innerHTML = '';
   _renderEditFooter();
 
-  const payload = {
-    scenario_id: state.scenario_id,
+  const common = {
     diff_ops: state.diff_ops,
     task: editState.task,
     instruction,
+    llm: currentLLMOptions(),
   };
+  const project = state.activeProject;
+  const path = project ? `/api/projects/${encodeURIComponent(project.id)}/propose` : '/propose';
+  const payload = project
+    ? { ...common, expected_version: project.version }
+    : { ...common, scenario_id: state.scenario_id };
   if (editState.task === 'modify-rule') payload.existing_id = editState.existingId;
 
   try {
-    const r = await fetch('/propose', {
+    const r = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -2036,6 +2392,9 @@ async function sendPropose() {
     editState.lastProposal = body;
     _renderProposal(body);
     _setEditStatus('ok', `Proposed in ${body.latency_ms} ms${body.proposer_attempts > 1 ? ` (${body.proposer_attempts} attempts)` : ''}.`);
+    if (state.llmAccess.mode === 'funded' && state.authSession.authenticated) {
+      refreshTrialBalanceQuietly();
+    }
   } catch (e) {
     _setEditStatus('error', `Network error: ${e.message}`);
   } finally {
@@ -2076,15 +2435,15 @@ function _renderEditFooter() {
   const hasProposal = !!editState.lastProposal?.op;
   if (hasProposal) {
     footer.innerHTML = `
-      <button class="btn" onclick="closeEditModal()">Cancel</button>
-      <button class="btn" onclick="refineProposal()">Refine</button>
-      <button class="btn btn-primary" onclick="applyProposal()">Apply</button>
+      <button class="btn" data-edit-action="cancel">Cancel</button>
+      <button class="btn" data-edit-action="refine">Refine</button>
+      <button class="btn btn-primary" data-edit-action="apply">Apply</button>
     `;
   } else {
     const busy = editState.inFlight;
     footer.innerHTML = `
-      <button class="btn" onclick="closeEditModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="sendPropose()" ${busy ? 'disabled' : ''}>${busy ? 'Proposing…' : 'Propose'}</button>
+      <button class="btn" data-edit-action="cancel">Cancel</button>
+      <button class="btn btn-primary" data-edit-action="propose" ${busy ? 'disabled' : ''}>${busy ? 'Proposing…' : 'Propose'}</button>
     `;
   }
 }
@@ -2257,7 +2616,7 @@ function openSaveModal() {
   _setSaveSubmitLabel('Save');
   _setSaveStatus('', '');
   _setSaveSubmitEnabled(true);
-  document.getElementById('modal-save').classList.add('visible');
+  openModal('modal-save', '#save-title');
   titleInput.focus();
 }
 
@@ -2320,7 +2679,7 @@ async function submitSave(overwrite) {
   // the user's intent to replace the current scenario. Route through an
   // explicit confirm modal before actually sending the request.
   if (saveState.overwriteSource && !overwrite) {
-    document.getElementById('modal-save-overwrite-confirm').classList.add('visible');
+    openModal('modal-save-overwrite-confirm', '.modal-footer .btn-primary');
     return;
   }
 
@@ -2357,7 +2716,7 @@ async function submitSave(overwrite) {
 function _showSaveCollisionModal(save_as_id) {
   document.getElementById('save-collision-body').textContent =
     `A scenario with id "${save_as_id}" already exists. Overwrite it, or go back and rename?`;
-  document.getElementById('modal-save-collision').classList.add('visible');
+  openModal('modal-save-collision', '.modal-footer .btn');
 }
 
 function onSaveCollisionOverwrite() {
@@ -2368,7 +2727,7 @@ function onSaveCollisionOverwrite() {
 function onSaveCollisionRename() {
   closeModal('modal-save-collision');
   // Re-open the save modal; inputs still hold the user's values.
-  document.getElementById('modal-save').classList.add('visible');
+  openModal('modal-save', '#save-id');
   // Mark id as edited so auto-slug doesn't clobber the user's choice.
   saveState.idEdited = true;
   document.getElementById('save-id').focus();
@@ -2388,7 +2747,7 @@ function onSaveCollisionCancel() {
   // attempt didn't go through, rather than ending up on an unchanged main
   // screen with no feedback.
   closeModal('modal-save-collision');
-  document.getElementById('modal-save').classList.add('visible');
+  openModal('modal-save', '#save-id');
   saveState.idEdited = true;
   _setSaveStatus('info', 'Save canceled. Pick a different id, or close this dialog to abandon.');
 }
@@ -2421,7 +2780,7 @@ function openAspicModal() {
   const btn = document.getElementById('aspic-copy-btn');
   btn.textContent = 'Copy';
   btn.classList.remove('copied');
-  document.getElementById('modal-aspic').classList.add('visible');
+  openModal('modal-aspic', '#aspic-copy-btn');
 }
 
 function buildAspicText(scn) {
@@ -2639,10 +2998,10 @@ function renderPickerCard(arg) {
     // Fallback for bodyless rules (fact / assumption): render the top rule id only.
     ruleLine = `<span class="inline-id">[${escapeHtml(arg.top_rule)}]</span> ${escapeHtml(arg.conclusion_nl)}`;
   }
-  return `<div class="game-picker-card" data-arg-id="${escapeAttr(arg.id)}">
-    <div class="game-picker-rule">${ruleLine}</div>
-    <div class="game-picker-meta">Derivation ${escapeHtml(arg.id)}</div>
-  </div>`;
+  return `<button type="button" class="game-picker-card" data-arg-id="${escapeAttr(arg.id)}">
+    <span class="game-picker-rule">${ruleLine}</span>
+    <span class="game-picker-meta">Derivation ${escapeHtml(arg.id)}</span>
+  </button>`;
 }
 
 function renderRuleText(ruleId, rule) {
@@ -2764,7 +3123,7 @@ function renderMinimap() {
     dots += `<circle cx="${p.x}" cy="${p.y}" r="${radius}" fill="${fillFor(node)}" stroke="${stroke}" stroke-width="${sw}" data-minimap-focus-id="${escapeAttr(r.id)}" style="cursor:pointer"></circle>`;
   }
 
-  return `<div class="game-minimap" aria-label="Game tree minimap">
+  return `<div class="game-minimap" aria-hidden="true">
     <div class="game-minimap-header">Tree</div>
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
       ${edges}
@@ -2871,7 +3230,7 @@ function renderGameNode(node) {
     const label = node.collapsed
       ? `▸ Expand (${countDescendants(node)} hidden)`
       : `▾ Collapse`;
-    caretBtn = `<button class="game-topbar-caret" data-toggle-collapse-id="${escapeAttr(node.id)}">${label}</button>`;
+    caretBtn = `<button type="button" class="game-topbar-caret" data-toggle-collapse-id="${escapeAttr(node.id)}" aria-expanded="${node.collapsed ? 'false' : 'true'}">${label}</button>`;
   }
 
   let resBadge = '', resReason = '';
@@ -2884,8 +3243,9 @@ function renderGameNode(node) {
   const hasMoves = (node.type === 'htb' && getGameCBs(node).length > 0) ||
                    (node.type === 'cb'  && getGameHTBs(node).length > 0);
   const clickable = !node.resolution || hasMoves;
-  const clickAttr = clickable ? ` data-focus-id="${escapeAttr(node.id)}"` : '';
-  const cursor = clickable ? ' style="cursor:pointer"' : '';
+  const focusControl = clickable
+    ? `<button type="button" class="game-node-focus" data-focus-id="${escapeAttr(node.id)}" aria-pressed="${isFocus ? 'true' : 'false'}">${moveLabel}</button>`
+    : `<span>${moveLabel}</span>`;
 
   const ruleText = (() => {
     const rule = state.bundle.scenario.rules?.[arg.top_rule];
@@ -2913,9 +3273,9 @@ function renderGameNode(node) {
   if (supports.length > 0) {
     const sid = 'support-' + node.id;
     supportHtml = `<div class="game-supports">
-      <div class="game-supports-toggle" data-supports-id="${sid}">
+      <button type="button" class="game-supports-toggle" data-supports-id="${sid}" aria-controls="${sid}" aria-expanded="false">
         <span class="game-supports-arrow" id="arrow-${sid}">▶</span> Premises and subarguments:
-      </div>
+      </button>
       <div class="game-supports-list" id="${sid}" style="display:none">
         ${supports.map(s => `<div class="game-support-card">
           <div class="game-support-label">${escapeHtml(s.label)}</div>
@@ -2932,8 +3292,8 @@ function renderGameNode(node) {
   }
 
   let html = `<div class="game-node${resClass}${activeClass}" id="gnode-${node.id}">
-    <div class="game-node-inner"${clickAttr}${cursor}>
-      <div class="game-node-topbar ${barClass}"><span>${moveLabel}</span>${caretBtn}</div>
+    <div class="game-node-inner">
+      <div class="game-node-topbar ${barClass}">${focusControl}${caretBtn}</div>
       <div class="game-node-content">
         ${attackInfoHtml}
         <div class="game-node-claim">${escapeHtml(arg.conclusion_nl)}</div>
@@ -3122,9 +3482,9 @@ function renderGameMoves() {
       <div class="game-moves-header">Other open branches:</div>
       ${otherOpen.map(n => {
         const action = n.type === 'htb' ? 'Challenge' : 'Defend';
-        return `<div class="game-move-card game-move-other" data-focus-id="${escapeAttr(n.id)}">
-          <div class="game-move-label"><em>${action}:</em> ${byId(n.argId)}</div>
-        </div>`;
+        return `<button type="button" class="game-move-card game-move-other" data-focus-id="${escapeAttr(n.id)}">
+          <span class="game-move-label"><em>${action}:</em> ${byId(n.argId)}</span>
+        </button>`;
       }).join('')}
     </div>`;
   };
@@ -3135,10 +3495,10 @@ function renderGameMoves() {
       const cyc = getGameCycleAttackers(node);
       if (cyc.length > 0) {
         panel.innerHTML = '<div class="game-moves-header">Cycle detected</div><div class="game-moves-empty">The following challenge creates a cycle.</div>' +
-          cyc.map(a => `<div class="game-move-card" data-cycle-cb="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
-            <div class="game-move-type game-bar-cycle">↺</div>
-            <div class="game-move-label">${byId(a)} <em class="game-node-dim">(cycle)</em></div>
-          </div>`).join('') +
+          cyc.map(a => `<button type="button" class="game-move-card" data-cycle-cb="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
+            <span class="game-move-type game-bar-cycle">↺</span>
+            <span class="game-move-label">${byId(a)} <em class="game-node-dim">(cycle)</em></span>
+          </button>`).join('') +
           otherOpenHtml();
         wireMoveCardHandlers(panel);
         return;
@@ -3165,20 +3525,20 @@ function renderGameMoves() {
       return;
     }
     panel.innerHTML = '<div class="game-moves-header">Challenge this claim:</div>' +
-      cbs.map(a => `<div class="game-move-card" data-move="cb" data-arg="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
-        <div class="game-move-type game-bar-cb">Can be the case that:</div>
-        <div class="game-move-label">${byId(a)}</div>
-      </div>`).join('');
+      cbs.map(a => `<button type="button" class="game-move-card" data-move="cb" data-arg="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
+        <span class="game-move-type game-bar-cb">Can be the case that:</span>
+        <span class="game-move-label">${byId(a)}</span>
+      </button>`).join('');
   } else {
     const htbs = getGameHTBs(node);
     if (htbs.length === 0) {
       const cyc = getGameCycleAttackers(node);
       if (cyc.length > 0) {
         panel.innerHTML = '<div class="game-moves-header">Cycle detected</div><div class="game-moves-empty">The following defense creates a cycle.</div>' +
-          cyc.map(a => `<div class="game-move-card" data-cycle-htb="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
-            <div class="game-move-type game-bar-cycle">↺</div>
-            <div class="game-move-label">${byId(a)} <em class="game-node-dim">(cycle)</em></div>
-          </div>`).join('') +
+          cyc.map(a => `<button type="button" class="game-move-card" data-cycle-htb="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
+            <span class="game-move-type game-bar-cycle">↺</span>
+            <span class="game-move-label">${byId(a)} <em class="game-node-dim">(cycle)</em></span>
+          </button>`).join('') +
           otherOpenHtml();
         wireMoveCardHandlers(panel);
         return;
@@ -3205,10 +3565,10 @@ function renderGameMoves() {
       return;
     }
     panel.innerHTML = '<div class="game-moves-header">Defend against this challenge:</div>' +
-      htbs.map(a => `<div class="game-move-card" data-move="htb" data-arg="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
-        <div class="game-move-type game-bar-htb">Has to be the case:</div>
-        <div class="game-move-label">${byId(a)}</div>
-      </div>`).join('');
+      htbs.map(a => `<button type="button" class="game-move-card" data-move="htb" data-arg="${escapeAttr(a)}" data-parent="${escapeAttr(node.id)}">
+        <span class="game-move-type game-bar-htb">Has to be the case:</span>
+        <span class="game-move-label">${byId(a)}</span>
+      </button>`).join('');
   }
 
   panel.innerHTML += otherOpenHtml();
@@ -3255,7 +3615,7 @@ function bindGameTreeHandlers(root) {
   for (const el of root.querySelectorAll('[data-minimap-focus-id]')) {
     el.addEventListener('click', e => { e.stopPropagation(); setGameFocus(el.dataset.minimapFocusId); });
   }
-  for (const el of root.querySelectorAll('.game-node-inner[data-focus-id]')) {
+  for (const el of root.querySelectorAll('.game-node-focus[data-focus-id]')) {
     el.addEventListener('click', () => setGameFocus(el.dataset.focusId));
   }
 }
@@ -3270,8 +3630,16 @@ function toggleSupports(id) {
   const el = document.getElementById(id);
   const arrow = document.getElementById('arrow-' + id);
   if (!el || !arrow) return;
-  if (el.style.display === 'none') { el.style.display = ''; arrow.textContent = '▼'; }
-  else { el.style.display = 'none'; arrow.textContent = '▶'; }
+  const button = document.querySelector(`[data-supports-id="${CSS.escape(id)}"]`);
+  if (el.style.display === 'none') {
+    el.style.display = '';
+    arrow.textContent = '▼';
+    button?.setAttribute('aria-expanded', 'true');
+  } else {
+    el.style.display = 'none';
+    arrow.textContent = '▶';
+    button?.setAttribute('aria-expanded', 'false');
+  }
 }
 
 // --- Move helpers ----------------------------------------------------

@@ -44,7 +44,7 @@ def make_llm_client(
 
     `model` overrides the client's default model. For Ollama this
     means a tag like `llama3.1:8b` or `gemma3n:e4b`; for Claude it
-    means a Claude model id like `claude-sonnet-5`. When None, the
+    means a Claude model id like `claude-sonnet-4-6`. When None, the
     client's own env-var / default resolution applies.
     """
     chosen = (backend or resolve_backend()).lower()

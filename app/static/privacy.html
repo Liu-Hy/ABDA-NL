@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy notice | ABDA-NL</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="policy-page">
+  <a class="skip-link" href="#policy-content">Skip to privacy notice</a>
+  <header class="policy-header">
+    <div class="policy-header-inner">
+      <a class="policy-brand" href="/">ABDA-NL <span class="app-lab">iDAKS Lab</span></a>
+      <nav class="policy-nav" aria-label="Service information">
+        <a href="/">Explorer</a>
+        <a aria-current="page" href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
+    </div>
+  </header>
+  <main class="policy-main" id="policy-content">
+    <h1>Privacy notice</h1>
+    <p class="policy-updated">Last updated August 17, 2026</p>
+
+    <p>ABDA-NL is an academic research service operated by the iDAKS Lab at the University of Illinois Urbana-Champaign School of Information Sciences. This notice describes the data practices of this service.</p>
+
+    <h2>What you can do anonymously</h2>
+    <p>You can open bundled examples, inspect computed arguments, and make deterministic changes without registering. The application uses short-lived, pseudonymous rate-limit counters and operational request metadata to keep the service reliable. The application does not store the raw network address in its rate-limit table.</p>
+
+    <h2>Information stored for registered users</h2>
+    <ul>
+      <li>Your verified email address, optional display name, identity-provider issuer and subject, and login timestamps.</li>
+      <li>Private project names, descriptions, scenario contents, versions, and timestamps.</li>
+      <li>Trial activation, model route, token counts, cost, latency, status, and request identifiers. Model prompts and responses are not stored in usage records.</li>
+      <li>Digests and metadata for share links and MCP credentials. The service does not retain recoverable copies of those bearer secrets.</li>
+    </ul>
+
+    <h2>Model-provider processing</h2>
+    <p>When you use an AI feature, the current scenario and your instruction or question are sent to the selected model provider. Funded access normally uses Microsoft Azure Foundry through CloudBank. During a qualifying service outage, it may use the displayed OpenRouter fallback. If you bring your own key, the request is sent to the provider and model you select.</p>
+    <p>Every OpenRouter request asks for only endpoints that OpenRouter marks as Zero Data Retention and as not collecting user data. OpenRouter may still retain operational metadata such as timestamps, model names, and token counts. Availability depends on a compatible privacy-preserving endpoint being online.</p>
+    <p class="policy-callout">Do not submit confidential information, sensitive personal information, unpublished restricted data, or material that you are not authorized to send to the selected provider.</p>
+    <p>A bring-your-own key is held in memory for the current browser tab, sent with the model request, and not saved in browser storage, a cookie, a project, a share link, the application database, or an application log. Model providers process requests under their own terms and privacy notices.</p>
+
+    <h2>Cookies and security logs</h2>
+    <p>The service uses a signed, secure session cookie after login. It does not use advertising cookies. Managed hosting, identity, database, and model services may create security, billing, and availability logs. Application request logs use normalized route names and do not record query strings.</p>
+
+    <h2>Retention and deletion</h2>
+    <p>Account and project records persist while the research service is operating or while needed for security, budget reconciliation, and research integrity. Deleting a project in the interface archives it. Short-lived rate-limit records expire automatically. Operational backups may retain deleted material for a limited recovery period.</p>
+    <p>To request access, correction, or deletion, open an issue in the <a href="https://github.com/idaks/ABDA-NL/issues">ABDA-NL repository</a> without including personal or secret information, and ask the project team to arrange a private contact channel.</p>
+
+    <h2>Changes to this notice</h2>
+    <p>Material changes will be posted here with a revised date. This research service may also publish a release note when a change affects model routing or stored user data.</p>
+  </main>
+  <footer class="policy-footer">ABDA-NL, iDAKS Lab, School of Information Sciences, University of Illinois Urbana-Champaign.</footer>
+</body>
+</html>

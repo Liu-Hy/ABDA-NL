@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from app.llm.chat_service import build_scenario_block, build_state_block
+from app.llm.chat_service import build_edit_state_block, build_scenario_block
 from app.llm.client import LLMClient, ToolCallResponse
 from app.llm.corpus import build_corpus_block
 from app.llm.edit_schemas import (
@@ -112,6 +112,10 @@ class ProposeResult:
     stop_reason: str
     usage: dict[str, int]  # summed across all LLM calls
     latency_ms: int        # summed across all LLM calls
+    provider: str = "unknown"
+    billing_source: str = "unknown"
+    route: str = "unknown"
+    cost_microusd: int = 0
     # Number of Proposer attempts the Validator required (1 = no retry).
     proposer_attempts: int = 1
     # True if the LLM Reviewer was called on this op (False for trivial
@@ -129,6 +133,11 @@ class ReviewResult:
     issues: list[ReviewIssue]
     usage: dict[str, int]
     latency_ms: int
+    model: str
+    provider: str
+    billing_source: str
+    route: str
+    cost_microusd: int
 
 
 # --- Prompt builders -------------------------------------------------------
@@ -150,7 +159,7 @@ def build_proposer_system_prompt(
         "proposer_system",
         scenario_block=build_scenario_block(scenario),
         corpus_block=corpus_block,
-        state_block=build_state_block(scenario, af, diff_ops),
+        state_block=build_edit_state_block(scenario, af, diff_ops),
     )
 
 
@@ -172,7 +181,7 @@ def build_reviewer_system_prompt(
         "reviewer_system",
         scenario_block=build_scenario_block(scenario),
         corpus_block=corpus_block,
-        state_block=build_state_block(scenario, af, diff_ops),
+        state_block=build_edit_state_block(scenario, af, diff_ops),
         user_instruction=user_instruction.strip(),
         proposed_edit=pretty_op_for_review(proposed_edit),
     )
@@ -308,6 +317,106 @@ def pretty_op_for_review(op: dict[str, Any]) -> str:
     return json.dumps(op, indent=2, sort_keys=True)
 
 
+_VALIDATOR_TERRITORY_PHRASES = (
+    "undeclared",
+    "not declared",
+    "does not list",
+    "not listed",
+    "unknown premise",
+    "unknown literal",
+    "does not exist in the scenario",
+    "reference integrity",
+    "specific existing atom",
+    "matches the scenario vocabulary",
+)
+
+
+def _is_validator_territory_review(message: str) -> bool:
+    normalized = message.casefold()
+    return any(phrase in normalized for phrase in _VALIDATOR_TERRITORY_PHRASES)
+
+
+def _is_reviewer_nonissue(
+    severity: str,
+    message: str,
+    scenario: Any,
+    proposed_edit: dict[str, Any],
+    user_instruction: str,
+) -> bool:
+    normalized = message.casefold()
+    instruction = user_instruction.casefold()
+    if (
+        "still a faithful formalization" in normalized
+        or "faithfully formalizes" in normalized
+    ):
+        return True
+    if (
+        "introduces a new support path" in normalized
+        and "add" in instruction
+        and "rule" in instruction
+    ):
+        return True
+    if severity != "note":
+        return False
+    if (
+        "no further structural issues" in normalized
+        or "no structural issues are apparent" in normalized
+        or "no further issues are apparent" in normalized
+    ):
+        return True
+    if "not a duplicate" in normalized or "does not look like a bridging" in normalized:
+        return True
+    category_note = (
+        "category" in normalized
+        and (
+            "user did not specify" in normalized
+            or "invented label" in normalized
+            or "invented category" in normalized
+        )
+    )
+    if not category_note:
+        return False
+    proposed_rule = proposed_edit.get("rule")
+    category = proposed_rule.get("category") if isinstance(proposed_rule, dict) else None
+    if category is None:
+        return True
+    if not isinstance(category, str):
+        return False
+    existing_categories = {
+        item.category
+        for section_name in (
+            "facts",
+            "assumptions",
+            "propositions",
+            "conclusions",
+            "rules",
+        )
+        for item in (getattr(scenario, section_name, None) or {}).values()
+        if item.category
+    }
+    return category_note and category in existing_categories
+
+
+def _duplicates_existing_rule(scenario: Any, proposed_edit: dict[str, Any]) -> bool:
+    if proposed_edit.get("op") not in {"add-rule", "modify-rule"}:
+        return False
+    proposed = proposed_edit.get("rule")
+    if not isinstance(proposed, dict):
+        return False
+    premises = proposed.get("premises")
+    conclusion = proposed.get("conclusion")
+    if not isinstance(premises, list) or not isinstance(conclusion, str):
+        return False
+    proposed_id = proposed_edit.get("id")
+    normalized_premises = sorted(str(value) for value in premises)
+    for rule_id, rule in scenario.rules.items():
+        if proposed_edit.get("op") == "modify-rule" and rule_id == proposed_id:
+            continue
+        if sorted(rule.premises) == normalized_premises and rule.conclusion == conclusion:
+            return True
+    return False
+
+
 # --- Reviewer (advisory only) ---------------------------------------------
 
 
@@ -346,7 +455,36 @@ def run_review(
         msg = str(raw.get("message", "")).strip()
         if not msg or sev not in {"blocker", "warning", "note"}:
             continue
+        if _is_validator_territory_review(msg):
+            log.info("review_issue_discarded reason=validator_territory")
+            continue
+        if _is_reviewer_nonissue(
+            sev,
+            msg,
+            scenario,
+            proposed_edit,
+            user_instruction,
+        ):
+            log.info("review_issue_discarded reason=nonissue")
+            continue
         issues.append(ReviewIssue(severity=sev, message=msg))
+
+    if _duplicates_existing_rule(scenario, proposed_edit):
+        issues = [
+            issue
+            for issue in issues
+            if "duplicate" not in issue.message.casefold()
+            and "same premises" not in issue.message.casefold()
+        ]
+        issues.append(
+            ReviewIssue(
+                severity="note",
+                message=(
+                    "The proposed rule duplicates an existing rule with the same "
+                    "premises and conclusion."
+                ),
+            )
+        )
 
     log.info("review_turn issues=%d latency_ms=%d", len(issues), response.latency_ms)
 
@@ -354,6 +492,11 @@ def run_review(
         issues=issues,
         usage=response.usage,
         latency_ms=response.latency_ms,
+        model=response.model,
+        provider=response.provider,
+        billing_source=response.billing_source,
+        route=response.route,
+        cost_microusd=response.cost_microusd,
     )
 
 
@@ -374,6 +517,97 @@ def _coerce_modify_id(task: str, op: dict[str, Any], existing_id: str | None) ->
     if task == "modify-rule" and existing_id and op.get("id") != existing_id:
         log.info("proposer_id_coerced requested=%s proposer=%s", existing_id, op.get("id"))
         op["id"] = existing_id
+    return op
+
+
+def _preserve_modify_rule_metadata(
+    task: str,
+    op: dict[str, Any],
+    existing_id: str | None,
+    scenario: Any,
+    instruction: str,
+) -> dict[str, Any]:
+    """Carry forward unrequested fields on a rule edit.
+
+    The modify tool always replaces the complete rule. Models can therefore
+    erase or rewrite provenance and preference metadata even when the user
+    requested a narrow change. Omission means unchanged. Optional metadata
+    changes also require the instruction to name that concern. A future
+    explicit field-removal operation can represent intentional deletion.
+    """
+    if task != "modify-rule" or not existing_id:
+        return op
+    current = scenario.rules.get(existing_id)
+    proposed = op.get("rule")
+    if current is None or not isinstance(proposed, dict):
+        return op
+    normalized = instruction.casefold()
+    field_terms = {
+        "type": ("type", "strict", "defeasible"),
+        "premises": ("premise", "condition", "require", "when ", "if "),
+        "conclusion": ("conclusion", "conclude", "then ", "result"),
+        "negated_description": (
+            "negated description",
+            "negative description",
+            "does not apply wording",
+        ),
+        "category": ("category",),
+        "source": ("source", "citation", "cite", "provenance", "attribute"),
+        "block": ("block", "strength", "stronger", "weaker", "priority", "tier"),
+        "active": (
+            "active",
+            "inactive",
+            "activate",
+            "deactivate",
+            "enable",
+            "disable",
+            "suspend",
+        ),
+    }
+    requested_fields = {
+        field_name
+        for field_name, terms in field_terms.items()
+        if any(term in normalized for term in terms)
+    }
+    narrow_change = any(
+        marker in normalized
+        for marker in (
+            "only by",
+            "only change",
+            "change only",
+            "keep every other",
+            "keep all other",
+            "leave everything else",
+            "nothing else",
+            "no other field",
+        )
+    )
+    optional_fields = {
+        "negated_description",
+        "category",
+        "source",
+        "block",
+        "active",
+    }
+    for field_name in field_terms:
+        should_restore = field_name not in proposed
+        should_restore = should_restore or (
+            field_name in optional_fields and field_name not in requested_fields
+        )
+        should_restore = should_restore or (
+            narrow_change and field_name not in requested_fields
+        )
+        if not should_restore:
+            continue
+        value = getattr(current, field_name)
+        if value is None:
+            proposed.pop(field_name, None)
+        elif isinstance(value, list):
+            proposed[field_name] = list(value)
+        else:
+            proposed[field_name] = value
+    if proposed.get("type") == "strict":
+        proposed.pop("active", None)
     return op
 
 
@@ -406,6 +640,7 @@ def run_propose(
 
     usages: list[dict[str, int]] = []
     latencies: list[int] = []
+    costs: list[int] = []
     op: dict[str, Any] | None = None
     last_response: ToolCallResponse | None = None
     last_blocking: list[ValidationIssue] = []
@@ -428,12 +663,20 @@ def run_propose(
         )
         usages.append(response.usage)
         latencies.append(response.latency_ms)
+        costs.append(response.cost_microusd)
         last_response = response
 
         candidate = _coerce_modify_id(
             task,
             diff_op_from_tool_input(task, response.tool_input),
             existing_id,
+        )
+        candidate = _preserve_modify_rule_metadata(
+            task,
+            candidate,
+            existing_id,
+            scenario,
+            instruction,
         )
         notes = notes_from_tool_input(task, response.tool_input)
         issues = validate_op(candidate, scenario)
@@ -442,10 +685,14 @@ def run_propose(
         if not blocking:
             op = candidate
             accepted_advisory = advisory
-            accepted_notes = notes
+            accepted_notes = _complete_unknown_premise_notes(advisory, notes)
             log.info(
                 "propose_validated task=%s op_id=%s attempts=%d advisory=%d notes=%d",
-                task, candidate.get("id"), attempt, len(advisory), len(notes),
+                task,
+                candidate.get("id"),
+                attempt,
+                len(advisory),
+                len(accepted_notes),
             )
             break
 
@@ -468,11 +715,16 @@ def run_propose(
         )
         raise ProposerRetryExhausted(MAX_PROPOSER_ATTEMPTS, last_blocking, last_notes)
 
-    assert last_response is not None  # loop always sets it on success
+    if last_response is None:
+        raise RuntimeError("a validated proposal is missing its provider response")
 
     # --- Reviewer (advisory) ---
     review_issues: list[ReviewIssue] = []
     reviewed = False
+    final_model = last_response.model
+    final_provider = last_response.provider
+    final_billing_source = last_response.billing_source
+    final_route = last_response.route
     if not is_trivial_edit(op):
         review = run_review(
             scenario,
@@ -487,6 +739,11 @@ def run_propose(
         reviewed = True
         usages.append(review.usage)
         latencies.append(review.latency_ms)
+        costs.append(review.cost_microusd)
+        final_model = review.model
+        final_provider = review.provider
+        final_billing_source = review.billing_source
+        final_route = review.route
 
     # Prepend Validator-advisory issues (e.g. unknown_premise) as
     # severity=warning so they render in the same UI panel as Reviewer
@@ -507,10 +764,14 @@ def run_propose(
 
     return ProposeResult(
         op=op,
-        model=last_response.model,
+        model=final_model,
         stop_reason=last_response.stop_reason,
         usage=_sum_usage(*usages),
         latency_ms=sum(latencies),
+        provider=final_provider,
+        billing_source=final_billing_source,
+        route=final_route,
+        cost_microusd=sum(costs),
         proposer_attempts=len(latencies) - (1 if reviewed else 0),
         reviewed=reviewed,
         review_issues=review_issues,
@@ -521,6 +782,50 @@ def run_propose(
 # message.  Kept local to this module so the API doesn't need to know
 # Validator internals.
 _ADVISORY_LITERAL_RE = re.compile(r"`(-?[A-Za-z_][A-Za-z0-9_]*)`")
+
+
+def _premise_description_from_id(identifier: str) -> str:
+    tokens = [token for token in identifier.casefold().split("_") if token]
+    if not tokens:
+        return "the proposed condition holds"
+    replacements = {
+        "dinein": "dine-in option",
+        "togo": "to-go option",
+        "pm25": "PM2.5 level",
+    }
+    words = [replacements.get(token, token) for token in tokens]
+    if len(words) > 1 and words[-1] in {
+        "active",
+        "available",
+        "open",
+        "present",
+        "valid",
+    }:
+        return f"the {' '.join(words[:-1])} is {words[-1]}"
+    return f"the proposed condition that {' '.join(words)} holds"
+
+
+def _complete_unknown_premise_notes(
+    advisory: list[ValidationIssue],
+    notes: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    completed = [dict(note) for note in notes]
+    known = {note.get("id") for note in completed}
+    for issue in advisory:
+        if issue.code != "unknown_premise":
+            continue
+        match = _ADVISORY_LITERAL_RE.search(issue.message)
+        premise_id = match.group(1).lstrip("-") if match else ""
+        if not premise_id or premise_id in known:
+            continue
+        completed.append(
+            {
+                "id": premise_id,
+                "description": _premise_description_from_id(premise_id),
+            }
+        )
+        known.add(premise_id)
+    return completed
 
 
 def _advisory_to_review_issues(
