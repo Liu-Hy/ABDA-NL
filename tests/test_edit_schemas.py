@@ -18,7 +18,7 @@ EXAMPLES_ROOT = __import__("pathlib").Path(__file__).resolve().parent.parent / "
 
 def test_all_four_tasks_have_tools():
     assert set(PROPOSER_TOOLS) == {"add-rule", "modify-rule", "add-fact", "add-assumption"}
-    for task, tool in PROPOSER_TOOLS.items():
+    for _task, tool in PROPOSER_TOOLS.items():
         assert tool["name"].startswith("propose_")
         assert tool["input_schema"]["type"] == "object"
         assert "id" in tool["input_schema"]["required"]

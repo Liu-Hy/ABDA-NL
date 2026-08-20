@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://idaks.illinois.edu/abda-nl/schemas/af_snapshot.schema.json",
+  "title": "ABDA-NL argumentation framework snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["arguments", "attacks", "labels_by_proposition"],
+  "properties": {
+    "arguments": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/argument"}
+    },
+    "attacks": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/attack"}
+    },
+    "labels_by_proposition": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": ["accepted", "rejected", "undecided", "absent"]
+      }
+    }
+  },
+  "$defs": {
+    "argument_id": {
+      "type": "string",
+      "pattern": "^a[1-9][0-9]*$"
+    },
+    "argument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "conclusion",
+        "conclusion_nl",
+        "top_rule",
+        "premises",
+        "sub_arguments",
+        "rules_used",
+        "label",
+        "min_max",
+        "is_fact"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/argument_id"},
+        "conclusion": {"type": "string", "minLength": 1},
+        "conclusion_nl": {"type": "string", "minLength": 1},
+        "top_rule": {"type": "string", "minLength": 1},
+        "premises": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/argument_id"}
+        },
+        "sub_arguments": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/argument_id"}
+        },
+        "rules_used": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "label": {"enum": ["in", "out", "undec"]},
+        "min_max": {
+          "oneOf": [
+            {"type": "integer", "minimum": 0},
+            {"const": "inf"}
+          ]
+        },
+        "is_fact": {"type": "boolean"}
+      }
+    },
+    "attack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "type"],
+      "properties": {
+        "from": {"$ref": "#/$defs/argument_id"},
+        "to": {"$ref": "#/$defs/argument_id"},
+        "type": {"enum": ["rebut", "undercut"]}
+      }
+    }
+  }
+}

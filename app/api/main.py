@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -102,10 +103,17 @@ def _scenario_sort_key(scenario_id: str) -> tuple[int, str]:
         return (len(SCENARIO_ORDER), scenario_id)
 
 
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    init_engine()
+    yield
+
+
 app = FastAPI(
     title="ABDA-NL",
     description="Natural-language scenario explorer for argument-based reasoning.",
-    version="1.0.0",
+    version="0.2.0",
+    lifespan=_lifespan,
 )
 
 register_exception_handlers(app)
@@ -131,11 +139,6 @@ async def _no_cache_static(request, call_next):
     return response
 
 
-@app.on_event("startup")
-def _on_startup() -> None:
-    init_engine()
-
-
 def _load_baseline(scenario_id: str):
     scenario_dir = EXAMPLES_ROOT / scenario_id
     scenario_path = scenario_dir / "scenario.yaml"
@@ -159,6 +162,16 @@ def _compute_state_bundle(scenario) -> dict[str, Any]:
 @app.get("/config", response_model=ConfigResponse)
 def get_config() -> ConfigResponse:
     return ConfigResponse(llm_enabled=_read_llm_flag())
+
+
+@app.get("/health/live", include_in_schema=False)
+def health_live() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health/ready", include_in_schema=False)
+def health_ready() -> dict[str, str]:
+    return {"status": "ready"}
 
 
 @app.get("/scenarios", response_model=ScenarioListResponse)
@@ -199,7 +212,7 @@ def get_scenario(scenario_id: str) -> StateResponse:
 @app.post("/state", response_model=StateResponse)
 def post_state(request: StateRequest) -> StateResponse:
     baseline = _load_baseline(request.scenario_id)
-    ops = [op.dict() for op in request.diff_ops]
+    ops = [op.model_dump() for op in request.diff_ops]
     effective = apply_ops(baseline, ops)
     return StateResponse(**_compute_state_bundle(effective))
 
@@ -232,7 +245,7 @@ def post_chat(request: ChatRequest) -> ChatResponse:
 
     scenario_dir = EXAMPLES_ROOT / request.scenario_id
     baseline = _load_baseline(request.scenario_id)
-    ops = [op.dict() for op in request.diff_ops]
+    ops = [op.model_dump() for op in request.diff_ops]
     scenario = apply_ops(baseline, ops)
     bundle = _compute_state_bundle(scenario)
 
@@ -241,7 +254,7 @@ def post_chat(request: ChatRequest) -> ChatResponse:
             scenario,
             bundle["af"],
             ops,
-            [m.dict() for m in request.messages],
+            [m.model_dump() for m in request.messages],
             scenario_dir=scenario_dir,
             client=_get_llm_client(),
         )
@@ -284,7 +297,7 @@ def post_propose(request: ProposeRequest) -> ProposeResponse:
 
     scenario_dir = EXAMPLES_ROOT / request.scenario_id
     baseline = _load_baseline(request.scenario_id)
-    ops = [op.dict() for op in request.diff_ops]
+    ops = [op.model_dump() for op in request.diff_ops]
     scenario = apply_ops(baseline, ops)
     bundle = _compute_state_bundle(scenario)
 
@@ -355,7 +368,7 @@ def post_save_scenario(request: SaveScenarioRequest) -> SaveScenarioResponse:
       500 save_verification_failed -- post-write rebuild failed (rare)
     """
     baseline = _load_baseline(request.source_id)
-    ops = [op.dict() for op in request.diff_ops]
+    ops = [op.model_dump() for op in request.diff_ops]
     effective = apply_ops(baseline, ops)
 
     target = save_scenario(

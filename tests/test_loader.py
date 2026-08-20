@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.abda_bridge import DefeasibleRule, StrictRule
 from app.scenario.loader import (
     ScenarioValidationError,
     load_scenario,
     scenario_from_dict,
     scenario_to_rule_collection,
 )
-
-import pytest  # noqa: E402  (keeps test_corrupt_yaml's decorator happy)
 
 
 def _minimal_scenario() -> dict:

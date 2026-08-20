@@ -22,6 +22,18 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def test_liveness_probe(client: TestClient):
+    response = client.get("/health/live")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_readiness_probe(client: TestClient):
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
 # --- GET /config ---
 
 
@@ -96,7 +108,7 @@ def test_list_scenarios_returns_curated_first(client: TestClient):
         "medical_ppi",
         "nba_rebuild",
         "fried_chicken_v1",
-        "fried_chicken",
+        "fried_chicken_v2",
     ]
     assert ids[: len(curated)] == curated
     for item in body["scenarios"]:
@@ -109,7 +121,7 @@ def test_list_scenarios_returns_curated_first(client: TestClient):
 
 @pytest.mark.parametrize(
     "scenario_id",
-    ["fire_prevention", "fried_chicken", "fried_chicken_v1", "medical_ppi", "nba_rebuild", "popov_v_hayashi"],
+    ["fire_prevention", "fried_chicken_v2", "fried_chicken_v1", "medical_ppi", "nba_rebuild", "popov_v_hayashi"],
 )
 def test_get_each_scenario_returns_bundled_state(client: TestClient, scenario_id: str):
     resp = client.get(f"/scenarios/{scenario_id}")

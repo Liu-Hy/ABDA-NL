@@ -25,7 +25,7 @@ class ScenarioNotFoundError(Exception):
 
 
 def _response(status_code: int, errors: list[ErrorDetail]) -> JSONResponse:
-    payload = ErrorResponse(errors=errors).dict()
+    payload = ErrorResponse(errors=errors).model_dump()
     return JSONResponse(status_code=status_code, content=payload)
 
 

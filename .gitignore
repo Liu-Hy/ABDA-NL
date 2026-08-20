@@ -56,3 +56,4 @@ tmp/
 !CHANGELOG.md
 !CODE_OF_CONDUCT.md
 !SECURITY.md
+!docs/**/*.md

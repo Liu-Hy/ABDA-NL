@@ -1,33 +1,47 @@
 # ABDA-NL Makefile
 
-PY := python3
+PY := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PORT ?= 8000
 HOST ?= 127.0.0.1
 LLM ?= 0
 BACKEND ?= claude
 MODEL ?=
 
-.PHONY: help install run run-basic run-qwen run-llama run-phi validate-scenario test clean
+.PHONY: help install install-dev demo-local demo-server run run-basic run-qwen run-llama run-phi validate-scenario test test-browser clean
 
 help:
 	@echo "Targets:"
 	@echo "  install           Install Python dependencies via pip"
-	@echo "  run               Start the app with LLM features (Claude API, requires ANTHROPIC_API_KEY)"
+	@echo "  install-dev       Install test and browser dependencies"
+	@echo "  demo-local        Start locally and open the default browser"
+	@echo "  run               Start the app with Claude features enabled"
 	@echo "  run-basic         Start the app without LLM features (no API key needed)"
 	@echo "  run-qwen          Start with local Ollama backend, Qwen 3 8B"
 	@echo "  run-llama         Start with local Ollama backend, Llama 3.1 8B"
 	@echo "  run-phi           Start with local Ollama backend, Phi-4-mini 3.8B"
 	@echo "  validate-scenario Validate a scenario directory (S=examples/<name>/)"
 	@echo "  test              Run the pytest suite"
+	@echo "  test-browser      Run the real-browser smoke test"
 	@echo "  clean             Remove Python bytecode caches"
 
 install:
-	$(PY) -m pip install -r requirements.txt
+	$(PY) -m pip install -e .
+
+install-dev:
+	$(PY) -m pip install -e '.[dev,browser]'
+
+demo-local:
+	$(PY) -m app.cli.serve
+
+# Foreground server used by managed launchers such as `demo` on Delta.
+demo-server:
+	exec $(PY) -m app.cli.serve --host $(HOST) --port $(PORT) --no-browser
 
 # Internal target used by the run-* variants.
 _serve:
 	ABDA_ENABLE_LLM=$(LLM) ABDA_LLM_BACKEND=$(BACKEND) ABDA_OLLAMA_MODEL=$(MODEL) \
-	    $(PY) -m uvicorn app.api.main:app --host $(HOST) --port $(PORT) --reload
+	    exec $(PY) -m app.cli.serve --host $(HOST) --port $(PORT) \
+	        --no-browser $(if $(filter 1,$(LLM)),--llm,--basic)
 
 run: LLM := 1
 run: BACKEND := claude
@@ -61,6 +75,9 @@ validate-scenario:
 
 test:
 	$(PY) -m pytest tests/ -q
+
+test-browser:
+	ABDA_BROWSER_TESTS=1 $(PY) -m pytest tests/test_browser_smoke.py -q
 
 clean:
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

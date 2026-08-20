@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from app.llm.client import LLMClient, LLMResponse
-from app.llm.corpus import CorpusLoadError, build_corpus_block
+from app.llm.corpus import build_corpus_block
 from app.llm.prompts import load_prompt
 
 log = logging.getLogger(__name__)
@@ -59,8 +59,6 @@ def _format_labels(scenario: Any, af: dict[str, Any]) -> str:
     """
     labels = af.get("labels_by_proposition", {})
     rules = scenario.rules or {}
-    assumptions = scenario.assumptions or {}
-
     # Group rules by conclusion literal (e.g., "hayashi_no_return",
     # "-hayashi_no_return").
     by_conclusion: dict[str, list[str]] = {}

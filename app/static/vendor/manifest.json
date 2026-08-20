@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "assets": {
+    "dagre.min.js": {
+      "package": "dagre",
+      "version": "0.8.5",
+      "source": "https://registry.npmjs.org/dagre/-/dagre-0.8.5.tgz",
+      "source_integrity": "sha512-/aTqmnRta7x7MCCpExk7HQL2O4owCT2h8NT//9I1OQ9vt29Pa0BzSAkR5lwFUcQ7491yVi/3CXU9jQ5o0Mn2Sw==",
+      "sha256": "62eb9787ccfdbdf4148d4d99d31dbf9ee4770eafee81e637d759b52aac22cd51",
+      "license_files": ["DAGRE-MIT.txt"]
+    },
+    "marked.min.js": {
+      "package": "marked",
+      "version": "18.0.7",
+      "source": "https://registry.npmjs.org/marked/-/marked-18.0.7.tgz",
+      "source_integrity": "sha512-iDVQ5ldaiKXn6b2JroX5kgRfmwgqolW7NpaEzTl1k/2Zh1njIEN9yniyLV/mOvWwtsE8OGgkjsCYvijuPk1dtA==",
+      "sha256": "7a1f8c5e7226b75ff16644bdb2c0130d2ae7371e7ea3106c2d6dac77ab0ff7b6",
+      "license_files": ["MARKED-MIT.txt"]
+    },
+    "purify.min.js": {
+      "package": "dompurify",
+      "version": "3.4.13",
+      "source": "https://github.com/cure53/DOMPurify/releases/download/3.4.13/purify.min.js",
+      "source_integrity": "sha256:9ab3d44d73c3e3947f9ab72e0f0bc15c7f1931d60b365ba261fc85fe59013c56",
+      "sha256": "9ab3d44d73c3e3947f9ab72e0f0bc15c7f1931d60b365ba261fc85fe59013c56",
+      "license_files": [
+        "DOMPURIFY-APACHE-2.0.txt",
+        "DOMPURIFY-MPL-2.0.txt"
+      ]
+    }
+  }
+}

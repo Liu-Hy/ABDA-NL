@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m ruff check app tests
+      - run: python -m pytest -q
+
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev,browser]'
+      - run: python -m playwright install --with-deps chromium
+      - name: Exercise the paper demo in Chromium
+        env:
+          ABDA_BROWSER_TESTS: "1"
+        run: python -m pytest -q tests/test_browser_smoke.py
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e '.[dev]'
+      - name: Build and exercise the installed wheel
+        run: |
+          set -Eeuo pipefail
+          python -m build --wheel --outdir "$RUNNER_TEMP/dist"
+          python -m pip install --force-reinstall --no-deps \
+            "$RUNNER_TEMP"/dist/abda_nl-*.whl
+          cd "$RUNNER_TEMP"
+          abda-nl --host 127.0.0.1 --port 18001 --no-browser --basic \
+            >"$RUNNER_TEMP/wheel-server.log" 2>&1 &
+          ABDA_CI_SERVER_PID=$!
+          cleanup() {
+            ABDA_CI_EXIT_CODE=$?
+            if [ "$ABDA_CI_EXIT_CODE" -ne 0 ]; then
+              sed -n '1,200p' "$RUNNER_TEMP/wheel-server.log"
+            fi
+            kill "$ABDA_CI_SERVER_PID" 2>/dev/null || true
+            wait "$ABDA_CI_SERVER_PID" 2>/dev/null || true
+            exit "$ABDA_CI_EXIT_CODE"
+          }
+          trap cleanup EXIT
+          ABDA_CI_READY=0
+          for ABDA_CI_ATTEMPT in $(seq 1 30); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:18001/health/ready >/dev/null; then
+              ABDA_CI_READY=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ABDA_CI_READY" -eq 1
+          test "$(
+            curl --fail --silent --show-error \
+              http://127.0.0.1:18001/scenarios |
+              python -c 'import json,sys; print(len(json.load(sys.stdin)["scenarios"]))'
+          )" -eq 6

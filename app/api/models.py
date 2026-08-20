@@ -1,6 +1,6 @@
 """Pydantic request/response models for the ABDA-NL HTTP API.
 
-Built for Pydantic v1 (the version that ships with the apt FastAPI 0.101).
+Built for Pydantic v2 and current FastAPI releases.
 
 Op shapes are a discriminated union on `op`; Pydantic rejects unknown
 op kinds at the HTTP boundary. Payload dicts (`fact`, `assumption`,
@@ -10,18 +10,21 @@ source of truth for payload shape.
 """
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Annotated
 
 
 # --- Op models (one per kind; discriminated on "op") ---
 
 
-class _OpBase(BaseModel):
-    class Config:
-        extra = "forbid"
+class _StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class _OpBase(_StrictModel):
+    pass
 
 
 class ToggleAssumptionOp(_OpBase):
@@ -34,14 +37,10 @@ class ToggleRuleOp(_OpBase):
     id: str
 
 
-class _NewPremiseNote(BaseModel):
+class _NewPremiseNote(_StrictModel):
     """NL description for a premise not yet in the scenario."""
     id: str
     description: str
-
-    class Config:
-        extra = "forbid"
-
 
 class ModifyRuleOp(_OpBase):
     op: Literal["modify-rule"]
@@ -111,24 +110,16 @@ DiffOp = Annotated[
 # --- Request / response envelopes ---
 
 
-class StateRequest(BaseModel):
+class StateRequest(_StrictModel):
     scenario_id: str
     diff_ops: List[DiffOp] = Field(default_factory=list)
 
-    class Config:
-        extra = "forbid"
-
-
-class StateResponse(BaseModel):
+class StateResponse(_StrictModel):
     """Bundled state. Returned by both `GET /scenarios/{id}`
     (baseline, zero ops) and `POST /state` (after applying ops).
     """
     scenario: dict
     af: dict
-
-    class Config:
-        extra = "forbid"
-
 
 class ScenarioListItem(BaseModel):
     id: str
@@ -147,22 +138,14 @@ class ConfigResponse(BaseModel):
 # --- Chat ---
 
 
-class ChatMessage(BaseModel):
+class ChatMessage(_StrictModel):
     role: Literal["user", "assistant"]
     content: str
 
-    class Config:
-        extra = "forbid"
-
-
-class ChatRequest(BaseModel):
+class ChatRequest(_StrictModel):
     scenario_id: str
     diff_ops: List[DiffOp] = Field(default_factory=list)
     messages: List[ChatMessage]
-
-    class Config:
-        extra = "forbid"
-
 
 class ChatUsage(BaseModel):
     input_tokens: int = 0
@@ -171,7 +154,7 @@ class ChatUsage(BaseModel):
     cache_creation_input_tokens: int = 0
 
 
-class ChatResponse(BaseModel):
+class ChatResponse(_StrictModel):
     message: str
     stop_reason: str
     model: str
@@ -179,47 +162,31 @@ class ChatResponse(BaseModel):
     latency_ms: int
     retried: bool = False
 
-    class Config:
-        extra = "forbid"
-
-
 # --- Propose ---
 
 
-class ProposeRequest(BaseModel):
+class ProposeRequest(_StrictModel):
     scenario_id: str
     diff_ops: List[DiffOp] = Field(default_factory=list)
     task: Literal["add-rule", "modify-rule", "add-fact", "add-assumption"]
     instruction: str
     existing_id: Optional[str] = None  # required when task == "modify-rule"
 
-    class Config:
-        extra = "forbid"
-
-
-class ReviewIssueModel(BaseModel):
+class ReviewIssueModel(_StrictModel):
     severity: Literal["blocker", "warning", "note"]
     message: str
-
-    class Config:
-        extra = "forbid"
-
 
 # --- Save as new scenario ---
 
 
-class SaveScenarioRequest(BaseModel):
+class SaveScenarioRequest(_StrictModel):
     source_id: str
     diff_ops: List[DiffOp] = Field(default_factory=list)
     save_as_id: str
     title: str
     overwrite: bool = False
 
-    class Config:
-        extra = "forbid"
-
-
-class SaveScenarioResponse(BaseModel):
+class SaveScenarioResponse(_StrictModel):
     """Response after a successful save. Bundled state so the UI can
     pivot to the saved scenario without a follow-up fetch.
     """
@@ -228,11 +195,7 @@ class SaveScenarioResponse(BaseModel):
     scenario: dict
     af: dict
 
-    class Config:
-        extra = "forbid"
-
-
-class ProposeResponse(BaseModel):
+class ProposeResponse(_StrictModel):
     op: dict  # a ready-to-apply diff_op
     stop_reason: str
     model: str
@@ -249,10 +212,6 @@ class ProposeResponse(BaseModel):
     # surfaces them alongside the op and the user decides whether to
     # Apply, Refine, or Cancel.
     review_issues: List[ReviewIssueModel] = Field(default_factory=list)
-
-    class Config:
-        extra = "forbid"
-
 
 # --- Error envelope ---
 

@@ -76,7 +76,7 @@ class LLMClient(Protocol):
         ...
 
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = "claude-sonnet-5"
 
 
 def _resolve_model() -> str:

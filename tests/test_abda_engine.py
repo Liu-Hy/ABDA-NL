@@ -16,8 +16,6 @@ from app.abda_bridge import (
 )
 from app.scenario.loader import scenario_from_dict, scenario_to_rule_collection
 
-from ArgumentationSystem.ArgumentBuilder import ArgumentConstructionError  # noqa: E402
-
 
 def _label_by_conclusion(raw: dict) -> dict[str, set[str]]:
     """Build the AF from a raw scenario dict and return {conclusion: {labels}}.

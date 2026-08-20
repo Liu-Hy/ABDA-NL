@@ -45,7 +45,7 @@ def _snapshot_for(scenario_path: str):
     "path",
     [
         "examples/fire_prevention/scenario.yaml",
-        "examples/fried_chicken/scenario.yaml",
+        "examples/fried_chicken_v2/scenario.yaml",
         "examples/fried_chicken_v1/scenario.yaml",
         "examples/medical_ppi/scenario.yaml",
         "examples/nba_rebuild/scenario.yaml",
@@ -133,7 +133,7 @@ def test_premises_match_top_rule_arity(_engine):
     "path",
     [
         "examples/fire_prevention/scenario.yaml",
-        "examples/fried_chicken/scenario.yaml",
+        "examples/fried_chicken_v2/scenario.yaml",
         "examples/fried_chicken_v1/scenario.yaml",
         "examples/medical_ppi/scenario.yaml",
         "examples/nba_rebuild/scenario.yaml",

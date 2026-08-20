@@ -1,0 +1,6 @@
+{
+  "name": "ABDA-NL",
+  "command": "make demo-server PORT={port} HOST={host}",
+  "ready_path": "/health/ready",
+  "startup_timeout": 30
+}
