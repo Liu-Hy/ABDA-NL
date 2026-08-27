@@ -73,6 +73,14 @@ def test_azure_deploys_only_the_public_digest_pinned_ghcr_image():
 
     assert parameters.count("ABDA_DEPLOY_IMAGE_SHA256") == 2
 
+    continuous_integration = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+    assert (
+        'ABDA_DEPLOY_IMAGE_SHA256: "'
+        + ("0" * 64)
+        + '"'
+        in continuous_integration
+    )
+
     combined = "\n".join((infrastructure, application, migration, parameters))
     for forbidden in (
         "Microsoft.Authorization/roleAssignments",
