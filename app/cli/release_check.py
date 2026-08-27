@@ -42,6 +42,7 @@ _REQUIRED_METRICS = {
     "abda_http_requests_total",
     "abda_llm_usage_events_total",
     "abda_openrouter_budget_microusd",
+    "abda_openrouter_enabled",
     "abda_openrouter_reserved_microusd",
     "abda_openrouter_spent_microusd",
     "abda_openrouter_uncertain_charged_microusd",
@@ -49,6 +50,7 @@ _REQUIRED_METRICS = {
     "abda_trial_activations",
     "abda_trial_allocated_microusd",
     "abda_trial_budget_microusd",
+    "abda_trial_enabled",
     "abda_trial_grant_microusd",
     "abda_trial_max_users",
     "abda_trial_reserved_microusd",
@@ -268,11 +270,17 @@ def _metric_integer(metrics: str, name: str) -> int:
 def _assert_budget_metrics(
     metrics: str,
     *,
+    expected_trial_enabled: bool,
+    expected_trial_max_users: int,
+    expected_trial_grant_microusd: int,
+    expected_trial_budget_microusd: int,
+    expected_openrouter_enabled: bool,
     expected_openrouter_budget_microusd: int,
 ) -> dict[str, int]:
     values = {
         name: _metric_integer(metrics, name)
         for name in (
+            "abda_trial_enabled",
             "abda_trial_max_users",
             "abda_trial_grant_microusd",
             "abda_trial_budget_microusd",
@@ -280,6 +288,7 @@ def _assert_budget_metrics(
             "abda_trial_allocated_microusd",
             "abda_trial_spent_microusd",
             "abda_trial_reserved_microusd",
+            "abda_openrouter_enabled",
             "abda_openrouter_budget_microusd",
             "abda_openrouter_spent_microusd",
             "abda_openrouter_reserved_microusd",
@@ -289,25 +298,40 @@ def _assert_budget_metrics(
             "abda_openrouter_uncertain_charged_microusd",
         )
     }
-    if values["abda_trial_max_users"] != _TRIAL_MAX_USERS:
-        raise ReleaseCheckError("the trial user cap is not 100")
-    if values["abda_trial_grant_microusd"] != _TRIAL_GRANT_MICROUSD:
-        raise ReleaseCheckError("the trial grant is not $5.00")
-    if values["abda_trial_budget_microusd"] != _TRIAL_BUDGET_MICROUSD:
-        raise ReleaseCheckError("the trial budget is not $500.00")
+    if values["abda_trial_enabled"] != int(expected_trial_enabled):
+        raise ReleaseCheckError(
+            "the trial enabled state does not match the release expectation"
+        )
+    if values["abda_trial_max_users"] != expected_trial_max_users:
+        raise ReleaseCheckError(
+            "the trial user cap does not match the release expectation"
+        )
+    if values["abda_trial_grant_microusd"] != expected_trial_grant_microusd:
+        raise ReleaseCheckError(
+            "the trial grant does not match the release expectation"
+        )
+    if values["abda_trial_budget_microusd"] != expected_trial_budget_microusd:
+        raise ReleaseCheckError(
+            "the trial budget does not match the release expectation"
+        )
     activations = values["abda_trial_activations"]
     allocated = values["abda_trial_allocated_microusd"]
     trial_spent = values["abda_trial_spent_microusd"]
     trial_reserved = values["abda_trial_reserved_microusd"]
-    if activations > _TRIAL_MAX_USERS:
+    if activations > expected_trial_max_users:
         raise ReleaseCheckError("trial activations exceed the configured user cap")
-    if allocated != activations * _TRIAL_GRANT_MICROUSD:
+    if allocated != activations * expected_trial_grant_microusd:
         raise ReleaseCheckError("trial allocation does not match activations and grant size")
     if trial_spent + trial_reserved > allocated:
         raise ReleaseCheckError("trial spending and reservations exceed allocation")
     if trial_reserved:
         raise ReleaseCheckError("trial reservations are not idle during the release check")
 
+    openrouter_enabled = values["abda_openrouter_enabled"]
+    if openrouter_enabled != int(expected_openrouter_enabled):
+        raise ReleaseCheckError(
+            "the OpenRouter enabled state does not match the release expectation"
+        )
     openrouter_budget = values["abda_openrouter_budget_microusd"]
     openrouter_spent = values["abda_openrouter_spent_microusd"]
     openrouter_reserved = values["abda_openrouter_reserved_microusd"]
@@ -322,6 +346,7 @@ def _assert_budget_metrics(
             "OpenRouter reservations are not idle during the release check"
         )
     return {
+        "trial_enabled": values["abda_trial_enabled"],
         "trial_max_users": values["abda_trial_max_users"],
         "trial_grant_microusd": values["abda_trial_grant_microusd"],
         "trial_budget_microusd": values["abda_trial_budget_microusd"],
@@ -334,6 +359,7 @@ def _assert_budget_metrics(
         "trial_uncertain_charged_microusd": values[
             "abda_trial_uncertain_charged_microusd"
         ],
+        "openrouter_enabled": openrouter_enabled,
         "openrouter_budget_microusd": openrouter_budget,
         "openrouter_spent_microusd": openrouter_spent,
         "openrouter_uncertain_charged_reservations": values[
@@ -362,6 +388,11 @@ def check_public_release(
     *,
     metrics_token: str | None,
     expected_profiles: Sequence[str] = ("balanced",),
+    expected_trial_enabled: bool = True,
+    expected_trial_max_users: int = _TRIAL_MAX_USERS,
+    expected_trial_grant_microusd: int = _TRIAL_GRANT_MICROUSD,
+    expected_trial_budget_microusd: int = _TRIAL_BUDGET_MICROUSD,
+    expected_openrouter_enabled: bool = True,
     expected_openrouter_budget_microusd: int = 500_000_000,
     check_plain_http: bool = True,
     transport: httpx.BaseTransport | None = None,
@@ -376,6 +407,19 @@ def check_public_release(
     if not 0 <= expected_openrouter_budget_microusd <= 1_000_000_000:
         raise ReleaseCheckError(
             "the expected OpenRouter budget must be between $0 and $1,000"
+        )
+    if not 0 <= expected_trial_max_users <= _TRIAL_MAX_USERS:
+        raise ReleaseCheckError("the expected trial user cap must be between 0 and 100")
+    if expected_trial_grant_microusd != _TRIAL_GRANT_MICROUSD:
+        raise ReleaseCheckError("the expected trial grant must remain $5.00")
+    if not 0 <= expected_trial_budget_microusd <= _TRIAL_BUDGET_MICROUSD:
+        raise ReleaseCheckError("the expected trial budget must be between $0 and $500")
+    if (
+        expected_trial_max_users * expected_trial_grant_microusd
+        > expected_trial_budget_microusd
+    ):
+        raise ReleaseCheckError(
+            "the expected trial user cap and grant exceed the expected trial budget"
         )
 
     with httpx.Client(
@@ -456,6 +500,11 @@ def check_public_release(
             )
         budget_evidence = _assert_budget_metrics(
             metrics.text,
+            expected_trial_enabled=expected_trial_enabled,
+            expected_trial_max_users=expected_trial_max_users,
+            expected_trial_grant_microusd=expected_trial_grant_microusd,
+            expected_trial_budget_microusd=expected_trial_budget_microusd,
+            expected_openrouter_enabled=expected_openrouter_enabled,
             expected_openrouter_budget_microusd=expected_openrouter_budget_microusd,
         )
         database_pool_evidence = _assert_database_pool_metrics(metrics.text)
@@ -504,6 +553,30 @@ def _parser() -> argparse.ArgumentParser:
         help="expected public funded profile ID, repeat for multiple profiles",
     )
     parser.add_argument(
+        "--expected-trial-enabled",
+        choices=("true", "false"),
+        default="true",
+        help="expected funded-trial activation state",
+    )
+    parser.add_argument(
+        "--expected-trial-max-users",
+        type=int,
+        default=_TRIAL_MAX_USERS,
+        help="expected funded-trial user cap",
+    )
+    parser.add_argument(
+        "--expected-trial-budget-microusd",
+        type=int,
+        default=_TRIAL_BUDGET_MICROUSD,
+        help="expected funded-trial total budget in microdollars",
+    )
+    parser.add_argument(
+        "--expected-openrouter-enabled",
+        choices=("true", "false"),
+        default="true",
+        help="expected OpenRouter outage-fallback state",
+    )
+    parser.add_argument(
         "--expected-openrouter-budget-microusd",
         type=int,
         default=500_000_000,
@@ -526,6 +599,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.origin,
             metrics_token=metrics_token,
             expected_profiles=args.expected_profiles or ("balanced",),
+            expected_trial_enabled=args.expected_trial_enabled == "true",
+            expected_trial_max_users=args.expected_trial_max_users,
+            expected_trial_budget_microusd=args.expected_trial_budget_microusd,
+            expected_openrouter_enabled=args.expected_openrouter_enabled == "true",
             expected_openrouter_budget_microusd=(
                 args.expected_openrouter_budget_microusd
             ),

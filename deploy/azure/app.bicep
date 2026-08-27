@@ -3,11 +3,22 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 param appName string = 'abda-nl-web'
 param containerAppsEnvironmentName string
-param registryName string
-param pullIdentityName string
-param image string
 
-@description('Optional institution-managed hostname, without a scheme or path.')
+@description('The 64-character hexadecimal sha256 digest of the public ABDA-NL GHCR image.')
+@minLength(64)
+@maxLength(64)
+param imageSha256 string
+
+var image = 'ghcr.io/idaks/abda-nl@sha256:${imageSha256}'
+
+@description('Application safety profile. Promote to production only after staging acceptance passes.')
+@allowed([
+  'staging'
+  'production'
+])
+param deploymentEnvironment string = 'staging'
+
+@description('Optional operator-owned hostname, without a scheme or path.')
 param customHostname string = ''
 
 @description('Managed certificate resource ID for customHostname. Set both values after the first domain bind.')
@@ -50,6 +61,20 @@ param openrouterApiKey string
 @maxValue(1000000000)
 param openrouterBudgetMicrousd int = 500000000
 
+@description('Enable new verified users to claim funded trial credit.')
+param trialEnabled bool = false
+
+@minValue(0)
+@maxValue(100)
+param trialMaxUsers int = 100
+
+@minValue(0)
+@maxValue(500000000)
+param trialBudgetMicrousd int = 500000000
+
+@description('Allow qualifying CloudBank outages to spend the bounded OpenRouter budget.')
+param openrouterFailoverEnabled bool = false
+
 @minValue(1)
 @maxValue(3)
 param minReplicas int = 1
@@ -60,14 +85,6 @@ param maxReplicas int = 3
 
 resource environment 'Microsoft.App/managedEnvironments@2025-01-01' existing = {
   name: containerAppsEnvironmentName
-}
-
-resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: registryName
-}
-
-resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
-  name: pullIdentityName
 }
 
 var defaultHostname = '${appName}.${environment.properties.defaultDomain}'
@@ -81,12 +98,6 @@ var databaseUrl = 'postgresql+psycopg://${postgresAppLogin}:${uriComponent(postg
 resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
   name: appName
   location: location
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${pullIdentity.id}': {}
-    }
-  }
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
@@ -111,12 +122,6 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
           }
         ]
       }
-      registries: [
-        {
-          server: registry.properties.loginServer
-          identity: pullIdentity.id
-        }
-      ]
       secrets: [
         {
           name: 'database-url'
@@ -156,7 +161,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
           name: 'web'
           image: image
           env: [
-            { name: 'ABDA_ENVIRONMENT', value: 'production' }
+            { name: 'ABDA_ENVIRONMENT', value: deploymentEnvironment }
             { name: 'ABDA_ENABLE_LLM', value: '1' }
             { name: 'ABDA_AUTH_MODE', value: 'oidc' }
             { name: 'ABDA_AUTO_CREATE_DB', value: '0' }
@@ -175,16 +180,16 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'ABDA_OIDC_ISSUER', value: oidcIssuer }
             { name: 'ABDA_OIDC_CLIENT_ID', value: oidcClientId }
             { name: 'ABDA_OIDC_CLIENT_SECRET', secretRef: 'oidc-client-secret' }
-            { name: 'ABDA_TRIAL_ENABLED', value: '1' }
-            { name: 'ABDA_TRIAL_MAX_USERS', value: '100' }
+            { name: 'ABDA_TRIAL_ENABLED', value: string(trialEnabled) }
+            { name: 'ABDA_TRIAL_MAX_USERS', value: string(trialMaxUsers) }
             { name: 'ABDA_TRIAL_GRANT_MICROUSD', value: '5000000' }
-            { name: 'ABDA_TRIAL_BUDGET_MICROUSD', value: '500000000' }
+            { name: 'ABDA_TRIAL_BUDGET_MICROUSD', value: string(trialBudgetMicrousd) }
             { name: 'ABDA_LLM_BACKEND', value: 'claude' }
             { name: 'ABDA_CLAUDE_PROVIDER', value: 'foundry' }
             { name: 'ABDA_LLM_DEFAULT_PROFILE', value: 'balanced' }
             { name: 'ABDA_LLM_ALLOW_BYOK', value: '1' }
             { name: 'ABDA_LLM_REQUIRE_AUTH', value: '1' }
-            { name: 'ABDA_OPENROUTER_FAILOVER_ENABLED', value: '1' }
+            { name: 'ABDA_OPENROUTER_FAILOVER_ENABLED', value: string(openrouterFailoverEnabled) }
             { name: 'ABDA_OPENROUTER_BUDGET_MICROUSD', value: string(openrouterBudgetMicrousd) }
             { name: 'ABDA_OPENROUTER_BUDGET_ACK', value: budgetAcknowledgement }
             { name: 'ABDA_PROXY_MODE', value: 'azure-container-apps' }

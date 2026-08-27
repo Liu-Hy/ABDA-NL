@@ -100,7 +100,10 @@ def _preflight_llm_config(enable_llm: bool) -> None:
     if settings.environment in {"staging", "production"}:
         if not settings.llm_allow_byok:
             raise RuntimeError("the public service must preserve registered-user BYOK")
-        if not settings.openrouter_failover_enabled:
+        if (
+            settings.environment == "production"
+            and not settings.openrouter_failover_enabled
+        ):
             raise RuntimeError("the public service requires OpenRouter outage failover")
         catalog = load_model_catalog()
         profile = catalog.profiles.get(settings.llm_default_profile)
@@ -421,6 +424,8 @@ def internal_metrics(
     if trial is not None:
         lines.extend(
             [
+                "# TYPE abda_trial_enabled gauge",
+                f"abda_trial_enabled {int(trial.enabled)}",
                 "# TYPE abda_trial_max_users gauge",
                 f"abda_trial_max_users {trial.max_users}",
                 "# TYPE abda_trial_grant_microusd gauge",
@@ -445,6 +450,8 @@ def internal_metrics(
     if emergency is not None:
         lines.extend(
             [
+                "# TYPE abda_openrouter_enabled gauge",
+                f"abda_openrouter_enabled {int(emergency.enabled)}",
                 "# TYPE abda_openrouter_spent_microusd gauge",
                 f"abda_openrouter_spent_microusd {emergency.spent_microusd}",
                 "# TYPE abda_openrouter_reserved_microusd gauge",

@@ -109,6 +109,7 @@ def test_internal_metrics_are_low_cardinality_and_include_budget_totals(
     assert "abda_database_pool_checked_out" in body
     assert 'route="/health/live"' in body
     assert "abda_trial_activations" in body
+    assert "abda_trial_enabled 1" in body
     assert "abda_trial_max_users 100" in body
     assert "abda_trial_grant_microusd 5000000" in body
     assert "abda_trial_budget_microusd 500000000" in body
@@ -116,6 +117,7 @@ def test_internal_metrics_are_low_cardinality_and_include_budget_totals(
     assert "abda_trial_uncertain_charged_reservations 0" in body
     assert "abda_trial_uncertain_charged_microusd 0" in body
     assert "abda_openrouter_budget_microusd" in body
+    assert "abda_openrouter_enabled" in body
     assert "abda_openrouter_uncertain_charged_reservations 0" in body
     assert "abda_openrouter_uncertain_charged_microusd 0" in body
     assert "example.edu" not in body
@@ -267,7 +269,7 @@ def _production_environment(monkeypatch) -> None:
         "ABDA_SESSION_SECRET": "production-session-secret-at-least-32-characters",
         "ABDA_MCP_TOKEN_PEPPER": "production-mcp-pepper-different-and-long-enough",
         "ABDA_METRICS_TOKEN": "production-metrics-token-at-least-32-characters",
-        "ABDA_PUBLIC_BASE_URL": "https://abda-nl.ischool.illinois.edu",
+        "ABDA_PUBLIC_BASE_URL": "https://demo.abda-nl.org",
         "ABDA_OIDC_METADATA_URL": "https://login.example/.well-known/openid-configuration",
         "ABDA_OIDC_ISSUER": "https://login.example/",
         "ABDA_OIDC_CLIENT_ID": "abda-client",
@@ -287,7 +289,7 @@ def test_production_defaults_use_host_cookie_and_exact_trusted_host(monkeypatch)
     settings = Settings.from_environment()
     assert settings.session_cookie == "__Host-abda_session"
     assert settings.cookie_secure is True
-    assert "abda-nl.ischool.illinois.edu" in settings.trusted_hosts
+    assert "demo.abda-nl.org" in settings.trusted_hosts
     assert "*" not in settings.trusted_hosts
     assert settings.proxy_mode == "azure-container-apps"
     assert settings.database_pool_size == 4

@@ -9,12 +9,13 @@ not combine evidence from different commits.
 Record:
 
 - Git commit:
-- container image URI:
+- container image digest URI:
+- image workflow run and attestation:
 - evaluation suite version and SHA-256:
 - model catalog version:
 - Azure resource group:
 - generated public origin:
-- institutional public origin:
+- operator-owned public origin:
 - Auth0 tenant and application name:
 - operator and UTC date:
 
@@ -33,7 +34,13 @@ Record:
       that the web role cannot create or alter database objects or roles.
 - [ ] The production container builds and its basic-mode smoke test passes as a
       non-root user.
-- [ ] The image is tagged with the full Git commit, not `latest`.
+- [ ] The image workflow uses the full Git commit tag, never `latest`, and
+      refuses to replace an existing commit image.
+- [ ] The exact pushed digest passes the registry smoke test and has a valid
+      GitHub provenance attestation for this repository.
+- [ ] `ABDA_DEPLOY_IMAGE` contains the public
+      `ghcr.io/idaks/abda-nl@sha256:...` URI, not any tag.
+- [ ] Anonymous pull from GHCR succeeds before Azure deployment.
 - [ ] A staged-content secret scan is clean.
 
 ## Model and budget gates

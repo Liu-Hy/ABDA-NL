@@ -5,9 +5,12 @@ can't silently produce the wrong backend at runtime.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from app.llm import ClaudeClient, OllamaClient, make_llm_client, resolve_backend
+from app.core.config import get_settings
 
 
 # --- resolve_backend ---
@@ -170,3 +173,40 @@ def test_preflight_ollama_skips_key_requirement(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("ABDA_LLM_BACKEND", "ollama")
     _preflight_llm_config(True)  # should not raise
+
+
+def test_preflight_staging_allows_disabled_openrouter(monkeypatch):
+    from app.api.main import _preflight_llm_config
+    from app.core import config as config_module
+
+    settings = replace(
+        get_settings(),
+        environment="staging",
+        llm_allow_byok=True,
+        openrouter_failover_enabled=False,
+        llm_default_profile="balanced",
+    )
+    monkeypatch.setattr(config_module, "get_settings", lambda: settings)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "azure-test-key")
+    monkeypatch.setenv(
+        "ANTHROPIC_FOUNDRY_BASE_URL",
+        "https://example.services.ai.azure.com/anthropic",
+    )
+
+    _preflight_llm_config(True)
+
+
+def test_preflight_production_requires_openrouter(monkeypatch):
+    from app.api.main import _preflight_llm_config
+    from app.core import config as config_module
+
+    settings = replace(
+        get_settings(),
+        environment="production",
+        llm_allow_byok=True,
+        openrouter_failover_enabled=False,
+    )
+    monkeypatch.setattr(config_module, "get_settings", lambda: settings)
+
+    with pytest.raises(RuntimeError, match="requires OpenRouter outage failover"):
+        _preflight_llm_config(True)

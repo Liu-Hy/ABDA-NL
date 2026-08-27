@@ -6,10 +6,11 @@ but keeps persistent state in a private PostgreSQL server and exposes only the
 web application over HTTPS.
 
 The initial deployment should use the generated
-`*.azurecontainerapps.io` origin. The preferred permanent name is
-`abda-nl.ischool.illinois.edu`, because iDAKS is an iSchool lab. An iDAKS name
-is also reasonable if the lab controls a suitable DNS zone. Do not use a CS
-school hostname.
+`*.azurecontainerapps.io` origin. The preferred permanent name is a subdomain
+such as `demo.abda-nl.org` under an operator-owned domain. Cloudflare can be
+the registrar and authoritative DNS provider without proxying application
+traffic. This avoids depending on institutional DNS administration while
+retaining a clear ABDA-NL identity.
 
 ## Architecture and responsibility boundary
 
@@ -17,7 +18,6 @@ The tracked Bicep modules create:
 
 - an Azure Container Apps environment with one public web application
 - a private virtual network and a private PostgreSQL Flexible Server
-- an Azure Container Registry pulled through a user-assigned identity
 - a manual migration job that runs before each web deployment and provisions a
   restricted database login for the web replicas
 - Log Analytics with 30 days of container log retention
@@ -38,28 +38,31 @@ BYOK support. The Azure module selects the Container Apps proxy mode, which
 uses only the platform-appended rightmost client address for anonymous rate
 limits. Direct local and Delta runs ignore forwarded client headers.
 
-Azure credentials, DNS authority, the Auth0 tenant, CloudBank credentials, and
-the OpenRouter account remain operator-owned external resources. Do not place
-any of their secrets in Git, shell history, tickets, or deployment command
-arguments.
+The public service image is built from this public repository, smoke-tested,
+and attested in GitHub Actions. Azure pulls it anonymously from GitHub
+Container Registry by its immutable SHA-256 digest. Azure credentials, DNS
+authority, the Auth0 tenant, funded Foundry credentials, and the OpenRouter
+account remain operator-owned external resources. Do not place any of their
+secrets in Git, shell history, tickets, or deployment command arguments.
 
 ## Prerequisites
 
 Use a private operator shell with `set -x` disabled. Load secret values from the
 lab's password or secret manager. The deploying identity needs Contributor on
-the resource group plus permission to create role assignments, such as Owner or
-User Access Administrator. Install a current Azure CLI and Container Apps
+the resource group. No Azure role assignment, private registry, or managed
+pull identity is created. Install a current Azure CLI and Container Apps
 extension. Bicep 0.46.1 is the version verified in CI.
 
 The required external inputs are:
 
-- an Azure subscription that CloudBank permits for these resources
+- an Azure subscription on which the operator has Contributor access
+- GitHub package administration access for the `idaks` organization
 - an Auth0 Regular Web Application and email OTP connection
 - a production email provider for Auth0
 - the currently deployed CloudBank Foundry Messages endpoint, deployment name,
   and key
 - an OpenRouter key whose account limit agrees with the configured hard cap
-- an institution-managed DNS record when the permanent hostname is enabled
+- an operator-owned domain and DNS zone when the permanent hostname is enabled
 
 Authenticate and select the intended subscription explicitly:
 
@@ -76,13 +79,16 @@ az extension add --name containerapp --upgrade
 These names are examples, but use one consistent set for every later step.
 
 ```bash
-export ABDA_DEPLOY_RESOURCE_GROUP='abda-nl-prod'
+export ABDA_DEPLOY_RESOURCE_GROUP='abda-nl-staging'
 export ABDA_DEPLOY_LOCATION='eastus2'
-export ABDA_DEPLOY_PREFIX='abda-nl'
+export ABDA_DEPLOY_PREFIX='abda-nl-stg'
 export ABDA_DEPLOY_POSTGRES_ADMIN_LOGIN='abdaadmin'
-export ABDA_DEPLOY_INFRA_NAME='abda-nl-infra'
-export ABDA_DEPLOY_MIGRATION_NAME='abda-nl-migration'
-export ABDA_DEPLOY_APP_NAME_DEPLOYMENT='abda-nl-app'
+export ABDA_DEPLOY_INFRA_NAME='abda-nl-stg-infra'
+export ABDA_DEPLOY_MIGRATION_NAME='abda-nl-stg-migration'
+export ABDA_DEPLOY_APP_NAME_DEPLOYMENT='abda-nl-stg-app'
+export ABDA_DEPLOY_ENVIRONMENT='staging'
+export ABDA_DEPLOY_TRIAL_ENABLED='false'
+export ABDA_DEPLOY_OPENROUTER_FAILOVER_ENABLED='false'
 ```
 
 Load two independent database passwords from the secret manager. The
@@ -102,13 +108,9 @@ Register the providers and create the resource group:
 ```bash
 for ABDA_DEPLOY_PROVIDER in \
   Microsoft.App \
-  Microsoft.Authorization \
-  Microsoft.ContainerRegistry \
   Microsoft.DBforPostgreSQL \
-  Microsoft.ManagedIdentity \
   Microsoft.Network \
-  Microsoft.OperationalInsights \
-  Microsoft.Storage
+  Microsoft.OperationalInsights
 do
   az provider register --namespace "$ABDA_DEPLOY_PROVIDER" --wait
 done
@@ -117,6 +119,11 @@ az group create \
   --name "$ABDA_DEPLOY_RESOURCE_GROUP" \
   --location "$ABDA_DEPLOY_LOCATION"
 ```
+
+The earlier registration of `Microsoft.ContainerRegistry` and
+`Microsoft.ManagedIdentity` can remain. Provider registration creates no
+registry or identity and does not by itself incur resource charges. This
+deployment does not use either provider.
 
 ## 2. Review and create the shared infrastructure
 
@@ -139,18 +146,6 @@ Capture the authoritative outputs rather than reconstructing Azure-generated
 names:
 
 ```bash
-export ABDA_DEPLOY_REGISTRY_NAME="$(az deployment group show \
-  --name "$ABDA_DEPLOY_INFRA_NAME" \
-  --resource-group "$ABDA_DEPLOY_RESOURCE_GROUP" \
-  --query properties.outputs.registryName.value --output tsv)"
-export ABDA_DEPLOY_REGISTRY_LOGIN_SERVER="$(az deployment group show \
-  --name "$ABDA_DEPLOY_INFRA_NAME" \
-  --resource-group "$ABDA_DEPLOY_RESOURCE_GROUP" \
-  --query properties.outputs.registryLoginServer.value --output tsv)"
-export ABDA_DEPLOY_PULL_IDENTITY_NAME="$(az deployment group show \
-  --name "$ABDA_DEPLOY_INFRA_NAME" \
-  --resource-group "$ABDA_DEPLOY_RESOURCE_GROUP" \
-  --query properties.outputs.pullIdentityName.value --output tsv)"
 export ABDA_DEPLOY_ENVIRONMENT_NAME="$(az deployment group show \
   --name "$ABDA_DEPLOY_INFRA_NAME" \
   --resource-group "$ABDA_DEPLOY_RESOURCE_GROUP" \
@@ -173,25 +168,50 @@ export ABDA_DEPLOY_GENERATED_ORIGIN="$(az deployment group show \
   --query properties.outputs.expectedPublicOrigin.value --output tsv)"
 ```
 
-## 3. Build one immutable image
+## 3. Publish and select one immutable image
 
-Deploy only a committed revision. The Docker context excludes `.env`, local
-state, the paper, and the requirements document.
+Deploy only a committed revision whose complete CI run passed. The Docker
+context excludes `.env`, local state, the paper, the requirements document,
+tests, and operations documentation. Publishing is intentionally triggered by
+a `service-image-*` Git tag, because the development workflow is not on the
+repository's default branch.
 
 ```bash
 git diff --quiet
 git diff --cached --quiet
-export ABDA_DEPLOY_IMAGE_TAG="$(git rev-parse --verify HEAD)"
-export ABDA_DEPLOY_IMAGE="${ABDA_DEPLOY_REGISTRY_LOGIN_SERVER}/abda-nl:${ABDA_DEPLOY_IMAGE_TAG}"
-
-az acr build \
-  --registry "$ABDA_DEPLOY_REGISTRY_NAME" \
-  --image "abda-nl:${ABDA_DEPLOY_IMAGE_TAG}" \
-  .
+export ABDA_IMAGE_COMMIT="$(git rev-parse --verify HEAD)"
+export ABDA_IMAGE_TRIGGER_TAG="service-image-$(date -u +%Y%m%d-%H%M%S)"
+git tag --annotate "$ABDA_IMAGE_TRIGGER_TAG" "$ABDA_IMAGE_COMMIT" \
+  --message "Publish ABDA-NL service image $ABDA_IMAGE_COMMIT"
+git push origin "$ABDA_IMAGE_TRIGGER_TAG"
 ```
 
-Do not deploy `latest`. Record the Git commit and full image URI in the release
-record.
+The `Publish service image` workflow reruns the source checks, dependency
+audits, and complete non-browser test suite. It publishes one Linux AMD64 image,
+pulls the exact pushed digest, smoke-tests the service, and creates a GitHub
+provenance attestation. It refuses to replace an existing commit image tag.
+
+The first successful workflow creates a private GHCR package. A package
+administrator must open the `abda-nl` package settings in the `idaks`
+organization and change its visibility to Public. GitHub does not permit a
+public package to be made private again. Confirm that the image contains only
+public repository content before accepting that one-time change.
+
+Copy the digest URI from the successful workflow summary and verify it:
+
+```bash
+export ABDA_DEPLOY_IMAGE='ghcr.io/idaks/abda-nl@sha256:COPY_64_HEX_DIGEST'
+export ABDA_DEPLOY_IMAGE_SHA256="${ABDA_DEPLOY_IMAGE#*@sha256:}"
+test "$(printf '%s' "$ABDA_DEPLOY_IMAGE_SHA256" | wc -c)" -eq 64
+[[ "$ABDA_DEPLOY_IMAGE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+gh attestation verify "oci://$ABDA_DEPLOY_IMAGE" --repo idaks/ABDA-NL
+```
+
+Do not deploy a tag, including the full-commit tag. Deploy only the digest URI
+from a successful smoke-tested and attested workflow. Record the Git commit,
+digest URI, workflow run, and attestation in the release record. The Bicep
+parameter accepts only the 64-character digest suffix and constructs the fixed
+public GHCR repository internally.
 
 ## 4. Configure verified-email OIDC
 
@@ -324,6 +344,8 @@ the token as an argument or includes it in its evidence output.
 ```bash
 abda-nl-release-check \
   --metrics-token-env ABDA_DEPLOY_METRICS_TOKEN \
+  --expected-trial-enabled false \
+  --expected-openrouter-enabled false \
   --expected-openrouter-budget-microusd "$ABDA_DEPLOY_OPENROUTER_BUDGET_MICROUSD" \
   "$ABDA_DEPLOY_PUBLIC_ORIGIN"
 ```
@@ -337,23 +359,32 @@ exact trial and OpenRouter caps. Repeat `--expected-profile PROFILE_ID` only
 after another profile has passed the documented model-promotion gate. Save the
 sanitized JSON output in the release record.
 
-Complete these browser checks with a new email address:
+Complete these browser checks with an invited email address while public signup,
+trial activation, and OpenRouter fallback remain disabled:
 
 1. Sign in using the email OTP and confirm that the account shows as verified.
-2. Activate the trial and confirm a $5.00 balance.
-3. Open an example, create a private project, reload it, and save one change.
-4. Ask one funded grounded question and inspect the displayed route and cost.
-5. Use one BYOK request, reload the tab, and confirm that the key is gone.
-6. Create a read-only share link in a private window and then revoke it.
-7. Create an MCP read token, use `list_projects`, revoke it, and confirm that the
+2. Open an example, create a private project, reload it, and save one change.
+3. Use one BYOK request, reload the tab, and confirm that the key is gone.
+4. Create a read-only share link in a private window and then revoke it.
+5. Create an MCP read token, use `list_projects`, revoke it, and confirm that the
    same token is rejected.
 
-## 9. Bind the institutional hostname
+After those checks pass, enable trial activation only while Auth0 signup remains
+restricted to the invited pilot. Activate one trial, confirm the $5.00 balance,
+and run one funded grounded request. Enable and force-test OpenRouter fallback
+separately. Return either flag to `false` immediately if its ledger or route
+cannot be reconciled. Set `ABDA_DEPLOY_ENVIRONMENT=production`, enable both
+flags, rerun every automated and browser check, and only then open public
+signup.
 
-For `abda-nl.ischool.illinois.edu`, ask iSchool IT to create a direct CNAME from
-`abda-nl` to the generated Container Apps hostname and a TXT record named
-`asuid.abda-nl` with the verification value. A managed certificate requires a
-direct CNAME. Do not insert Cloudflare or another intermediate CNAME.
+## 9. Bind the operator-owned hostname
+
+Use a domain controlled by the project, such as `abda-nl.org` if it has been
+acquired. In Cloudflare DNS, create a direct CNAME from `demo` to the generated
+Container Apps hostname and a TXT record named `asuid.demo` with the Azure
+verification value. Keep the CNAME in DNS-only mode, shown by a gray cloud.
+Cloudflare proxying would change the client-address trust boundary and is not
+part of this deployment.
 
 Get the exact values:
 
@@ -371,7 +402,7 @@ export ABDA_DEPLOY_DOMAIN_VERIFICATION_ID="$(az containerapp show \
 After DNS resolves correctly, add and bind the hostname:
 
 ```bash
-export ABDA_DEPLOY_CUSTOM_HOSTNAME='abda-nl.ischool.illinois.edu'
+export ABDA_DEPLOY_CUSTOM_HOSTNAME='demo.abda-nl.org'
 
 az containerapp hostname add \
   --name "$ABDA_DEPLOY_APP_NAME" \
@@ -406,13 +437,14 @@ az deployment group create \
 ```
 
 Repeat every acceptance check against
-`https://abda-nl.ischool.illinois.edu`, then make that URL public.
+`https://demo.abda-nl.org`, then make that URL public. Replace this example in
+every command if the acquired domain differs.
 
 ## Updates and rollback
 
 For every update:
 
-1. Build an immutable image from a tested commit.
+1. Publish an attested image from a tested commit and record its digest.
 2. Deploy and complete the migration job.
 3. Deploy the web module only after migration succeeds.
 4. Run the acceptance checks and record the result.
@@ -423,7 +455,7 @@ receives it, so deploy the web module immediately after the successful job and
 verify readiness. Ordinary releases reuse the existing application password.
 
 To roll back application code, set `ABDA_DEPLOY_IMAGE` to a previously recorded
-immutable image and redeploy `app.bicepparam`. Do not run an automatic Alembic
+digest URI and redeploy `app.bicepparam`. Do not run an automatic Alembic
 downgrade. A rollback is safe only when the previous application version is
 compatible with the current schema. Schema changes should therefore remain
 backward-compatible across at least one release.
@@ -443,7 +475,10 @@ their safety checks.
 
 - [Azure Container Apps jobs](https://learn.microsoft.com/en-us/azure/container-apps/jobs)
 - [Container Apps health probes](https://learn.microsoft.com/en-us/azure/container-apps/health-probes)
+- [Container Apps container registries](https://learn.microsoft.com/en-us/azure/container-apps/containers)
 - [Free managed certificates](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates)
+- [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+- [GitHub artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)
 - [PostgreSQL private networking](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/concepts-networking-private)
 - [PostgreSQL Flexible Server access management](https://learn.microsoft.com/en-us/azure/postgresql/security/security-access-control)
 - [PostgreSQL default privileges](https://www.postgresql.org/docs/current/sql-alterdefaultprivileges.html)

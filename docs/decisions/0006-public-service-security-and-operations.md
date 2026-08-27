@@ -1,10 +1,11 @@
 # Decision 0006: Public service security and operations
 
 Date: 2026-08-17
+Amended: 2026-08-27
 
 ## Status
 
-Accepted.
+Accepted, with the image distribution amendment below.
 
 ## Context
 
@@ -16,11 +17,20 @@ repeatable deployment, bounded financial exposure, and a recovery path.
 
 ## Decision
 
-The public service runs in Azure Container Apps from an immutable Git-tagged
-container. It does not run from a Delta login node. Azure terminates HTTPS and
-forbids insecure ingress. The application binds a generated Azure hostname
-first, then an institution-managed iSchool hostname after DNS and certificate
-validation.
+The public service runs in Azure Container Apps from an immutable container
+image. It does not run from a Delta login node. A tag-gated GitHub Actions
+workflow builds the public repository, reruns source and dependency checks,
+pushes the image to `ghcr.io/idaks/abda-nl`, smoke-tests the exact pushed
+digest, and creates a provenance attestation. Azure accepts only the public
+`ghcr.io/idaks/abda-nl@sha256:...` form. It never deploys a mutable tag. Public
+anonymous pull removes the need for an Azure registry, registry credential,
+managed pull identity, or role assignment.
+
+Azure terminates HTTPS and forbids insecure ingress. The application binds a
+generated Azure hostname first, then an operator-owned ABDA-NL hostname after
+DNS and certificate validation. Cloudflare may provide registration and
+authoritative DNS, but its HTTP proxy remains disabled so Azure sees the
+documented connection and client-address boundary.
 
 Persistent state uses PostgreSQL Flexible Server through private virtual
 network integration. The server has no public endpoint and keeps seven days of
@@ -161,12 +171,24 @@ tested local and Delta flows remain presentation fallbacks. If sustained public
 usage justifies it, the next infrastructure step is a general-purpose database,
 zone redundancy, alert routing, and an institutional incident owner.
 
+The image registry is an additional external availability dependency for new
+replicas and redeployments. A running replica does not need to pull its image
+again. The deployment keeps at least one replica, records every accepted image
+digest, and retains local and Delta presentation fallbacks. If future service
+usage warrants a private Azure mirror, it can be added without changing the
+application image or database design.
+
 ## Consequences
 
-- Public deployment requires Azure, Auth0, DNS, email, CloudBank, and OpenRouter
-  operator access that cannot be embedded in this repository.
-- Every release records the Git commit, immutable image, migration result,
-  public-origin checks, and live identity acceptance.
+- Public deployment requires Azure, GitHub Packages, Auth0, DNS, email, funded
+  Foundry, and OpenRouter operator access that cannot be embedded in this
+  repository. It does not require CloudBank staff to change Azure permissions.
+- Every release records the Git commit, immutable image digest, image
+  attestation, migration result, public-origin checks, and live identity
+  acceptance.
+- Making the GitHub container package public is a deliberate one-time action.
+  The package contains only material already built from the public repository,
+  and no secret is included in the Docker context or image layers.
 - Secret rotation is an operational event. Session rotation signs users out,
   MCP-pepper rotation revokes every existing MCP token, and an application
   database password rotation requires a coordinated migration and web deploy.

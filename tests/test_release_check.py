@@ -9,7 +9,7 @@ import pytest
 from app.cli.release_check import ReleaseCheckError, check_public_release
 
 
-ORIGIN = "https://abda-nl.ischool.illinois.edu"
+ORIGIN = "https://demo.abda-nl.org"
 METRICS_TOKEN = "release-check-metrics-token-with-32-characters"
 
 
@@ -83,11 +83,13 @@ def _transport(*, config: dict | None = None, omit_header: str | None = None):
                     "abda_database_pool_checked_out 1",
                     "abda_http_requests_total 1",
                     "abda_llm_usage_events_total 0",
+                    "abda_openrouter_enabled 1",
                     "abda_openrouter_budget_microusd 500000000",
                     "abda_openrouter_reserved_microusd 0",
                     "abda_openrouter_spent_microusd 0",
                     "abda_openrouter_uncertain_charged_reservations 0",
                     "abda_openrouter_uncertain_charged_microusd 0",
+                    "abda_trial_enabled 1",
                     "abda_trial_max_users 100",
                     "abda_trial_grant_microusd 5000000",
                     "abda_trial_budget_microusd 500000000",
@@ -123,6 +125,7 @@ def test_public_release_check_returns_sanitized_evidence():
     assert evidence["checks"]["database_pool"] == "passed"
     assert evidence["database_pool"] == {"capacity": 5, "checked_out": 1}
     assert evidence["budgets"] == {
+        "trial_enabled": 1,
         "trial_max_users": 100,
         "trial_grant_microusd": 5_000_000,
         "trial_budget_microusd": 500_000_000,
@@ -131,6 +134,7 @@ def test_public_release_check_returns_sanitized_evidence():
         "trial_spent_microusd": 0,
         "trial_uncertain_charged_reservations": 0,
         "trial_uncertain_charged_microusd": 0,
+        "openrouter_enabled": 1,
         "openrouter_budget_microusd": 500_000_000,
         "openrouter_spent_microusd": 0,
         "openrouter_uncertain_charged_reservations": 0,
@@ -139,6 +143,44 @@ def test_public_release_check_returns_sanitized_evidence():
     assert evidence["config"]["funded_profiles"] == ["balanced"]
     serialized = json.dumps(evidence)
     assert METRICS_TOKEN not in serialized
+
+
+def test_public_release_check_accepts_disabled_prepublic_rollout():
+    base = _transport()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        response = base.handle_request(request)
+        if request.url.path != "/internal/metrics" or response.status_code != 200:
+            return response
+        replacements = {
+            "abda_trial_enabled": "0",
+            "abda_trial_max_users": "10",
+            "abda_trial_budget_microusd": "50000000",
+            "abda_openrouter_enabled": "0",
+        }
+        lines = [
+            (
+                f"{name} {replacements[name]}"
+                if (name := line.split(" ", 1)[0]) in replacements
+                else line
+            )
+            for line in response.text.splitlines()
+        ]
+        return httpx.Response(200, text="\n".join(lines))
+
+    evidence = check_public_release(
+        ORIGIN,
+        metrics_token=METRICS_TOKEN,
+        expected_trial_enabled=False,
+        expected_trial_max_users=10,
+        expected_trial_budget_microusd=50_000_000,
+        expected_openrouter_enabled=False,
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert evidence["budgets"]["trial_enabled"] == 0
+    assert evidence["budgets"]["trial_max_users"] == 10
+    assert evidence["budgets"]["openrouter_enabled"] == 0
 
 
 def test_public_release_check_rejects_private_config_fields():
@@ -165,8 +207,8 @@ def test_public_release_check_rejects_missing_security_header():
 @pytest.mark.parametrize(
     "origin",
     [
-        "http://abda-nl.ischool.illinois.edu",
-        "https://abda-nl.ischool.illinois.edu/path",
+        "http://demo.abda-nl.org",
+        "https://demo.abda-nl.org/path",
         "https://user@example.edu",
     ],
 )

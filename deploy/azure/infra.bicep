@@ -20,10 +20,8 @@ param tags object = {
 }
 
 var suffix = take(uniqueString(subscription().id, resourceGroup().id), 8)
-var registryName = toLower(replace('${resourcePrefix}${suffix}', '-', ''))
 var networkName = '${resourcePrefix}-network'
 var environmentName = '${resourcePrefix}-environment'
-var identityName = '${resourcePrefix}-pull'
 var postgresName = '${resourcePrefix}-postgres-${suffix}'
 var privateDnsName = '${resourcePrefix}-${suffix}.postgres.database.azure.com'
 var appName = '${resourcePrefix}-web'
@@ -130,40 +128,6 @@ resource environment 'Microsoft.App/managedEnvironments@2025-01-01' = {
   }
 }
 
-resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
-  name: registryName
-  location: location
-  tags: tags
-  sku: {
-    name: 'Basic'
-  }
-  properties: {
-    adminUserEnabled: false
-    publicNetworkAccess: 'Enabled'
-  }
-}
-
-resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: identityName
-  location: location
-  tags: tags
-}
-
-var acrPullRoleId = subscriptionResourceId(
-  'Microsoft.Authorization/roleDefinitions',
-  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-)
-
-resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, pullIdentity.id, acrPullRoleId)
-  scope: registry
-  properties: {
-    principalId: pullIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: acrPullRoleId
-  }
-}
-
 resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
   name: postgresName
   location: location
@@ -211,9 +175,6 @@ resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-0
   }
 }
 
-output registryName string = registry.name
-output registryLoginServer string = registry.properties.loginServer
-output pullIdentityName string = pullIdentity.name
 output containerAppsEnvironmentName string = environment.name
 output containerAppsDefaultDomain string = environment.properties.defaultDomain
 output expectedAppName string = appName

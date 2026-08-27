@@ -9,10 +9,13 @@ The application requires the literal Boolean claim `email_verified: true`. It
 pins the OIDC issuer and stable subject. It never merges identities merely
 because two providers report the same email address.
 
-## 1. Create the application
+## 1. Create the tenant and application
 
-In Auth0, create a Regular Web Application. Record its domain, client ID, and
-client secret. Use Authorization Code flow and exact URLs, without wildcards.
+Create the tenant under a lab-controlled account and invite a second lab member
+as an administrator. Do not make a personal account the only recovery path for
+the public service. In Auth0, create a Regular Web Application. Record its
+domain, client ID, and client secret. Use Authorization Code flow and exact
+URLs, without wildcards.
 
 For the first Azure deployment, configure:
 
@@ -20,12 +23,12 @@ For the first Azure deployment, configure:
 - Allowed Logout URLs: `GENERATED_ORIGIN/`
 - Allowed Web Origins: `GENERATED_ORIGIN`
 
-When the institutional hostname is ready, add these values before changing the
+When the operator-owned hostname is ready, add these values before changing the
 application's canonical origin:
 
-- Allowed Callback URLs: `https://abda-nl.ischool.illinois.edu/auth/callback`
-- Allowed Logout URLs: `https://abda-nl.ischool.illinois.edu/`
-- Allowed Web Origins: `https://abda-nl.ischool.illinois.edu`
+- Allowed Callback URLs: `https://demo.abda-nl.org/auth/callback`
+- Allowed Logout URLs: `https://demo.abda-nl.org/`
+- Allowed Web Origins: `https://demo.abda-nl.org`
 
 Keep both exact callback sets during the DNS transition. Remove the generated
 origin only after the custom origin has passed login and logout tests.
@@ -36,29 +39,37 @@ copy an Auth0 management token into the application.
 
 ## 2. Configure email OTP
 
-Use one database connection with Auth0's flexible identifiers when that feature
-is available for the tenant:
+Use Auth0's established Passwordless Email connection for the initial service.
+Passwordless OTP on a database connection is currently an Early Access feature
+and must not be a production dependency unless Auth0 explicitly enables and
+supports it for this tenant.
 
-1. Select the Identifier-First authentication profile in Universal Login.
-2. Create a database connection for ABDA-NL.
-3. Disable Username as an identifier.
-4. Enable Email as the identifier.
-5. Select One-Time Password as the email verification method.
-6. Enable email verification on signup.
-7. Block password login, password signup, and self-service password changes.
-8. Enable support for users without a password.
-9. Enable this connection only for the ABDA-NL application.
-10. Leave public signup enabled while the first-100-user trial is open.
+1. Open Authentication, Passwordless, and enable Email.
+2. Select the one-time code flow, not a magic link.
+3. Set a short expiry and retain Auth0's limit on failed code attempts.
+4. Enable the Email connection only for the ABDA-NL application.
+5. Disable every database, social, and enterprise connection for this
+   application during the initial launch.
+6. Keep signup disabled while the generated Azure origin is undergoing private
+   infrastructure checks.
+7. Enable signup temporarily for live email acceptance and the invited pilot.
+8. Open signup for the first-100-user trial only after the release checklist
+   passes.
 
-Email OTP causes Auth0 to set `email_verified` after the user proves control of
-the mailbox. If flexible identifiers are unavailable on the selected Auth0
-plan, use Auth0's Passwordless Email connection with Universal Login and the
-one-time code flow. Do not build a custom password or OTP endpoint in ABDA-NL.
+The first successful OTP creates the Auth0 user on the Email connection. The
+application still requires the literal Boolean claim `email_verified: true` and
+rejects a token that does not prove that condition. Do not build a custom
+password or OTP endpoint in ABDA-NL.
 
-Start with only this email connection. Social and enterprise connections can
-report the same email under different stable subjects. ABDA-NL intentionally
-rejects that situation until an explicit reauthentication-based linking flow
-exists. It does not silently join accounts by email.
+If Auth0 later makes passwordless database connections generally available for
+the selected tenant and plan, evaluate that flow in a separate Auth0
+application first. Do not migrate public identities merely to adopt a newer
+login feature.
+
+Start with only the Passwordless Email connection. Social and enterprise
+connections can report the same email under different stable subjects. ABDA-NL
+intentionally rejects that situation until an explicit reauthentication-based
+linking flow exists. It does not silently join accounts by email.
 
 Verified email means that the user controlled the mailbox during verification.
 It is not proof of current institutional affiliation and must not be used as an
@@ -66,17 +77,18 @@ authorization role.
 
 ## 3. Configure production email delivery
 
-Auth0's built-in email sender is for testing and is limited to ten emails per
-minute. Before public launch, configure an external provider in Branding,
-Email Provider. Prefer a supported integration such as Microsoft 365 Exchange
-Online, Azure Communication Services, Amazon SES, or another lab-approved
-service. Configure SPF, DKIM, and DMARC for the sending domain.
+Auth0's built-in email sender is for private testing, is limited to ten emails
+per minute, and does not support a customized sender or template. Before the
+invited pilot, configure an external provider in Branding, Email Provider.
+Prefer a supported integration such as Microsoft 365 Exchange Online, Azure
+Communication Services, Amazon SES, or another lab-approved service. Configure
+SPF, DKIM, and DMARC for the sending domain.
 
 Customize the OTP email with:
 
 - the ABDA-NL and iDAKS names
 - a clear one-time-code purpose and expiration statement
-- `abda-nl.ischool.illinois.edu` after DNS cutover
+- `demo.abda-nl.org` after DNS cutover
 - a support contact that the lab actually monitors
 - no request for an API key, password, or reply
 
@@ -124,6 +136,7 @@ cannot prove email delivery or tenant configuration.
 ## Primary references
 
 - [Auth0 passwordless authentication on database connections](https://auth0.com/docs/authenticate/database-connections/passwordless-authentication-for-db-connect)
+- [Auth0 Passwordless Email](https://auth0.com/docs/authenticate/passwordless/authentication-methods/email-otp)
 - [Auth0 verified email guidance](https://auth0.com/docs/manage-users/user-accounts/user-profiles/verified-email-usage)
 - [Auth0 application settings](https://auth0.com/docs/get-started/applications/application-settings)
 - [Auth0 production email providers](https://auth0.com/docs/customize/email/smtp-email-providers)
