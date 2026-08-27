@@ -11,11 +11,16 @@ because two providers report the same email address.
 
 ## 1. Create the tenant and application
 
-Create the tenant under a lab-controlled account and invite a second lab member
-as an administrator. Do not make a personal account the only recovery path for
-the public service. In Auth0, create a Regular Web Application. Record its
-domain, client ID, and client secret. Use Authorization Code flow and exact
-URLs, without wildcards.
+Follow [the operator bootstrap runbook](operator-service-bootstrap.md) first.
+Create the tenant under an operator-controlled, long-lived account with
+multifactor authentication and stored recovery codes. A second named
+administrator is required before public registration opens when the selected
+plan permits it, but it does not block private staging. Do not share one
+person's Dashboard login.
+
+Create a Regular Web Application named `ABDA-NL Public Service`. Record its
+domain, client ID, and client secret in the private operator record. Use
+Authorization Code flow and exact URLs, without wildcards.
 
 For the first Azure deployment, configure:
 
@@ -23,12 +28,13 @@ For the first Azure deployment, configure:
 - Allowed Logout URLs: `GENERATED_ORIGIN/`
 - Allowed Web Origins: `GENERATED_ORIGIN`
 
-When the operator-owned hostname is ready, add these values before changing the
-application's canonical origin:
+When the operator-owned hostname is ready, substitute the acquired root domain
+for `DOMAIN` and add these values before changing the application's canonical
+origin:
 
-- Allowed Callback URLs: `https://demo.abda-nl.org/auth/callback`
-- Allowed Logout URLs: `https://demo.abda-nl.org/`
-- Allowed Web Origins: `https://demo.abda-nl.org`
+- Allowed Callback URLs: `https://demo.DOMAIN/auth/callback`
+- Allowed Logout URLs: `https://demo.DOMAIN/`
+- Allowed Web Origins: `https://demo.DOMAIN`
 
 Keep both exact callback sets during the DNS transition. Remove the generated
 origin only after the custom origin has passed login and logout tests.
@@ -78,18 +84,37 @@ authorization role.
 ## 3. Configure production email delivery
 
 Auth0's built-in email sender is for private testing, is limited to ten emails
-per minute, and does not support a customized sender or template. Before the
-invited pilot, configure an external provider in Branding, Email Provider.
-Prefer a supported integration such as Microsoft 365 Exchange Online, Azure
-Communication Services, Amazon SES, or another lab-approved service. Configure
-SPF, DKIM, and DMARC for the sending domain.
+per minute, and does not support a customized sender or template. Use Auth0's
+supported Resend integration before the invited pilot. Resend sends from the
+dedicated `auth.DOMAIN` subdomain. Cloudflare Email Routing independently
+receives `support@DOMAIN` and `privacy@DOMAIN` at the root domain.
+
+In Resend:
+
+1. Add and verify `auth.DOMAIN` using its generated Cloudflare DNS records.
+2. Keep receiving, open tracking, and click tracking disabled.
+3. Create a sending-only API key named `ABDA-NL Auth0` and restrict it to the
+   verified sending domain when available.
+4. Store the key in the password manager. Do not put it in the ABDA-NL `.env`
+   file because only Auth0 uses it.
+
+In Auth0, open Branding, Email Provider, enable the external provider, and
+select Resend. Use the same From address in the provider and the Passwordless
+Email connection:
+
+```text
+login@auth.DOMAIN
+```
+
+Paste the Resend API key, save, and use **Send Test Email**. Confirm the message
+in the destination inbox, Auth0 logs, and Resend delivery logs.
 
 Customize the OTP email with:
 
 - the ABDA-NL and iDAKS names
 - a clear one-time-code purpose and expiration statement
-- `demo.abda-nl.org` after DNS cutover
-- a support contact that the lab actually monitors
+- `demo.DOMAIN` after DNS cutover
+- `support@DOMAIN`, which the operator actively monitors
 - no request for an API key, password, or reply
 
 Send test messages to UIUC, Gmail, and another external provider. Confirm that
@@ -106,9 +131,9 @@ ABDA_DEPLOY_OIDC_CLIENT_ID=APPLICATION_CLIENT_ID
 ABDA_DEPLOY_OIDC_CLIENT_SECRET=APPLICATION_CLIENT_SECRET
 ```
 
-The client secret belongs in the lab secret manager and the Azure deployment's
-secure parameter. Never put it in `.env.example`, a URL, a screenshot, or an
-issue.
+The client secret belongs in the private operator password manager and the
+Azure deployment's secure parameter. Never put it in `.env.example`, a URL, a
+screenshot, or an issue.
 
 ## 5. Acceptance gate
 
@@ -140,3 +165,5 @@ cannot prove email delivery or tenant configuration.
 - [Auth0 verified email guidance](https://auth0.com/docs/manage-users/user-accounts/user-profiles/verified-email-usage)
 - [Auth0 application settings](https://auth0.com/docs/get-started/applications/application-settings)
 - [Auth0 production email providers](https://auth0.com/docs/customize/email/smtp-email-providers)
+- [Auth0 Resend provider](https://auth0.com/docs/customize/email/smtp-email-providers/resend)
+- [Resend Cloudflare verification](https://resend.com/docs/knowledge-base/cloudflare)

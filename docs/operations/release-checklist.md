@@ -61,9 +61,14 @@ Record:
 
 ## Identity and account gates
 
+- [ ] `support@DOMAIN` and `privacy@DOMAIN` forward to a monitored operator
+      inbox, and both routes pass an external delivery test.
+- [ ] The public privacy and terms pages name those aliases instead of asking
+      users to put account or deletion requests in a public issue.
 - [ ] Auth0 uses exact callback URLs and no wildcard production origin.
 - [ ] Email OTP is the only initial public identity connection.
-- [ ] The external production email provider passes delivery tests.
+- [ ] Resend is verified on the dedicated authentication subdomain, receiving
+      and message tracking are disabled, and the Auth0 test message arrives.
 - [ ] A correct OTP creates a verified account and an invalid OTP does not.
 - [ ] Two concurrent callbacks for the same first login resolve to one account.
 - [ ] Two accounts cannot read, modify, copy, or share one another's private

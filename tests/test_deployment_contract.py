@@ -47,12 +47,39 @@ def test_b1ms_connection_budget_is_bounded_across_three_replicas():
 def test_public_rollout_defaults_disable_paid_activation_and_fallback():
     application = (AZURE / "app.bicep").read_text(encoding="utf-8")
     parameters = (AZURE / "app.bicepparam").read_text(encoding="utf-8")
+    example_environment = (ROOT / ".env.example").read_text(encoding="utf-8")
 
     assert "param deploymentEnvironment string = 'staging'" in application
     assert "param trialEnabled bool = false" in application
     assert "param openrouterFailoverEnabled bool = false" in application
     assert "ABDA_DEPLOY_TRIAL_ENABLED', 'false'" in parameters
     assert "ABDA_DEPLOY_OPENROUTER_FAILOVER_ENABLED', 'false'" in parameters
+    assert "ABDA_TRIAL_ENABLED=0" in example_environment
+
+
+def test_operator_bootstrap_is_owner_controlled_and_secret_safe():
+    operations = ROOT / "docs" / "operations"
+    bootstrap = (operations / "operator-service-bootstrap.md").read_text(
+        encoding="utf-8"
+    )
+    auth0 = (operations / "auth0-email-otp.md").read_text(encoding="utf-8")
+    deployment = (operations / "public-deployment.md").read_text(encoding="utf-8")
+    example_environment = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+    assert "without depending on iSchool IT" in bootstrap
+    assert "support@DOMAIN" in bootstrap
+    assert "privacy@DOMAIN" in bootstrap
+    assert "login@auth.DOMAIN" in bootstrap
+    assert "dedicated ABDA-NL inference key with a $500" in bootstrap
+    assert (
+        "ABDA_DEPLOY_OPENROUTER_FAILOVER_ENABLED` remains `false`" in bootstrap
+    )
+    assert "operator-controlled, long-lived account" in auth0
+    assert "select Resend" in auth0
+    assert "ABDA_DEPLOY_DESIRED_HOSTNAME" in deployment
+    assert deployment.count("read -rsp") >= 7
+    assert "demo.example.org" in example_environment
+    assert "ischool.illinois.edu" not in example_environment
 
 
 def test_azure_deploys_only_the_public_digest_pinned_ghcr_image():

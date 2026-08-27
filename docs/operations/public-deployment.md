@@ -6,11 +6,11 @@ but keeps persistent state in a private PostgreSQL server and exposes only the
 web application over HTTPS.
 
 The initial deployment should use the generated
-`*.azurecontainerapps.io` origin. The preferred permanent name is a subdomain
-such as `demo.abda-nl.org` under an operator-owned domain. Cloudflare can be
-the registrar and authoritative DNS provider without proxying application
-traffic. This avoids depending on institutional DNS administration while
-retaining a clear ABDA-NL identity.
+`*.azurecontainerapps.io` origin. The preferred permanent name is
+`demo.DOMAIN` under an operator-owned domain. Cloudflare can be the registrar
+and authoritative DNS provider without proxying application traffic. This
+avoids depending on institutional DNS administration while retaining a clear
+ABDA-NL identity.
 
 ## Architecture and responsibility boundary
 
@@ -53,7 +53,8 @@ the resource group. No Azure role assignment, private registry, or managed
 pull identity is created. Install a current Azure CLI and Container Apps
 extension. Bicep 0.46.1 is the version verified in CI.
 
-The required external inputs are:
+Complete [the operator account and domain bootstrap](operator-service-bootstrap.md)
+before creating billable Azure resources. The required external inputs are:
 
 - an Azure subscription on which the operator has Contributor access
 - administrative control of the GitHub repository and owner-scoped container
@@ -90,6 +91,8 @@ export ABDA_DEPLOY_APP_NAME_DEPLOYMENT='abda-nl-stg-app'
 export ABDA_DEPLOY_ENVIRONMENT='staging'
 export ABDA_DEPLOY_TRIAL_ENABLED='false'
 export ABDA_DEPLOY_OPENROUTER_FAILOVER_ENABLED='false'
+export ABDA_DEPLOY_SERVICE_DOMAIN='REPLACE_WITH_REGISTERED_DOMAIN'
+export ABDA_DEPLOY_DESIRED_HOSTNAME="demo.${ABDA_DEPLOY_SERVICE_DOMAIN}"
 ```
 
 Load two independent database passwords from the secret manager. The
@@ -98,10 +101,18 @@ infrastructure deployment and the migration job. The application password must
 be at least 32 characters. Keep the application login name stable across
 releases so a deployment does not leave an obsolete role behind.
 
+Load both passwords with hidden prompts so neither value enters shell history:
+
 ```bash
-export ABDA_DEPLOY_POSTGRES_ADMIN_PASSWORD='LOAD_FROM_SECRET_MANAGER'
+read -rsp 'PostgreSQL administrator password: ' \
+  ABDA_DEPLOY_POSTGRES_ADMIN_PASSWORD
+printf '\n'
+export ABDA_DEPLOY_POSTGRES_ADMIN_PASSWORD
 export ABDA_DEPLOY_POSTGRES_APP_LOGIN='abda_app'
-export ABDA_DEPLOY_POSTGRES_APP_PASSWORD='LOAD_A_DIFFERENT_32_CHARACTER_SECRET'
+read -rsp 'Restricted application database password: ' \
+  ABDA_DEPLOY_POSTGRES_APP_PASSWORD
+printf '\n'
+export ABDA_DEPLOY_POSTGRES_APP_PASSWORD
 ```
 
 Register the providers and create the resource group:
@@ -237,32 +248,54 @@ callback:
 GENERATED_ORIGIN/auth/callback
 ```
 
-Then load the Auth0 values:
+Then load the non-secret Auth0 values and use a hidden prompt for the client
+secret:
 
 ```bash
 export ABDA_DEPLOY_OIDC_METADATA_URL='https://AUTH0_TENANT/.well-known/openid-configuration'
 export ABDA_DEPLOY_OIDC_ISSUER='https://AUTH0_TENANT/'
 export ABDA_DEPLOY_OIDC_CLIENT_ID='LOAD_FROM_AUTH0'
-export ABDA_DEPLOY_OIDC_CLIENT_SECRET='LOAD_FROM_SECRET_MANAGER'
+read -rsp 'Auth0 application client secret: ' \
+  ABDA_DEPLOY_OIDC_CLIENT_SECRET
+printf '\n'
+export ABDA_DEPLOY_OIDC_CLIENT_SECRET
 ```
 
 ## 5. Load application secrets and provider configuration
 
-Generate the three independent random secrets once, store them in the lab
-secret manager, and reuse them during ordinary redeployments. Rotating the MCP
-pepper intentionally invalidates all MCP credentials.
+Generate the three independent random secrets once, store them in the private
+operator password manager, and reuse them during ordinary redeployments.
+Rotating the MCP pepper intentionally invalidates all MCP credentials. Use
+hidden prompts so none of the five secret values enters shell history.
 
 ```bash
-export ABDA_DEPLOY_SESSION_SECRET='LOAD_AT_LEAST_32_RANDOM_CHARACTERS'
-export ABDA_DEPLOY_MCP_TOKEN_PEPPER='LOAD_A_DIFFERENT_32_CHARACTER_SECRET'
-export ABDA_DEPLOY_METRICS_TOKEN='LOAD_A_THIRD_32_CHARACTER_SECRET'
+read -rsp 'ABDA session secret: ' ABDA_DEPLOY_SESSION_SECRET
+printf '\n'
+export ABDA_DEPLOY_SESSION_SECRET
+read -rsp 'ABDA MCP token pepper: ' ABDA_DEPLOY_MCP_TOKEN_PEPPER
+printf '\n'
+export ABDA_DEPLOY_MCP_TOKEN_PEPPER
+read -rsp 'ABDA metrics bearer token: ' ABDA_DEPLOY_METRICS_TOKEN
+printf '\n'
+export ABDA_DEPLOY_METRICS_TOKEN
 
-export ABDA_DEPLOY_FOUNDRY_ENDPOINT='https://RESOURCE.services.ai.azure.com/anthropic/v1/messages'
+export ABDA_DEPLOY_FOUNDRY_ENDPOINT='https://RESOURCE.services.ai.azure.com/anthropic'
 export ABDA_DEPLOY_CLAUDE_DEPLOYMENT='claude-sonnet-4-6'
-export ABDA_DEPLOY_FOUNDRY_API_KEY='LOAD_FROM_SECRET_MANAGER'
-export ABDA_DEPLOY_OPENROUTER_API_KEY='LOAD_FROM_SECRET_MANAGER'
+read -rsp 'CloudBank Foundry API key: ' ABDA_DEPLOY_FOUNDRY_API_KEY
+printf '\n'
+export ABDA_DEPLOY_FOUNDRY_API_KEY
+read -rsp 'OpenRouter API key: ' ABDA_DEPLOY_OPENROUTER_API_KEY
+printf '\n'
+export ABDA_DEPLOY_OPENROUTER_API_KEY
 export ABDA_DEPLOY_OPENROUTER_BUDGET_MICROUSD='500000000'
 ```
+
+For the currently validated route, obtain the endpoint from the private
+`ANTHROPIC_FOUNDRY_BASE_URL` or `ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT` value,
+the deployment name from
+`ANTHROPIC_FOUNDRY_CLAUDE_SONNET_4_6_MODEL`, and the key from
+`AZURE_OPENAI_API_KEY`. These are source names only. Never print their values
+to copy them from a shared terminal.
 
 The deployment uses the currently validated CloudBank primary. A newer model is
 not selected merely because it appears in the Foundry catalog. Follow
@@ -393,12 +426,12 @@ signup.
 
 ## 9. Bind the operator-owned hostname
 
-Use a domain controlled by the project, such as `abda-nl.org` if it has been
-acquired. In Cloudflare DNS, create a direct CNAME from `demo` to the generated
-Container Apps hostname and a TXT record named `asuid.demo` with the Azure
-verification value. Keep the CNAME in DNS-only mode, shown by a gray cloud.
-Cloudflare proxying would change the client-address trust boundary and is not
-part of this deployment.
+Use the operator-owned domain recorded in
+`ABDA_DEPLOY_SERVICE_DOMAIN`. In Cloudflare DNS, create a direct CNAME from
+`demo` to the generated Container Apps hostname and a TXT record named
+`asuid.demo` with the Azure verification value. Keep the CNAME in DNS-only
+mode, shown by a gray cloud. Cloudflare proxying would change the client-address
+trust boundary and is not part of this deployment.
 
 Get the exact values:
 
@@ -416,7 +449,7 @@ export ABDA_DEPLOY_DOMAIN_VERIFICATION_ID="$(az containerapp show \
 After DNS resolves correctly, add and bind the hostname:
 
 ```bash
-export ABDA_DEPLOY_CUSTOM_HOSTNAME='demo.abda-nl.org'
+export ABDA_DEPLOY_CUSTOM_HOSTNAME="$ABDA_DEPLOY_DESIRED_HOSTNAME"
 
 az containerapp hostname add \
   --name "$ABDA_DEPLOY_APP_NAME" \
@@ -451,8 +484,7 @@ az deployment group create \
 ```
 
 Repeat every acceptance check against
-`https://demo.abda-nl.org`, then make that URL public. Replace this example in
-every command if the acquired domain differs.
+`https://${ABDA_DEPLOY_CUSTOM_HOSTNAME}`, then make that URL public.
 
 ## Updates and rollback
 

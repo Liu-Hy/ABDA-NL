@@ -77,8 +77,9 @@ The first identity release uses Auth0-hosted email OTP. ABDA-NL accepts only an
 exact issuer and stable subject with the Boolean claim `email_verified: true`.
 Duplicate concurrent callbacks for one stable identity converge on the same
 account. It does not automatically link different identities by email. Auth0's
-production email delivery uses an external provider rather than the test
-sender.
+production email delivery uses its supported Resend integration from a
+dedicated sending subdomain rather than the test sender. Cloudflare Email
+Routing forwards monitored support and privacy aliases at the root domain.
 
 ## Request and data controls
 

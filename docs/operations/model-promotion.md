@@ -31,6 +31,19 @@ on 2026-08-17. The validated outage route remains
 Zero Data Retention and no-data-collection enforcement. This is a deployment
 and evaluation decision, not a claim that Sonnet 4.6 is the newest model.
 
+The complete raw reports remain in the gitignored operator evidence directory
+because they contain full model responses. Their identities and summaries are:
+
+| Route | Report SHA-256 | Gate | Average reported cost | p95 wall time |
+| --- | --- | --- | --- | --- |
+| `cloudbank-claude-sonnet-4-6` | `544f8017350244fe1d7d1d83de8840ac86c8303d4d47b441f6a6967bf99fcd7b` | 48 of 48, no errors | $0.0163485 per case | 7.982 seconds |
+| `openrouter-gemini-3.7-flash` | `cb2f4f37a2897ad1fc65732897cf549090ed9ab893685ee82a0104b8fbc1a215` | 48 of 48, no errors | $0.0036267 per case | 10.621 seconds |
+
+The OpenRouter report recorded $0.174080 total paid spend under a $0.50 run
+cap. The CloudBank report recorded $0.784728 of metered provider cost with no
+operator-paid spend. Recompute the report hashes before citing or promoting
+this evidence.
+
 ## Candidate probe
 
 1. Create the Foundry deployment in the same CloudBank project or obtain its

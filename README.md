@@ -177,6 +177,7 @@ The public service uses the same application entrypoint in a non-root,
 hash-locked container, with Azure Container Apps, private PostgreSQL, verified
 email OIDC, and an explicit migration job. Operator documentation is tracked in:
 
+- [Operator account and domain bootstrap](docs/operations/operator-service-bootstrap.md)
 - [Azure deployment](docs/operations/public-deployment.md)
 - [Auth0 email OTP](docs/operations/auth0-email-otp.md)
 - [Funded model promotion](docs/operations/model-promotion.md)
