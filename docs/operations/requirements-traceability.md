@@ -36,7 +36,7 @@ publication decision.
 | Requirement | Implementation and evidence | Remaining release gate |
 | --- | --- | --- |
 | Ordinary local launch and Delta `demo` compatibility | One `abda-nl` entrypoint defaults to loopback, waits for readiness, and opens the local browser. `--no-browser` supports managed runs. `.demo.json` retains `{host}` and `{port}`, uses the foreground command, and the shared launcher relays to the pinned Delta node. The installed-wheel smoke test starts outside the checkout and serves six scenarios. | Confirm the default browser opens on the presentation laptop. Confirm the exact laptop `ssh delta-demo` tunnel reaches the running Delta app. |
-| Durable public URL associated with ABDA-NL and iDAKS | The Azure runbook and templates use a generated Container Apps origin first, then an operator-owned ABDA-NL domain managed through Cloudflare DNS. No CS hostname or institutional DNS dependency is proposed. | Acquire the domain, create direct DNS-only validation records, issue the managed certificate, and run external HTTPS checks. |
+| Durable public URL associated with ABDA-NL | The paper-facing iDAKS repository remains unchanged. A standalone operator-controlled repository now owns hosted-service development, CI, and the public image. The Azure runbook and templates use a generated Container Apps origin first, then an operator-owned ABDA-NL domain managed through Cloudflare DNS. No CS hostname or institutional DNS dependency is proposed. | Acquire the domain, create direct DNS-only validation records, issue the managed certificate, and run external HTTPS checks. |
 | Professional verified-email accounts | Production accepts exact-issuer OIDC identities only when `email_verified` is Boolean true. Duplicate concurrent first-login callbacks converge on one account in real PostgreSQL testing, while different identities with one email remain blocked. The Auth0 runbook uses hosted email OTP and an external email provider. Development login is visibly limited to non-production use. | Create the Auth0 application and email connection, test real delivery, and verify valid and invalid OTP behavior at the public origin. |
 | First 100 verified users receive $5 | Trial activation is explicit, idempotent per account, and transactionally capped at 100 grants, $5 each, and $500 total. Concurrent final-grant tests cover the race boundary. Reservations settle exact known usage, release confirmed uncharged failures, and conservatively charge an expired unknown outcome so a worker loss cannot reopen either hard budget. | Validate the migrated PostgreSQL deployment and activate one real staging account. |
 | CloudBank primary with temporary OpenRouter outage fallback | Balanced uses the validated CloudBank Sonnet route. Only transport, throttling, timeout, and provider 5xx outage classes can open the fallback circuit after bounded retries. Authentication, request, deployment, and validation failures cannot spend OpenRouter funds. Every physical call reserves and settles independently. OpenRouter requests require both no data collection and Zero Data Retention. | Force one qualifying outage in staging and inspect both ledgers. Confirm the live OpenRouter account limit agrees with the configured cap. |
@@ -44,7 +44,7 @@ publication decision.
 | Registered-user BYOK with no usage quota | Anthropic, OpenAI, Google, and OpenRouter use fixed endpoints and model allowlists. Provider request IDs are separate from stable catalog IDs. Keys remain in tab memory and one request client, bypass trial charging, and are absent from storage, cookies, URLs, logs, projects, shares, MCP, and database records. Reload and sign-out clear the browser value. Managed Delta acceptance on 2026-08-17 produced successful direct Google and OpenRouter calls with unchanged trial state and no key in the response, database event, or managed log. A later OpenRouter Gemini 3.7 Flash request also succeeded after per-request ZDR enforcement, with no key in the response or managed log. OpenAI account quota returned a sanitized HTTP 429 and retry hint. The configured Anthropic account returned a sanitized billing rejection for the documented Sonnet 5 API ID. | Repeat with disposable keys at the staged public origin. Restore Anthropic account credit and OpenAI account quota before claiming successful direct calls for all four providers. |
 | Private projects and research sharing | Projects are owner-scoped, versioned working baselines. Share tokens remain in URL fragments, resolve to read-only views, support validated private copies, and can be revoked. OIDC return paths discard fragments and shared-view login uses a separate tab, so a share bearer cannot enter a server-visible login URL. Cross-user and stale-version tests cover isolation. | Complete the same journey against production PostgreSQL and a private browser window. |
 | Codex and Claude Code access | Authenticated MCP uses one-time bearer credentials stored as keyed digests. Read, write, and model scopes are independent. Writes require the observed version, and proposals never apply themselves. Revocation, expiry, malformed tokens, and cross-user access are tested. | Exercise one Codex and one Claude Code client against the final HTTPS MCP endpoint. |
-| Security and abuse resistance | Production startup validates all trust boundaries. The app applies trusted hosts, same-origin mutation checks, secure session cookies, body limits, database-backed rate limits, safe errors, CSP and other headers, private database networking, and protected metrics. The administrator database credential is confined to the migration job. Web replicas use a distinct role with no memberships. Its explicit table and sequence grants exclude role, database, schema, temporary-object, ownership, replication, and row-security bypass powers, and startup rejects an overprivileged login. Isolated PostgreSQL 16 acceptance exercises account, trial, project, share, rate-limit, usage-accounting, and MCP writes, then proves object and role creation are denied. The B1ms deployment caps three replicas at five connections each, and protected metrics expose pool occupancy. Logs omit query strings and normalize route names. Assistant Markdown uses a restricted DOMPurify fragment sink without reparsing, and browser tests exercise active-content and context-switch payloads. Vendored asset provenance, hashes, and licenses are tracked. CI audits both native dependency lock sets with `pip-audit`. | Repeat the PostgreSQL journey on Azure, run the external header checks, inspect Log Analytics, and complete institutional privacy and terms review. |
+| Security and abuse resistance | Production startup validates all trust boundaries. The app applies trusted hosts, same-origin mutation checks, secure session cookies, body limits, database-backed rate limits, safe errors, CSP and other headers, private database networking, and protected metrics. The administrator database credential is confined to the migration job. Web replicas use a distinct role with no memberships. Its explicit table and sequence grants exclude role, database, schema, temporary-object, ownership, replication, and row-security bypass powers, and startup rejects an overprivileged login. Isolated PostgreSQL 16 acceptance exercises account, trial, project, share, rate-limit, usage-accounting, and MCP writes, then proves object and role creation are denied. The B1ms deployment caps three replicas at five connections each, and protected metrics expose pool occupancy. Logs omit query strings and normalize route names. Assistant Markdown uses a restricted DOMPurify fragment sink without reparsing, and browser tests exercise active-content and context-switch payloads. Vendored asset provenance, hashes, and licenses are tracked. CI audits both native dependency lock sets with `pip-audit`. The service repository additionally enables GitHub secret scanning, push protection, vulnerability alerts, automated security updates, protected branches, and required CI for `main`. | Repeat the PostgreSQL journey on Azure, run the external header checks, inspect Log Analytics, and complete institutional privacy and terms review. |
 | Accessibility and user experience | Automated Chromium and Firefox journeys cover desktop, a 200 percent zoom-equivalent viewport, mobile reflow, keyboard dialogs, focus return, reduced motion, and WCAG A and AA scans. | Complete Safari, manual screen-reader, and actual 200 percent browser zoom checks on presentation hardware. |
 | Observability and rollback | Liveness and readiness are distinct. Operator-managed startup refuses a database whose Alembic revision differs from the application image. Metrics report low-cardinality HTTP, exact trial caps, both reservation ledgers, fallback-budget, and model-event state. The external release check rejects cap mismatches, inconsistent balances, and non-idle reservations. Azure retains logs for 30 days. The runbook deploys only smoke-tested and attested GHCR digest URIs and documents digest rollback. | Prove public telemetry ingestion, alert ownership, a migration execution, and one rollback rehearsal. |
 
@@ -66,21 +66,31 @@ The detailed routing decision and primary-source links are in
 [ADR 0003](../decisions/0003-model-routing-and-cost-controls.md). Promotion
 steps are in [the model runbook](model-promotion.md).
 
+## Completed external checkpoint evidence
+
+The initial personal-hosting checkpoint proves a successful tag-gated image
+build, exact-digest registry smoke test, anonymous GHCR access, and GitHub
+provenance for source commit `1217b3a`. It also records the clean separation
+between the unchanged paper `main` and the standalone service repository. See
+[the checkpoint record](personal-hosting-checkpoint.md) for exact CI, workflow,
+digest, attestation, registry, and branch-protection evidence.
+
+The final deployment must repeat this gate for its exact release commit. An
+earlier image cannot establish a later release identity.
+
 ## Release-only evidence still required
 
 The repository is not sufficient evidence for these items:
 
-1. A successful tag-gated GHCR build, exact-digest smoke test, public anonymous
-   pull, and GitHub provenance attestation.
-2. A successful migration job and public Container Apps revision using private
+1. A successful migration job and public Container Apps revision using private
    PostgreSQL.
-3. Auth0 email delivery, exact callbacks, and verified-email acceptance at the
+2. Auth0 email delivery, exact callbacks, and verified-email acceptance at the
    final origin.
-4. Cloudflare DNS and Azure certificate validation for the operator-owned
+3. Cloudflare DNS and Azure certificate validation for the operator-owned
    ABDA-NL hostname.
-5. External health, policy, security-header, metrics, and sanitized-log checks.
-6. The exact laptop `ssh delta-demo` browser path.
-7. Safari, screen-reader, presentation display, conference network, and two
+4. External health, policy, security-header, metrics, and sanitized-log checks.
+5. The exact laptop `ssh delta-demo` browser path.
+6. Safari, screen-reader, presentation display, conference network, and two
    complete rehearsal runs.
 
 These are explicit items in [the release checklist](release-checklist.md), not

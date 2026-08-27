@@ -26,8 +26,9 @@ Azure receives the public owner-scoped package name and accepts only its
 `ghcr.io/OWNER/abda-nl@sha256:...` form. It never deploys a mutable tag. Public
 anonymous pull removes the need for an Azure registry, registry credential,
 managed pull identity, or role assignment. Keeping the owner as an explicit
-deployment parameter allows reviewed releases to move between a personal fork
-and the project organization without changing the application image contract.
+deployment parameter allows reviewed releases to move between an
+operator-controlled repository and the project organization without changing
+the application image contract.
 
 Azure terminates HTTPS and forbids insecure ingress. The application binds a
 generated Azure hostname first, then an operator-owned ABDA-NL hostname after
