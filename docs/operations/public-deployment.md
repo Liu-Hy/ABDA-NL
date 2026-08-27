@@ -191,27 +191,33 @@ audits, and complete non-browser test suite. It publishes one Linux AMD64 image,
 pulls the exact pushed digest, smoke-tests the service, and creates a GitHub
 provenance attestation. It refuses to replace an existing commit image tag.
 
-The first successful workflow creates a private GHCR package. A package
-administrator must open the `abda-nl` package settings in the `idaks`
-organization and change its visibility to Public. GitHub does not permit a
-public package to be made private again. Confirm that the image contains only
-public repository content before accepting that one-time change.
+The workflow publishes to `ghcr.io/OWNER/abda-nl`, where `OWNER` is the
+lowercase owner of the repository running the workflow. The first successful
+workflow creates a private GHCR package. The repository owner must open the
+`abda-nl` package settings and change its visibility to Public. GitHub does not
+permit a public package to be made private again. Confirm that the image
+contains only public repository content before accepting that one-time change.
 
 Copy the digest URI from the successful workflow summary and verify it:
 
 ```bash
-export ABDA_DEPLOY_IMAGE='ghcr.io/idaks/abda-nl@sha256:COPY_64_HEX_DIGEST'
+export ABDA_DEPLOY_SOURCE_REPOSITORY='Liu-Hy/ABDA-NL'
+export ABDA_DEPLOY_IMAGE_REPOSITORY='ghcr.io/liu-hy/abda-nl'
+export ABDA_DEPLOY_IMAGE="${ABDA_DEPLOY_IMAGE_REPOSITORY}@sha256:COPY_64_HEX_DIGEST"
 export ABDA_DEPLOY_IMAGE_SHA256="${ABDA_DEPLOY_IMAGE#*@sha256:}"
 test "$(printf '%s' "$ABDA_DEPLOY_IMAGE_SHA256" | wc -c)" -eq 64
 [[ "$ABDA_DEPLOY_IMAGE_SHA256" =~ ^[0-9a-f]{64}$ ]]
-gh attestation verify "oci://$ABDA_DEPLOY_IMAGE" --repo idaks/ABDA-NL
+gh attestation verify \
+  "oci://$ABDA_DEPLOY_IMAGE" \
+  --repo "$ABDA_DEPLOY_SOURCE_REPOSITORY"
 ```
 
 Do not deploy a tag, including the full-commit tag. Deploy only the digest URI
 from a successful smoke-tested and attested workflow. Record the Git commit,
 digest URI, workflow run, and attestation in the release record. The Bicep
-parameter accepts only the 64-character digest suffix and constructs the fixed
-public GHCR repository internally.
+parameters accept the public owner-scoped image repository and only the
+64-character digest suffix. The application and migration job therefore deploy
+the same immutable image while remaining portable between repository owners.
 
 ## 4. Configure verified-email OIDC
 

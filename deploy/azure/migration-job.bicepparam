@@ -3,6 +3,7 @@ using './migration-job.bicep'
 param location = readEnvironmentVariable('ABDA_DEPLOY_LOCATION', 'eastus2')
 param jobName = readEnvironmentVariable('ABDA_DEPLOY_MIGRATION_JOB_NAME', 'abda-nl-migrate')
 param containerAppsEnvironmentName = readEnvironmentVariable('ABDA_DEPLOY_ENVIRONMENT_NAME')
+param imageRepository = readEnvironmentVariable('ABDA_DEPLOY_IMAGE_REPOSITORY')
 param imageSha256 = readEnvironmentVariable('ABDA_DEPLOY_IMAGE_SHA256')
 param postgresHost = readEnvironmentVariable('ABDA_DEPLOY_POSTGRES_HOST')
 param postgresAdminLogin = readEnvironmentVariable('ABDA_DEPLOY_POSTGRES_ADMIN_LOGIN', 'abdaadmin')

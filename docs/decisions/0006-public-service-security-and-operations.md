@@ -20,11 +20,14 @@ repeatable deployment, bounded financial exposure, and a recovery path.
 The public service runs in Azure Container Apps from an immutable container
 image. It does not run from a Delta login node. A tag-gated GitHub Actions
 workflow builds the public repository, reruns source and dependency checks,
-pushes the image to `ghcr.io/idaks/abda-nl`, smoke-tests the exact pushed
-digest, and creates a provenance attestation. Azure accepts only the public
-`ghcr.io/idaks/abda-nl@sha256:...` form. It never deploys a mutable tag. Public
+pushes the image to the repository owner's `ghcr.io/OWNER/abda-nl` package,
+smoke-tests the exact pushed digest, and creates a provenance attestation.
+Azure receives the public owner-scoped package name and accepts only its
+`ghcr.io/OWNER/abda-nl@sha256:...` form. It never deploys a mutable tag. Public
 anonymous pull removes the need for an Azure registry, registry credential,
-managed pull identity, or role assignment.
+managed pull identity, or role assignment. Keeping the owner as an explicit
+deployment parameter allows reviewed releases to move between a personal fork
+and the project organization without changing the application image contract.
 
 Azure terminates HTTPS and forbids insecure ingress. The application binds a
 generated Azure hostname first, then an operator-owned ABDA-NL hostname after

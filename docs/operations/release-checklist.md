@@ -38,8 +38,8 @@ Record:
       refuses to replace an existing commit image.
 - [ ] The exact pushed digest passes the registry smoke test and has a valid
       GitHub provenance attestation for this repository.
-- [ ] `ABDA_DEPLOY_IMAGE` contains the public
-      `ghcr.io/idaks/abda-nl@sha256:...` URI, not any tag.
+- [ ] `ABDA_DEPLOY_IMAGE` contains the public owner-scoped
+      `ghcr.io/OWNER/abda-nl@sha256:...` URI, not any tag.
 - [ ] Anonymous pull from GHCR succeeds before Azure deployment.
 - [ ] A staged-content secret scan is clean.
 

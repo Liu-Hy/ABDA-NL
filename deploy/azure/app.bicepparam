@@ -3,6 +3,7 @@ using './app.bicep'
 param location = readEnvironmentVariable('ABDA_DEPLOY_LOCATION', 'eastus2')
 param appName = readEnvironmentVariable('ABDA_DEPLOY_APP_NAME', 'abda-nl-web')
 param containerAppsEnvironmentName = readEnvironmentVariable('ABDA_DEPLOY_ENVIRONMENT_NAME')
+param imageRepository = readEnvironmentVariable('ABDA_DEPLOY_IMAGE_REPOSITORY')
 param imageSha256 = readEnvironmentVariable('ABDA_DEPLOY_IMAGE_SHA256')
 param deploymentEnvironment = readEnvironmentVariable('ABDA_DEPLOY_ENVIRONMENT', 'staging')
 param customHostname = readEnvironmentVariable('ABDA_DEPLOY_CUSTOM_HOSTNAME', '')

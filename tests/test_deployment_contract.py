@@ -65,15 +65,20 @@ def test_azure_deploys_only_the_public_digest_pinned_ghcr_image():
     )
 
     for module in (application, migration):
-        assert "ghcr.io/idaks/abda-nl@sha256:" in module
+        assert "param imageRepository string" in module
         assert "param imageSha256 string" in module
         assert "@minLength(64)" in module
         assert "@maxLength(64)" in module
-        assert "var image = 'ghcr.io/idaks/abda-nl@sha256:${imageSha256}'" in module
+        assert "var image = '${imageRepository}@sha256:${imageSha256}'" in module
 
+    assert parameters.count("ABDA_DEPLOY_IMAGE_REPOSITORY") == 2
     assert parameters.count("ABDA_DEPLOY_IMAGE_SHA256") == 2
 
     continuous_integration = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+    assert (
+        "ABDA_DEPLOY_IMAGE_REPOSITORY: ghcr.io/example/abda-nl"
+        in continuous_integration
+    )
     assert (
         'ABDA_DEPLOY_IMAGE_SHA256: "'
         + ("0" * 64)
@@ -99,11 +104,14 @@ def test_service_image_workflow_prevents_mutable_or_unverified_deployments():
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "tags:\n      - service-image-*" in workflow
-    assert "ABDA_IMAGE_NAME: ghcr.io/idaks/abda-nl" in workflow
+    assert 'ABDA_IMAGE_OWNER="${GITHUB_REPOSITORY_OWNER,,}"' in workflow
+    assert 'ABDA_IMAGE_NAME="ghcr.io/${ABDA_IMAGE_OWNER}/abda-nl"' in workflow
     assert "password: ${{ secrets.GITHUB_TOKEN }}" in workflow
     assert "docker manifest inspect" in workflow
     assert "Smoke test the exact pushed digest" in workflow
     assert "subject-digest: ${{ steps.publish.outputs.digest }}" in workflow
     assert "push-to-registry: true" in workflow
     assert ":latest" not in workflow
-    assert "org.opencontainers.image.source=\"https://github.com/idaks/ABDA-NL\"" in dockerfile
+    assert "ARG ABDA_IMAGE_SOURCE=https://github.com/idaks/ABDA-NL" in dockerfile
+    assert 'org.opencontainers.image.source="${ABDA_IMAGE_SOURCE}"' in dockerfile
+    assert "ABDA_IMAGE_SOURCE=${{ github.server_url }}/${{ github.repository }}" in workflow

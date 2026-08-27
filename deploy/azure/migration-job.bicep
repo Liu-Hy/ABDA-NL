@@ -4,12 +4,15 @@ param location string = resourceGroup().location
 param jobName string = 'abda-nl-migrate'
 param containerAppsEnvironmentName string
 
+@description('Public GHCR image repository without a tag or digest, for example ghcr.io/liu-hy/abda-nl.')
+param imageRepository string
+
 @description('The 64-character hexadecimal sha256 digest of the public ABDA-NL GHCR image.')
 @minLength(64)
 @maxLength(64)
 param imageSha256 string
 
-var image = 'ghcr.io/idaks/abda-nl@sha256:${imageSha256}'
+var image = '${imageRepository}@sha256:${imageSha256}'
 
 param postgresHost string
 param postgresAdminLogin string = 'abdaadmin'
