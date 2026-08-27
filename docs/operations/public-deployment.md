@@ -56,7 +56,8 @@ extension. Bicep 0.46.1 is the version verified in CI.
 The required external inputs are:
 
 - an Azure subscription on which the operator has Contributor access
-- GitHub package administration access for the `idaks` organization
+- administrative control of the GitHub repository and owner-scoped container
+  package used for the hosted service
 - an Auth0 Regular Web Application and email OTP connection
 - a production email provider for Auth0
 - the currently deployed CloudBank Foundry Messages endpoint, deployment name,
@@ -181,10 +182,16 @@ git diff --quiet
 git diff --cached --quiet
 export ABDA_IMAGE_COMMIT="$(git rev-parse --verify HEAD)"
 export ABDA_IMAGE_TRIGGER_TAG="service-image-$(date -u +%Y%m%d-%H%M%S)"
+export ABDA_IMAGE_REMOTE='personal'
 git tag --annotate "$ABDA_IMAGE_TRIGGER_TAG" "$ABDA_IMAGE_COMMIT" \
   --message "Publish ABDA-NL service image $ABDA_IMAGE_COMMIT"
-git push origin "$ABDA_IMAGE_TRIGGER_TAG"
+git push "$ABDA_IMAGE_REMOTE" "$ABDA_IMAGE_TRIGGER_TAG"
 ```
+
+Use `personal` in the shared Delta checkout, where `origin` intentionally
+continues to name the paper-facing iDAKS repository. In a fresh clone of the
+publishing repository, use `origin` instead. Verify the selected remote with
+`git remote --verbose` before pushing the tag.
 
 The `Publish service image` workflow reruns the source checks, dependency
 audits, and complete non-browser test suite. It publishes one Linux AMD64 image,
@@ -192,8 +199,9 @@ pulls the exact pushed digest, smoke-tests the service, and creates a GitHub
 provenance attestation. It refuses to replace an existing commit image tag.
 
 The workflow publishes to `ghcr.io/OWNER/abda-nl`, where `OWNER` is the
-lowercase owner of the repository running the workflow. The first successful
-workflow creates a private GHCR package. The repository owner must open the
+lowercase owner of the repository running the workflow. After the first
+successful workflow, verify anonymous registry access to the exact digest. If
+GitHub created the package as private, the repository owner must open the
 `abda-nl` package settings and change its visibility to Public. GitHub does not
 permit a public package to be made private again. Confirm that the image
 contains only public repository content before accepting that one-time change.
