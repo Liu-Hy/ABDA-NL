@@ -69,7 +69,7 @@ def test_operator_bootstrap_is_owner_controlled_and_secret_safe():
     assert "without depending on iSchool IT" in bootstrap
     assert "support@DOMAIN" in bootstrap
     assert "privacy@DOMAIN" in bootstrap
-    assert "login@auth.DOMAIN" in bootstrap
+    assert "no-reply@auth.DOMAIN" in bootstrap
     assert "dedicated ABDA-NL inference key with a $500" in bootstrap
     assert (
         "ABDA_DEPLOY_OPENROUTER_FAILOVER_ENABLED` remains `false`" in bootstrap

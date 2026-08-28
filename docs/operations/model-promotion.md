@@ -44,6 +44,23 @@ cap. The CloudBank report recorded $0.784728 of metered provider cost with no
 operator-paid spend. Recompute the report hashes before citing or promoting
 this evidence.
 
+## Live route revalidation on 2026-08-28
+
+After the external service prerequisites were completed, both validated routes
+were rerun against the suite version 4 smoke subset with one repetition. The
+subset covers grounded chat, a structured edit proposal, and semantic review.
+
+| Route | Report SHA-256 | Result | Provider calls | Reported cost | p95 wall time |
+| --- | --- | --- | --- | --- | --- |
+| `cloudbank-claude-sonnet-4-6` | `e364e26ef94ccf6e591f1f7ff8d38408302efb11d9ecd05a4896b5f9cf42f1c2` | 3 of 3, no errors | 4 | $0.121448 CloudBank metering | 6.011 seconds |
+| `openrouter-gemini-3.7-flash` | `4029bb4a7d3bda19565e6f5e4cfd4fa621d337668d79631d72e7eab5a98b399c` | 3 of 3, no errors | 4 | $0.014817 paid spend | 14.118 seconds |
+
+The first OpenRouter attempt used a $0.05 local run cap. Its conservative
+reservation could not fit under that cap, so the evaluator failed closed before
+any provider call and recorded zero spend. The successful rerun used the same
+$0.50 cap as the complete evaluation. Raw reports remain in the gitignored
+operator evidence directory because they contain full model responses.
+
 ## Candidate probe
 
 1. Create the Foundry deployment in the same CloudBank project or obtain its
