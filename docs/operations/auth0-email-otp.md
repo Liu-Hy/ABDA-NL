@@ -56,11 +56,11 @@ supports it for this tenant.
 4. Enable the Email connection only for the ABDA-NL application.
 5. Disable every database, social, and enterprise connection for this
    application during the initial launch.
-6. Keep signup disabled while the generated Azure origin is undergoing private
-   infrastructure checks.
-7. Enable signup temporarily for live email acceptance and the invited pilot.
-8. Open signup for the first-100-user trial only after the release checklist
-   passes.
+6. Keep signup enabled so invited first-time addresses can create Auth0
+   identities during staging. Keep `ABDA_DEPLOY_TRIAL_ENABLED=false`, and do
+   not advertise the origin, until the release checklist passes.
+7. Open the service to the first-100-user trial only after identity, accounting,
+   persistence, and security acceptance passes.
 
 The first successful OTP creates the Auth0 user on the Email connection. The
 application still requires the literal Boolean claim `email_verified: true` and
@@ -103,7 +103,7 @@ select Resend. Use the same From address in the provider and the Passwordless
 Email connection:
 
 ```text
-login@auth.DOMAIN
+no-reply@auth.DOMAIN
 ```
 
 Paste the Resend API key, save, and use **Send Test Email**. Confirm the message
@@ -129,6 +129,14 @@ ABDA_DEPLOY_OIDC_METADATA_URL=https://TENANT/.well-known/openid-configuration
 ABDA_DEPLOY_OIDC_ISSUER=https://TENANT/
 ABDA_DEPLOY_OIDC_CLIENT_ID=APPLICATION_CLIENT_ID
 ABDA_DEPLOY_OIDC_CLIENT_SECRET=APPLICATION_CLIENT_SECRET
+```
+
+For the current operator-owned tenant, the verified public discovery values
+are:
+
+```text
+ABDA_DEPLOY_OIDC_METADATA_URL=https://login.abda-nl.org/.well-known/openid-configuration
+ABDA_DEPLOY_OIDC_ISSUER=https://login.abda-nl.org/
 ```
 
 The client secret belongs in the private operator password manager and the

@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: >-
+  If you use ABDA-NL, please cite the accompanying COMMA 2026 demonstration
+  paper.
+title: ABDA-NL
+abstract: >-
+  A browser-based natural-language scenario explorer for argument-based
+  reasoning. ABDA-NL lets users inspect, explain, and extend ASPIC- scenarios
+  while the deterministic ABDA engine remains authoritative for argumentation
+  semantics.
+type: software
+authors:
+  - family-names: Bowers
+    given-names: Shawn
+  - family-names: Caminada
+    given-names: Martin
+  - family-names: Liu
+    given-names: Haoyang
+  - family-names: Ludäscher
+    given-names: Bertram
+repository-code: https://github.com/idaks/ABDA-NL
+url: https://github.com/idaks/ABDA-NL
+license: MIT
+keywords:
+  - argumentation
+  - ASPIC-
+  - explainable artificial intelligence
+  - natural-language interface
+  - research software
+preferred-citation:
+  type: conference-paper
+  title: >-
+    ABDA-NL: A Natural-Language Scenario Explorer for Argument-Based Reasoning
+  authors:
+    - family-names: Bowers
+      given-names: Shawn
+    - family-names: Caminada
+      given-names: Martin
+    - family-names: Liu
+      given-names: Haoyang
+    - family-names: Ludäscher
+      given-names: Bertram
+  collection-title: >-
+    11th International Conference on Computational Models of Argument
+    (COMMA 2026)
+  year: 2026

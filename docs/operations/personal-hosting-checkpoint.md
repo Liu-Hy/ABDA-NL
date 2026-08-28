@@ -1,6 +1,6 @@
 # Personal hosting checkpoint
 
-Date: 2026-08-27
+Date: 2026-08-27, anonymous visibility reconfirmed 2026-08-28
 
 This record captures the first externally verified source and image checkpoint
 under the operator-controlled repository. It is not a production release
@@ -76,7 +76,9 @@ Linux AMD64 image, pulled the exact digest, started it as the service, checked
 liveness, readiness, configuration, privacy, and terms endpoints, and then
 created GitHub build provenance.
 
-An unauthenticated OCI registry request returned HTTP 200 and the exact header:
+After the package owner changed its one-time visibility setting to Public, an
+unauthenticated OCI registry request on 2026-08-28 returned HTTP 200 and the
+exact header:
 
 ```text
 docker-content-digest: sha256:3a697972b5192c07d815e22821b5495fc8ce7b73890ab95ef0ac33a0f1629cda

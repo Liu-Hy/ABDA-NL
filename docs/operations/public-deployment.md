@@ -66,6 +66,13 @@ before creating billable Azure resources. The required external inputs are:
 - an OpenRouter key whose account limit agrees with the configured hard cap
 - an operator-owned domain and DNS zone when the permanent hostname is enabled
 
+The initial operator completed these account, provider-registration, domain,
+mail, Auth0, repository, and public-package prerequisites on 2026-08-28. See
+the dated
+[external prerequisites checkpoint](external-prerequisites-20260828.md).
+Deployment still needs its own exact image, what-if review, infrastructure,
+migration, application, DNS, and live acceptance evidence.
+
 Authenticate and select the intended subscription explicitly:
 
 ```bash

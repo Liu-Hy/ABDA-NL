@@ -18,15 +18,22 @@ names stable unless a DNS conflict requires a change:
 | --- | --- |
 | Public application | `https://demo.DOMAIN` |
 | Transactional sending domain | `auth.DOMAIN` |
-| Authentication sender address | `login@auth.DOMAIN` |
+| Authentication sender address | `no-reply@auth.DOMAIN` |
 | User support | `support@DOMAIN` |
 | Privacy and deletion requests | `privacy@DOMAIN` |
+| Auth0 custom domain | `login.DOMAIN` |
 | Auth0 application | `ABDA-NL Public Service` |
 
 Using a dedicated `auth` subdomain isolates the reputation and DNS records of
 transactional login mail. Cloudflare Email Routing remains responsible for
 incoming mail at the root domain. Resend receiving must remain disabled for the
 `auth` subdomain.
+
+The initial ABDA-NL operator setup completed these checkpoints on 2026-08-28.
+See the dated
+[external prerequisites checkpoint](external-prerequisites-20260828.md) for
+the verified non-secret state. The instructions below remain the reproducible
+procedure for recovery or a future operator.
 
 ## Checkpoint 0: Secure the operator accounts
 
@@ -55,9 +62,12 @@ to create the initial private staging resources.
 3. Prefer a one-year registration with automatic renewal enabled.
 4. Review both the initial and renewal price before completing the purchase.
 5. Enter accurate registrant contact information using ASCII characters.
-6. Complete Cloudflare account-email and ICANN registrant-email verification.
-7. Confirm that the domain appears under **Websites** and that Cloudflare is
-   authoritative for its DNS zone.
+6. Complete any account-email or registrant-email verification that Cloudflare
+   presents. An active registration with no verification warning is acceptable
+   when Cloudflare uses the already verified account address.
+7. Confirm that the registration **Overview** reports **Active**, that
+   Cloudflare is authoritative for its DNS zone, and that DNSSEC reports
+   success.
 
 Stop here and record only the acquired domain and verification status. Do not
 send billing information or registrant contact details.
@@ -124,19 +134,27 @@ tracking is disabled, and whether the domain-restricted sending key is stored.
    infrastructure deployment reports the exact generated origin. Never enter a
    wildcard or localhost production URL.
 6. Open **Authentication**, **Passwordless**, enable **Email**, select one-time
-   code rather than magic link, use a six-digit code with a three-minute
+   code rather than magic link, use a six-digit code with a five-minute
    expiry, and retain Auth0's failed-attempt limit.
-7. Set the Passwordless Email **From** value to `login@auth.DOMAIN`. Enable
+7. Set the Passwordless Email **From** value to `no-reply@auth.DOMAIN`. Enable
    this connection only for the ABDA-NL application. Disable database, social,
    and enterprise connections for that application.
 8. Open **Branding**, **Email Provider**, enable **Use my own email provider**,
-   select **Resend**, enter the same `login@auth.DOMAIN` From address, and
+   select **Resend**, enter the same `no-reply@auth.DOMAIN` From address, and
    paste the Resend key from the password manager. Save it.
 9. Select **Send Test Email**. Confirm arrival and confirm the delivery event in
    both Auth0 and Resend logs.
 10. Record the tenant domain and application client ID in the private operator
     record. Store the application client secret in the password manager. The
     client secret itself remains private.
+11. Keep signup enabled on the Passwordless Email connection so invited new
+    users can create identities. Trial credit remains disabled independently
+    until the application release gates pass.
+12. Keep Suspicious IP Throttling and Brute-force Protection enabled with
+    default detection thresholds, empty IP allowlists, IP-scoped blocking, and
+    global Account Lockout disabled.
+13. Disable Dynamic Client Registration and automatic connection enablement for
+    new applications. Enable generic public-signup error responses.
 
 The Auth0 application remains incomplete but safe at this checkpoint. The
 Azure infrastructure step supplies the generated origin. Add its exact
