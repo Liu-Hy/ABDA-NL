@@ -84,6 +84,12 @@ records the completed Azure provider, domain, incoming-mail, authentication
 mail, Auth0, GitHub security, and public-package foundations without including
 private destination addresses or credentials.
 
+The dated
+[staging deployment record](staging-deployment-record-20260828.md) binds the
+verified application commit, complete CI, immutable public image, exact digest,
+provenance, recovered Azure infrastructure, generated origin, Auth0 URLs, and
+rollback candidate before the first application deployment.
+
 ## Release-only evidence still required
 
 The repository is not sufficient evidence for these items:

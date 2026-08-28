@@ -98,9 +98,9 @@ https://abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io
   isolated on `development`.
 - GitHub branch protection, secret scanning, push protection, vulnerability
   alerts, and automated security updates are enabled.
-- The `abda-nl` GHCR package is public. An anonymous registry request returned
-  HTTP 200 for the smoke-tested image digest recorded in
-  [the personal hosting checkpoint](personal-hosting-checkpoint.md).
+- The `abda-nl` GHCR package is public. Anonymous registry requests returned
+  HTTP 200 for the initial image and the exact deployment candidate recorded in
+  [the staging deployment record](staging-deployment-record-20260828.md).
 - GitHub account two-factor authentication is enabled and recovery codes are
   stored privately.
 
