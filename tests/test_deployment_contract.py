@@ -44,6 +44,23 @@ def test_b1ms_connection_budget_is_bounded_across_three_replicas():
     assert "{ name: 'ABDA_DATABASE_MAX_OVERFLOW', value: '1' }" in application
 
 
+def test_virtual_network_mutations_are_serialized():
+    infrastructure = (AZURE / "infra.bicep").read_text(encoding="utf-8")
+    postgres_subnet = infrastructure.split("resource postgresSubnet", 1)[1].split(
+        "resource privateDns", 1
+    )[0]
+    environment = infrastructure.split("resource environment", 1)[1].split(
+        "resource postgres", 1
+    )[0]
+    postgres = infrastructure.split(
+        "resource postgres 'Microsoft.DBforPostgreSQL", 1
+    )[1].split("resource database", 1)[0]
+
+    assert "dependsOn: [\n    containerAppsSubnet\n  ]" in postgres_subnet
+    assert "dependsOn: [\n    postgresSubnet\n  ]" in environment
+    assert "dependsOn: [\n    privateDnsLink\n    environment\n  ]" in postgres
+
+
 def test_public_rollout_defaults_disable_paid_activation_and_fallback():
     application = (AZURE / "app.bicep").read_text(encoding="utf-8")
     parameters = (AZURE / "app.bicepparam").read_text(encoding="utf-8")

@@ -161,6 +161,13 @@ az deployment group create \
   --parameters deploy/azure/infra.bicepparam
 ```
 
+The template deliberately serializes both subnet writes and the two delegated
+service attachments. Azure Network can reject parallel operations against one
+virtual network with `AnotherOperationInProgress`. If a deployment encounters
+that transient conflict, wait for the existing network operation to finish,
+inspect the partial resources, rerun `what-if`, and use an incremental
+redeployment. Do not delete a healthy partial resource group merely to retry.
+
 Capture the authoritative outputs rather than reconstructing Azure-generated
 names:
 

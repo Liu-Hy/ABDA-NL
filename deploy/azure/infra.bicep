@@ -70,6 +70,11 @@ resource postgresSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' =
       }
     ]
   }
+  // Azure Network rejects overlapping writes to child subnets of one virtual
+  // network. Keep the two subnet operations serial even on the first deploy.
+  dependsOn: [
+    containerAppsSubnet
+  ]
 }
 
 resource privateDns 'Microsoft.Network/privateDnsZones@2024-06-01' = {
@@ -126,6 +131,10 @@ resource environment 'Microsoft.App/managedEnvironments@2025-01-01' = {
     ]
     zoneRedundant: false
   }
+  // Wait for both subnet writes before Container Apps attaches to its subnet.
+  dependsOn: [
+    postgresSubnet
+  ]
 }
 
 resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
@@ -161,8 +170,11 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
       storageSizeGB: 32
     }
   }
+  // The delegated-subnet services are also ordered defensively. This avoids
+  // overlapping service attachment operations against the same network.
   dependsOn: [
     privateDnsLink
+    environment
   ]
 }
 
