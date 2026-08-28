@@ -86,6 +86,16 @@ def test_oidc_login_does_not_copy_share_fragments_into_server_urls():
     assert "refreshExternalOIDCLogin" in source
 
 
+def test_logout_uses_same_origin_post_before_oidc_session_logout():
+    inventory = _inventory()
+    logout_form = inventory.attributes_by_id["logout-form"]
+    assert logout_form["method"] == "post"
+    assert logout_form["action"] == "/auth/logout"
+    source = (STATIC_ROOT / "workspace.js").read_text(encoding="utf-8")
+    assert "byId('logout-form')?.addEventListener('submit', handleLogout)" in source
+    assert "state.authSession.auth_mode === 'oidc'" in source
+
+
 def test_public_policy_pages_are_linked_and_script_free():
     index = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
     for name, heading in (
@@ -97,6 +107,15 @@ def test_public_policy_pages_are_linked_and_script_free():
         assert f"<h1>{heading}</h1>" in source
         assert "<script" not in source
         assert 'href="/"' in source
+
+    privacy = (STATIC_ROOT / "privacy.html").read_text(encoding="utf-8")
+    terms = (STATIC_ROOT / "terms.html").read_text(encoding="utf-8")
+    assert "retained for up to 30 days" in privacy
+    assert "retained for 7 days" in privacy
+    assert "complete it within 30 days" in privacy
+    assert "not analyzed as research data" in privacy
+    assert 'href="mailto:privacy@abda-nl.org"' in privacy
+    assert 'href="mailto:support@abda-nl.org"' in terms
 
 
 def test_vendored_browser_assets_match_recorded_provenance():

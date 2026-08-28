@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from functools import lru_cache
 from typing import Optional
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -144,6 +144,60 @@ def _callback_url(request: Request, settings: Settings) -> str:
     return str(request.url_for("oidc_callback"))
 
 
+def _post_logout_url(request: Request, settings: Settings) -> str:
+    if settings.public_base_url:
+        return f"{settings.public_base_url}/"
+    return str(request.base_url)
+
+
+def _safe_logout_hint(value: object) -> str | None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 512
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        return None
+    return value
+
+
+async def _oidc_logout_url(
+    request: Request,
+    settings: Settings,
+    *,
+    logout_hint: str | None,
+) -> str:
+    if not settings.oidc_client_id:
+        raise RuntimeError("OIDC logout requires a client ID")
+    client = _oauth_registry().create_client("oidc")
+    metadata = await client.load_server_metadata()
+    endpoint = str(metadata.get("end_session_endpoint") or "").strip()
+    parsed = urlsplit(endpoint)
+    if (
+        not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+        or parsed.scheme not in {"http", "https"}
+        or (
+            settings.environment in {"staging", "production"}
+            and parsed.scheme != "https"
+        )
+    ):
+        raise RuntimeError("OIDC discovery did not provide a safe logout endpoint")
+
+    query = parse_qsl(parsed.query, keep_blank_values=True)
+    query.extend(
+        [
+            ("client_id", str(settings.oidc_client_id)),
+            ("post_logout_redirect_uri", _post_logout_url(request, settings)),
+        ]
+    )
+    if logout_hint:
+        query.append(("logout_hint", logout_hint))
+    return urlunsplit(parsed._replace(query=urlencode(query)))
+
+
 def _home_with_error(code: str) -> str:
     return f"/?{urlencode({'auth_error': code})}"
 
@@ -203,6 +257,31 @@ def development_login(
 def logout(request: Request) -> Response:
     request.session.clear()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/auth/logout",
+    include_in_schema=False,
+    dependencies=[Depends(require_same_origin)],
+)
+async def browser_logout(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> RedirectResponse:
+    """Clear the local session, then end the hosted OIDC browser session."""
+    logout_hint = _safe_logout_hint(request.session.get("oidc_sid"))
+    request.session.clear()
+    destination = _post_logout_url(request, settings)
+    if settings.auth_mode == "oidc":
+        try:
+            destination = await _oidc_logout_url(
+                request,
+                settings,
+                logout_hint=logout_hint,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("OIDC logout discovery failed: %s", type(exc).__name__)
+    return RedirectResponse(destination, status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/auth/login", name="oidc_login", include_in_schema=False)
@@ -266,6 +345,9 @@ async def oidc_callback(
         return RedirectResponse(_home_with_error("login_failed"), status_code=303)
     request.session.clear()
     request.session["user_id"] = user.id
+    oidc_sid = _safe_logout_hint(claims.get("sid"))
+    if oidc_sid:
+        request.session["oidc_sid"] = oidc_sid
     return RedirectResponse(next_path, status_code=303)
 
 

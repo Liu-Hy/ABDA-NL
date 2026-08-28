@@ -132,7 +132,7 @@ function initWorkspaceUI() {
   }
 
   byId('dev-login-form')?.addEventListener('submit', handleDevelopmentLogin);
-  byId('logout-btn')?.addEventListener('click', handleLogout);
+  byId('logout-form')?.addEventListener('submit', handleLogout);
   byId('trial-activate-btn')?.addEventListener('click', activateTrial);
   byId('projects-refresh-btn')?.addEventListener('click', () => refreshProjects());
   byId('project-create-form')?.addEventListener('submit', createProjectFromCurrentView);
@@ -282,8 +282,15 @@ async function handleDevelopmentLogin(event) {
   }
 }
 
-async function handleLogout() {
+async function handleLogout(event) {
   setWorkspaceStatus('account-status', 'Signing out...', 'info');
+  if (state.authSession.auth_mode === 'oidc') {
+    state.llmAccess.apiKey = '';
+    byId('byok-api-key').value = '';
+    clearMCPSecretPanel();
+    return;
+  }
+  event.preventDefault();
   try {
     await apiRequest('/api/auth/logout', { method: 'POST' });
     const leavePrivateProject = state.viewKind === 'project';

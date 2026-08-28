@@ -20,7 +20,7 @@
   </header>
   <main class="policy-main" id="policy-content">
     <h1>Privacy notice</h1>
-    <p class="policy-updated">Last updated August 17, 2026</p>
+    <p class="policy-updated">Last updated August 28, 2026</p>
 
     <p>ABDA-NL is an academic research service operated by the iDAKS Lab at the University of Illinois Urbana-Champaign School of Information Sciences. This notice describes the data practices of this service.</p>
 
@@ -34,6 +34,7 @@
       <li>Trial activation, model route, token counts, cost, latency, status, and request identifiers. Model prompts and responses are not stored in usage records.</li>
       <li>Digests and metadata for share links and MCP credentials. The service does not retain recoverable copies of those bearer secrets.</li>
     </ul>
+    <p>Private project content, model prompts, and model responses are used only to provide, secure, recover, and maintain the service. They are not analyzed as research data.</p>
 
     <h2>Model-provider processing</h2>
     <p>When you use an AI feature, the current scenario and your instruction or question are sent to the selected model provider. Funded access normally uses Microsoft Azure Foundry through CloudBank. During a qualifying service outage, it may use the displayed OpenRouter fallback. If you bring your own key, the request is sent to the provider and model you select.</p>
@@ -45,8 +46,8 @@
     <p>The service uses a signed, secure session cookie after login. It does not use advertising cookies. Managed hosting, identity, database, and model services may create security, billing, and availability logs. Application request logs use normalized route names and do not record query strings.</p>
 
     <h2>Retention and deletion</h2>
-    <p>Account and project records persist while the research service is operating or while needed for security, budget reconciliation, and research integrity. Deleting a project in the interface archives it. Short-lived rate-limit records expire automatically. Operational backups may retain deleted material for a limited recovery period.</p>
-    <p>To request access, correction, or deletion, open an issue in the <a href="https://github.com/idaks/ABDA-NL/issues">ABDA-NL repository</a> without including personal or secret information, and ask the project team to arrange a private contact channel.</p>
+    <p>Account and project records remain available while the service is operating unless you request deletion. Deleting a project in the interface archives it. Application and managed container logs are retained for up to 30 days. Database backups are retained for 7 days, so deleted material may remain in a backup until that backup expires. Short-lived rate-limit records expire automatically.</p>
+    <p>To request access, correction, or permanent deletion, email <a href="mailto:privacy@abda-nl.org">privacy@abda-nl.org</a>. Do not include an API key, share link, MCP token, or other secret. After verifying the request, the project team will complete it within 30 days. General service questions can be sent to <a href="mailto:support@abda-nl.org">support@abda-nl.org</a>.</p>
 
     <h2>Changes to this notice</h2>
     <p>Material changes will be posted here with a revised date. This research service may also publish a release note when a change affects model routing or stored user data.</p>

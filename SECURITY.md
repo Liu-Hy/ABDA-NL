@@ -7,7 +7,7 @@ deployments may not.
 ## Report a vulnerability privately
 
 Use the repository's
-[GitHub Security Advisory form](https://github.com/idaks/ABDA-NL/security/advisories/new)
+[GitHub Security Advisory form](https://github.com/Liu-Hy/ABDA-NL/security/advisories/new)
 to report a suspected vulnerability. Do not open a public issue for an
 unpatched vulnerability, API key, share link, MCP token, identity token,
 private project, or personal data.

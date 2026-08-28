@@ -432,6 +432,15 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(dialog).to_be_visible()
             _axe_report(page, "mobile workspace")
             _save_browser_evidence(page, "mobile-workspace")
+            page.locator("#logout-btn").click()
+            expect(page.locator("#global-status")).to_contain_text("Signed out")
+            session = page.evaluate(
+                "async () => (await fetch('/api/auth/session')).json()"
+            )
+            assert session["authenticated"] is False
+            page.locator("#workspace-btn").click()
+            expect(dialog).to_be_visible()
+            expect(page.locator("#account-signed-out")).to_be_visible()
             assert console_errors == []
             assert page_errors == []
         except Exception:

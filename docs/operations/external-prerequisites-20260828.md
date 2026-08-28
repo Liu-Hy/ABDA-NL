@@ -2,9 +2,9 @@
 
 Date: 2026-08-28
 
-This record captures the non-secret external state verified before the first
-Azure staging deployment. It does not prove that the application is deployed
-or that any final release gate has passed.
+This record captures the non-secret external state verified through the Azure
+staging infrastructure checkpoint. It does not prove that the application is
+deployed or that any final release gate has passed.
 
 ## Azure subscription
 
@@ -22,6 +22,14 @@ The providers required by the deployment templates are registered:
 
 The public GHCR design does not require an Azure role assignment, managed pull
 identity, or private Azure Container Registry.
+
+The `abda-nl-staging` resource group now contains the reviewed network, private
+DNS, Log Analytics workspace, Container Apps environment, and PostgreSQL
+Flexible Server. The deployment `abda-nl-stg-infra` completed successfully from
+source commit `a6a366ec199e1b0e2a89f8412d0e8a04b2bad4c5`. PostgreSQL reports
+`Ready`, has no public network access, retains backups for seven days, and
+contains the `abda` database. Log Analytics retains container logs for 30 days.
+No Container App or migration job exists at this checkpoint.
 
 ## Domain and incoming mail
 
@@ -64,9 +72,23 @@ in the repository.
 - Auth0 Dashboard MFA is enabled and its recovery code is stored privately.
 - Dynamic client registration and automatic application connection enablement
   are disabled. Generic public-signup errors are enabled.
+- The public discovery document advertises the OIDC end-session endpoint.
+- The application client ID and secret are stored in the operator's private
+  credential manager.
 
-Callback, logout, and web-origin values remain intentionally empty until Azure
-produces the exact generated HTTPS origin.
+The Regular Web Application uses these exact generated-origin values, with no
+wildcards:
+
+```text
+Allowed Callback URLs:
+https://abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io/auth/callback
+
+Allowed Logout URLs:
+https://abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io/
+
+Allowed Web Origins:
+https://abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io
+```
 
 ## Source and container ownership
 
@@ -84,8 +106,9 @@ produces the exact generated HTTPS origin.
 
 ## Remaining deployment-dependent gates
 
-The next stage must publish the exact candidate commit, deploy the private
-PostgreSQL and Container Apps resources, and obtain Azure's generated origin.
-Only then can the operator add exact Auth0 URLs, create `demo.abda-nl.org`,
-bind its managed certificate, and complete live identity, model, persistence,
-security, observability, and rollback checks.
+The next stage must publish the exact candidate commit and digest, run the
+database migration job, and deploy the Container App at the recorded generated
+origin. After generated-origin acceptance passes, the operator can create
+`demo.abda-nl.org`, bind its managed certificate, add its exact Auth0 URLs, and
+complete live identity, model, persistence, security, observability, and
+rollback checks.

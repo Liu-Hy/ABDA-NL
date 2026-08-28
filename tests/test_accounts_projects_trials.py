@@ -4,13 +4,14 @@ from __future__ import annotations
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.account_routes import _safe_next
+from app.api.account_routes import _safe_logout_hint, _safe_next
 from app.api.main import app
 from app.core.config import get_settings
 from app.db.models import Base, Identity, ShareLink, TrialProgram, User
@@ -64,6 +65,113 @@ def test_oidc_return_path_stays_same_origin_and_drops_secrets(
     assert _safe_next(value) == expected
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),
+        ("", None),
+        ("auth0-session-id", "auth0-session-id"),
+        ("unsafe\r\nheader", None),
+        ("x" * 513, None),
+        (123, None),
+    ],
+)
+def test_oidc_logout_hint_is_bounded_and_header_safe(value, expected):
+    assert _safe_logout_hint(value) == expected
+
+
+def test_browser_logout_clears_local_and_oidc_sessions(monkeypatch):
+    from app.api import account_routes
+
+    class FakeOIDCClient:
+        async def load_server_metadata(self):
+            return {"end_session_endpoint": "https://login.example/oidc/logout"}
+
+    class FakeOIDCRegistry:
+        def create_client(self, _name):
+            return FakeOIDCClient()
+
+    class FakeRequest:
+        def __init__(self):
+            self.session = {
+                "user_id": "user-id",
+                "oidc_sid": "auth0-session-id",
+            }
+            self.base_url = "https://internal.example/"
+
+    monkeypatch.setattr(
+        account_routes,
+        "_oauth_registry",
+        lambda: FakeOIDCRegistry(),
+    )
+    settings = replace(
+        get_settings(),
+        environment="staging",
+        auth_mode="oidc",
+        public_base_url="https://demo.example",
+        oidc_client_id="client-id",
+    )
+    request = FakeRequest()
+
+    response = asyncio.run(
+        account_routes.browser_logout(request=request, settings=settings)
+    )
+
+    location = urlsplit(response.headers["location"])
+    query = parse_qs(location.query)
+    assert response.status_code == 303
+    assert request.session == {}
+    assert location.scheme == "https"
+    assert location.netloc == "login.example"
+    assert location.path == "/oidc/logout"
+    assert query == {
+        "client_id": ["client-id"],
+        "logout_hint": ["auth0-session-id"],
+        "post_logout_redirect_uri": ["https://demo.example/"],
+    }
+
+
+def test_browser_logout_falls_back_to_local_home_when_discovery_fails(
+    monkeypatch,
+):
+    from app.api import account_routes
+
+    class FailingOIDCClient:
+        async def load_server_metadata(self):
+            raise RuntimeError("provider unavailable")
+
+    class FakeOIDCRegistry:
+        def create_client(self, _name):
+            return FailingOIDCClient()
+
+    class FakeRequest:
+        def __init__(self):
+            self.session = {"user_id": "user-id"}
+            self.base_url = "https://internal.example/"
+
+    monkeypatch.setattr(
+        account_routes,
+        "_oauth_registry",
+        lambda: FakeOIDCRegistry(),
+    )
+    settings = replace(
+        get_settings(),
+        environment="staging",
+        auth_mode="oidc",
+        public_base_url="https://demo.example",
+        oidc_client_id="client-id",
+    )
+    request = FakeRequest()
+
+    response = asyncio.run(
+        account_routes.browser_logout(request=request, settings=settings)
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "https://demo.example/"
+    assert request.session == {}
+
+
 class _ProjectLLM:
     def __init__(self) -> None:
         self.complete_systems: list[str] = []
@@ -113,6 +221,14 @@ def test_development_login_sets_server_session(client: TestClient):
     session = client.get("/api/auth/session").json()
     assert session["authenticated"] is True
     assert session["user"]["id"] == user["id"]
+
+
+def test_browser_logout_route_clears_development_session(client: TestClient):
+    _login(client, "browser-logout@example.edu")
+    response = client.post("/auth/logout", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "http://testserver/"
+    assert client.get("/api/auth/session").json()["authenticated"] is False
 
 
 def test_private_project_lifecycle_and_optimistic_versioning(client: TestClient):
@@ -516,6 +632,7 @@ def test_oidc_callback_accepts_exact_issuer_and_boolean_verification(
         "email": "valid-oidc-callback@example.edu",
         "email_verified": True,
         "name": "Verified Researcher",
+        "sid": "auth0-session-id",
     }
 
     class FakeOIDCClient:
@@ -556,7 +673,10 @@ def test_oidc_callback_accepts_exact_issuer_and_boolean_verification(
     assert response.status_code == 303
     assert response.headers["location"] == "/workspace"
     assert user is not None
-    assert request.session == {"user_id": user.id}
+    assert request.session == {
+        "user_id": user.id,
+        "oidc_sid": "auth0-session-id",
+    }
 
 
 def test_identity_email_is_syntax_checked_and_normalized():

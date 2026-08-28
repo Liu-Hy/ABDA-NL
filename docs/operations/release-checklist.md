@@ -75,8 +75,8 @@ Record:
       project without an explicit share token.
 - [ ] Trial activation is idempotent for one account and atomic near the final
       grant.
-- [ ] Local sign-out clears the ABDA session. Shared-device instructions also
-      cover the hosted identity session.
+- [ ] Browser sign-out clears both the ABDA session and the hosted Auth0
+      session, then returns to the exact allowed application origin.
 
 ## Project, BYOK, share, and MCP gates
 

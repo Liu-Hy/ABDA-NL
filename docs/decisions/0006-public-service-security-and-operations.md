@@ -80,6 +80,10 @@ account. It does not automatically link different identities by email. Auth0's
 production email delivery uses its supported Resend integration from a
 dedicated sending subdomain rather than the test sender. Cloudflare Email
 Routing forwards monitored support and privacy aliases at the root domain.
+Browser sign-out clears the ABDA-NL session, then uses the end-session endpoint
+from trusted OIDC discovery with the exact allowed return origin. When Auth0
+provides a session identifier, the application includes it as a logout hint. It
+does not place the ID token in the signed browser session cookie.
 
 ## Request and data controls
 
@@ -161,10 +165,12 @@ Liveness excludes database state; readiness includes it, so an unhealthy
 database removes replicas from traffic without causing a restart loop.
 
 The research privacy notice and terms are linked from every main workspace.
-Database records and seven-day backups must be removed or anonymized according
-to the published retention policy before policy claims become more specific.
-The notices describe this research service and do not substitute for a general
-University of Illinois policy or legal review.
+Private project content, model prompts, and model responses are not analyzed as
+research data. Application and managed container logs are retained for up to 30
+days, database backups expire after seven days, and verified access, correction,
+or permanent deletion requests are completed within 30 days. The notices
+describe this research service and do not substitute for a general University
+of Illinois policy or legal review.
 
 ## Availability tradeoff
 

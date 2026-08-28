@@ -190,7 +190,9 @@
                 </div>
                 <div class="workspace-status" id="trial-status" role="status" aria-live="polite"></div>
               </div>
-              <button class="btn" id="logout-btn" type="button">Sign out</button>
+              <form id="logout-form" action="/auth/logout" method="post">
+                <button class="btn" id="logout-btn" type="submit">Sign out</button>
+              </form>
             </div>
             <div class="workspace-status" id="account-status" role="status" aria-live="polite"></div>
             <p class="account-policy-note">This is a public research service. Review the <a href="/privacy.html">privacy notice</a> and <a href="/terms.html">terms of use</a> before registering or sending material to a model provider.</p>

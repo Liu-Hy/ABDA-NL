@@ -152,8 +152,9 @@ Complete all of these checks on the deployed origin:
 2. A wrong or expired OTP does not create an ABDA-NL account.
 3. A second email creates a distinct account with no access to the first
    account's private project.
-4. Signing out clears the ABDA-NL session cookie. On a shared device, also sign
-   out of Auth0 or close the private browser session before another user tests.
+4. Signing out clears the ABDA-NL session cookie, ends the Auth0 browser
+   session through its discovered OIDC logout endpoint, and returns to the exact
+   allowed application origin.
 5. The callback rejects a token with a different issuer, missing subject,
    malformed email, or `email_verified` other than the Boolean `true`.
 6. The login callback query is absent from Uvicorn access logs.
@@ -172,6 +173,7 @@ cannot prove email delivery or tenant configuration.
 - [Auth0 Passwordless Email](https://auth0.com/docs/authenticate/passwordless/authentication-methods/email-otp)
 - [Auth0 verified email guidance](https://auth0.com/docs/manage-users/user-accounts/user-profiles/verified-email-usage)
 - [Auth0 application settings](https://auth0.com/docs/get-started/applications/application-settings)
+- [Auth0 OIDC logout](https://auth0.com/docs/authenticate/login/logout/log-users-out-of-auth0)
 - [Auth0 production email providers](https://auth0.com/docs/customize/email/smtp-email-providers)
 - [Auth0 Resend provider](https://auth0.com/docs/customize/email/smtp-email-providers/resend)
 - [Resend Cloudflare verification](https://resend.com/docs/knowledge-base/cloudflare)
