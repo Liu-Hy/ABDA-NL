@@ -2,7 +2,7 @@
 
 Date: 2026-08-28
 
-State: `IMAGE_VERIFIED_APPLICATION_NOT_DEPLOYED`
+State: `GATE3_VERIFIED_APPLICATION_NOT_DEPLOYED`
 
 This record binds the first application deployment candidate to one source
 commit, one immutable image digest, and the already recovered Azure staging
@@ -71,6 +71,37 @@ repository, source commit, publishing tag, and
 
 No migration job or Container App existed when this image record was created.
 
+## Guarded application gate
+
+The deployment orchestration is pinned separately from the application image:
+
+- Gate source commit:
+  `9634d3d0cc42b88e8800e321102d6456cd3006e6`
+- Gate CI:
+  [`33196469380`](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33196469380)
+- Gate script: `deploy/azure/gate3-staging-application.sh`
+- Gate script SHA-256:
+  `9ca6dfe158e5b32f31d6b41d442ae207ea4ab99318de7a53c898590307f00dee`
+
+All seven CI jobs passed at the gate source commit. Local verification reported
+500 passing tests and four environment-gated skips. The gate also passed Bash
+syntax validation, ShellCheck 0.11.0 at style severity, a staged Gitleaks
+8.30.1 scan, and a complete mocked run through both resource-only what-if
+reviews. The mocked operator cancelled at the final confirmation, and the
+command log proved that no deployment creation or job execution occurred.
+
+The gate clones and verifies the application source commit above, checks the
+four deployment-template hashes, confirms anonymous access to the exact image
+digest, verifies the Azure identity and recovered infrastructure, reads the
+public Auth0 discovery document, validates both deployments, and accepts
+mutations only for the expected migration job and web application. It rejects
+deletes, unsupported changes, and mutations to any other resource. One exact
+confirmation authorizes the migration and application sequence. Trial
+activation and OpenRouter failover remain disabled.
+
+This gate commit changes only deployment orchestration and tests. It does not
+replace or republish the application image.
+
 ## Auth0 generated-origin boundary
 
 The `ABDA-NL Public Service` Regular Web Application has exact, wildcard-free
@@ -116,8 +147,10 @@ passes. No automatic database downgrade is permitted.
 
 ## Next guarded gate
 
-The next gate must use the recorded candidate digest for both the one-shot
-migration job and the web application. It must first review the Azure what-if
-output, run the migration job, verify the restricted application role, and only
-then deploy the web revision. Trial activation and OpenRouter failover remain
-disabled for this initial generated-origin acceptance.
+Run the verified guarded application gate from Azure Cloud Shell. It uses the
+recorded candidate digest for both the one-shot migration job and the web
+application, reviews both Azure what-if results, runs the migration job, and
+deploys the web revision only after migration success. Application startup then
+independently rejects an overprivileged database role before reporting ready.
+Trial activation and OpenRouter failover remain disabled for this initial
+generated-origin acceptance.
