@@ -4,7 +4,7 @@
 # only the trial enabled flag, user cap, and total trial budget on the existing
 # healthy Container App revision. OpenRouter remains disabled.
 
-ABDA_TRIAL_SCRIPT_REVISION='1'
+ABDA_TRIAL_SCRIPT_REVISION='2'
 ABDA_TRIAL_APPLICATION_SOURCE_COMMIT='9abd0264c715596401d87b83d08ed2e82ab5e34b'
 ABDA_TRIAL_IMAGE_SHA256='71f759c7bbfe25cc2ae974f006b8fed853ef87e5db260fc875fa3f50257739f9'
 ABDA_TRIAL_OLD_REVISION='abda-nl-stg-web--0000002'
@@ -198,7 +198,6 @@ required_values = {
     "ABDA_LLM_DEFAULT_PROFILE": "balanced",
     "ABDA_LLM_ALLOW_BYOK": "1",
     "ABDA_LLM_REQUIRE_AUTH": "1",
-    "ABDA_OPENROUTER_FAILOVER_ENABLED": "false",
     "ABDA_OPENROUTER_BUDGET_MICROUSD": openrouter_budget_microusd,
     "ABDA_PROXY_MODE": "azure-container-apps",
     "ABDA_ABUSE_PROTECTION_ENABLED": "1",
@@ -206,6 +205,11 @@ required_values = {
 for name, expected in required_values.items():
     if str(env.get(name, {}).get("value") or "") != expected:
         raise SystemExit(f"STOP: deployed setting {name} changed")
+openrouter_enabled = str(
+    env.get("ABDA_OPENROUTER_FAILOVER_ENABLED", {}).get("value") or ""
+).strip().lower()
+if openrouter_enabled != "false":
+    raise SystemExit("STOP: deployed setting ABDA_OPENROUTER_FAILOVER_ENABLED changed")
 for name, secret_ref in {
     "ABDA_DATABASE_URL": "database-url",
     "ABDA_SESSION_SECRET": "session-secret",

@@ -64,7 +64,7 @@ def _environment(*, enabled: bool, max_users: int, budget: int) -> list[dict]:
         "ABDA_LLM_DEFAULT_PROFILE": "balanced",
         "ABDA_LLM_ALLOW_BYOK": "1",
         "ABDA_LLM_REQUIRE_AUTH": "1",
-        "ABDA_OPENROUTER_FAILOVER_ENABLED": "false",
+        "ABDA_OPENROUTER_FAILOVER_ENABLED": "False",
         "ABDA_OPENROUTER_BUDGET_MICROUSD": "500000000",
         "ABDA_PROXY_MODE": "azure-container-apps",
         "ABDA_ABUSE_PROTECTION_ENABLED": "1",
@@ -432,6 +432,19 @@ def test_trial_phase_rejects_an_unreviewed_budget(tmp_path: Path):
     result = _run_function("abda_trial_phase", app_path)
     assert result.returncode != 0
     assert "outside the reviewed disabled or pilot state" in result.stderr
+
+
+def test_trial_phase_rejects_enabled_openrouter(tmp_path: Path):
+    app = _app(phase="disabled")
+    environment = app["properties"]["template"]["containers"][0]["env"]
+    next(item for item in environment if item["name"] == "ABDA_OPENROUTER_FAILOVER_ENABLED")[
+        "value"
+    ] = "True"
+    app_path = tmp_path / "app.json"
+    app_path.write_text(json.dumps(app), encoding="utf-8")
+    result = _run_function("abda_trial_phase", app_path)
+    assert result.returncode != 0
+    assert "ABDA_OPENROUTER_FAILOVER_ENABLED changed" in result.stderr
 
 
 @pytest.mark.parametrize(
