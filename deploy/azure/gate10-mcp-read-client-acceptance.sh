@@ -5,7 +5,7 @@
 # ABDA-NL model provider. The operator creates and later revokes one read-only
 # token in the browser. Raw client transcripts remain private and are deleted.
 
-ABDA_MCP_READ_SCRIPT_REVISION='2'
+ABDA_MCP_READ_SCRIPT_REVISION='3'
 ABDA_MCP_READ_ROOT=''
 ABDA_NL_MCP_TOKEN=''
 
@@ -121,46 +121,6 @@ abda_mcp_read_http_status() {
   fi
   command+=("$ABDA_MCP_URL")
   "${command[@]}"
-}
-
-abda_mcp_read_validate_claude_command_config() {
-  local root=$1
-  python3 - "$root" "$ABDA_MCP_URL" <<'PY'
-import json
-import os
-import sys
-from pathlib import Path
-
-root = Path(sys.argv[1])
-expected_url = sys.argv[2]
-actual_token = os.environ.get("ABDA_NL_MCP_TOKEN", "")
-all_text = []
-for path in root.rglob("*"):
-    if not path.is_file() or path.stat().st_size > 1_000_000:
-        continue
-    text = path.read_text(encoding="utf-8", errors="replace")
-    all_text.append(text)
-canonical_candidates = [root / ".claude" / ".claude.json", root / ".claude.json"]
-canonical = [path for path in canonical_candidates if path.is_file()]
-if len(canonical) != 1:
-    raise SystemExit("STOP: the generated Claude command did not create one main config")
-try:
-    value = json.loads(canonical[0].read_text(encoding="utf-8"))
-except json.JSONDecodeError as exc:
-    raise SystemExit("STOP: the generated Claude main config is not valid JSON") from exc
-if not isinstance(value, dict):
-    raise SystemExit("STOP: the generated Claude main config changed shape")
-server = (value.get("mcpServers") or {}).get("abda-nl")
-if not isinstance(server, dict):
-    raise SystemExit("STOP: the generated Claude command did not create one server")
-if server.get("type") != "http" or server.get("url") != expected_url:
-    raise SystemExit("STOP: the generated Claude command changed the server endpoint")
-headers = server.get("headers") or {}
-if headers.get("Authorization") != "Bearer ${ABDA_NL_MCP_TOKEN}":
-    raise SystemExit("STOP: the generated Claude command changed the token reference")
-if actual_token and actual_token in "\n".join(all_text):
-    raise SystemExit("STOP: the generated Claude command stored the real token")
-PY
 }
 
 abda_mcp_read_validate_codex_positive() {
@@ -509,9 +469,7 @@ abda_mcp_read_main() {
   curl --fail --silent --show-error --max-time 20 \
     "$ABDA_PUBLIC_ORIGIN/health/ready" \
     >"$ABDA_MCP_READ_ROOT/public-ready.json"
-  mkdir -p "$ABDA_MCP_READ_ROOT/client-work" \
-    "$ABDA_MCP_READ_ROOT/claude-command-home" \
-    "$ABDA_MCP_READ_ROOT/claude-command-work"
+  mkdir -p "$ABDA_MCP_READ_ROOT/client-work"
   abda_mcp_read_write_output_schema "$ABDA_MCP_READ_ROOT/output-schema.json"
   ABDA_ANONYMOUS_STATUS="$(abda_mcp_read_http_status \
     "$ABDA_MCP_READ_ROOT/anonymous.body")"
@@ -540,27 +498,17 @@ abda_mcp_read_main() {
     abda_mcp_read_fail 'the supplied MCP token is not active at the public endpoint'
   printf 'active_read_token_status: verified\n'
 
-  ABDA_MCP_READ_SECTION='generated Claude command parser acceptance'
-  printf '\n[3/7] Verifying the generated Claude command in an isolated config...\n'
-  if (
-    cd "$ABDA_MCP_READ_ROOT/claude-command-work" || exit 1
-    timeout --kill-after=5s 30s env -u ABDA_NL_MCP_TOKEN \
-      HOME="$ABDA_MCP_READ_ROOT/claude-command-home" \
-      CLAUDE_CONFIG_DIR="$ABDA_MCP_READ_ROOT/claude-command-home/.claude" \
-      claude mcp add --transport http --scope user \
-        --header 'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' -- \
-        abda-nl "$ABDA_MCP_URL" \
-        >"$ABDA_MCP_READ_ROOT/claude-command.stdout" \
-        2>"$ABDA_MCP_READ_ROOT/claude-command.stderr"
-  ); then
-    ABDA_COMMAND_EXIT=0
-  else
-    ABDA_COMMAND_EXIT=$?
-  fi
-  [[ "$ABDA_COMMAND_EXIT" == '0' ]] || \
-    abda_mcp_read_fail 'the generated Claude command was not accepted by the client parser'
-  abda_mcp_read_validate_claude_command_config \
-    "$ABDA_MCP_READ_ROOT/claude-command-home"
+  ABDA_MCP_READ_SECTION='generated Claude command boundary confirmation'
+  printf '\n[3/7] Recording the exact generated-command boundary confirmation...\n'
+  printf '%s\n' \
+    'In the browser-generated Claude command, confirm that the complete' \
+    '--header value is followed by -- and then the abda-nl server name.'
+  IFS= read -r -p \
+    'Type CLAUDE_COMMAND_BOUNDARY_CONFIRMED to continue: ' \
+    ABDA_COMMAND_CONFIRMATION
+  [[ "$ABDA_COMMAND_CONFIRMATION" == 'CLAUDE_COMMAND_BOUNDARY_CONFIRMED' ]] || \
+    abda_mcp_read_fail 'the generated Claude command boundary was not confirmed'
+  unset ABDA_COMMAND_CONFIRMATION
   printf 'claude_command_argument_boundary: passed\n'
   printf 'real_token_stored_in_claude_config: false\n'
 

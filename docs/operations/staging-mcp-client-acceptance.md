@@ -22,14 +22,18 @@ project tools, creates a project, or calls an ABDA-NL model provider.
 6. Run `deploy/azure/gate10-mcp-read-client-acceptance.sh` from a machine where
    Codex and Claude Code are installed and signed in. Paste the token only at
    the hidden prompt.
-7. The gate runs one public-example read through each client. When prompted,
+7. Confirm the inspected command boundary by typing the exact phrase requested
+   in section 3. The gate does not run `claude mcp add` in an isolated first-run
+   profile because that unrelated setup path can wait for interactive startup.
+8. The gate runs one public-example read through each client. When prompted,
    revoke the same token in the browser and type `TOKEN_REVOKED` in the shell.
-8. Copy back only the final content-free status block and shell exit code.
+9. Copy back only the final content-free status block and shell exit code.
 
-The gate uses ephemeral Codex state, an isolated temporary Claude configuration,
-a read-only Codex sandbox, disabled Claude built-in tools, hard client timeouts,
-and a strict `list_examples` allowlist. It deletes all raw transcripts and the
-temporary Claude configuration on exit.
+The gate uses ephemeral Codex state, a read-only Codex sandbox, an inline
+Claude MCP configuration that references the token only by environment name,
+disabled Claude built-in tools, hard client timeouts, and a strict
+`list_examples` allowlist. It disables Claude session persistence and deletes
+all raw transcripts on exit.
 
 Pass criteria:
 

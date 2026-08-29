@@ -156,7 +156,7 @@ def test_mcp_read_gate_is_executable_valid_and_content_safe():
         "--setting-sources ''",
         "--tools ''",
         "--allowedTools \"$ABDA_MCP_CLAUDE_TOOL\"",
-        "--header 'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' --",
+        "Type CLAUDE_COMMAND_BOUNDARY_CONFIRMED to continue",
         "timeout --kill-after=10s 180s codex exec",
         "timeout --kill-after=10s 180s claude -p",
         "IFS= read -r -s -p 'ABDA-NL read-only MCP token: '",
@@ -284,51 +284,6 @@ def test_mcp_read_gate_accepts_claude_revocation_and_rejects_access(
     result = _run_function("abda_mcp_read_validate_claude_revoked", output, "0")
     assert result.returncode != 0
     assert "after token revocation" in result.stderr
-
-
-def test_mcp_read_gate_validates_isolated_claude_command_config(tmp_path: Path):
-    config_root = tmp_path / ".claude"
-    config_root.mkdir()
-    config = config_root / ".claude.json"
-    value = {
-        "mcpServers": {
-            "abda-nl": {
-                "type": "http",
-                "url": "https://demo.abda-nl.org/mcp/",
-                "headers": {"Authorization": "Bearer ${ABDA_NL_MCP_TOKEN}"},
-            }
-        }
-    }
-    config.write_text(
-        json.dumps(value),
-        encoding="utf-8",
-    )
-    backup_root = config_root / "backups"
-    backup_root.mkdir()
-    (backup_root / ".claude.json.backup.123").write_text(
-        json.dumps(value),
-        encoding="utf-8",
-    )
-    environment = {"ABDA_NL_MCP_TOKEN": "abda_mcp_" + "a" * 43}
-    result = _run_function(
-        "abda_mcp_read_validate_claude_command_config",
-        tmp_path,
-        environment=environment,
-    )
-    assert result.returncode == 0, result.stderr
-
-    value = json.loads(config.read_text(encoding="utf-8"))
-    value["mcpServers"]["abda-nl"]["headers"]["Authorization"] = (
-        "Bearer wrong"
-    )
-    config.write_text(json.dumps(value), encoding="utf-8")
-    result = _run_function(
-        "abda_mcp_read_validate_claude_command_config",
-        tmp_path,
-        environment=environment,
-    )
-    assert result.returncode != 0
-    assert "token reference" in result.stderr
 
 
 def test_mcp_read_gate_validates_token_without_printing_it():
