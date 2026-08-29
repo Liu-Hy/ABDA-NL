@@ -372,6 +372,7 @@ def test_gate_reaches_confirmation_without_mutating_azure(tmp_path):
         check=False,
         capture_output=True,
         text=True,
+        cwd=tmp_path,
         env=environment,
         timeout=60,
     )

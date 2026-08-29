@@ -4,7 +4,7 @@
 # This gate is intentionally bound to one Azure subscription, one recovered
 # infrastructure deployment, and one verified public image digest.
 
-ABDA_GATE_SCRIPT_REVISION='1'
+ABDA_GATE_SCRIPT_REVISION='2'
 ABDA_EXPECTED_SUBSCRIPTION='00e62f6e-2174-40b2-b428-8ebfd7c2ac54'
 ABDA_EXPECTED_TENANT='040f05eb-33ab-462f-af54-fb4bedb055ae'
 ABDA_EXPECTED_USER='hliu2@cloudbank.org'
@@ -550,19 +550,13 @@ abda_gate_main() {
     abda_fail 'the checked-out source commit changed'
   (
     cd "$ABDA_GATE_ROOT/source"
-    printf '%s  %s\n' \
-      'b05bbb83171240019cc513db9541912398e34c0da2479d4708d97ffe5f3b93b4' \
-      'deploy/azure/migration-job.bicep'
-    printf '%s  %s\n' \
-      '2b441af73e207fd52c9a4fb0a507ac2ea4f571cc1bd9d4addf9c117ab1f39b21' \
-      'deploy/azure/migration-job.bicepparam'
-    printf '%s  %s\n' \
-      'e9e630b02c0609e86b21f98bc5161a603b41c4798afd73b207e9798e4bfb7070' \
-      'deploy/azure/app.bicep'
-    printf '%s  %s\n' \
-      '5c04b1e73346c0eec704fecfc82ad155423c5ca8859fc274afbebb6c209f801a' \
-      'deploy/azure/app.bicepparam'
-  ) | sha256sum --check --quiet
+    sha256sum --check --quiet <<'ABDA_BICEP_CHECKSUMS'
+b05bbb83171240019cc513db9541912398e34c0da2479d4708d97ffe5f3b93b4  deploy/azure/migration-job.bicep
+2b441af73e207fd52c9a4fb0a507ac2ea4f571cc1bd9d4addf9c117ab1f39b21  deploy/azure/migration-job.bicepparam
+e9e630b02c0609e86b21f98bc5161a603b41c4798afd73b207e9798e4bfb7070  deploy/azure/app.bicep
+5c04b1e73346c0eec704fecfc82ad155423c5ca8859fc274afbebb6c209f801a  deploy/azure/app.bicepparam
+ABDA_BICEP_CHECKSUMS
+  )
 
   if ! az bicep version 2>/dev/null | grep -Fq "${ABDA_BICEP_VERSION#v}"; then
     az bicep install --version "$ABDA_BICEP_VERSION"
