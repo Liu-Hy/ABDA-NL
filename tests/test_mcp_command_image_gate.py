@@ -14,15 +14,15 @@ GATE = ROOT / "deploy" / "azure" / "gate10-mcp-command-image.sh"
 APP = "abda-nl-stg-web"
 GENERATED_HOST = "abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io"
 CUSTOM_HOST = "demo.abda-nl.org"
-OLD_REVISION = "abda-nl-stg-web--restore-6d0fb44"
-TARGET_REVISION = "abda-nl-stg-web--mcp-82f97fb"
+OLD_REVISION = "abda-nl-stg-web--mcp-82f97fb"
+TARGET_REVISION = "abda-nl-stg-web--mcp-c55aa0d"
 OLD_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13"
+    "a1488eaf90d21f68c3e2a1e4398ee4ecadea24677fa8a08e882894d7b41cece7"
 )
 TARGET_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "a1488eaf90d21f68c3e2a1e4398ee4ecadea24677fa8a08e882894d7b41cece7"
+    "2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0"
 )
 
 
@@ -64,15 +64,15 @@ def _app(phase: str) -> dict:
     if phase == "old":
         image = OLD_IMAGE
         latest = ready = OLD_REVISION
-        suffix = "restore-6d0fb44"
+        suffix = "mcp-82f97fb"
     elif phase == "target_pending":
         image = TARGET_IMAGE
         latest, ready = TARGET_REVISION, OLD_REVISION
-        suffix = "mcp-82f97fb"
+        suffix = "mcp-c55aa0d"
     elif phase == "target":
         image = TARGET_IMAGE
         latest = ready = TARGET_REVISION
-        suffix = "mcp-82f97fb"
+        suffix = "mcp-c55aa0d"
     else:
         raise ValueError(phase)
     return {
@@ -127,13 +127,13 @@ def test_mcp_command_image_gate_is_executable_and_has_valid_bash_syntax():
 def test_mcp_command_image_gate_has_exactly_one_narrow_mutation():
     source = GATE.read_text(encoding="utf-8")
     for expected in (
-        "82f97fb7cc6882c823f9a1876ee6d628d0c01986",
+        "c55aa0d67562d2a08ea4fa158aab262e432ddb88",
         OLD_IMAGE.split("sha256:", 1)[1],
         TARGET_IMAGE.split("sha256:", 1)[1],
         OLD_REVISION,
         TARGET_REVISION,
-        "DEPLOY_ABDA_MCP_COMMAND_FIX",
-        "MCP_COMMAND_FIX_DEPLOYED_CLIENT_TEST_REQUIRED",
+        "DEPLOY_ABDA_MCP_COMMAND_FINAL_FIX",
+        "MCP_COMMAND_FINAL_FIX_DEPLOYED_CLIENT_TEST_REQUIRED",
     ):
         assert expected in source
     assert source.count("az containerapp update") == 2
@@ -222,7 +222,7 @@ def test_mcp_command_image_gate_validates_registry_digest_and_labels(tmp_path: P
                         "https://github.com/Liu-Hy/ABDA-NL"
                     ),
                     "org.opencontainers.image.revision": (
-                        "82f97fb7cc6882c823f9a1876ee6d628d0c01986"
+                        "c55aa0d67562d2a08ea4fa158aab262e432ddb88"
                     ),
                     "org.opencontainers.image.licenses": "MIT",
                 }

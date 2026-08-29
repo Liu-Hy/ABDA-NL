@@ -4,13 +4,13 @@
 # The gate preserves the complete application configuration and does not rerun
 # migrations or change secrets, Auth0, DNS, trial limits, or provider routing.
 
-ABDA_MCP_IMAGE_SCRIPT_REVISION='1'
-ABDA_MCP_IMAGE_SOURCE_COMMIT='82f97fb7cc6882c823f9a1876ee6d628d0c01986'
-ABDA_MCP_IMAGE_OLD_IMAGE_SHA256='282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13'
-ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='a1488eaf90d21f68c3e2a1e4398ee4ecadea24677fa8a08e882894d7b41cece7'
-ABDA_MCP_IMAGE_OLD_REVISION='abda-nl-stg-web--restore-6d0fb44'
-ABDA_MCP_IMAGE_TARGET_SUFFIX='mcp-82f97fb'
-ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--mcp-82f97fb'
+ABDA_MCP_IMAGE_SCRIPT_REVISION='2'
+ABDA_MCP_IMAGE_SOURCE_COMMIT='c55aa0d67562d2a08ea4fa158aab262e432ddb88'
+ABDA_MCP_IMAGE_OLD_IMAGE_SHA256='a1488eaf90d21f68c3e2a1e4398ee4ecadea24677fa8a08e882894d7b41cece7'
+ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0'
+ABDA_MCP_IMAGE_OLD_REVISION='abda-nl-stg-web--mcp-82f97fb'
+ABDA_MCP_IMAGE_TARGET_SUFFIX='mcp-c55aa0d'
+ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--mcp-c55aa0d'
 ABDA_MCP_IMAGE_ROOT=''
 
 abda_mcp_image_cleanup() {
@@ -575,10 +575,10 @@ PY
     printf '%s\n' \
       'Azure single revision mode keeps the current healthy revision serving' \
       'until the replacement passes its startup and readiness probes.' \
-      'Type DEPLOY_ABDA_MCP_COMMAND_FIX to continue, or press Enter to cancel.'
+      'Type DEPLOY_ABDA_MCP_COMMAND_FINAL_FIX to continue, or press Enter to cancel.'
     local confirmation=''
     IFS= read -r -p 'Confirmation: ' confirmation
-    if [[ "$confirmation" != 'DEPLOY_ABDA_MCP_COMMAND_FIX' ]]; then
+    if [[ "$confirmation" != 'DEPLOY_ABDA_MCP_COMMAND_FINAL_FIX' ]]; then
       printf 'Cancelled without changing Azure.\n'
       return 0
     fi
@@ -631,10 +631,10 @@ PY
   printf 'secrets_changed: false\n'
   printf 'application_contract_preserved: true\n'
   printf 'public_acceptance: passed\n'
-  printf 'result: MCP_COMMAND_FIX_DEPLOYED_CLIENT_TEST_REQUIRED\n'
+  printf 'result: MCP_COMMAND_FINAL_FIX_DEPLOYED_CLIENT_TEST_REQUIRED\n'
   printf '%s\n' \
     'Sign in, create a short-lived read-only MCP token, and inspect its Claude command.' \
-    'Confirm that --header appears before the abda-nl server name.' \
+    'Confirm that -- separates the --header value from the abda-nl server name.' \
     'Then send this status and the shell exit code to Codex for client acceptance.'
 }
 
