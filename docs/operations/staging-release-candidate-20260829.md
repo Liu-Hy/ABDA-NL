@@ -1,8 +1,8 @@
 # Staging release-candidate image checkpoint, 2026-08-29
 
-State: immutable image deployed, public and browser acceptance passed, outage
-fallback accounting passed, remaining authenticated and operator checks in
-progress
+State: shared-view candidate deployed, public and authenticated browser
+acceptance passed, outage fallback accounting passed, remaining operator checks
+in progress
 
 This checkpoint identifies the first staging image that contains the privacy
 operations command, the controlled OpenRouter outage drill, and the corrected
@@ -92,6 +92,29 @@ Do not perform a rollback merely because a postdeployment browser check fails.
 First preserve the Gate 6 output and inspect the target revision and application
 logs. The old revision remains the recorded recovery target.
 
+## Gate 8 authenticated and shared-view checkpoint
+
+The operator completed the invalid-OTP, private-project, stale-tab conflict,
+reload, read-only sharing, and share-revocation journeys against the live Azure
+service. One usability defect remained: a disabled shared-view chat action also
+opened the signed-out Research workspace dialog.
+
+The correction in source commit
+`6d0fb4403c01b37d101f0d03bd9c3070b8f1e343` was published and deployed as:
+
+`ghcr.io/liu-hy/abda-nl@sha256:282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13`
+
+The healthy current revision is `abda-nl-stg-web--ux-6d0fb44`. The operator
+retested the affected action in a fresh private browser window and confirmed
+that it now shows the read-only notice without opening the Workspace dialog.
+
+The first Gate 8 postdeployment check returned HTTP 404 only because it used
+the nonexistent `/static/workspace.js` path. The application serves that asset
+at `/workspace.js`. Commit `0120874e08cb72ee8cc24f14f2203fdec93c80fd`
+corrected the verifier, its seven CI jobs passed, and the corrected live checks
+passed without another Azure mutation. The complete content-free evidence is in
+`docs/operations/staging-gate8-authenticated-acceptance-20260829.md`.
+
 ## Gates after Azure deployment
 
 The image is not a public release until the following release-candidate checks
@@ -103,9 +126,10 @@ are complete:
 3. The controlled OpenRouter outage drill called the real reviewed fallback,
    settled 149 microUSD in both ledgers, left no reservation, and restored its
    temporary database switch.
-4. The privacy command must be exercised against an isolated staging account
+4. Gate 8 authenticated project, conflict, share, revocation, and corrected
+   shared-view behavior passed in real browser sessions.
+5. The privacy command must be exercised against an isolated staging account
    without retaining private content in the acceptance record.
-5. Private project, read-only share, MCP client, and disposable-BYOK journeys
-   must pass against the same image.
-6. The authorized release check, Log Analytics inspection, and rollback
+6. MCP client and disposable-BYOK journeys must pass against the same image.
+7. The authorized release check, Log Analytics inspection, and rollback
    rehearsal must pass before any promotion from the ten-user pilot.
