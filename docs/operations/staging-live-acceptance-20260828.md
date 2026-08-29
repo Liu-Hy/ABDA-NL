@@ -48,6 +48,22 @@ A read-only external check against the custom origin established:
 The complete authorized metrics and accounting boundary was checked separately
 by the guarded Gate 5 script.
 
+## Live anonymous browser and MCP boundary
+
+Headless Chromium and Firefox exercised the real custom origin at desktop,
+720 by 450 as the repository's 200 percent zoom equivalent, and 390 by 844
+mobile dimensions. WCAG 2 A, AA, 2.1 A, AA, and 2.2 AA scans reported zero
+violations for the explorer and signed-out Workspace dialog in both engines.
+Both narrow layouts had zero horizontal overflow, and neither engine reported a
+console or page error.
+
+Unauthenticated GET and POST requests to `/mcp/` returned HTTP 401 with a
+Bearer challenge and `Cache-Control: no-store`. Malformed bearer and Basic
+credentials received the same rejection. The service returned HTTP 404 for
+OAuth protected-resource and authorization-server metadata, which is correct
+because this release uses scoped personal MCP tokens and does not claim to
+operate an OAuth authorization server.
+
 ## Identity and funded trial
 
 The operator completed a real verified-email sign-in and complete sign-out at
@@ -99,8 +115,8 @@ The next evidence must cover:
    reconciles both ledgers
 5. full authorized release-check output, Log Analytics review, and one rollback
    rehearsal
-6. laptop tunnel, Safari, manual keyboard, screen-reader, 200 percent zoom, and
-   conference rehearsal evidence
+6. laptop tunnel, Safari, manual keyboard, screen-reader, actual browser
+   200 percent zoom, and conference rehearsal evidence
 
 Production expansion from the ten-user pilot to the planned first 100 users is
 a separate promotion after the pilot evidence and budget controls are reviewed.
