@@ -154,7 +154,7 @@ def test_mcp_read_gate_is_executable_valid_and_content_safe():
         'mcp_servers.abda_nl.enabled_tools=["list_examples"]',
         "--strict-mcp-config",
         "--setting-sources ''",
-        "--tools ''",
+        "--tools \"$ABDA_MCP_CLAUDE_TOOL\"",
         "--allowedTools \"$ABDA_MCP_CLAUDE_TOOL\"",
         "Type CLAUDE_COMMAND_BOUNDARY_CONFIRMED to continue",
         "timeout --kill-after=10s 180s codex exec",
@@ -165,6 +165,7 @@ def test_mcp_read_gate_is_executable_valid_and_content_safe():
         "raw_client_logs_retained: false",
     ):
         assert expected in source
+    assert "--tools ''" not in source
     for forbidden in (
         "list_projects",
         "get_project",

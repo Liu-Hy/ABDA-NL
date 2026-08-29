@@ -5,7 +5,7 @@
 # ABDA-NL model provider. The operator creates and later revokes one read-only
 # token in the browser. Raw client transcripts remain private and are deleted.
 
-ABDA_MCP_READ_SCRIPT_REVISION='3'
+ABDA_MCP_READ_SCRIPT_REVISION='4'
 ABDA_MCP_READ_ROOT=''
 ABDA_NL_MCP_TOKEN=''
 
@@ -418,7 +418,7 @@ abda_mcp_read_run_claude() {
       --setting-sources '' \
       --disable-slash-commands \
       --no-chrome \
-      --tools '' \
+      --tools "$ABDA_MCP_CLAUDE_TOOL" \
       --allowedTools "$ABDA_MCP_CLAUDE_TOOL" \
       --permission-mode dontAsk \
       --model haiku \
