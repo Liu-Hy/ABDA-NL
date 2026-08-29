@@ -73,6 +73,7 @@ def test_domain_gate_is_pinned_and_has_narrow_mutations():
     assert "set +x" in script
     assert "unset HISTFILE" in script
     assert "set -x" not in script
+    assert "az containerapp secret list --help |" not in script
 
 
 def _run_what_if_check(
@@ -318,6 +319,7 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
         if "--help" in args:
             if args[:3] == ["containerapp", "secret", "list"]:
                 print("--show-values")
+            print("long Azure help output\\n" * 20000, end="")
             raise SystemExit(0)
 
         def state():

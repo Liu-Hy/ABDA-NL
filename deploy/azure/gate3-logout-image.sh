@@ -3,7 +3,7 @@
 # Deploy the tested OIDC logout repair as one image-only Container App update.
 # This gate does not read user-entered credentials or rerun the migration.
 
-ABDA_LOGOUT_SCRIPT_REVISION='1'
+ABDA_LOGOUT_SCRIPT_REVISION='2'
 ABDA_LOGOUT_SOURCE_COMMIT='9abd0264c715596401d87b83d08ed2e82ab5e34b'
 ABDA_LOGOUT_BASE_GATE_SHA256='9edf0eeb385a60184e7ee53f243e34e410a5ccbb26f8a991edc097676fecf0fa'
 ABDA_LOGOUT_WORKSPACE_SHA256='3382ba705376229eb63fc7bd1e74fa999beffdc2fef6510e6af67dbccd046804'
@@ -537,15 +537,24 @@ abda_logout_main() {
 
   abda_logout_set_constants
   local command_name=''
-  for command_name in az awk curl git python3 sha256sum; do
+  for command_name in az awk curl git grep python3 sha256sum; do
     command -v "$command_name" >/dev/null 2>&1 ||
       abda_logout_bootstrap_fail "required command is unavailable: $command_name"
   done
-  az containerapp update --help | grep -Fq -- '--revision-suffix'
-  az containerapp secret list --help | grep -Fq -- '--show-values'
 
   ABDA_LOGOUT_ROOT="$(mktemp -d /tmp/abda-nl-logout-image.XXXXXX)"
   chmod 700 "$ABDA_LOGOUT_ROOT"
+
+  # Read each help page completely before searching it. Piping the Azure CLI
+  # directly into `grep -q` can close stdout early and make Azure CLI fail with
+  # BrokenPipeError when pipefail is enabled.
+  az containerapp update --help >"$ABDA_LOGOUT_ROOT/containerapp-update.help"
+  grep -Fq -- '--revision-suffix' \
+    "$ABDA_LOGOUT_ROOT/containerapp-update.help"
+  az containerapp secret list --help \
+    >"$ABDA_LOGOUT_ROOT/containerapp-secret-list.help"
+  grep -Fq -- '--show-values' \
+    "$ABDA_LOGOUT_ROOT/containerapp-secret-list.help"
 
   ABDA_LOGOUT_SECTION='immutable source verification'
   printf '\n[1/8] Verifying the immutable repair source...\n'

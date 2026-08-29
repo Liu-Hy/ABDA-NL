@@ -55,6 +55,8 @@ def test_logout_image_gate_has_one_narrow_mutation_and_no_secret_prompts():
     assert "set +x" in source
     assert "unset HISTFILE" in source
     assert "set -x" not in source
+    assert "az containerapp update --help |" not in source
+    assert "az containerapp secret list --help |" not in source
 
 
 def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -382,9 +384,9 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
             }}
 
         if args[:3] == ["containerapp", "update", "--help"]:
-            emit("--image --revision-suffix --container-name")
+            emit("--revision-suffix\\n" + "long Azure help output\\n" * 20000)
         elif args[:4] == ["containerapp", "secret", "list", "--help"]:
-            emit("--show-values")
+            emit("--show-values\\n" + "long Azure help output\\n" * 20000)
         elif args[:2] == ["account", "show"]:
             if "table" in args:
                 emit("Name TenantId User State\\naccess test test Enabled")

@@ -4,7 +4,7 @@
 # reports the next manual checkpoint when DNS or Auth0 is not ready, and it
 # mutates Azure only after an exact confirmation for the current stage.
 
-ABDA_DOMAIN_SCRIPT_REVISION='1'
+ABDA_DOMAIN_SCRIPT_REVISION='2'
 ABDA_DOMAIN_SOURCE_COMMIT='9abd0264c715596401d87b83d08ed2e82ab5e34b'
 ABDA_DOMAIN_BASE_GATE_SHA256='9edf0eeb385a60184e7ee53f243e34e410a5ccbb26f8a991edc097676fecf0fa'
 ABDA_DOMAIN_APP_BICEP_SHA256='c18cccafb53e13f9366f6b77fb472b330f8cade0861d3ab07e5dea0141ced6f2'
@@ -836,12 +836,18 @@ abda_domain_main() {
     command -v "$command_name" >/dev/null 2>&1 ||
       abda_domain_bootstrap_fail "required command is unavailable: $command_name"
   done
-  az containerapp hostname bind --help >/dev/null
-  az containerapp secret list --help | grep -Fq -- '--show-values'
-  az containerapp env certificate list --help >/dev/null
 
   ABDA_DOMAIN_ROOT="$(mktemp -d /tmp/abda-nl-domain.XXXXXX)"
   chmod 700 "$ABDA_DOMAIN_ROOT"
+
+  az containerapp hostname bind --help >/dev/null
+  # Read the complete help page before searching it. With pipefail enabled,
+  # `az ... --help | grep -q` can cause Azure CLI to fail with BrokenPipeError.
+  az containerapp secret list --help \
+    >"$ABDA_DOMAIN_ROOT/containerapp-secret-list.help"
+  grep -Fq -- '--show-values' \
+    "$ABDA_DOMAIN_ROOT/containerapp-secret-list.help"
+  az containerapp env certificate list --help >/dev/null
   git clone --quiet --filter=blob:none --no-checkout \
     "$ABDA_SOURCE_REPOSITORY" "$ABDA_DOMAIN_ROOT/source"
   git -C "$ABDA_DOMAIN_ROOT/source" checkout --quiet --detach \
