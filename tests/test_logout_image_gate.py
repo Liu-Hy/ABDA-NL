@@ -66,6 +66,14 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
     deployed_marker = tmp_path / "deployed"
 
     _write_executable(
+        fake_bin / "sleep",
+        """
+        #!/usr/bin/env bash
+        exit 0
+        """,
+    )
+
+    _write_executable(
         fake_bin / "git",
         f"""
         #!/usr/bin/env python3
@@ -281,6 +289,8 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
         args = sys.argv[1:]
         log = Path(os.environ["ABDA_TEST_AZ_LOG"])
         marker = Path(os.environ["ABDA_TEST_DEPLOYED_MARKER"])
+        transition_marker = Path(os.environ["ABDA_TEST_TRANSITION_MARKER"])
+        transition_once = os.environ.get("ABDA_TEST_TRANSITION_ONCE") == "1"
         with log.open("a", encoding="utf-8") as handle:
             handle.write(" ".join(args) + "\\n")
 
@@ -295,6 +305,8 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
         def app_document(deployed):
             image = "{NEW_IMAGE}" if deployed else "{OLD_IMAGE}"
             revision = "{TARGET_REVISION}" if deployed else "{OLD_REVISION}"
+            transitioning = deployed and transition_once and not transition_marker.exists()
+            ready_revision = "{OLD_REVISION}" if transitioning else revision
             suffix = "logout-9abd026" if deployed else "0000001"
             secret_names = [
                 "database-url",
@@ -352,7 +364,7 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
                     "provisioningState": "Succeeded",
                     "runningStatus": "Running",
                     "latestRevisionName": revision,
-                    "latestReadyRevisionName": revision,
+                    "latestReadyRevisionName": ready_revision,
                     "configuration": {{
                         "activeRevisionsMode": "Single",
                         "ingress": {{
@@ -467,17 +479,20 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
         elif args[:3] == ["containerapp", "revision", "show"]:
             if not marker.exists():
                 raise SystemExit("target revision is not deployed")
+            transitioning = transition_once and not transition_marker.exists()
             emit(
                 {{
                     "name": "{TARGET_REVISION}",
                     "properties": {{
                         "active": True,
-                        "healthState": "Healthy",
-                        "provisioningState": "Provisioned",
+                        "healthState": "Unknown" if transitioning else "Healthy",
+                        "provisioningState": "Provisioning" if transitioning else "Provisioned",
                         "replicas": 1,
                     }},
                 }}
             )
+            if transitioning:
+                transition_marker.touch()
         elif args[:3] == ["containerapp", "replica", "list"]:
             if not marker.exists():
                 raise SystemExit("target replica is not deployed")
@@ -524,6 +539,7 @@ def _run_mocked_gate(
     confirmation: str,
     *,
     already_deployed: bool = False,
+    transition_once: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     fake_bin, az_log, marker = _install_fake_commands(tmp_path)
     if already_deployed:
@@ -535,6 +551,8 @@ def _run_mocked_gate(
             "ABDA_TEST_SOURCE_ROOT": str(ROOT),
             "ABDA_TEST_AZ_LOG": str(az_log),
             "ABDA_TEST_DEPLOYED_MARKER": str(marker),
+            "ABDA_TEST_TRANSITION_MARKER": str(tmp_path / "transition-observed"),
+            "ABDA_TEST_TRANSITION_ONCE": "1" if transition_once else "0",
         }
     )
     result = subprocess.run(
@@ -571,7 +589,11 @@ def test_logout_image_gate_cancels_before_the_only_mutation(tmp_path):
 
 
 def test_logout_image_gate_deploys_and_accepts_the_exact_target(tmp_path):
-    result, commands = _run_mocked_gate(tmp_path, "DEPLOY_ABDA_LOGOUT_FIX")
+    result, commands = _run_mocked_gate(
+        tmp_path,
+        "DEPLOY_ABDA_LOGOUT_FIX",
+        transition_once=True,
+    )
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert f"source_commit: {SOURCE_COMMIT}" in result.stdout
@@ -581,6 +603,7 @@ def test_logout_image_gate_deploys_and_accepts_the_exact_target(tmp_path):
     assert "generated_origin_acceptance: passed" in result.stdout
     assert "logout_contract_acceptance: passed" in result.stdout
     assert "result: LOGOUT_FIX_DEPLOYED_BROWSER_RETEST_REQUIRED" in result.stdout
+    assert "Provisioning|Unknown|True" in result.stdout
     assert commands.count("containerapp update --name") == 1
     assert "containerapp job start" not in commands
 

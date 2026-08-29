@@ -3,7 +3,7 @@
 # Deploy the tested OIDC logout repair as one image-only Container App update.
 # This gate does not read user-entered credentials or rerun the migration.
 
-ABDA_LOGOUT_SCRIPT_REVISION='2'
+ABDA_LOGOUT_SCRIPT_REVISION='3'
 ABDA_LOGOUT_SOURCE_COMMIT='9abd0264c715596401d87b83d08ed2e82ab5e34b'
 ABDA_LOGOUT_BASE_GATE_SHA256='9edf0eeb385a60184e7ee53f243e34e410a5ccbb26f8a991edc097676fecf0fa'
 ABDA_LOGOUT_WORKSPACE_SHA256='3382ba705376229eb63fc7bd1e74fa999beffdc2fef6510e6af67dbccd046804'
@@ -336,8 +336,7 @@ abda_logout_wait_for_target() {
         --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
         --revision "$ABDA_LOGOUT_TARGET_REVISION" --output json \
         >"$ABDA_LOGOUT_ROOT/target-replicas.json" 2>/dev/null; then
-      set +e
-      state="$(python3 - \
+      if state="$(python3 - \
         "$ABDA_LOGOUT_ROOT/target-app.json" \
         "$ABDA_LOGOUT_ROOT/target-revision.json" \
         "$ABDA_LOGOUT_ROOT/target-replicas.json" \
@@ -397,9 +396,14 @@ is_ready = (
 )
 raise SystemExit(0 if is_ready else 1)
 PY
-)"
-      state_code=$?
-      set -e
+)"; then
+        state_code=0
+      else
+        # A status of 1 means Azure is still converging. Keeping the command
+        # in an explicit conditional prevents the ERR trap from treating this
+        # expected transition as a script failure.
+        state_code=$?
+      fi
       if [[ "$state" != "$previous_state" ]]; then
         printf 'Target application state: %s\n' "$state"
         previous_state=$state
