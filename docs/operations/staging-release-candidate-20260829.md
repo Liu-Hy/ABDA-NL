@@ -1,7 +1,8 @@
 # Staging release-candidate image checkpoint, 2026-08-29
 
-State: immutable image deployed and publicly verified, browser acceptance
-passed, operator acceptance in progress
+State: immutable image deployed, public and browser acceptance passed, outage
+fallback accounting passed, remaining authenticated and operator checks in
+progress
 
 This checkpoint identifies the first staging image that contains the privacy
 operations command, the controlled OpenRouter outage drill, and the corrected
@@ -56,8 +57,11 @@ listed above. The gate reported all of the following:
 
 This record establishes the deployed machine identity and public HTTP contract.
 A fresh private-browser sign-in and complete sign-out both passed against this
-exact revision on 2026-08-29. The operator-only outage drill remains a separate
-acceptance gate below.
+exact revision on 2026-08-29. The operator-only outage drill then reached the
+reviewed OpenRouter route after an injected CloudBank 503. Its recovery audit
+proved the same 149 microUSD settled cost in both ledgers, zero reservations,
+and restoration of the disabled public fallback state without a repeated
+provider call or Azure change.
 
 ## Deployment boundary
 
@@ -93,15 +97,15 @@ logs. The old revision remains the recorded recovery target.
 The image is not a public release until the following release-candidate checks
 are complete:
 
-1. Gate 6 reports a healthy target revision and passes its public HTTPS and
+1. Gate 6 reported a healthy target revision and passed its public HTTPS and
    accounting checks.
-2. Correct-OTP sign-in and complete sign-out pass in a fresh browser session.
-3. The controlled OpenRouter outage drill calls the real reviewed fallback,
-   settles the same positive cost in both ledgers, leaves no reservation, and
-   restores its temporary database switch.
-4. The privacy command is exercised against an isolated staging account without
-   retaining private content in the acceptance record.
+2. Correct-OTP sign-in and complete sign-out passed in a fresh browser session.
+3. The controlled OpenRouter outage drill called the real reviewed fallback,
+   settled 149 microUSD in both ledgers, left no reservation, and restored its
+   temporary database switch.
+4. The privacy command must be exercised against an isolated staging account
+   without retaining private content in the acceptance record.
 5. Private project, read-only share, MCP client, and disposable-BYOK journeys
-   pass against the same image.
+   must pass against the same image.
 6. The authorized release check, Log Analytics inspection, and rollback
-   rehearsal pass before any promotion from the ten-user pilot.
+   rehearsal must pass before any promotion from the ten-user pilot.

@@ -1,7 +1,6 @@
 # Staging OpenRouter outage drill
 
-State: fallback transition observed in live staging, read-only ledger recovery
-audit pending
+State: live fallback transition and accounting recovery verified
 
 The reviewed implementation is in source commit
 `448510936c69d485cf9b4e834adea69becf6b114` and image
@@ -83,9 +82,30 @@ metadata check is diagnostic only, so later catalog drift cannot invalidate
 the accounting evidence. A successful recovery completes the accounting
 portion of this live gate without paying for another request.
 
+The recovery audit completed with shell exit code 0 on 2026-08-29. It reported:
+
+```text
+trial_spent_microusd_before: 60626
+trial_spent_microusd_after: 60775
+openrouter_spent_microusd_before: 0
+openrouter_spent_microusd_after: 149
+settled_cost_microusd: 149
+trial_reserved_microusd: 0
+openrouter_reserved_microusd: 0
+openrouter_enabled_restored: true
+provider_call_repeated: false
+azure_configuration_changed: false
+result: EXISTING_GATE7_CALL_LEDGER_RECOVERY_VERIFIED
+```
+
+The existing call therefore charged exactly 149 microUSD, or $0.000149, to
+both ledgers. No reservation remained, public fallback stayed disabled, and no
+second provider call or Azure mutation was used to recover the evidence.
+
 ## Acceptance record
 
-A successful JSON result must report all of the following:
+A normal future execution must print a JSON result that reports all of the
+following:
 
 - `result` is `OPENROUTER_OUTAGE_DRILL_PASSED`.
 - `marker_verified` is true.
@@ -104,6 +124,14 @@ After the drill passes, commit a sanitized record containing the source commit,
 image digest, Container Apps revision, request identifier, route names, cost
 totals, and final enabled and reservation states. Do not record the account
 email, prompt response, provider key, database URL, or Azure secret values.
+
+For the first deployed execution, the combined original Gate 7 transcript and
+the incident-specific recovery receipt satisfy the intended route, cost,
+reservation, and switch-restoration acceptance claims. They do not claim that
+the original 32-token marker assertion passed. The corrected command at source
+commit `b38b91d7f74e3323309147f2de20e48218338047` preserves the accounting
+receipt before evaluating marker text and uses a viable completion allowance
+for any future drill.
 
 ## Interruption behavior
 
