@@ -206,3 +206,11 @@ resource, enable trial activation or OpenRouter failover, or change Auth0 and
 DNS. Acceptance requires a healthy running replica plus the complete
 generated-origin HTTPS, configuration, security-header, and protected-metrics
 checks.
+
+The implemented gate is `deploy/azure/gate3-probe-repair.sh`. It requires a
+separate confirmation immediately before the one permitted Container App
+deployment. Both the cancellation path and the complete success path are
+covered by command-level tests. The success simulation requires a replacement
+revision that is provisioned and healthy, at least one running and ready
+replica, all three exact probe headers, and every generated-origin acceptance
+check before it reports completion.

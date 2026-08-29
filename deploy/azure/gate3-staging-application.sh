@@ -4,7 +4,7 @@
 # This gate is intentionally bound to one Azure subscription, one recovered
 # infrastructure deployment, and one verified public image digest.
 
-ABDA_GATE_SCRIPT_REVISION='3'
+ABDA_GATE_SCRIPT_REVISION='4'
 ABDA_EXPECTED_SUBSCRIPTION='00e62f6e-2174-40b2-b428-8ebfd7c2ac54'
 ABDA_EXPECTED_TENANT='040f05eb-33ab-462f-af54-fb4bedb055ae'
 ABDA_EXPECTED_USER='hliu2@cloudbank.org'
@@ -19,7 +19,7 @@ ABDA_APP_NAME='abda-nl-stg-web'
 ABDA_POSTGRES_HOST='abda-nl-stg-postgres-bgjhpbgw.postgres.database.azure.com'
 ABDA_GENERATED_ORIGIN='https://abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io'
 ABDA_SOURCE_REPOSITORY='https://github.com/Liu-Hy/ABDA-NL.git'
-ABDA_SOURCE_COMMIT='3cace0bdef793e6ee966675d1e97b69d77fe2112'
+ABDA_SOURCE_COMMIT='ef91e88226abf9f916f976d9e668ad3536f1fe46'
 ABDA_IMAGE_REPOSITORY='ghcr.io/liu-hy/abda-nl'
 ABDA_IMAGE_SHA256='c3f6ec80972850d30850ec2e72d28fd673e835187bebdc45a8f9cda4a8ad1a55'
 ABDA_BICEP_VERSION='v0.46.1'
@@ -554,7 +554,7 @@ abda_gate_main() {
     sha256sum --check --quiet <<'ABDA_BICEP_CHECKSUMS'
 b05bbb83171240019cc513db9541912398e34c0da2479d4708d97ffe5f3b93b4  deploy/azure/migration-job.bicep
 2b441af73e207fd52c9a4fb0a507ac2ea4f571cc1bd9d4addf9c117ab1f39b21  deploy/azure/migration-job.bicepparam
-e9e630b02c0609e86b21f98bc5161a603b41c4798afd73b207e9798e4bfb7070  deploy/azure/app.bicep
+c18cccafb53e13f9366f6b77fb472b330f8cade0861d3ab07e5dea0141ced6f2  deploy/azure/app.bicep
 5c04b1e73346c0eec704fecfc82ad155423c5ca8859fc274afbebb6c209f801a  deploy/azure/app.bicepparam
 ABDA_BICEP_CHECKSUMS
   )

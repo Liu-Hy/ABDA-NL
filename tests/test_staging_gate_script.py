@@ -13,7 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate3-staging-application.sh"
-SOURCE_COMMIT = "3cace0bdef793e6ee966675d1e97b69d77fe2112"
+SOURCE_COMMIT = "ef91e88226abf9f916f976d9e668ad3536f1fe46"
 IMAGE_SHA256 = "c3f6ec80972850d30850ec2e72d28fd673e835187bebdc45a8f9cda4a8ad1a55"
 SUBSCRIPTION = "00e62f6e-2174-40b2-b428-8ebfd7c2ac54"
 RESOURCE_GROUP = "abda-nl-staging"
