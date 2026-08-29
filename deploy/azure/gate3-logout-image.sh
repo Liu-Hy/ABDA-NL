@@ -3,7 +3,7 @@
 # Deploy the tested OIDC logout repair as one image-only Container App update.
 # This gate does not read user-entered credentials or rerun the migration.
 
-ABDA_LOGOUT_SCRIPT_REVISION='3'
+ABDA_LOGOUT_SCRIPT_REVISION='4'
 ABDA_LOGOUT_SOURCE_COMMIT='9abd0264c715596401d87b83d08ed2e82ab5e34b'
 ABDA_LOGOUT_BASE_GATE_SHA256='9edf0eeb385a60184e7ee53f243e34e410a5ccbb26f8a991edc097676fecf0fa'
 ABDA_LOGOUT_WORKSPACE_SHA256='3382ba705376229eb63fc7bd1e74fa999beffdc2fef6510e6af67dbccd046804'
@@ -503,11 +503,21 @@ if login_query.get("redirect_uri") != [f"{origin}/auth/callback"]:
     raise SystemExit("STOP: OIDC login callback changed")
 if login_query.get("response_type") != ["code"]:
     raise SystemExit("STOP: OIDC login response type changed")
-if login_query.get("code_challenge_method") != ["S256"]:
-    raise SystemExit("STOP: OIDC login PKCE mode changed")
-for name in ("state", "nonce", "code_challenge"):
+scope = login_query.get("scope") or []
+if len(scope) != 1 or set(scope[0].split()) != {"openid", "profile", "email"}:
+    raise SystemExit("STOP: OIDC login scope changed")
+for name in ("client_id", "state", "nonce"):
     if len(login_query.get(name) or []) != 1 or not login_query[name][0]:
         raise SystemExit(f"STOP: OIDC login parameter {name} is missing")
+code_challenge = login_query.get("code_challenge")
+code_challenge_method = login_query.get("code_challenge_method")
+if code_challenge is not None or code_challenge_method is not None:
+    if (
+        len(code_challenge or []) != 1
+        or not code_challenge[0]
+        or code_challenge_method != ["S256"]
+    ):
+        raise SystemExit("STOP: OIDC login PKCE parameters are inconsistent")
 
 with open(logout_path, encoding="utf-8") as handle:
     logout_payload = json.load(handle)

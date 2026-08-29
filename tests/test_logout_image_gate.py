@@ -252,8 +252,8 @@ def _install_fake_commands(tmp_path: Path) -> tuple[Path, Path, Path]:
             location = (
                 "https://login.abda-nl.org/authorize?"
                 "redirect_uri=https%3A%2F%2F{FQDN}%2Fauth%2Fcallback&"
-                "response_type=code&code_challenge_method=S256&"
-                "state=test-state&nonce=test-nonce&code_challenge=test-challenge"
+                "response_type=code&scope=openid%20profile%20email&"
+                "client_id=test-client&state=test-state&nonce=test-nonce"
             )
             write_headers(f"HTTP/1.1 303 See Other\\r\\nLocation: {{location}}\\r\\n\\r\\n")
             write_output("")
