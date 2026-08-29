@@ -126,11 +126,11 @@ contingency evidence.
 
 ## Release-only evidence still required
 
-The repository is not sufficient evidence for these items:
+The repository is not sufficient evidence for these remaining items:
 
-1. Invalid-OTP rejection for the final immutable release candidate.
-2. Authenticated private-project, sharing, MCP, and disposable-BYOK journeys at
-   the public origin.
+1. Live Codex and Claude Code MCP clients, plus disposable BYOK calls at the
+   public origin.
+2. Privacy-command operation against an isolated staging account.
 3. Authorized release-check output, sanitized Log Analytics evidence, alert
    ownership, and one rollback rehearsal.
 4. The exact laptop `ssh delta-demo` browser path.

@@ -134,10 +134,13 @@ can receive any subset of these scopes:
 - `projects:write` creates projects and applies version-checked edits.
 - `llm:use` asks grounded questions and proposes edits using trial credit.
 
-Set the one-time token in your shell without adding it to source control:
+Set the one-time token with a hidden prompt, then export it to clients started
+from that shell. This keeps the token out of shell history:
 
 ```bash
-export ABDA_NL_MCP_TOKEN='the-token-shown-once'
+read -rsp 'ABDA-NL MCP token: ' ABDA_NL_MCP_TOKEN
+printf '\n'
+export ABDA_NL_MCP_TOKEN
 ```
 
 Then add this entry to `~/.codex/config.toml`:
@@ -168,6 +171,15 @@ claude mcp add --transport http --scope user \
 Run `claude mcp get abda-nl` to check the connection. Start Claude Code from a
 shell where `ABDA_NL_MCP_TOKEN` is set. Revoking the token in ABDA-NL makes the
 saved client configuration harmless until it is removed or given a new token.
+Unset the shell value when the session is finished:
+
+```bash
+unset ABDA_NL_MCP_TOKEN
+```
+
+The current configuration fields and HTTP transport are documented by the
+[Codex MCP guide](https://developers.openai.com/codex/mcp/) and the
+[Claude Code MCP guide](https://code.claude.com/docs/en/mcp).
 
 The MCP tools never accept a provider API key. Use the browser BYOK flow for a
 personal Anthropic, OpenAI, Google, or OpenRouter key. That keeps the provider
@@ -187,6 +199,7 @@ email OIDC, and an explicit migration job. Operator documentation is tracked in:
 - [Azure deployment](docs/operations/public-deployment.md)
 - [Auth0 email OTP](docs/operations/auth0-email-otp.md)
 - [Funded model promotion](docs/operations/model-promotion.md)
+- [Staging MCP client acceptance](docs/operations/staging-mcp-client-acceptance.md)
 - [Privacy request operations](docs/operations/privacy-requests.md)
 - [Public and COMMA release checklist](docs/operations/release-checklist.md)
 - [Public security and operations decision](docs/decisions/0006-public-service-security-and-operations.md)
