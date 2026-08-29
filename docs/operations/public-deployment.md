@@ -508,6 +508,15 @@ and guarded by `deploy/azure/gate6-release-candidate-image.sh`. That gate is
 specific to its recorded old and target digests. Do not reuse it for a later
 release by editing values in Cloud Shell.
 
+The current staging rollback rehearsal is separately pinned in
+`deploy/azure/gate10-rollback-rehearsal.sh`. It recognizes the current,
+rollback, pending-restore, and restored states. One explicit confirmation
+authorizes both image-only transitions. If the shell is interrupted after the
+first transition, rerun the same immutable script instead of issuing a manual
+Azure update. The script accepts the rollback image before restoring the
+current image and proves that settings, secrets, migrations, trial limits, and
+provider routing did not change.
+
 For every update:
 
 1. Publish an attested image from a tested commit and record its digest.

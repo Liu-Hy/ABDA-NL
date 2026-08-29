@@ -84,13 +84,16 @@ It does not rerun migrations or change secrets, Auth0, DNS, certificates,
 trial limits, OpenRouter failover, scaling, probes, or database resources. It
 supports safe resumption when Azure has already accepted the target image.
 
-The previous compatible rollback image remains:
+The immediate compatible rollback image for the current shared-view image is:
 
-`ghcr.io/liu-hy/abda-nl@sha256:71f759c7bbfe25cc2ae974f006b8fed853ef87e5db260fc875fa3f50257739f9`
+`ghcr.io/liu-hy/abda-nl@sha256:11861402c8fa3fd677848f94155e29065ebafd9a4a76b03e41b1cf48312e5c58`
 
-Do not perform a rollback merely because a postdeployment browser check fails.
-First preserve the Gate 6 output and inspect the target revision and application
-logs. The old revision remains the recorded recovery target.
+It comes from source commit
+`448510936c69d485cf9b4e834adea69becf6b114`, uses the same database schema and
+application settings, and differs from the current image only by the later
+shared-view correction and release evidence. Gate 10 pins both digests,
+temporarily deploys this image, accepts it, and automatically restores the
+current image. Do not substitute another digest in Cloud Shell.
 
 ## Gate 8 authenticated and shared-view checkpoint
 
@@ -133,3 +136,8 @@ are complete:
 6. MCP client and disposable-BYOK journeys must pass against the same image.
 7. The authorized release check, Log Analytics inspection, and rollback
    rehearsal must pass before any promotion from the ten-user pilot.
+
+Gate 9 is a read-only observability audit. Gate 10 is the guarded two-transition
+rollback rehearsal. Both are prepared and tested in the repository, but this
+record must not mark either live gate complete until its content-free Azure
+receipt is attached.
