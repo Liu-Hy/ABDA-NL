@@ -1,6 +1,13 @@
 # Staging OpenRouter outage drill
 
-State: implementation verified locally, live staging execution pending
+State: implementation verified in an immutable image, Azure deployment and live
+staging execution pending
+
+The reviewed implementation is in source commit
+`448510936c69d485cf9b4e834adea69becf6b114` and image
+`ghcr.io/liu-hy/abda-nl@sha256:11861402c8fa3fd677848f94155e29065ebafd9a4a76b03e41b1cf48312e5c58`.
+The image workflow and provenance evidence are recorded in the
+[release-candidate checkpoint](staging-release-candidate-20260829.md).
 
 This gate proves that a qualifying primary-provider outage reaches the selected
 OpenRouter fallback and charges the same settled cost to the user's trial grant
@@ -34,8 +41,9 @@ python -m app.cli.outage_drill \
   --expected-origin https://demo.abda-nl.org
 ```
 
-The operator should run it inside the deployed container so it reuses the
-exact image, restricted PostgreSQL role, catalog, and secret references. Do not
+The operator must first deploy and accept that exact image through Gate 6. The
+operator should then run the command inside the deployed container so it reuses
+the exact image, restricted PostgreSQL role, catalog, and secret references. Do not
 place the account email, OpenRouter key, database password, or any bearer token
 in the command line. The guarded Azure gate supplies the container selection
 and confirmation procedure.

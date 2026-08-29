@@ -502,12 +502,24 @@ Repeat every acceptance check against
 
 ## Updates and rollback
 
+The current staging image-only transition is pinned in the
+[2026-08-29 release-candidate checkpoint](staging-release-candidate-20260829.md)
+and guarded by `deploy/azure/gate6-release-candidate-image.sh`. That gate is
+specific to its recorded old and target digests. Do not reuse it for a later
+release by editing values in Cloud Shell.
+
 For every update:
 
 1. Publish an attested image from a tested commit and record its digest.
 2. Deploy and complete the migration job.
 3. Deploy the web module only after migration succeeds.
 4. Run the acceptance checks and record the result.
+
+An image-only update may omit the migration job only when the exact old-to-new
+source diff contains no migration or schema change, CI confirms migration
+parity, the existing database is ready, and the guarded update changes no
+application setting or secret. Record that evidence for the exact image. A
+generic update must continue to use the migration-first sequence above.
 
 Treat an application database password change as a coordinated maintenance
 event. The migration job rotates the role password before the new web revision
