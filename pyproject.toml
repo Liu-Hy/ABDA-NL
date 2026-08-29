@@ -43,6 +43,7 @@ dev = [
 [project.scripts]
 abda-nl = "app.cli.serve:main"
 abda-nl-eval = "app.evals.llm_eval:main"
+abda-nl-outage-drill = "app.cli.outage_drill:main"
 abda-nl-privacy = "app.cli.privacy:main"
 abda-nl-release-check = "app.cli.release_check:main"
 

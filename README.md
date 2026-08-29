@@ -154,14 +154,20 @@ The write approval mode lets Codex use read-only exploration directly while
 asking before project mutations. The longer tool timeout accommodates funded
 model calls, which can legitimately exceed Codex's default MCP timeout.
 
-Claude Code accepts the same endpoint and environment variable. Its CLI
-requires every option to appear before the server name:
+Claude Code accepts the same endpoint and expands environment variables in HTTP
+headers. Keep the header in single quotes so the shell stores the variable
+reference instead of the token itself. User scope makes the service available
+across the user's Claude Code projects:
 
 ```bash
-claude mcp add --transport http \
-  --header "Authorization: Bearer ${ABDA_NL_MCP_TOKEN}" \
-  abda-nl "https://YOUR_ABDA_HOST/mcp/"
+claude mcp add --transport http --scope user \
+  abda-nl "https://YOUR_ABDA_HOST/mcp/" \
+  --header 'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}'
 ```
+
+Run `claude mcp get abda-nl` to check the connection. Start Claude Code from a
+shell where `ABDA_NL_MCP_TOKEN` is set. Revoking the token in ABDA-NL makes the
+saved client configuration harmless until it is removed or given a new token.
 
 The MCP tools never accept a provider API key. Use the browser BYOK flow for a
 personal Anthropic, OpenAI, Google, or OpenRouter key. That keeps the provider

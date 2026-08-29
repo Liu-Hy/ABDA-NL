@@ -26,12 +26,23 @@ from app.scenario.catalog import load_bundled_scenario
 from app.scenario.serialize import scenario_to_dict
 from app.services.accounts import IdentityError, upsert_verified_identity
 from app.services.llm_billing import reserve_llm_call, settle_llm_call, usage_event
-from app.services.mcp_tokens import create_mcp_token
+from app.services.mcp_tokens import (
+    authenticate_mcp_token,
+    create_mcp_token,
+    revoke_mcp_token,
+)
 from app.services.privacy_requests import (
     delete_privacy_account,
     prepare_privacy_deletion,
 )
-from app.services.projects import create_project, create_share_link
+from app.services.projects import (
+    ShareLinkNotFoundError,
+    create_project,
+    create_share_link,
+    resolve_share_link,
+    revoke_share_link,
+    update_project,
+)
 from app.services.rate_limits import consume_rate_limit
 from app.services.trials import activate_trial
 
@@ -177,6 +188,25 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
             share, raw_share = create_share_link(session, user, project.id)
             assert share.project_id == project.id
             assert raw_share
+            assert resolve_share_link(session, raw_share).id == project.id
+            project = update_project(
+                session,
+                user,
+                project.id,
+                expected_version=project.version,
+                description="Restricted role update verification",
+            )
+            assert project.version == 2
+            revoke_share_link(session, user, project.id, share.id)
+            with pytest.raises(ShareLinkNotFoundError):
+                resolve_share_link(session, raw_share)
+            active_share, active_raw_share = create_share_link(
+                session,
+                user,
+                project.id,
+            )
+            assert active_share.project_id == project.id
+            assert resolve_share_link(session, active_raw_share).id == project.id
             token, raw_token = create_mcp_token(
                 session,
                 user,
@@ -185,6 +215,37 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
             )
             assert token.user_id == user.id
             assert raw_token.startswith("abda_mcp_")
+            principal = authenticate_mcp_token(
+                session,
+                raw_token,
+                pepper=os.environ["ABDA_MCP_TOKEN_PEPPER"],
+            )
+            assert principal is not None
+            assert principal.user_id == user.id
+            revoke_mcp_token(session, user, token.id)
+            assert (
+                authenticate_mcp_token(
+                    session,
+                    raw_token,
+                    pepper=os.environ["ABDA_MCP_TOKEN_PEPPER"],
+                )
+                is None
+            )
+            active_token, active_raw_token = create_mcp_token(
+                session,
+                user,
+                name="PostgreSQL privacy preparation",
+                pepper=os.environ["ABDA_MCP_TOKEN_PEPPER"],
+            )
+            assert active_token.user_id == user.id
+            assert (
+                authenticate_mcp_token(
+                    session,
+                    active_raw_token,
+                    pepper=os.environ["ABDA_MCP_TOKEN_PEPPER"],
+                )
+                is not None
+            )
             assert consume_rate_limit(
                 session,
                 scope="postgres-test",
@@ -227,6 +288,17 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
                 request_reference="POSTGRES-PRIVACY-001",
             )
             assert prepared.status == "deletion_pending"
+            assert prepared.active_mcp_token_count == 0
+            assert (
+                authenticate_mcp_token(
+                    session,
+                    active_raw_token,
+                    pepper=os.environ["ABDA_MCP_TOKEN_PEPPER"],
+                )
+                is None
+            )
+            with pytest.raises(ShareLinkNotFoundError):
+                resolve_share_link(session, active_raw_share)
             receipt = delete_privacy_account(
                 session,
                 "postgres-acceptance@example.edu",

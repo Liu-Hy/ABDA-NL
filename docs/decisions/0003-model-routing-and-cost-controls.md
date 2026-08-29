@@ -90,6 +90,20 @@ Three independent controls apply to project-funded fallback calls:
 2. The global OpenRouter emergency ledger must have sufficient unreserved budget.
 3. Paid evaluation runs reserve against an in-process run cap before each physical provider call.
 
+Before public failover is enabled, staging uses an isolated operator drill. The
+`abda-nl-outage-drill` command is restricted to the staging environment and is
+a dry run unless the operator supplies an exact confirmation. It injects one
+sanitized HTTP 503 classification into the same `FailoverClient` used by the
+public router, then sends a fixed, content-free marker request through the real
+balanced OpenRouter route. It temporarily enables only the database emergency
+budget row while the deployed web revision still has failover disabled. A
+`finally` path restores that row even when the provider rejects the request.
+Successful acceptance requires matching settled trial and emergency
+reservations, matching usage events, a positive provider-reported cost, no
+pending emergency reservation, and restoration of the disabled state. The
+subsequent deployment gate may enable public fallback only after this live
+evidence passes.
+
 The evaluation cap uses the full conservative reservation, not the previous case's average cost. A call that cannot fit is rejected before reaching OpenRouter, and remaining paid cases are skipped. The default global OpenRouter hard cap is $500. Raising it above $500 requires an explicit deployment acknowledgement. It cannot exceed $1,000 without a code and policy change.
 
 As of the completed 2026-08-17 ZDR revalidation, the emergency ledger recorded

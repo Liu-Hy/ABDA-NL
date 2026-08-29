@@ -772,9 +772,9 @@ def post_mcp_token(
             "tool_timeout_sec = 180"
         ),
         claude_command=(
-            "claude mcp add --transport http --header "
-            '"Authorization: Bearer ${ABDA_NL_MCP_TOKEN}" '
-            f'abda-nl "{endpoint}"'
+            "claude mcp add --transport http --scope user "
+            f'abda-nl "{endpoint}" --header '
+            "'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}'"
         ),
     )
 
