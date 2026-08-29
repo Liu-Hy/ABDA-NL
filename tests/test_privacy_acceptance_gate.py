@@ -27,10 +27,10 @@ from app.db.models import (
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate11-privacy-acceptance.sh"
 EMAIL = "privacy-gate@example.edu"
-EXPECTED_REVISION = "abda-nl-stg-web--restore-6d0fb44"
+EXPECTED_REVISION = "abda-nl-stg-web--mcp-c55aa0d"
 EXPECTED_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13"
+    "2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0"
 )
 
 
@@ -191,7 +191,7 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
         "DELETE_PRIVACY_ACCEPTANCE",
         "PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES",
         "LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED",
-        "abda-nl-stg-web--restore-6d0fb44",
+        "abda-nl-stg-web--mcp-c55aa0d",
     ):
         assert expected in source
     assert source.count("\n  az containerapp exec ") == 2
@@ -209,7 +209,7 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
     assert "–" not in source and "—" not in source
 
 
-def test_app_preflight_accepts_only_the_post_rollback_revision(tmp_path: Path):
+def test_app_preflight_accepts_only_the_approved_revision(tmp_path: Path):
     valid = tmp_path / "valid.json"
     valid.write_text(json.dumps(_application()), encoding="utf-8")
     result = _run_function("abda_privacy_validate_app", valid)
@@ -219,7 +219,7 @@ def test_app_preflight_accepts_only_the_post_rollback_revision(tmp_path: Path):
     wrong.write_text(json.dumps(_application(revision="abda-nl-stg-web--ux-6d0fb44")), encoding="utf-8")
     result = _run_function("abda_privacy_validate_app", wrong)
     assert result.returncode != 0
-    assert "Gate 10" in result.stderr
+    assert "application revision changed" in result.stderr
 
 
 def test_embedded_runner_prepares_waits_and_deletes_disposable_data(tmp_path: Path):

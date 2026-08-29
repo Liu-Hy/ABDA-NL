@@ -43,8 +43,9 @@ subject, project content, token hash, or request content.
 ## Staging acceptance gate
 
 `deploy/azure/gate11-privacy-acceptance.sh` turns the manual sequence below into
-a bounded two-run staging acceptance. Run it only after the Gate 10 rollback
-rehearsal has restored revision `abda-nl-stg-web--restore-6d0fb44`.
+a bounded two-run staging acceptance. The pinned gate currently accepts only
+the approved MCP image revision `abda-nl-stg-web--mcp-c55aa0d` and stops if the
+deployed application changes.
 
 Prepare one disposable verified-email account as follows:
 

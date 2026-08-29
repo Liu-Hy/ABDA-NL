@@ -5,10 +5,10 @@
 # only after an exact phase-specific confirmation. It never changes Azure
 # configuration, Auth0, DNS, secrets, trial settings, or provider routing.
 
-ABDA_PRIVACY_SCRIPT_REVISION='1'
-ABDA_PRIVACY_APPLICATION_SOURCE_COMMIT='6d0fb4403c01b37d101f0d03bd9c3070b8f1e343'
-ABDA_PRIVACY_IMAGE_SHA256='282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13'
-ABDA_PRIVACY_EXPECTED_REVISION='abda-nl-stg-web--restore-6d0fb44'
+ABDA_PRIVACY_SCRIPT_REVISION='2'
+ABDA_PRIVACY_APPLICATION_SOURCE_COMMIT='c55aa0d67562d2a08ea4fa158aab262e432ddb88'
+ABDA_PRIVACY_IMAGE_SHA256='2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0'
+ABDA_PRIVACY_EXPECTED_REVISION='abda-nl-stg-web--mcp-c55aa0d'
 ABDA_PRIVACY_REQUEST_REFERENCE='PRIV-ACCEPT-20260829-01'
 ABDA_PRIVACY_ROOT=''
 
@@ -103,7 +103,7 @@ if (
     properties.get("latestRevisionName") != expected_revision
     or properties.get("latestReadyRevisionName") != expected_revision
 ):
-    raise SystemExit("STOP: run and verify Gate 10 before Gate 11")
+    raise SystemExit("STOP: the deployed application revision changed before Gate 11")
 if configuration.get("activeRevisionsMode") != "Single":
     raise SystemExit("STOP: the Container App is not in single revision mode")
 container = containers[0]
@@ -454,8 +454,8 @@ abda_privacy_main() {
     --query '{Name:name,TenantId:tenantId,User:user.name,State:state}' \
     --output table
 
-  ABDA_PRIVACY_SECTION='restored release verification'
-  printf '\n[2/6] Verifying the exact post-rollback application...\n'
+  ABDA_PRIVACY_SECTION='approved application verification'
+  printf '\n[2/6] Verifying the exact approved application...\n'
   az containerapp show \
     --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
     --output json >"$ABDA_PRIVACY_ROOT/app.json"
