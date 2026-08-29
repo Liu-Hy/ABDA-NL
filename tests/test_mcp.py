@@ -237,7 +237,7 @@ def test_token_management_requires_login_checks_origin_and_discloses_once(client
     assert "tool_timeout_sec = 180" in created["codex_config"]
     assert created["claude_command"] == (
         "claude mcp add --transport http --scope user --header "
-        "'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' "
+        "'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' -- "
         'abda-nl "http://testserver/mcp/"'
     )
 

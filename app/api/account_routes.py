@@ -773,7 +773,7 @@ def post_mcp_token(
         ),
         claude_command=(
             "claude mcp add --transport http --scope user --header "
-            "'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' "
+            "'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' -- "
             f'abda-nl "{endpoint}"'
         ),
     )

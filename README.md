@@ -165,7 +165,7 @@ across the user's Claude Code projects:
 ```bash
 claude mcp add --transport http --scope user \
   --header 'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' \
-  abda-nl "https://YOUR_ABDA_HOST/mcp/"
+  -- abda-nl "https://YOUR_ABDA_HOST/mcp/"
 ```
 
 Run `claude mcp get abda-nl` to check the connection. Start Claude Code from a
