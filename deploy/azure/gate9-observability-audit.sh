@@ -1,0 +1,532 @@
+#!/usr/bin/env bash
+
+# Read-only release and Log Analytics acceptance for the current staging image.
+# The gate executes the image's own release checker and summarizes log counts.
+# It never prints raw log messages or secret values.
+
+ABDA_AUDIT_SCRIPT_REVISION='1'
+ABDA_AUDIT_SOURCE_COMMIT='6d0fb4403c01b37d101f0d03bd9c3070b8f1e343'
+ABDA_AUDIT_IMAGE_SHA256='282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13'
+ABDA_AUDIT_REVISION='abda-nl-stg-web--ux-6d0fb44'
+ABDA_AUDIT_ROOT=''
+
+abda_audit_cleanup() {
+  local exit_code=$?
+  set +e
+  if [[ "${ABDA_AUDIT_ROOT:-}" == /tmp/abda-nl-gate9-audit.* &&
+        -d "${ABDA_AUDIT_ROOT:-}" ]]; then
+    rm -rf -- "$ABDA_AUDIT_ROOT"
+  fi
+  printf '\nGate 9 shell exit code: %s\n' "$exit_code"
+}
+
+abda_audit_error() {
+  local exit_code=$?
+  trap - ERR
+  printf '\nSTOP: Gate 9 failed in section: %s\n' \
+    "${ABDA_AUDIT_SECTION:-unknown}" >&2
+  printf '%s\n' \
+    'No Azure resource configuration, application data, or model provider was changed.' \
+    'Send the visible status and shell exit code to Codex.' >&2
+  exit "$exit_code"
+}
+
+abda_audit_interrupt() {
+  trap - ERR INT
+  printf '\nSTOP: Gate 9 was interrupted in section: %s\n' \
+    "${ABDA_AUDIT_SECTION:-unknown}" >&2
+  exit 130
+}
+
+abda_audit_fail() {
+  printf 'STOP: %s\n' "$*" >&2
+  return 1
+}
+
+abda_audit_set_constants() {
+  ABDA_EXPECTED_SUBSCRIPTION='00e62f6e-2174-40b2-b428-8ebfd7c2ac54'
+  ABDA_EXPECTED_TENANT='040f05eb-33ab-462f-af54-fb4bedb055ae'
+  ABDA_EXPECTED_USER='hliu2@cloudbank.org'
+  ABDA_RESOURCE_GROUP='abda-nl-staging'
+  ABDA_APP_NAME='abda-nl-stg-web'
+  ABDA_CONTAINER_NAME='web'
+  ABDA_ENVIRONMENT_NAME='abda-nl-stg-environment'
+  ABDA_LOGS_NAME='abda-nl-stg-logs-bgjhpbgw'
+  ABDA_IMAGE_REPOSITORY='ghcr.io/liu-hy/abda-nl'
+  ABDA_PUBLIC_ORIGIN='https://demo.abda-nl.org'
+  ABDA_TRIAL_MAX_USERS='10'
+  ABDA_TRIAL_GRANT_MICROUSD='5000000'
+  ABDA_TRIAL_BUDGET_MICROUSD='50000000'
+  ABDA_OPENROUTER_BUDGET_MICROUSD='500000000'
+}
+
+abda_audit_validate_identity() {
+  local path=$1
+  python3 - "$path" "$ABDA_EXPECTED_SUBSCRIPTION" \
+    "$ABDA_EXPECTED_TENANT" "$ABDA_EXPECTED_USER" <<'PY'
+import json
+import sys
+
+path, expected_subscription, expected_tenant, expected_user = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    account = json.load(handle)
+if account.get("id") != expected_subscription:
+    raise SystemExit("STOP: the active Azure subscription changed")
+if account.get("tenantId") != expected_tenant:
+    raise SystemExit("STOP: the active Azure tenant changed")
+if str((account.get("user") or {}).get("name") or "").lower() != expected_user.lower():
+    raise SystemExit("STOP: the active Azure user changed")
+if account.get("state") != "Enabled":
+    raise SystemExit("STOP: the active Azure subscription is not enabled")
+PY
+}
+
+abda_audit_validate_app() {
+  local path=$1
+  python3 - "$path" "$ABDA_APP_NAME" "$ABDA_AUDIT_REVISION" \
+    "$ABDA_IMAGE_REPOSITORY@sha256:$ABDA_AUDIT_IMAGE_SHA256" \
+    "$ABDA_PUBLIC_ORIGIN" <<'PY'
+import json
+import sys
+
+path, expected_app, expected_revision, expected_image, expected_origin = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    app = json.load(handle)
+properties = app.get("properties") or {}
+containers = ((properties.get("template") or {}).get("containers") or [])
+if app.get("name") != expected_app or len(containers) != 1:
+    raise SystemExit("STOP: the Container App identity changed")
+if properties.get("provisioningState") != "Succeeded":
+    raise SystemExit("STOP: the Container App provisioning state changed")
+if properties.get("runningStatus") != "Running":
+    raise SystemExit("STOP: the Container App is not running")
+if (
+    properties.get("latestRevisionName") != expected_revision
+    or properties.get("latestReadyRevisionName") != expected_revision
+):
+    raise SystemExit("STOP: the exact shared-view revision is not ready")
+container = containers[0]
+if container.get("name") != "web" or container.get("image") != expected_image:
+    raise SystemExit("STOP: the exact shared-view image is not deployed")
+template = properties.get("template") or {}
+scale = template.get("scale") or {}
+if scale.get("minReplicas") != 1 or scale.get("maxReplicas") != 3:
+    raise SystemExit("STOP: the staging replica boundary changed")
+configuration = properties.get("configuration") or {}
+if configuration.get("activeRevisionsMode") != "Single":
+    raise SystemExit("STOP: the revision mode changed")
+ingress = configuration.get("ingress") or {}
+if (
+    ingress.get("external") is not True
+    or ingress.get("allowInsecure") is not False
+    or ingress.get("targetPort") != 8000
+):
+    raise SystemExit("STOP: the public ingress boundary changed")
+if not any(
+    item.get("name") == "demo.abda-nl.org"
+    for item in ingress.get("customDomains") or []
+):
+    raise SystemExit("STOP: the custom domain binding is absent")
+environment = {
+    str(item.get("name") or ""): item
+    for item in container.get("env") or []
+}
+expected_values = {
+    "ABDA_ENVIRONMENT": "staging",
+    "ABDA_AUTH_MODE": "oidc",
+    "ABDA_PUBLIC_BASE_URL": expected_origin,
+    "ABDA_TRIAL_ENABLED": "true",
+    "ABDA_TRIAL_MAX_USERS": "10",
+    "ABDA_TRIAL_GRANT_MICROUSD": "5000000",
+    "ABDA_TRIAL_BUDGET_MICROUSD": "50000000",
+    "ABDA_LLM_ALLOW_BYOK": "1",
+    "ABDA_LLM_REQUIRE_AUTH": "1",
+    "ABDA_OPENROUTER_FAILOVER_ENABLED": "false",
+    "ABDA_OPENROUTER_BUDGET_MICROUSD": "500000000",
+}
+for name, expected in expected_values.items():
+    actual = str(environment.get(name, {}).get("value") or "")
+    if name in {"ABDA_TRIAL_ENABLED", "ABDA_OPENROUTER_FAILOVER_ENABLED"}:
+        actual = actual.lower()
+    if actual != expected:
+        raise SystemExit(f"STOP: deployed setting {name} changed")
+expected_secrets = {
+    "ABDA_DATABASE_URL": "database-url",
+    "ABDA_SESSION_SECRET": "session-secret",
+    "ABDA_MCP_TOKEN_PEPPER": "mcp-token-pepper",
+    "ABDA_METRICS_TOKEN": "metrics-token",
+    "ABDA_OIDC_CLIENT_SECRET": "oidc-client-secret",
+    "AZURE_OPENAI_API_KEY": "foundry-api-key",
+    "OPENROUTER_API_KEY": "openrouter-api-key",
+}
+for name, expected in expected_secrets.items():
+    if environment.get(name, {}).get("secretRef") != expected:
+        raise SystemExit(f"STOP: deployed secret reference {name} changed")
+PY
+}
+
+abda_audit_select_replica() {
+  local path=$1
+  python3 - "$path" "$ABDA_CONTAINER_NAME" <<'PY'
+import json
+import sys
+
+path, expected_container = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    replicas = json.load(handle)
+if not isinstance(replicas, list) or not 1 <= len(replicas) <= 3:
+    raise SystemExit("STOP: the current revision has an unexpected replica count")
+eligible = []
+for replica in replicas:
+    properties = replica.get("properties") or {}
+    containers = properties.get("containers") or []
+    if properties.get("runningState") != "Running" or len(containers) != 1:
+        continue
+    container = containers[0]
+    if (
+        container.get("name") == expected_container
+        and container.get("ready") is True
+        and container.get("started") is not False
+    ):
+        eligible.append(str(replica.get("name") or ""))
+if not eligible or any(not name for name in eligible):
+    raise SystemExit("STOP: no ready current-revision replica is available")
+print(sorted(eligible)[0])
+PY
+}
+
+abda_audit_validate_logging_configuration() {
+  local workspace_path=$1
+  local environment_path=$2
+  python3 - "$workspace_path" "$environment_path" \
+    "$ABDA_LOGS_NAME" "$ABDA_ENVIRONMENT_NAME" <<'PY'
+import json
+import sys
+
+workspace_path, environment_path, workspace_name, environment_name = sys.argv[1:]
+with open(workspace_path, encoding="utf-8") as handle:
+    workspace = json.load(handle)
+with open(environment_path, encoding="utf-8") as handle:
+    environment = json.load(handle)
+if workspace.get("name") != workspace_name:
+    raise SystemExit("STOP: the Log Analytics workspace identity changed")
+if workspace.get("retentionInDays") != 30:
+    raise SystemExit("STOP: Log Analytics retention is not 30 days")
+if (workspace.get("sku") or {}).get("name") != "PerGB2018":
+    raise SystemExit("STOP: the Log Analytics workspace SKU changed")
+customer_id = str(workspace.get("customerId") or "").lower()
+if not customer_id:
+    raise SystemExit("STOP: the Log Analytics workspace customer ID is absent")
+if environment.get("name") != environment_name:
+    raise SystemExit("STOP: the Container Apps environment identity changed")
+configuration = ((environment.get("properties") or {}).get("appLogsConfiguration") or {})
+if configuration.get("destination") != "log-analytics":
+    raise SystemExit("STOP: the Container Apps log destination changed")
+configured_id = str(
+    (configuration.get("logAnalyticsConfiguration") or {}).get("customerId") or ""
+).lower()
+if configured_id != customer_id:
+    raise SystemExit("STOP: the Container Apps environment uses another log workspace")
+print(customer_id)
+PY
+}
+
+abda_audit_validate_log_summary() {
+  local path=$1
+  python3 - "$path" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    rows = json.load(handle)
+if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+    raise SystemExit("STOP: Log Analytics returned an unexpected summary shape")
+row = rows[0]
+names = (
+    "total_logs",
+    "console_logs",
+    "system_logs",
+    "current_revision_logs",
+    "request_logs",
+    "request_query_markers",
+    "email_like",
+    "bearer_like",
+    "share_fragment_like",
+    "oidc_code_like",
+    "provider_key_like",
+)
+values = {}
+for name in names:
+    value = row.get(name)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise SystemExit(f"STOP: Log Analytics returned an invalid {name} count")
+    values[name] = value
+for name in ("total_logs", "console_logs", "system_logs", "current_revision_logs", "request_logs"):
+    if values[name] == 0:
+        raise SystemExit(f"STOP: Log Analytics has no {name} in the audit window")
+unsafe = (
+    "request_query_markers",
+    "email_like",
+    "bearer_like",
+    "share_fragment_like",
+    "oidc_code_like",
+    "provider_key_like",
+)
+for name in unsafe:
+    if values[name] != 0:
+        raise SystemExit(f"STOP: Log Analytics found {values[name]} {name} entries")
+for name in names:
+    print(f"{name}: {values[name]}")
+PY
+}
+
+abda_audit_extract_release_check() {
+  local input_path=$1
+  local output_path=$2
+  python3 - "$input_path" "$output_path" <<'PY'
+import json
+import re
+import sys
+
+input_path, output_path = sys.argv[1:]
+with open(input_path, encoding="utf-8", errors="replace") as handle:
+    text = handle.read()
+text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text).replace("\r", "")
+decoder = json.JSONDecoder()
+matches = []
+for index, character in enumerate(text):
+    if character != "{":
+        continue
+    try:
+        value, _ = decoder.raw_decode(text[index:])
+    except json.JSONDecodeError:
+        continue
+    if (
+        isinstance(value, dict)
+        and value.get("origin") == "https://demo.abda-nl.org"
+        and isinstance(value.get("checks"), dict)
+        and isinstance(value.get("budgets"), dict)
+    ):
+        matches.append(value)
+if len(matches) != 1:
+    raise SystemExit("STOP: the container output did not contain exactly one release receipt")
+with open(output_path, "x", encoding="utf-8") as handle:
+    json.dump(matches[0], handle)
+PY
+}
+
+abda_audit_validate_release_check() {
+  local path=$1
+  python3 - "$path" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    value = json.load(handle)
+checks = value.get("checks") or {}
+expected_checks = {
+    "https_certificate": "verified",
+    "liveness": "passed",
+    "readiness": "passed",
+    "policy_pages": "passed",
+    "security_headers": "passed",
+    "config_exposure": "passed",
+    "metrics_authentication": "passed",
+    "budget_metrics": "passed",
+    "database_pool": "passed",
+}
+for name, expected in expected_checks.items():
+    if checks.get(name) != expected:
+        raise SystemExit(f"STOP: release check {name} did not pass")
+if checks.get("plain_http") not in {"redirected", "refused"}:
+    raise SystemExit("STOP: plaintext HTTP was neither redirected nor refused")
+config = value.get("config") or {}
+if config.get("default_profile") != "balanced" or config.get("funded_profiles") != ["balanced"]:
+    raise SystemExit("STOP: the public funded profile contract changed")
+if set((config.get("byok_model_counts") or {}).keys()) != {
+    "anthropic", "google", "openai", "openrouter"
+}:
+    raise SystemExit("STOP: the public BYOK provider set changed")
+budgets = value.get("budgets") or {}
+expected_budget_values = {
+    "trial_enabled": 1,
+    "trial_max_users": 10,
+    "trial_grant_microusd": 5_000_000,
+    "trial_budget_microusd": 50_000_000,
+    "openrouter_enabled": 0,
+    "openrouter_budget_microusd": 500_000_000,
+}
+for name, expected in expected_budget_values.items():
+    if budgets.get(name) != expected:
+        raise SystemExit(f"STOP: release receipt {name} changed")
+activations = budgets.get("trial_activations")
+allocated = budgets.get("trial_allocated_microusd")
+trial_spent = budgets.get("trial_spent_microusd")
+openrouter_spent = budgets.get("openrouter_spent_microusd")
+if (
+    isinstance(activations, bool)
+    or not isinstance(activations, int)
+    or not 1 <= activations <= 10
+    or allocated != activations * 5_000_000
+    or isinstance(trial_spent, bool)
+    or not isinstance(trial_spent, int)
+    or not 0 <= trial_spent <= allocated
+    or isinstance(openrouter_spent, bool)
+    or not isinstance(openrouter_spent, int)
+    or not 0 <= openrouter_spent <= 500_000_000
+):
+    raise SystemExit("STOP: the release receipt ledgers do not reconcile")
+pool = value.get("database_pool") or {}
+if pool.get("capacity") != 5 or not 0 <= int(pool.get("checked_out", -1)) <= 5:
+    raise SystemExit("STOP: the database pool boundary changed")
+print("release_check: passed")
+print(f"trial_activations: {activations}")
+print(f"trial_allocated_microusd: {allocated}")
+print(f"trial_spent_microusd: {trial_spent}")
+print(f"openrouter_spent_microusd: {openrouter_spent}")
+print(f"database_pool_checked_out: {pool['checked_out']}")
+PY
+}
+
+abda_audit_main() {
+  set -Eeuo pipefail
+  set +x
+  umask 077
+  unset HISTFILE
+  trap abda_audit_error ERR
+  trap abda_audit_interrupt INT
+  trap abda_audit_cleanup EXIT
+  ABDA_AUDIT_SECTION='bootstrap'
+
+  printf 'ABDA-NL Gate 9 release and observability audit revision: %s\n' \
+    "$ABDA_AUDIT_SCRIPT_REVISION"
+  printf '%s\n' \
+    'This gate is read-only. It runs HTTPS checks and count-only log queries.' \
+    'It does not print log messages or secret values, call a model, deploy, restart, or change Azure configuration.'
+
+  abda_audit_set_constants
+  local command_name=''
+  for command_name in az python3 tee; do
+    command -v "$command_name" >/dev/null 2>&1 || \
+      abda_audit_fail "required command is unavailable: $command_name"
+  done
+  [[ -t 0 ]] || abda_audit_fail 'Gate 9 requires an interactive Cloud Shell terminal'
+  ABDA_AUDIT_ROOT="$(mktemp -d /tmp/abda-nl-gate9-audit.XXXXXX)"
+  chmod 700 "$ABDA_AUDIT_ROOT"
+
+  ABDA_AUDIT_SECTION='Azure identity verification'
+  printf '\n[1/6] Verifying the exact Azure identity...\n'
+  az account show --output json >"$ABDA_AUDIT_ROOT/account.json"
+  abda_audit_validate_identity "$ABDA_AUDIT_ROOT/account.json"
+  az account show \
+    --query '{Name:name,TenantId:tenantId,User:user.name,State:state}' \
+    --output table
+
+  ABDA_AUDIT_SECTION='application and replica verification'
+  printf '\n[2/6] Verifying the exact healthy shared-view image and one ready replica...\n'
+  az containerapp show \
+    --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
+    --output json >"$ABDA_AUDIT_ROOT/app.json"
+  abda_audit_validate_app "$ABDA_AUDIT_ROOT/app.json"
+  az containerapp replica list \
+    --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
+    --revision "$ABDA_AUDIT_REVISION" --output json \
+    >"$ABDA_AUDIT_ROOT/replicas.json"
+  local replica_name=''
+  replica_name="$(abda_audit_select_replica "$ABDA_AUDIT_ROOT/replicas.json")"
+  printf 'application_revision: %s\n' "$ABDA_AUDIT_REVISION"
+  printf 'selected_ready_replica: %s\n' "$replica_name"
+
+  ABDA_AUDIT_SECTION='Log Analytics configuration verification'
+  printf '\n[3/6] Verifying the exact workspace, destination, and 30-day retention...\n'
+  az monitor log-analytics workspace show \
+    --workspace-name "$ABDA_LOGS_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
+    --output json >"$ABDA_AUDIT_ROOT/workspace.json"
+  az containerapp env show \
+    --name "$ABDA_ENVIRONMENT_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
+    --output json >"$ABDA_AUDIT_ROOT/environment.json"
+  local workspace_id=''
+  workspace_id="$(abda_audit_validate_logging_configuration \
+    "$ABDA_AUDIT_ROOT/workspace.json" "$ABDA_AUDIT_ROOT/environment.json")"
+  printf 'log_analytics_workspace: %s\n' "$ABDA_LOGS_NAME"
+  printf 'log_analytics_retention_days: 30\n'
+
+  ABDA_AUDIT_SECTION='sanitized log ingestion audit'
+  printf '\n[4/6] Querying 48 hours of count-only application and platform log evidence...\n'
+  local logs_query=''
+  logs_query="$(cat <<'KQL'
+let ConsoleLogs = ContainerAppConsoleLogs_CL
+| where ContainerAppName_s == 'abda-nl-stg-web'
+| project TimeGenerated, Kind='console', Revision=tostring(RevisionName_s), Message=tostring(Log_s);
+let SystemLogs = ContainerAppSystemLogs_CL
+| where ContainerAppName_s == 'abda-nl-stg-web'
+| project TimeGenerated, Kind='system', Revision=tostring(RevisionName_s), Message=tostring(Log_s);
+ConsoleLogs
+| union SystemLogs
+| where TimeGenerated >= ago(48h)
+| summarize
+    total_logs=count(),
+    console_logs=countif(Kind == 'console'),
+    system_logs=countif(Kind == 'system'),
+    current_revision_logs=countif(Revision == 'abda-nl-stg-web--ux-6d0fb44'),
+    request_logs=countif(Kind == 'console' and Message contains 'request_complete'),
+    request_query_markers=countif(Kind == 'console' and Message contains 'request_complete' and Message contains '?'),
+    email_like=countif(Message matches regex '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}'),
+    bearer_like=countif(tolower(Message) matches regex '(abda_mcp_[a-z0-9_-]{16,}|bearer +[a-z0-9._~-]{16,})'),
+    share_fragment_like=countif(tolower(Message) contains '#share='),
+    oidc_code_like=countif(tolower(Message) matches regex '[?&]code=[a-z0-9._~-]{8,}'),
+    provider_key_like=countif(tolower(Message) matches regex '(sk-[a-z0-9_-]{20,}|aiza[a-z0-9_-]{20,})')
+KQL
+)"
+  az monitor log-analytics query \
+    --workspace "$workspace_id" --analytics-query "$logs_query" \
+    --timespan P2D --only-show-errors --output json \
+    >"$ABDA_AUDIT_ROOT/log-summary.json"
+  abda_audit_validate_log_summary "$ABDA_AUDIT_ROOT/log-summary.json" \
+    | tee "$ABDA_AUDIT_ROOT/log-result.txt"
+
+  ABDA_AUDIT_SECTION='authorized release check'
+  printf '\n[5/6] Running the deployed image release checker without displaying its metrics token...\n'
+  local exec_status=0
+  set +e
+  az containerapp exec \
+    --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
+    --revision "$ABDA_AUDIT_REVISION" --replica "$replica_name" \
+    --container "$ABDA_CONTAINER_NAME" \
+    --command "/opt/venv/bin/python -m app.cli.release_check --metrics-token-env ABDA_METRICS_TOKEN --expected-trial-enabled true --expected-trial-max-users $ABDA_TRIAL_MAX_USERS --expected-trial-budget-microusd $ABDA_TRIAL_BUDGET_MICROUSD --expected-openrouter-enabled false --expected-openrouter-budget-microusd $ABDA_OPENROUTER_BUDGET_MICROUSD $ABDA_PUBLIC_ORIGIN" \
+    2>&1 | tee "$ABDA_AUDIT_ROOT/release-check.log"
+  exec_status=${PIPESTATUS[0]}
+  set -e
+  if (( exec_status != 0 )); then
+    abda_audit_fail "Azure container exec exited with status $exec_status"
+  fi
+  abda_audit_extract_release_check \
+    "$ABDA_AUDIT_ROOT/release-check.log" "$ABDA_AUDIT_ROOT/release-check.json"
+  abda_audit_validate_release_check "$ABDA_AUDIT_ROOT/release-check.json" \
+    | tee "$ABDA_AUDIT_ROOT/release-result.txt"
+
+  ABDA_AUDIT_SECTION='final audit receipt'
+  printf '\n[6/6] Reporting the content-free audit receipt...\n'
+  printf '\nABDA-NL Gate 9 release and observability status:\n'
+  printf 'script_revision: %s\n' "$ABDA_AUDIT_SCRIPT_REVISION"
+  printf 'application_source_commit: %s\n' "$ABDA_AUDIT_SOURCE_COMMIT"
+  printf 'image_digest: sha256:%s\n' "$ABDA_AUDIT_IMAGE_SHA256"
+  printf 'subscription_id: %s\n' "$ABDA_EXPECTED_SUBSCRIPTION"
+  printf 'resource_group: %s\n' "$ABDA_RESOURCE_GROUP"
+  printf 'application_revision: %s\n' "$ABDA_AUDIT_REVISION"
+  printf 'public_origin: %s\n' "$ABDA_PUBLIC_ORIGIN"
+  printf 'log_analytics_workspace: %s\n' "$ABDA_LOGS_NAME"
+  printf 'log_analytics_retention_days: 30\n'
+  cat "$ABDA_AUDIT_ROOT/log-result.txt"
+  cat "$ABDA_AUDIT_ROOT/release-result.txt"
+  printf 'raw_log_messages_printed: false\n'
+  printf 'secret_values_printed: false\n'
+  printf 'model_provider_called: false\n'
+  printf 'azure_configuration_changed: false\n'
+  printf 'result: RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED\n'
+  printf 'Send this status and the shell exit code to Codex.\n'
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  abda_audit_main "$@"
+fi

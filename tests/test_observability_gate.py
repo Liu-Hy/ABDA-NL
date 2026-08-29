@@ -1,0 +1,283 @@
+"""Contracts for the read-only Azure release and observability audit."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import shlex
+import subprocess
+
+
+ROOT = Path(__file__).resolve().parents[1]
+GATE = ROOT / "deploy" / "azure" / "gate9-observability-audit.sh"
+APP = "abda-nl-stg-web"
+REVISION = "abda-nl-stg-web--ux-6d0fb44"
+IMAGE = (
+    "ghcr.io/liu-hy/abda-nl@sha256:"
+    "282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13"
+)
+
+
+def _run_function(function: str, *arguments: Path | str) -> subprocess.CompletedProcess[str]:
+    quoted = " ".join(shlex.quote(str(argument)) for argument in arguments)
+    return subprocess.run(
+        [
+            "bash",
+            "-c",
+            (
+                f"source {shlex.quote(str(GATE))}; "
+                f"abda_audit_set_constants; {function} {quoted}"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.write_text(json.dumps(value), encoding="utf-8")
+
+
+def _environment() -> list[dict[str, str]]:
+    values = {
+        "ABDA_ENVIRONMENT": "staging",
+        "ABDA_AUTH_MODE": "oidc",
+        "ABDA_PUBLIC_BASE_URL": "https://demo.abda-nl.org",
+        "ABDA_TRIAL_ENABLED": "True",
+        "ABDA_TRIAL_MAX_USERS": "10",
+        "ABDA_TRIAL_GRANT_MICROUSD": "5000000",
+        "ABDA_TRIAL_BUDGET_MICROUSD": "50000000",
+        "ABDA_LLM_ALLOW_BYOK": "1",
+        "ABDA_LLM_REQUIRE_AUTH": "1",
+        "ABDA_OPENROUTER_FAILOVER_ENABLED": "False",
+        "ABDA_OPENROUTER_BUDGET_MICROUSD": "500000000",
+    }
+    environment = [{"name": name, "value": value} for name, value in values.items()]
+    for name, secret_ref in {
+        "ABDA_DATABASE_URL": "database-url",
+        "ABDA_SESSION_SECRET": "session-secret",
+        "ABDA_MCP_TOKEN_PEPPER": "mcp-token-pepper",
+        "ABDA_METRICS_TOKEN": "metrics-token",
+        "ABDA_OIDC_CLIENT_SECRET": "oidc-client-secret",
+        "AZURE_OPENAI_API_KEY": "foundry-api-key",
+        "OPENROUTER_API_KEY": "openrouter-api-key",
+    }.items():
+        environment.append({"name": name, "secretRef": secret_ref})
+    return environment
+
+
+def _app() -> dict:
+    return {
+        "name": APP,
+        "properties": {
+            "provisioningState": "Succeeded",
+            "runningStatus": "Running",
+            "latestRevisionName": REVISION,
+            "latestReadyRevisionName": REVISION,
+            "configuration": {
+                "activeRevisionsMode": "Single",
+                "ingress": {
+                    "external": True,
+                    "allowInsecure": False,
+                    "targetPort": 8000,
+                    "customDomains": [{"name": "demo.abda-nl.org"}],
+                },
+            },
+            "template": {
+                "scale": {"minReplicas": 1, "maxReplicas": 3},
+                "containers": [
+                    {
+                        "name": "web",
+                        "image": IMAGE,
+                        "env": _environment(),
+                    }
+                ],
+            },
+        },
+    }
+
+
+def _release_receipt() -> dict:
+    return {
+        "origin": "https://demo.abda-nl.org",
+        "checks": {
+            "https_certificate": "verified",
+            "plain_http": "redirected",
+            "liveness": "passed",
+            "readiness": "passed",
+            "policy_pages": "passed",
+            "security_headers": "passed",
+            "config_exposure": "passed",
+            "metrics_authentication": "passed",
+            "budget_metrics": "passed",
+            "database_pool": "passed",
+        },
+        "config": {
+            "default_profile": "balanced",
+            "funded_profiles": ["balanced"],
+            "byok_model_counts": {
+                "anthropic": 1,
+                "google": 1,
+                "openai": 1,
+                "openrouter": 1,
+            },
+        },
+        "budgets": {
+            "trial_enabled": 1,
+            "trial_max_users": 10,
+            "trial_grant_microusd": 5_000_000,
+            "trial_budget_microusd": 50_000_000,
+            "trial_activations": 1,
+            "trial_allocated_microusd": 5_000_000,
+            "trial_spent_microusd": 60_775,
+            "openrouter_enabled": 0,
+            "openrouter_budget_microusd": 500_000_000,
+            "openrouter_spent_microusd": 149,
+        },
+        "database_pool": {"capacity": 5, "checked_out": 1},
+    }
+
+
+def test_observability_gate_is_executable_valid_and_read_only():
+    assert GATE.stat().st_mode & 0o111
+    subprocess.run(["bash", "-n", str(GATE)], check=True)
+    source = GATE.read_text(encoding="utf-8")
+    for expected in (
+        REVISION,
+        IMAGE.split("sha256:", 1)[1],
+        "ContainerAppConsoleLogs_CL",
+        "ContainerAppSystemLogs_CL",
+        "--timespan P2D",
+        "--expected-trial-max-users $ABDA_TRIAL_MAX_USERS",
+        "--expected-openrouter-enabled false",
+        "RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
+    ):
+        assert expected in source
+    for forbidden in (
+        "az deployment group create",
+        "az containerapp update",
+        "az containerapp revision restart",
+        "az containerapp secret set",
+        "az containerapp secret list",
+        "az monitor diagnostic-settings create",
+        "az monitor metrics alert create",
+        "--show-values",
+        "read -r -s",
+    ):
+        assert forbidden not in source
+    assert "set +x" in source
+    assert "unset HISTFILE" in source
+    assert "set -x" not in source
+
+
+def test_observability_gate_accepts_exact_current_application(tmp_path: Path):
+    path = tmp_path / "app.json"
+    _write_json(path, _app())
+    result = _run_function("abda_audit_validate_app", path)
+    assert result.returncode == 0, result.stderr
+
+    changed = _app()
+    environment = changed["properties"]["template"]["containers"][0]["env"]
+    next(item for item in environment if item["name"] == "ABDA_TRIAL_MAX_USERS")[
+        "value"
+    ] = "100"
+    _write_json(path, changed)
+    result = _run_function("abda_audit_validate_app", path)
+    assert result.returncode != 0
+    assert "ABDA_TRIAL_MAX_USERS" in result.stderr
+
+
+def test_observability_gate_validates_workspace_destination(tmp_path: Path):
+    workspace = tmp_path / "workspace.json"
+    environment = tmp_path / "environment.json"
+    _write_json(
+        workspace,
+        {
+            "name": "abda-nl-stg-logs-bgjhpbgw",
+            "retentionInDays": 30,
+            "customerId": "ABCD-1234",
+            "sku": {"name": "PerGB2018"},
+        },
+    )
+    _write_json(
+        environment,
+        {
+            "name": "abda-nl-stg-environment",
+            "properties": {
+                "appLogsConfiguration": {
+                    "destination": "log-analytics",
+                    "logAnalyticsConfiguration": {"customerId": "abcd-1234"},
+                }
+            },
+        },
+    )
+    result = _run_function(
+        "abda_audit_validate_logging_configuration", workspace, environment
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "abcd-1234"
+
+    value = json.loads(workspace.read_text(encoding="utf-8"))
+    value["retentionInDays"] = 7
+    _write_json(workspace, value)
+    result = _run_function(
+        "abda_audit_validate_logging_configuration", workspace, environment
+    )
+    assert result.returncode != 0
+    assert "retention" in result.stderr
+
+
+def test_observability_gate_accepts_counts_and_rejects_secret_indicators(tmp_path: Path):
+    summary = tmp_path / "logs.json"
+    values = {
+        "total_logs": 500,
+        "console_logs": 350,
+        "system_logs": 150,
+        "current_revision_logs": 300,
+        "request_logs": 250,
+        "request_query_markers": 0,
+        "email_like": 0,
+        "bearer_like": 0,
+        "share_fragment_like": 0,
+        "oidc_code_like": 0,
+        "provider_key_like": 0,
+    }
+    _write_json(summary, [values])
+    result = _run_function("abda_audit_validate_log_summary", summary)
+    assert result.returncode == 0, result.stderr
+    assert "request_logs: 250" in result.stdout
+
+    values["share_fragment_like"] = 1
+    _write_json(summary, [values])
+    result = _run_function("abda_audit_validate_log_summary", summary)
+    assert result.returncode != 0
+    assert "share_fragment_like" in result.stderr
+    assert "#share=" not in result.stderr
+
+
+def test_observability_gate_extracts_and_validates_sanitized_release_receipt(
+    tmp_path: Path,
+):
+    raw = tmp_path / "container.log"
+    receipt = tmp_path / "receipt.json"
+    raw.write_text(
+        "INFO: Connecting to the container\n"
+        + json.dumps(_release_receipt(), indent=2)
+        + "\nINFO: received success status from cluster\n",
+        encoding="utf-8",
+    )
+    result = _run_function("abda_audit_extract_release_check", raw, receipt)
+    assert result.returncode == 0, result.stderr
+    result = _run_function("abda_audit_validate_release_check", receipt)
+    assert result.returncode == 0, result.stderr
+    assert "release_check: passed" in result.stdout
+    assert "openrouter_spent_microusd: 149" in result.stdout
+
+    value = json.loads(receipt.read_text(encoding="utf-8"))
+    value["budgets"]["trial_max_users"] = 100
+    receipt.unlink()
+    _write_json(receipt, value)
+    result = _run_function("abda_audit_validate_release_check", receipt)
+    assert result.returncode != 0
+    assert "trial_max_users" in result.stderr
