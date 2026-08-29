@@ -95,6 +95,14 @@ class _FailingOpenRouter(_SuccessfulOpenRouter):
         )
 
 
+class _ReasoningOnlyOpenRouter(_SuccessfulOpenRouter):
+    def complete(self, **_kwargs):
+        response = super().complete(**_kwargs)
+        response.text = ""
+        response.stop_reason = "length"
+        return response
+
+
 def _install_runtime(monkeypatch, factory):
     settings = replace(
         Settings.from_environment(),
@@ -191,6 +199,33 @@ def test_outage_drill_restores_disabled_budget_after_provider_failure(
         assert trial.reserved_microusd == 0
         assert emergency.enabled is False
         assert emergency.spent_microusd == 0
+        assert emergency.reserved_microusd == 0
+
+
+def test_outage_drill_preserves_receipt_when_visible_marker_is_missing(
+    drill_factory,
+    monkeypatch,
+    capsys,
+):
+    _install_runtime(monkeypatch, drill_factory)
+    monkeypatch.setattr("app.llm.routing.OpenAICompatibleClient", _ReasoningOnlyOpenRouter)
+    monkeypatch.setenv(
+        "ABDA_OUTAGE_DRILL_CONFIRMATION",
+        outage_drill._CONFIRMATION,
+    )
+    assert outage_drill.main(["--expected-origin", ORIGIN, "--execute"]) == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["result"] == "OPENROUTER_OUTAGE_DRILL_ACCOUNTING_PASSED_MARKER_MISSING"
+    assert output["marker_verified"] is False
+    assert output["audit"]["settled_cost_microusd"] == 106
+    assert output["audit"]["openrouter_enabled_restored"] is True
+    with drill_factory() as session:
+        trial = get_trial_balance(session, drill_factory.user_id)
+        emergency = get_emergency_balance(session)
+        assert trial.spent_microusd == 106
+        assert trial.reserved_microusd == 0
+        assert emergency.enabled is False
+        assert emergency.spent_microusd == 106
         assert emergency.reserved_microusd == 0
 
 

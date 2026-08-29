@@ -1,7 +1,7 @@
 # Staging release-candidate image checkpoint, 2026-08-29
 
-State: immutable image deployed and publicly verified, browser and operator
-acceptance pending
+State: immutable image deployed and publicly verified, browser acceptance
+passed, operator acceptance in progress
 
 This checkpoint identifies the first staging image that contains the privacy
 operations command, the controlled OpenRouter outage drill, and the corrected
@@ -55,8 +55,9 @@ listed above. The gate reported all of the following:
 - no application secret changed
 
 This record establishes the deployed machine identity and public HTTP contract.
-It does not substitute for the fresh browser sign-in and sign-out check or the
-operator-only outage drill below.
+A fresh private-browser sign-in and complete sign-out both passed against this
+exact revision on 2026-08-29. The operator-only outage drill remains a separate
+acceptance gate below.
 
 ## Deployment boundary
 

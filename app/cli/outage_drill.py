@@ -38,7 +38,7 @@ _PRIMARY_ROUTE = "cloudbank-claude-sonnet-4-6"
 _FALLBACK_ROUTE = "openrouter-gemini-3.7-flash"
 _REQUEST_KIND_PREFIX = "outage-drill"
 _RESPONSE_MARKER = "ABDA_NL_OPENROUTER_DRILL_OK"
-_MAX_TOKENS = 32
+_MAX_TOKENS = 2048
 
 
 class OutageDrillError(RuntimeError):
@@ -377,8 +377,6 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
 
     if response.route != fallback_route or response.provider != "openrouter":
         raise OutageDrillError("the forced outage did not return through OpenRouter")
-    if _RESPONSE_MARKER not in response.text:
-        raise OutageDrillError("the OpenRouter response did not contain the drill marker")
     audit = _audit_execution(
         factory,
         user_id=user_id,
@@ -387,13 +385,18 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         before=before,
         response=response,
     )
+    marker_verified = _RESPONSE_MARKER in response.text
     return {
         **planned,
         "request_id": request_id,
-        "marker_verified": True,
+        "marker_verified": marker_verified,
         "audit": audit,
         "mutated": True,
-        "result": "OPENROUTER_OUTAGE_DRILL_PASSED",
+        "result": (
+            "OPENROUTER_OUTAGE_DRILL_PASSED"
+            if marker_verified
+            else "OPENROUTER_OUTAGE_DRILL_ACCOUNTING_PASSED_MARKER_MISSING"
+        ),
     }
 
 
@@ -414,6 +417,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
     print(_json_ready(result))
+    if result.get("result") == "OPENROUTER_OUTAGE_DRILL_ACCOUNTING_PASSED_MARKER_MISSING":
+        return 2
     return 0
 
 

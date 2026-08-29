@@ -1,7 +1,7 @@
 # Staging OpenRouter outage drill
 
-State: implementation verified in the deployed immutable image, live staging
-execution pending
+State: fallback transition observed in live staging, read-only ledger recovery
+audit pending
 
 The reviewed implementation is in source commit
 `448510936c69d485cf9b4e834adea69becf6b114` and image
@@ -31,7 +31,8 @@ The command has the following fixed constraints:
   selected environment variable. The email is absent from its JSON output.
 - It is a dry run unless `--execute` and the exact confirmation are both
   present.
-- It uses a fixed, content-free marker prompt with at most 32 output tokens.
+- The first deployed version used a fixed, content-free marker prompt with at
+  most 32 output tokens.
 - It temporarily enables the emergency budget database row only for this
   process. The public application revision remains unable to select fallback.
 - It restores the row in a `finally` block after provider success or failure.
@@ -49,6 +50,38 @@ the exact image, restricted PostgreSQL role, catalog, and secret references. Do 
 place the account email, OpenRouter key, database password, or any bearer token
 in the command line. The guarded Azure gate supplies the container selection
 and confirmation procedure.
+
+## First live execution
+
+The first Gate 7 execution reached the exact healthy revision and selected a
+ready replica. Its preflight recorded 60,626 microUSD of trial spend, zero
+OpenRouter spend, zero reservations, and a disabled emergency switch. The
+synthetic CloudBank HTTP 503 then opened the expected circuit from
+`cloudbank-claude-sonnet-4-6` to `openrouter-gemini-3.7-flash`.
+
+OpenRouter returned a successful completion object, so the route and provider
+checks passed and the metered client settled the call. The visible response did
+not contain the marker, however, and the deployed command stopped before
+printing its JSON receipt. The outer gate then completed its post-call metrics
+snapshot, which proves that the temporary switch was disabled and that no
+trial or emergency reservation or uncertain charge remained. It stopped at
+receipt extraction and correctly refused a blind paid rerun.
+
+The public OpenRouter model metadata identifies `google/gemini-3.7-flash` as a
+mandatory-reasoning model with reasoning enabled at medium effort by default.
+A total completion allowance of 32 tokens is therefore not a sound marker
+test. The corrected implementation uses 2,048 tokens and audits the settled
+call before evaluating visible marker text. If marker text is still missing,
+it emits a content-free accounting receipt and exits distinctly instead of
+discarding the successful accounting evidence.
+
+`deploy/azure/gate7-marker-failure-recovery.sh` is specific to this first call.
+It makes no provider call and no Azure configuration change. It verifies the
+same positive delta in the aggregate trial and OpenRouter ledgers against the
+recorded preflight, plus the final disabled and idle states. Its public model
+metadata check is diagnostic only, so later catalog drift cannot invalidate
+the accounting evidence. A successful recovery completes the accounting
+portion of this live gate without paying for another request.
 
 ## Acceptance record
 
