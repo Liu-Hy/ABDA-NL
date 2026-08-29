@@ -44,6 +44,18 @@ def test_b1ms_connection_budget_is_bounded_across_three_replicas():
     assert "{ name: 'ABDA_DATABASE_MAX_OVERFLOW', value: '1' }" in application
 
 
+def test_container_app_health_probes_preserve_strict_host_validation():
+    application = (AZURE / "app.bicep").read_text(encoding="utf-8")
+
+    assert "var healthProbeHeaders = [" in application
+    assert "name: 'Host'" in application
+    assert "value: defaultHostname" in application
+    assert application.count("httpHeaders: healthProbeHeaders") == 3
+    assert "var trustedHosts = customDomainConfigured" in application
+    assert "{ name: 'ABDA_TRUSTED_HOSTS', value: trustedHosts }" in application
+    assert "ABDA_TRUSTED_HOSTS', value: '*'" not in application
+
+
 def test_virtual_network_mutations_are_serialized():
     infrastructure = (AZURE / "infra.bicep").read_text(encoding="utf-8")
     postgres_subnet = infrastructure.split("resource postgresSubnet", 1)[1].split(

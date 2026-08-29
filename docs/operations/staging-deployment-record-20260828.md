@@ -2,7 +2,7 @@
 
 Date: 2026-08-28
 
-State: `GATE3_VERIFIED_APPLICATION_NOT_DEPLOYED`
+State: `GATE3_APPLICATION_DEPLOYED_PROBE_REPAIR_PENDING`
 
 This record binds the first application deployment candidate to one source
 commit, one immutable image digest, and the already recovered Azure staging
@@ -147,6 +147,39 @@ End session: https://login.abda-nl.org/oidc/logout
 The application client ID and secret remain only in the operator's private
 credential manager and are not recorded here.
 
+## Live Gate 3 outcome and probe diagnosis
+
+The guarded Gate 3 deployment ran the migration execution
+`abda-nl-stg-migrate-ird46jy` successfully and deployed Container App revision
+`abda-nl-stg-web--ztv7ycn`. Azure accepted the resource deployment, and the
+application logs then confirmed all of the following:
+
+- the process started with LLM support enabled
+- database-backed application startup completed
+- the MCP session manager started
+- Uvicorn listened on `0.0.0.0:8000`
+
+The generated HTTPS origin nevertheless timed out. A read-only control-plane,
+replica, and log inspection found the revision `Unhealthy`, its only replica
+`NotRunning`, and the web container restarted four times. The Container Apps
+environment log recorded repeated startup-probe HTTP 400 responses and
+`ProbeFailure` terminations. At the same five-second interval, the application
+logged an unmatched HTTP 400 request.
+
+The failure is a strict-host and health-probe integration defect, not an image,
+port, database, or process-start failure. Container Apps probes connect to the
+pod IP by default, which also supplies a pod-IP `Host` value unless the probe
+sets one explicitly. The application intentionally permits only its generated
+and custom public hostnames through `TrustedHostMiddleware`, so that probe host
+was rejected before `/health/live` could be routed.
+
+The repair keeps strict host validation and adds an explicit `Host` header with
+the generated Container Apps hostname to the startup, liveness, and readiness
+probes. It does not add a wildcard trusted host. The existing immutable image
+digest remains the deployment candidate because the failure is entirely in the
+Azure revision template. Trial activation and OpenRouter failover remain
+disabled.
+
 ## Rollback candidate
 
 The previous schema-compatible, smoke-tested image is:
@@ -165,10 +198,11 @@ passes. No automatic database downgrade is permitted.
 
 ## Next guarded gate
 
-Run the verified guarded application gate from Azure Cloud Shell. It uses the
-recorded candidate digest for both the one-shot migration job and the web
-application, reviews both Azure what-if results, runs the migration job, and
-deploys the web revision only after migration success. Application startup then
-independently rejects an overprivileged database role before reporting ready.
-Trial activation and OpenRouter failover remain disabled for this initial
-generated-origin acceptance.
+Run a narrowly scoped probe-repair gate from Azure Cloud Shell. It must verify
+the existing successful migration, the unhealthy revision, the exact image
+digest, and the three corrected probe headers. Its resource-only what-if may
+modify only `abda-nl-stg-web`. It must not rerun the migration, update any other
+resource, enable trial activation or OpenRouter failover, or change Auth0 and
+DNS. Acceptance requires a healthy running replica plus the complete
+generated-origin HTTPS, configuration, security-header, and protected-metrics
+checks.

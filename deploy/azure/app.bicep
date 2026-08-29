@@ -95,6 +95,12 @@ var customDomainConfigured = !empty(customHostname) && !empty(customDomainCertif
 var publicHostname = customDomainConfigured ? customHostname : defaultHostname
 var publicOrigin = 'https://${publicHostname}'
 var trustedHosts = customDomainConfigured ? '${defaultHostname},${customHostname}' : defaultHostname
+var healthProbeHeaders = [
+  {
+    name: 'Host'
+    value: defaultHostname
+  }
+]
 var budgetAcknowledgement = openrouterBudgetMicrousd > 500000000 ? 'I_ACCEPT_UP_TO_1000_USD' : ''
 var databaseUrl = 'postgresql+psycopg://${postgresAppLogin}:${uriComponent(postgresAppPassword)}@${postgresHost}:5432/abda?sslmode=require'
 
@@ -217,6 +223,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
                 path: '/health/live'
                 port: 8000
                 scheme: 'HTTP'
+                httpHeaders: healthProbeHeaders
               }
               initialDelaySeconds: 2
               periodSeconds: 5
@@ -229,6 +236,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
                 path: '/health/live'
                 port: 8000
                 scheme: 'HTTP'
+                httpHeaders: healthProbeHeaders
               }
               periodSeconds: 20
               timeoutSeconds: 3
@@ -240,6 +248,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
                 path: '/health/ready'
                 port: 8000
                 scheme: 'HTTP'
+                httpHeaders: healthProbeHeaders
               }
               periodSeconds: 10
               timeoutSeconds: 3
