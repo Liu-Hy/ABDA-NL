@@ -2,7 +2,12 @@
 
 Date: 2026-08-28
 
-State: `GATE3_APPLICATION_DEPLOYED_PROBE_REPAIR_PENDING`
+State: `HISTORICAL_INITIAL_DEPLOYMENT_RECORD`
+
+The probe repair, logout repair, custom-domain binding, verified-email browser
+journey, and funded trial pilot were completed after this initial record. See
+[the staging live acceptance record](staging-live-acceptance-20260828.md) for
+the current deployed state and remaining gates.
 
 This record binds the first application deployment candidate to one source
 commit, one immutable image digest, and the already recovered Azure staging
