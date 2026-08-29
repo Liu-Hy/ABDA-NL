@@ -1,81 +1,50 @@
 # Staging MCP client acceptance
 
-This gate proves that the public HTTPS MCP endpoint works from real Codex and
-Claude Code clients. It also checks project ownership, scoped credentials,
-optimistic versioning, non-applying model proposals, and revocation without
-placing an MCP token, private email address, or private project content in the
-acceptance record.
+This procedure proves that the public HTTPS MCP endpoint works from real Codex
+and Claude Code clients. The first gate uses only bundled public examples and
+one disposable read-only token. A later gate checks project ownership,
+optimistic versioning, non-applying model proposals, and scoped writes.
 
-Use only a disposable project based on a bundled public example. Agent clients
-send MCP tool results to their own model services, so do not use a private
-research project for this gate.
+Agent clients send MCP tool results to their own model services. The automated
+read gate therefore permits only `list_examples`. It never enables private
+project tools, creates a project, or calls an ABDA-NL model provider.
 
-## Before the test
+## Automated read and revocation gate
 
 1. Sign in at `https://demo.abda-nl.org` with the verified staging account.
 2. Open **Research workspace**, then **Codex and Claude**.
-3. Create a 30-day credential named `Codex read acceptance` with only
+3. Create a 30-day credential named `MCP read acceptance` with only
    `projects:read` selected.
-4. Copy the one-time token. Do not paste it into chat, a repository file, a
+4. Inspect the generated Claude command. Confirm that `--` appears after the
+   complete `--header` value and before the `abda-nl` server name.
+5. Copy the one-time token. Do not paste it into chat, a repository file, a
    command argument, or the acceptance record.
-5. In the shell where Codex will run, load it through a hidden prompt:
+6. Run `deploy/azure/gate10-mcp-read-client-acceptance.sh` from a machine where
+   Codex and Claude Code are installed and signed in. Paste the token only at
+   the hidden prompt.
+7. The gate runs one public-example read through each client. When prompted,
+   revoke the same token in the browser and type `TOKEN_REVOKED` in the shell.
+8. Copy back only the final content-free status block and shell exit code.
 
-```bash
-read -rsp 'ABDA-NL MCP token: ' ABDA_NL_MCP_TOKEN
-printf '\n'
-export ABDA_NL_MCP_TOKEN
-```
-
-## Codex read test
-
-The following invocation is ephemeral and adds no permanent MCP entry. It uses
-the documented Streamable HTTP bearer-token configuration and permits only a
-read-only sandbox:
-
-```bash
-codex exec --ephemeral --sandbox read-only --ignore-user-config \
-  -c 'mcp_servers.abda_nl.url="https://demo.abda-nl.org/mcp/"' \
-  -c 'mcp_servers.abda_nl.bearer_token_env_var="ABDA_NL_MCP_TOKEN"' \
-  -c 'mcp_servers.abda_nl.default_tools_approval_mode="writes"' \
-  -c 'mcp_servers.abda_nl.tool_timeout_sec=180' \
-  'Use only the ABDA-NL MCP server. Call list_projects exactly once. Do not call a write or model tool. Confirm only that the call succeeded and report the number of projects. Do not print project names, project content, account details, configuration, or credentials.'
-```
+The gate uses ephemeral Codex state, an isolated temporary Claude configuration,
+a read-only Codex sandbox, disabled Claude built-in tools, hard client timeouts,
+and a strict `list_examples` allowlist. It deletes all raw transcripts and the
+temporary Claude configuration on exit.
 
 Pass criteria:
 
-- Codex initializes `https://demo.abda-nl.org/mcp/`.
-- `list_projects` is called exactly once and succeeds.
-- The response contains only a count, not names or project content.
-
-Revoke `Codex read acceptance` in the browser. Run the same command again. It
-must fail authentication and must not return a project count. Then run:
-
-```bash
-unset ABDA_NL_MCP_TOKEN
-```
-
-## Claude Code read test
-
-Create a second 30-day credential named `Claude read acceptance`, again with
-only `projects:read`. Load it through the same hidden prompt. This invocation
-uses an inline configuration containing only the environment-variable
-reference. The raw token is not stored in the command or configuration:
-
-```bash
-claude -p --no-session-persistence --strict-mcp-config \
-  --mcp-config '{"mcpServers":{"abda_nl":{"type":"http","url":"https://demo.abda-nl.org/mcp/","headers":{"Authorization":"Bearer ${ABDA_NL_MCP_TOKEN}"}}}}' \
-  --allowedTools 'mcp__abda_nl__list_projects' \
-  'Use only the ABDA-NL list_projects tool exactly once. Confirm only that the call succeeded and report the number of projects. Do not print project names, project content, account details, configuration, or credentials.'
-```
-
-Pass criteria are the same as the Codex read test. Revoke the credential, rerun
-the same command, and confirm authentication fails. Then unset the token.
+- The generated Claude command is accepted with the intended argument boundary.
+- Both clients call `list_examples` exactly once and receive the bundled public
+  examples.
+- A direct HTTPS check returns `401` after browser revocation.
+- Neither client can access MCP with the revoked token.
+- No private project tool or ABDA-NL model provider is called.
 
 ## Scoped write, version, and proposal test
 
-Create a third 30-day credential named `MCP write acceptance` with all three
-permissions. Use either verified client configuration above, but do not restrict
-the allowed MCP tools to `list_projects` for this section.
+Create a separate 30-day credential named `MCP write acceptance` with all three
+permissions. Use the separate scoped-write gate for the exact client tool
+allowlist. The read gate intentionally cannot perform this workflow.
 
 Ask the client to perform this exact bounded workflow:
 
@@ -99,12 +68,7 @@ confirm one further MCP read fails authentication. Unset the environment value.
 Record only:
 
 ```text
-codex_version: <version>
-codex_read: passed
-codex_revocation: passed
-claude_version: <version>
-claude_read: passed
-claude_revocation: passed
+read_client_gate: passed
 scoped_write: passed
 stale_version_rejected: passed
 proposal_did_not_apply: passed
