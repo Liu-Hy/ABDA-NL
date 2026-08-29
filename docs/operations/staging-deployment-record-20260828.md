@@ -76,12 +76,12 @@ No migration job or Container App existed when this image record was created.
 The deployment orchestration is pinned separately from the application image:
 
 - Gate source commit:
-  `0cd8f832f8c3f659d0650a26378b6f5b9c767faf`
+  `075beeee5aab1d08dafd4bc05fabed3ef04f2c9b`
 - Gate CI:
-  [`33224622118`](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33224622118)
+  [`33225052231`](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33225052231)
 - Gate script: `deploy/azure/gate3-staging-application.sh`
 - Gate script SHA-256:
-  `c84786970b5e2aeacf28cb3b894a9ea3fc0bb55f807bbac390dccd3daf896e46`
+  `05536276ebfe23731677611792a26b2fac90e9a57d935b673e339022f3a6a64e`
 
 All seven CI jobs passed at the gate source commit. Local verification reported
 500 passing tests and four environment-gated skips. Revision 2 passed Bash
@@ -91,13 +91,22 @@ immutable-download checksum test. The mocked operator cancelled at the final
 confirmation, and the command log proved that no deployment creation or job
 execution occurred.
 
-The first operator run of revision 1 stopped during source verification before
+The first operator run, using revision 1, stopped during source verification before
 credential input or deployment confirmation. The checksum producer changed to
 the cloned checkout, but the piped `sha256sum` consumer retained the Cloud Shell
 working directory. Revision 2 runs both operations inside the cloned checkout
 and makes the mocked test start from an unrelated temporary directory so this
 failure cannot recur unnoticed. The stopped revision 1 run did not change
 Azure state.
+
+The second operator run, using revision 2, passed the immutable source and image
+checks, then stopped during recovered-infrastructure verification before
+credential input or deployment confirmation. Azure CLI exposes PostgreSQL
+`state` and `network` at the top level, while the validator expected the raw ARM
+`properties` wrapper used by the original mock. Revision 3 makes the CLI emit a
+small normalized object, verifies the server name, hostname, ready state, and
+disabled public access, and changes the mock to enforce that live CLI shape.
+The stopped revision 2 run did not change Azure state.
 
 The gate clones and verifies the application source commit above, checks the
 four deployment-template hashes, confirms anonymous access to the exact image
