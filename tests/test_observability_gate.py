@@ -148,7 +148,10 @@ def test_observability_gate_is_executable_valid_and_read_only():
         IMAGE.split("sha256:", 1)[1],
         "ContainerAppConsoleLogs_CL",
         "ContainerAppSystemLogs_CL",
-        "--timespan P2D",
+        '"timespan": "P2D"',
+        "https://api.loganalytics.azure.com/v1/workspaces/$workspace_id/query",
+        "--max-time 75",
+        "timeout --foreground --signal=INT --kill-after=5s 120s",
         "--expected-trial-max-users $ABDA_TRIAL_MAX_USERS",
         "--expected-openrouter-enabled false",
         "RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
@@ -162,6 +165,7 @@ def test_observability_gate_is_executable_valid_and_read_only():
         "az containerapp secret list",
         "az monitor diagnostic-settings create",
         "az monitor metrics alert create",
+        "az monitor log-analytics query",
         "--show-values",
         "read -r -s",
     ):
@@ -169,6 +173,71 @@ def test_observability_gate_is_executable_valid_and_read_only():
     assert "set +x" in source
     assert "unset HISTFILE" in source
     assert "set -x" not in source
+
+
+def test_observability_gate_converts_direct_log_api_response(tmp_path: Path):
+    response = tmp_path / "response.json"
+    summary = tmp_path / "summary.json"
+    columns = [
+        "total_logs",
+        "console_logs",
+        "system_logs",
+        "current_revision_logs",
+        "request_logs",
+        "request_query_markers",
+        "email_like",
+        "bearer_like",
+        "share_fragment_like",
+        "oidc_code_like",
+        "provider_key_like",
+    ]
+    values = [500, 350, 150, 300, 250, 0, 0, 0, 0, 0, 0]
+    _write_json(
+        response,
+        {
+            "tables": [
+                {
+                    "name": "PrimaryResult",
+                    "columns": [
+                        {"name": name, "type": "long"} for name in columns
+                    ],
+                    "rows": [values],
+                }
+            ]
+        },
+    )
+    result = _run_function("abda_audit_convert_log_api_response", response, summary)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(summary.read_text(encoding="utf-8")) == [
+        dict(zip(columns, values, strict=True))
+    ]
+
+    value = json.loads(response.read_text(encoding="utf-8"))
+    value["tables"][0]["rows"] = []
+    _write_json(response, value)
+    summary.unlink()
+    result = _run_function("abda_audit_convert_log_api_response", response, summary)
+    assert result.returncode != 0
+    assert "result shape" in result.stderr
+
+
+def test_observability_gate_keeps_log_api_token_in_mode_600_file(tmp_path: Path):
+    token = tmp_path / "token.json"
+    config = tmp_path / "curl-config"
+    _write_json(token, {"accessToken": "a" * 40 + "." + "b" * 40})
+    result = _run_function("abda_audit_write_log_api_auth", token, config)
+    assert result.returncode == 0, result.stderr
+    assert not token.exists()
+    assert config.stat().st_mode & 0o777 == 0o600
+    assert config.read_text(encoding="utf-8").startswith(
+        'header = "Authorization: Bearer '
+    )
+
+    token = tmp_path / "invalid-token.json"
+    _write_json(token, {"accessToken": "unsafe\nheader"})
+    result = _run_function("abda_audit_write_log_api_auth", token, tmp_path / "bad")
+    assert result.returncode != 0
+    assert not (tmp_path / "bad").exists()
 
 
 def test_observability_gate_accepts_exact_current_application(tmp_path: Path):

@@ -4,7 +4,7 @@
 # The gate executes the image's own release checker and summarizes log counts.
 # It never prints raw log messages or secret values.
 
-ABDA_AUDIT_SCRIPT_REVISION='1'
+ABDA_AUDIT_SCRIPT_REVISION='2'
 ABDA_AUDIT_SOURCE_COMMIT='6d0fb4403c01b37d101f0d03bd9c3070b8f1e343'
 ABDA_AUDIT_IMAGE_SHA256='282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13'
 ABDA_AUDIT_REVISION='abda-nl-stg-web--ux-6d0fb44'
@@ -231,6 +231,61 @@ print(customer_id)
 PY
 }
 
+abda_audit_write_log_api_auth() {
+  local token_path=$1
+  local config_path=$2
+  python3 - "$token_path" "$config_path" <<'PY'
+import json
+import os
+from pathlib import Path
+import re
+import sys
+
+token_path, config_path = sys.argv[1:]
+with open(token_path, encoding="utf-8") as handle:
+    payload = json.load(handle)
+token = str(payload.get("accessToken") or "")
+if not re.fullmatch(r"[A-Za-z0-9._~-]{32,}", token):
+    raise SystemExit("STOP: Azure returned an invalid Log Analytics access token")
+descriptor = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+    handle.write(f'header = "Authorization: Bearer {token}"\n')
+Path(token_path).unlink()
+PY
+}
+
+abda_audit_convert_log_api_response() {
+  local input_path=$1
+  local output_path=$2
+  python3 - "$input_path" "$output_path" <<'PY'
+import json
+import sys
+
+input_path, output_path = sys.argv[1:]
+with open(input_path, encoding="utf-8") as handle:
+    response = json.load(handle)
+tables = response.get("tables") if isinstance(response, dict) else None
+if not isinstance(tables, list) or len(tables) != 1:
+    raise SystemExit("STOP: Log Analytics API returned an unexpected table count")
+table = tables[0]
+columns = table.get("columns") if isinstance(table, dict) else None
+rows = table.get("rows") if isinstance(table, dict) else None
+if not isinstance(columns, list) or not isinstance(rows, list) or len(rows) != 1:
+    raise SystemExit("STOP: Log Analytics API returned an unexpected result shape")
+names = []
+for column in columns:
+    name = column.get("name") if isinstance(column, dict) else None
+    if not isinstance(name, str) or not name or name in names:
+        raise SystemExit("STOP: Log Analytics API returned invalid result columns")
+    names.append(name)
+row = rows[0]
+if not isinstance(row, list) or len(row) != len(names):
+    raise SystemExit("STOP: Log Analytics API returned an invalid result row")
+with open(output_path, "x", encoding="utf-8") as handle:
+    json.dump([dict(zip(names, row))], handle)
+PY
+}
+
 abda_audit_validate_log_summary() {
   local path=$1
   python3 - "$path" <<'PY'
@@ -406,7 +461,7 @@ abda_audit_main() {
 
   abda_audit_set_constants
   local command_name=''
-  for command_name in az python3 tee; do
+  for command_name in az curl python3 tee timeout; do
     command -v "$command_name" >/dev/null 2>&1 || \
       abda_audit_fail "required command is unavailable: $command_name"
   done
@@ -452,18 +507,17 @@ abda_audit_main() {
   printf 'log_analytics_retention_days: 30\n'
 
   ABDA_AUDIT_SECTION='sanitized log ingestion audit'
-  printf '\n[4/6] Querying 48 hours of count-only application and platform log evidence...\n'
+  printf '\n[4/6] Querying 48 hours of count-only log evidence with a 75-second limit...\n'
   local logs_query=''
   logs_query="$(cat <<'KQL'
 let ConsoleLogs = ContainerAppConsoleLogs_CL
-| where ContainerAppName_s == 'abda-nl-stg-web'
+| where TimeGenerated >= ago(48h) and ContainerAppName_s == 'abda-nl-stg-web'
 | project TimeGenerated, Kind='console', Revision=tostring(RevisionName_s), Message=tostring(Log_s);
 let SystemLogs = ContainerAppSystemLogs_CL
-| where ContainerAppName_s == 'abda-nl-stg-web'
+| where TimeGenerated >= ago(48h) and ContainerAppName_s == 'abda-nl-stg-web'
 | project TimeGenerated, Kind='system', Revision=tostring(RevisionName_s), Message=tostring(Log_s);
 ConsoleLogs
 | union SystemLogs
-| where TimeGenerated >= ago(48h)
 | summarize
     total_logs=count(),
     console_logs=countif(Kind == 'console'),
@@ -478,10 +532,51 @@ ConsoleLogs
     provider_key_like=countif(tolower(Message) matches regex '(sk-[a-z0-9_-]{20,}|aiza[a-z0-9_-]{20,})')
 KQL
 )"
-  az monitor log-analytics query \
-    --workspace "$workspace_id" --analytics-query "$logs_query" \
-    --timespan P2D --only-show-errors --output json \
-    >"$ABDA_AUDIT_ROOT/log-summary.json"
+  python3 - "$ABDA_AUDIT_ROOT/log-query.json" "$logs_query" <<'PY'
+import json
+import sys
+
+path, query = sys.argv[1:]
+with open(path, "x", encoding="utf-8") as handle:
+    json.dump({"query": query, "timespan": "P2D"}, handle)
+PY
+  local token_status=0
+  set +e
+  timeout --foreground --signal=TERM --kill-after=5s 30s \
+    az account get-access-token \
+      --resource https://api.loganalytics.io \
+      --only-show-errors --output json \
+      >"$ABDA_AUDIT_ROOT/log-token.json"
+  token_status=$?
+  set -e
+  if (( token_status == 124 )); then
+    abda_audit_fail 'Azure access-token acquisition timed out after 30 seconds'
+  fi
+  (( token_status == 0 )) || \
+    abda_audit_fail "Azure access-token acquisition exited with status $token_status"
+  abda_audit_write_log_api_auth \
+    "$ABDA_AUDIT_ROOT/log-token.json" "$ABDA_AUDIT_ROOT/log-curl-config"
+  local log_api_status=0
+  set +e
+  curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
+    --connect-timeout 10 --max-time 75 \
+    --config "$ABDA_AUDIT_ROOT/log-curl-config" \
+    --header 'Content-Type: application/json' \
+    --request POST \
+    --data-binary "@$ABDA_AUDIT_ROOT/log-query.json" \
+    "https://api.loganalytics.azure.com/v1/workspaces/$workspace_id/query" \
+    --output "$ABDA_AUDIT_ROOT/log-api-response.json"
+  log_api_status=$?
+  set -e
+  rm -f -- "$ABDA_AUDIT_ROOT/log-curl-config"
+  if (( log_api_status == 28 )); then
+    abda_audit_fail 'Log Analytics API timed out after 75 seconds'
+  fi
+  (( log_api_status == 0 )) || \
+    abda_audit_fail "Log Analytics API exited with curl status $log_api_status"
+  abda_audit_convert_log_api_response \
+    "$ABDA_AUDIT_ROOT/log-api-response.json" \
+    "$ABDA_AUDIT_ROOT/log-summary.json"
   abda_audit_validate_log_summary "$ABDA_AUDIT_ROOT/log-summary.json" \
     | tee "$ABDA_AUDIT_ROOT/log-result.txt"
 
@@ -489,7 +584,8 @@ KQL
   printf '\n[5/6] Running the deployed image release checker without displaying its metrics token...\n'
   local exec_status=0
   set +e
-  az containerapp exec \
+  timeout --foreground --signal=INT --kill-after=5s 120s \
+    az containerapp exec \
     --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
     --revision "$ABDA_AUDIT_REVISION" --replica "$replica_name" \
     --container "$ABDA_CONTAINER_NAME" \
@@ -497,6 +593,9 @@ KQL
     2>&1 | tee "$ABDA_AUDIT_ROOT/release-check.log"
   exec_status=${PIPESTATUS[0]}
   set -e
+  if (( exec_status == 124 )); then
+    abda_audit_fail 'Azure container release check timed out after 120 seconds'
+  fi
   if (( exec_status != 0 )); then
     abda_audit_fail "Azure container exec exited with status $exec_status"
   fi
