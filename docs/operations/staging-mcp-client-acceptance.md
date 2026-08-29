@@ -42,26 +42,35 @@ Pass criteria:
 
 ## Scoped write, version, and proposal test
 
-Create a separate 30-day credential named `MCP write acceptance` with all three
-permissions. Use the separate scoped-write gate for the exact client tool
-allowlist. The read gate intentionally cannot perform this workflow.
+The second gate uses direct MCP protocol calls for deterministic write
+acceptance. The real Codex and Claude clients are already covered by the first
+gate. Direct calls keep a language-model agent from choosing additional tools
+or receiving private project content.
 
-Ask the client to perform this exact bounded workflow:
+1. Create a 30-day credential named `MCP scope read acceptance` with only
+   `projects:read`.
+2. Create a separate 30-day credential named `MCP scoped write acceptance`
+   with all three permissions.
+3. Run `deploy/azure/gate10-mcp-scoped-write-acceptance.sh` from a normal Delta
+   terminal. Paste both values only at their hidden prompts.
+4. The gate safely proves that the read-only token cannot create a project. Its
+   denial probe deliberately names a nonexistent source example, so a broken
+   scope check still cannot create anything.
+5. The gate creates one disposable project from `fire_prevention`, reads it,
+   updates only its description at version 1, and proves a second write with
+   stale version 1 is rejected.
+6. The gate makes one funded `add-fact` proposal using an instruction already
+   covered by the model evaluation suite. It verifies a positive settled cost,
+   then proves the complete project payload and version stayed unchanged.
+7. When prompted, delete only `MCP scoped acceptance, delete me` from the
+   browser. The gate proves the project is no longer accessible.
+8. Revoke both acceptance tokens when prompted. The gate proves that both now
+   receive HTTP 401.
 
-1. Create one disposable private project named `MCP acceptance 2026-08-29`
-   from the bundled `fire_prevention` example.
-2. Read the project and retain its current integer version.
-3. Change only its description, using that exact expected version.
-4. Repeat a metadata update with the stale earlier version and confirm the
-   server rejects it as a version conflict.
-5. Read the accepted project version.
-6. Ask `propose_project_edit` for one simple, harmless change. Confirm the tool
-   returns a proposal and advisory review, then read the project again and
-   confirm its version did not change.
-7. Do not call `apply_project_ops` on the proposal.
-
-Delete the disposable project from the browser, revoke the credential, and
-confirm one further MCP read fails authentication. Unset the environment value.
+The gate never calls `apply_project_ops`, prints private MCP payloads, or
+changes Azure configuration. Its temporary state is mode 600 and removed on
+exit. If it stops after project creation, delete the named disposable project
+and revoke both tokens before retrying.
 
 ## Content-free receipt
 
@@ -72,6 +81,7 @@ read_client_gate: passed
 scoped_write: passed
 stale_version_rejected: passed
 proposal_did_not_apply: passed
+funded_proposal_cost_recorded: passed
 disposable_project_removed: passed
 all_acceptance_tokens_revoked: passed
 result: LIVE_CODEX_AND_CLAUDE_MCP_ACCEPTANCE_VERIFIED
