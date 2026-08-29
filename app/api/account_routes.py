@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.account_models import (
     AuthSessionResponse,
     DevelopmentLoginRequest,
+    LogoutResponse,
     MCPTokenCreateRequest,
     MCPTokenCreatedResponse,
     MCPTokenListResponse,
@@ -251,12 +252,27 @@ def development_login(
 
 @router.post(
     "/api/auth/logout",
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=LogoutResponse,
     dependencies=[Depends(require_same_origin)],
 )
-def logout(request: Request) -> Response:
+async def logout(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> LogoutResponse:
+    """Clear the local session and return one validated logout destination."""
+    logout_hint = _safe_logout_hint(request.session.get("oidc_sid"))
+    destination = _post_logout_url(request, settings)
+    if settings.auth_mode == "oidc":
+        try:
+            destination = await _oidc_logout_url(
+                request,
+                settings,
+                logout_hint=logout_hint,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("OIDC logout discovery failed: %s", type(exc).__name__)
     request.session.clear()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return LogoutResponse(logout_url=destination)
 
 
 @router.post(

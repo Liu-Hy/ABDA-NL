@@ -131,6 +131,54 @@ def test_browser_logout_clears_local_and_oidc_sessions(monkeypatch):
     }
 
 
+def test_api_logout_returns_validated_oidc_destination(monkeypatch):
+    from app.api import account_routes
+
+    class FakeOIDCClient:
+        async def load_server_metadata(self):
+            return {"end_session_endpoint": "https://login.example/oidc/logout"}
+
+    class FakeOIDCRegistry:
+        def create_client(self, _name):
+            return FakeOIDCClient()
+
+    class FakeRequest:
+        def __init__(self):
+            self.session = {
+                "user_id": "user-id",
+                "oidc_sid": "auth0-session-id",
+            }
+            self.base_url = "https://internal.example/"
+
+    monkeypatch.setattr(
+        account_routes,
+        "_oauth_registry",
+        lambda: FakeOIDCRegistry(),
+    )
+    settings = replace(
+        get_settings(),
+        environment="staging",
+        auth_mode="oidc",
+        public_base_url="https://demo.example",
+        oidc_client_id="client-id",
+    )
+    request = FakeRequest()
+
+    response = asyncio.run(account_routes.logout(request=request, settings=settings))
+
+    location = urlsplit(response.logout_url)
+    query = parse_qs(location.query)
+    assert request.session == {}
+    assert location.scheme == "https"
+    assert location.netloc == "login.example"
+    assert location.path == "/oidc/logout"
+    assert query == {
+        "client_id": ["client-id"],
+        "logout_hint": ["auth0-session-id"],
+        "post_logout_redirect_uri": ["https://demo.example/"],
+    }
+
+
 def test_browser_logout_falls_back_to_local_home_when_discovery_fails(
     monkeypatch,
 ):
@@ -203,7 +251,9 @@ class _ProjectLLM:
 
 
 def test_anonymous_browsing_but_projects_require_login(client: TestClient):
-    client.post("/api/auth/logout")
+    logout = client.post("/api/auth/logout")
+    assert logout.status_code == 200
+    assert logout.json() == {"logout_url": "http://testserver/"}
     assert client.get("/scenarios/popov_v_hayashi").status_code == 200
     session = client.get("/api/auth/session")
     assert session.json()["authenticated"] is False

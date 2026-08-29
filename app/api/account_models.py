@@ -30,6 +30,10 @@ class AuthSessionResponse(BaseModel):
     user: Optional[UserView] = None
 
 
+class LogoutResponse(BaseModel):
+    logout_url: str
+
+
 class DevelopmentLoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

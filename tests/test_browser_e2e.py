@@ -1,6 +1,7 @@
 """Real-browser acceptance for the public research workspace."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import socket
@@ -186,6 +187,67 @@ def test_assistant_markdown_is_inert_in_real_browser(live_browser_server):
             ).count() == 0
             page.wait_for_timeout(100)
             assert page.evaluate("window.__abdaXssFired") == 0
+        finally:
+            browser.close()
+
+
+def test_oidc_logout_uses_fetch_origin_under_no_referrer_policy(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        observed: dict[str, str] = {}
+
+        def intercept_logout(route):
+            observed["origin"] = route.request.headers.get("origin", "")
+            observed["method"] = route.request.method
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {"logout_url": f"{live_browser_server}/logout-complete"}
+                ),
+            )
+
+        page.route("**/api/auth/logout", intercept_logout)
+        page.route(
+            "**/logout-complete",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="text/html",
+                body="<!doctype html><title>Signed out</title><p>Signed out</p>",
+            ),
+        )
+        try:
+            page.goto(live_browser_server, wait_until="networkidle")
+            page.evaluate(
+                """() => {
+                    state.authSession = {
+                      authenticated: true,
+                      auth_mode: 'oidc',
+                      login_url: '/auth/login',
+                      user: {
+                        id: 'browser-oidc-user',
+                        email: 'browser-oidc@example.edu',
+                        email_verified: true,
+                        display_name: 'Browser OIDC',
+                      },
+                    };
+                    renderAccountUI();
+                }"""
+            )
+            page.locator("#workspace-btn").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#logout-btn").click()
+            page.wait_for_url(f"{live_browser_server}/logout-complete")
+
+            assert observed == {
+                "method": "POST",
+                "origin": live_browser_server,
+            }
         finally:
             browser.close()
 

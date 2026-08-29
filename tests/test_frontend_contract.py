@@ -86,14 +86,20 @@ def test_oidc_login_does_not_copy_share_fragments_into_server_urls():
     assert "refreshExternalOIDCLogin" in source
 
 
-def test_logout_uses_same_origin_post_before_oidc_session_logout():
+def test_logout_uses_same_origin_fetch_before_oidc_navigation():
     inventory = _inventory()
     logout_form = inventory.attributes_by_id["logout-form"]
     assert logout_form["method"] == "post"
     assert logout_form["action"] == "/auth/logout"
     source = (STATIC_ROOT / "workspace.js").read_text(encoding="utf-8")
     assert "byId('logout-form')?.addEventListener('submit', handleLogout)" in source
-    assert "state.authSession.auth_mode === 'oidc'" in source
+    handler = source[source.index("async function handleLogout"):]
+    handler = handler[: handler.index("async function refreshAuthenticatedWorkspace")]
+    assert handler.index("event.preventDefault()") < handler.index(
+        "apiRequest('/api/auth/logout', { method: 'POST' })"
+    )
+    assert "const oidcLogout = state.authSession.auth_mode === 'oidc'" in handler
+    assert "window.location.assign(result.logout_url)" in handler
 
 
 def test_public_policy_pages_are_linked_and_script_free():

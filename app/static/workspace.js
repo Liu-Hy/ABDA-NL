@@ -283,24 +283,24 @@ async function handleDevelopmentLogin(event) {
 }
 
 async function handleLogout(event) {
-  setWorkspaceStatus('account-status', 'Signing out...', 'info');
-  if (state.authSession.auth_mode === 'oidc') {
-    state.llmAccess.apiKey = '';
-    byId('byok-api-key').value = '';
-    clearMCPSecretPanel();
-    return;
-  }
   event.preventDefault();
+  setWorkspaceStatus('account-status', 'Signing out...', 'info');
+  const oidcLogout = state.authSession.auth_mode === 'oidc';
+  state.llmAccess.apiKey = '';
+  byId('byok-api-key').value = '';
+  clearMCPSecretPanel();
   try {
-    await apiRequest('/api/auth/logout', { method: 'POST' });
+    const result = await apiRequest('/api/auth/logout', { method: 'POST' });
+    if (oidcLogout) {
+      if (!result?.logout_url) throw new Error('The identity provider logout URL is unavailable.');
+      window.location.assign(result.logout_url);
+      return;
+    }
     const leavePrivateProject = state.viewKind === 'project';
     state.authSession = { authenticated: false, auth_mode: state.authSession.auth_mode, login_url: state.authSession.login_url, user: null };
     state.trial = null;
     state.projects = [];
     state.mcpTokens = [];
-    state.llmAccess.apiKey = '';
-    byId('byok-api-key').value = '';
-    clearMCPSecretPanel();
     renderAccountUI();
     renderAccessSummary();
     setWorkspaceStatus('account-status', '', 'info');
