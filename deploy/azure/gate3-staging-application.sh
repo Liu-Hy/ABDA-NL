@@ -4,7 +4,7 @@
 # This gate is intentionally bound to one Azure subscription, one recovered
 # infrastructure deployment, and one verified public image digest.
 
-ABDA_GATE_SCRIPT_REVISION='2'
+ABDA_GATE_SCRIPT_REVISION='3'
 ABDA_EXPECTED_SUBSCRIPTION='00e62f6e-2174-40b2-b428-8ebfd7c2ac54'
 ABDA_EXPECTED_TENANT='040f05eb-33ab-462f-af54-fb4bedb055ae'
 ABDA_EXPECTED_USER='hliu2@cloudbank.org'
@@ -249,12 +249,13 @@ if (environment.get("properties") or {}).get("provisioningState") != "Succeeded"
     raise SystemExit("STOP: the Container Apps environment is not ready")
 
 postgres = load(postgres_path)
-properties = postgres.get("properties") or {}
 if postgres.get("name") != expected_postgres.split(".", 1)[0]:
     raise SystemExit("STOP: the PostgreSQL server name changed")
-if properties.get("state") != "Ready":
+if postgres.get("fullyQualifiedDomainName") != expected_postgres:
+    raise SystemExit("STOP: the PostgreSQL server hostname changed")
+if postgres.get("state") != "Ready":
     raise SystemExit("STOP: PostgreSQL is not ready")
-if properties.get("network", {}).get("publicNetworkAccess") != "Disabled":
+if postgres.get("publicNetworkAccess") != "Disabled":
     raise SystemExit("STOP: PostgreSQL public network access is not disabled")
 
 jobs = load(jobs_path)
@@ -608,6 +609,7 @@ ABDA_BICEP_CHECKSUMS
   az postgres flexible-server show \
     --name "${ABDA_POSTGRES_HOST%%.*}" \
     --resource-group "$ABDA_RESOURCE_GROUP" \
+    --query '{name:name,state:state,fullyQualifiedDomainName:fullyQualifiedDomainName,publicNetworkAccess:network.publicNetworkAccess}' \
     --output json >"$ABDA_GATE_ROOT/postgres.json"
   az containerapp job list \
     --resource-group "$ABDA_RESOURCE_GROUP" \

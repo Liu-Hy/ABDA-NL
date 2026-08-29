@@ -305,12 +305,18 @@ def test_gate_reaches_confirmation_without_mutating_azure(tmp_path):
                 "properties": {{"provisioningState": "Succeeded"}},
             }})
         elif args[:3] == ["postgres", "flexible-server", "show"]:
+            expected_query = (
+                "{{name:name,state:state,"
+                "fullyQualifiedDomainName:fullyQualifiedDomainName,"
+                "publicNetworkAccess:network.publicNetworkAccess}}"
+            )
+            if args[args.index("--query") + 1] != expected_query:
+                raise SystemExit("PostgreSQL query did not normalize the CLI shape")
             emit({{
                 "name": "abda-nl-stg-postgres-bgjhpbgw",
-                "properties": {{
-                    "state": "Ready",
-                    "network": {{"publicNetworkAccess": "Disabled"}},
-                }},
+                "state": "Ready",
+                "fullyQualifiedDomainName": "abda-nl-stg-postgres-bgjhpbgw.postgres.database.azure.com",
+                "publicNetworkAccess": "Disabled",
             }})
         elif args[:3] in (
             ["containerapp", "job", "list"],
