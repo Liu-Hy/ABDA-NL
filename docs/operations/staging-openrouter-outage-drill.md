@@ -1,13 +1,15 @@
 # Staging OpenRouter outage drill
 
-State: implementation verified in an immutable image, Azure deployment and live
-staging execution pending
+State: implementation verified in the deployed immutable image, live staging
+execution pending
 
 The reviewed implementation is in source commit
 `448510936c69d485cf9b4e834adea69becf6b114` and image
 `ghcr.io/liu-hy/abda-nl@sha256:11861402c8fa3fd677848f94155e29065ebafd9a4a76b03e41b1cf48312e5c58`.
 The image workflow and provenance evidence are recorded in the
 [release-candidate checkpoint](staging-release-candidate-20260829.md).
+Gate 6 deployed that image as revision `abda-nl-stg-web--rc-4485109` and passed
+its public acceptance checks on 2026-08-29.
 
 This gate proves that a qualifying primary-provider outage reaches the selected
 OpenRouter fallback and charges the same settled cost to the user's trial grant

@@ -1,6 +1,7 @@
 # Staging release-candidate image checkpoint, 2026-08-29
 
-State: immutable image published and verified, Azure deployment pending
+State: immutable image deployed and publicly verified, browser and operator
+acceptance pending
 
 This checkpoint identifies the first staging image that contains the privacy
 operations command, the controlled OpenRouter outage drill, and the corrected
@@ -39,6 +40,23 @@ Local verification on 2026-08-29 established all of the following:
 - The diff from the currently deployed application source
   `9abd0264c715596401d87b83d08ed2e82ab5e34b` contains no migration or database
   schema file change.
+
+## Live Azure deployment record
+
+Gate 6 completed with shell exit code 0 on 2026-08-29. Azure replaced
+`abda-nl-stg-web--trial-pilot-v1` with
+`abda-nl-stg-web--rc-4485109`, using the exact source commit and image digest
+listed above. The gate reported all of the following:
+
+- public acceptance passed at `https://demo.abda-nl.org`
+- the funded pilot remained limited to 10 users and $50 total allocation
+- public OpenRouter failover remained disabled
+- no migration was rerun
+- no application secret changed
+
+This record establishes the deployed machine identity and public HTTP contract.
+It does not substitute for the fresh browser sign-in and sign-out check or the
+operator-only outage drill below.
 
 ## Deployment boundary
 
