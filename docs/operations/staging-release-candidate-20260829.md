@@ -141,3 +141,12 @@ Gate 9 is a read-only observability audit. Gate 10 is the guarded two-transition
 rollback rehearsal. Both are prepared and tested in the repository, but this
 record must not mark either live gate complete until its content-free Azure
 receipt is attached.
+
+Gate 11 is a two-run disposable-account privacy acceptance. It validates a
+mode-600 export without printing or retaining it, suspends the account, proves
+share and MCP revocation, enforces a 15-minute wait, and then permanently
+deletes local private data after a second confirmation. Gate 12 is the final
+three-setting promotion from the ten-user pilot to 100 users and from disabled
+to outage-only OpenRouter fallback while retaining independent $500 hard caps.
+Both gates are prepared and covered by focused tests. Gate 12 must remain last
+and must not run merely because its source tests pass.

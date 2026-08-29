@@ -40,6 +40,45 @@ The inspect output contains only a 16-character account fingerprint, status,
 timestamps, counts, and monetary totals. It contains no email, identity
 subject, project content, token hash, or request content.
 
+## Staging acceptance gate
+
+`deploy/azure/gate11-privacy-acceptance.sh` turns the manual sequence below into
+a bounded two-run staging acceptance. Run it only after the Gate 10 rollback
+rehearsal has restored revision `abda-nl-stg-web--restore-6d0fb44`.
+
+Prepare one disposable verified-email account as follows:
+
+1. Do not activate trial credit and do not call a model from this account.
+2. Create one project from a bundled public example.
+3. Create one read-only share and one scoped MCP credential. Do not copy their
+   bearer values into the operator record.
+4. Sign out, then block this exact user in Auth0. Keep it blocked throughout
+   both gate runs.
+
+The first run asks for the account address through a hidden prompt. It checks
+that the account has never received funded credit, exercises `inspect`, writes
+an access export to a new mode-600 file inside the container, validates the
+export without printing it, and removes the file. After the exact preparation
+confirmation, it changes the account to `deletion_pending` and proves that all
+active share and MCP access was revoked. A successful first run ends with:
+
+```text
+result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES
+```
+
+Keep the Auth0 user blocked and wait at least 15 minutes. Rerun the same pinned
+gate. It recognizes the prepared state, refuses unsettled reservations, runs a
+deletion dry run, and requires a separate exact deletion confirmation. It then
+proves that the local user and private records are gone. Success ends with:
+
+```text
+result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
+```
+
+Delete the still-blocked disposable user from Auth0 only after the second
+receipt succeeds. The gate never changes Azure configuration, secrets, DNS,
+Auth0, trial limits, or provider routing.
+
 ## Produce an access export
 
 Create a private directory and write a new file. The tool refuses an existing

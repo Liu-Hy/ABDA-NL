@@ -517,6 +517,22 @@ Azure update. The script accepts the rollback image before restoring the
 current image and proves that settings, secrets, migrations, trial limits, and
 provider routing did not change.
 
+The final capacity change is separately guarded by
+`deploy/azure/gate12-public-budget-promotion.sh`. Run it only after the release
+audit, rollback rehearsal, MCP, BYOK, and disposable-account privacy acceptance
+are complete. It accepts only the restored shared-view image and the safely
+idle ten-user pilot. Its one Azure mutation changes exactly these values:
+
+- `ABDA_TRIAL_MAX_USERS` from 10 to 100
+- `ABDA_TRIAL_BUDGET_MICROUSD` from 50000000 to 500000000
+- `ABDA_OPENROUTER_FAILOVER_ENABLED` from false to true
+
+The $5 grant and independent $500 OpenRouter hard limit do not change. The gate
+checks both protected ledgers before and after the update, requires zero pending
+or uncertain reservations, and refuses any accounting change during the
+configuration-only transition. It does not change the image, secrets,
+migrations, Auth0, DNS, certificate, probes, scaling, or database resources.
+
 For every update:
 
 1. Publish an attested image from a tested commit and record its digest.
