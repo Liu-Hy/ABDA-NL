@@ -135,12 +135,23 @@ are complete:
    without retaining private content in the acceptance record.
 6. MCP client and disposable-BYOK journeys must pass against the same image.
 7. The authorized release check, Log Analytics inspection, and rollback
-   rehearsal must pass before any promotion from the ten-user pilot.
+   rehearsal passed before any promotion from the ten-user pilot.
 
-Gate 9 is a read-only observability audit. Gate 10 is the guarded two-transition
-rollback rehearsal. Both are prepared and tested in the repository, but this
-record must not mark either live gate complete until its content-free Azure
-receipt is attached.
+Gate 9 revision 2 completed against the shared-view image. Its direct Azure
+Logs API query counted 12,653 records over 48 hours, including 1,310 from the
+current revision and 11,830 normalized request records. Every email, bearer,
+share-fragment, OIDC-code, provider-key, and request-query indicator was zero.
+The authorized release checker passed with one funded activation, reconciled
+trial spend of 60,775 microUSD, reconciled OpenRouter spend of 149 microUSD,
+and one checked-out database connection. The audit printed no raw log message
+or secret, called no model, and changed no Azure configuration.
+
+Gate 10 then deployed the recorded compatible image at source commit
+`448510936c69d485cf9b4e834adea69becf6b114`, passed public acceptance, and
+automatically restored the current shared-view image. The healthy restored
+revision is `abda-nl-stg-web--restore-6d0fb44`. Both acceptance passes
+succeeded without rerunning a migration or changing a secret, setting, trial
+limit, or OpenRouter state.
 
 Gate 11 is a two-run disposable-account privacy acceptance. It validates a
 mode-600 export without printing or retaining it, suspends the account, proves

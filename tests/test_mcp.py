@@ -236,9 +236,9 @@ def test_token_management_requires_login_checks_origin_and_discloses_once(client
     assert 'default_tools_approval_mode = "writes"' in created["codex_config"]
     assert "tool_timeout_sec = 180" in created["codex_config"]
     assert created["claude_command"] == (
-        "claude mcp add --transport http --scope user "
-        'abda-nl "http://testserver/mcp/" --header '
-        "'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}'"
+        "claude mcp add --transport http --scope user --header "
+        "'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' "
+        'abda-nl "http://testserver/mcp/"'
     )
 
     listing_text = client.get("/api/mcp/tokens").text
