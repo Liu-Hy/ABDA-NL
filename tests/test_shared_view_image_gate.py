@@ -139,6 +139,9 @@ def test_shared_view_gate_has_exactly_one_narrow_mutation():
     assert source.count("az containerapp update") == 2
     assert source.count('--image "$ABDA_IMAGE_REPOSITORY@sha256:') == 1
     assert source.count('--revision-suffix "$ABDA_UX_TARGET_SUFFIX"') == 1
+    assert '$ABDA_CUSTOM_ORIGIN/workspace.js?source=' in source
+    assert '$ABDA_CUSTOM_ORIGIN/app.js?source=' in source
+    assert '$ABDA_CUSTOM_ORIGIN/static/' not in source
     for forbidden in (
         "az deployment group create",
         "az containerapp job start",

@@ -4,7 +4,7 @@
 # The gate preserves the complete application configuration and does not rerun
 # migrations or change secrets, Auth0, DNS, trial limits, or provider routing.
 
-ABDA_UX_SCRIPT_REVISION='1'
+ABDA_UX_SCRIPT_REVISION='2'
 ABDA_UX_SOURCE_COMMIT='6d0fb4403c01b37d101f0d03bd9c3070b8f1e343'
 ABDA_UX_OLD_IMAGE_SHA256='11861402c8fa3fd677848f94155e29065ebafd9a4a76b03e41b1cf48312e5c58'
 ABDA_UX_NEW_IMAGE_SHA256='282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13'
@@ -367,11 +367,11 @@ abda_ux_validate_static_fix() {
   local prefix=$1
   curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
     --connect-timeout 10 --max-time 30 \
-    "$ABDA_CUSTOM_ORIGIN/static/workspace.js?source=$ABDA_UX_SOURCE_COMMIT" \
+    "$ABDA_CUSTOM_ORIGIN/workspace.js?source=$ABDA_UX_SOURCE_COMMIT" \
     --output "$prefix-workspace.js"
   curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
     --connect-timeout 10 --max-time 30 \
-    "$ABDA_CUSTOM_ORIGIN/static/app.js?source=$ABDA_UX_SOURCE_COMMIT" \
+    "$ABDA_CUSTOM_ORIGIN/app.js?source=$ABDA_UX_SOURCE_COMMIT" \
     --output "$prefix-app.js"
   grep -Fq \
     "if (state.readOnly) return { tab: null, message: 'Chat and edits are disabled in a shared read-only view.' };" \
