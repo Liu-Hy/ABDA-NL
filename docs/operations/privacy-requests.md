@@ -1,7 +1,7 @@
 # Privacy request operations
 
-Status: implemented on `development`, not yet deployed in the current staging
-image.
+Status: implemented and present in the current staging image. Live operation
+against an isolated disposable account remains an acceptance gate.
 
 This runbook supports verified access exports and permanent deletion requests.
 The operator tool is `abda-nl-privacy`. It never accepts an account email on the
