@@ -21,12 +21,16 @@ from app.db.session import (
     initialize_database,
     reset_database_caches,
 )
-from app.db.models import Identity, User
+from app.db.models import Identity, LLMUsageEvent, User
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.serialize import scenario_to_dict
 from app.services.accounts import IdentityError, upsert_verified_identity
 from app.services.llm_billing import reserve_llm_call, settle_llm_call, usage_event
 from app.services.mcp_tokens import create_mcp_token
+from app.services.privacy_requests import (
+    delete_privacy_account,
+    prepare_privacy_deletion,
+)
 from app.services.projects import create_project, create_share_link
 from app.services.rate_limits import consume_rate_limit
 from app.services.trials import activate_trial
@@ -216,6 +220,27 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
                     usage={"input_tokens": 1, "output_tokens": 1},
                     cost_microusd=25,
                 ),
+            )
+            prepared = prepare_privacy_deletion(
+                session,
+                "postgres-acceptance@example.edu",
+                request_reference="POSTGRES-PRIVACY-001",
+            )
+            assert prepared.status == "deletion_pending"
+            receipt = delete_privacy_account(
+                session,
+                "postgres-acceptance@example.edu",
+                request_reference="POSTGRES-PRIVACY-001",
+            )
+            assert receipt.deleted_project_count == 1
+            assert session.get(User, user.id) is None
+            assert (
+                session.scalar(
+                    select(LLMUsageEvent.user_id).where(
+                        LLMUsageEvent.request_id == "postgres-acceptance"
+                    )
+                )
+                is None
             )
 
         _assert_statement_denied("CREATE TABLE public.abda_privilege_probe (id integer)")

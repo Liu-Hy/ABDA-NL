@@ -181,6 +181,7 @@ email OIDC, and an explicit migration job. Operator documentation is tracked in:
 - [Azure deployment](docs/operations/public-deployment.md)
 - [Auth0 email OTP](docs/operations/auth0-email-otp.md)
 - [Funded model promotion](docs/operations/model-promotion.md)
+- [Privacy request operations](docs/operations/privacy-requests.md)
 - [Public and COMMA release checklist](docs/operations/release-checklist.md)
 - [Public security and operations decision](docs/decisions/0006-public-service-security-and-operations.md)
 
