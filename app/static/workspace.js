@@ -501,7 +501,7 @@ function currentLLMOptions() {
 
 function llmAccessIssue() {
   if (!state.config?.llm_enabled) return { tab: 'ai', message: 'Language-model features are disabled on this server.' };
-  if (state.readOnly) return { tab: 'projects', message: 'Chat and edits are disabled in a shared read-only view.' };
+  if (state.readOnly) return { tab: null, message: 'Chat and edits are disabled in a shared read-only view.' };
   if (state.config.llm_auth_required && !state.authSession.authenticated) {
     return { tab: 'account', message: 'Sign in with a verified email to use language models.' };
   }
@@ -549,8 +549,15 @@ function renderChatAccess() {
     return;
   }
   note.classList.add('visible');
-  note.innerHTML = `${escapeHtml(issue.message)} <button type="button">Open settings</button>`;
-  note.querySelector('button').addEventListener('click', () => openWorkspace(issue.tab));
+  note.textContent = issue.message;
+  if (issue.tab) {
+    note.append(' ');
+    const settingsButton = document.createElement('button');
+    settingsButton.type = 'button';
+    settingsButton.textContent = 'Open settings';
+    settingsButton.addEventListener('click', () => openWorkspace(issue.tab));
+    note.append(settingsButton);
+  }
 }
 
 function toggleSecretVisibility(inputId, buttonId) {

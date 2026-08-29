@@ -1372,7 +1372,7 @@ async function sendChatMessage(prefilledText) {
   if (state.chatPending) return;
   const accessIssue = llmAccessIssue();
   if (accessIssue) {
-    openWorkspace(accessIssue.tab);
+    if (accessIssue.tab) openWorkspace(accessIssue.tab);
     showGlobalStatus(accessIssue.message, 'info');
     return;
   }

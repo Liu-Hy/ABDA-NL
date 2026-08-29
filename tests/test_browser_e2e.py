@@ -402,6 +402,35 @@ def test_research_workspace_in_browser(live_browser_server):
                 "Created private project"
             )
 
+            page.locator("#workspace-btn").click()
+            page.locator("#workspace-tab-projects").click()
+            page.locator('[data-project-action="share-create"]').click()
+            share_input = page.locator("#latest-share-url")
+            expect(share_input).to_be_visible()
+            share_url = share_input.input_value()
+            assert "/#share=" in share_url
+
+            shared_context = browser.new_context(viewport={"width": 1440, "height": 900})
+            try:
+                shared_page = shared_context.new_page()
+                shared_page.goto(share_url, wait_until="networkidle")
+                expect(shared_page.locator("#context-indicator")).to_have_text(
+                    "Shared read-only"
+                )
+                access_note = shared_page.locator("#chat-access-note")
+                expect(access_note).to_have_text(
+                    "Chat and edits are disabled in a shared read-only view."
+                )
+                assert access_note.locator("button").count() == 0
+                shared_page.locator(".rule-info").first.click()
+                expect(shared_page.locator("#global-status")).to_contain_text(
+                    "Chat and edits are disabled in a shared read-only view."
+                )
+                expect(shared_page.locator("#modal-workspace .modal-content")).to_be_hidden()
+            finally:
+                shared_context.close()
+            page.keyboard.press("Escape")
+
             ai_access_button = page.locator("#ai-access-btn")
             ai_access_button.click()
             expect(page.locator("#workspace-panel-ai")).to_be_visible()
