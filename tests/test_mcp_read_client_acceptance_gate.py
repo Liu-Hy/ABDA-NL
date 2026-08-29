@@ -287,21 +287,26 @@ def test_mcp_read_gate_accepts_claude_revocation_and_rejects_access(
 
 
 def test_mcp_read_gate_validates_isolated_claude_command_config(tmp_path: Path):
-    config = tmp_path / ".claude.json"
-    config.write_text(
-        json.dumps(
-            {
-                "mcpServers": {
-                    "abda-nl": {
-                        "type": "http",
-                        "url": "https://demo.abda-nl.org/mcp/",
-                        "headers": {
-                            "Authorization": "Bearer ${ABDA_NL_MCP_TOKEN}"
-                        },
-                    }
-                }
+    config_root = tmp_path / ".claude"
+    config_root.mkdir()
+    config = config_root / ".claude.json"
+    value = {
+        "mcpServers": {
+            "abda-nl": {
+                "type": "http",
+                "url": "https://demo.abda-nl.org/mcp/",
+                "headers": {"Authorization": "Bearer ${ABDA_NL_MCP_TOKEN}"},
             }
-        ),
+        }
+    }
+    config.write_text(
+        json.dumps(value),
+        encoding="utf-8",
+    )
+    backup_root = config_root / "backups"
+    backup_root.mkdir()
+    (backup_root / ".claude.json.backup.123").write_text(
+        json.dumps(value),
         encoding="utf-8",
     )
     environment = {"ABDA_NL_MCP_TOKEN": "abda_mcp_" + "a" * 43}

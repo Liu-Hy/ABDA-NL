@@ -5,7 +5,7 @@
 # ABDA-NL model provider. The operator creates and later revokes one read-only
 # token in the browser. Raw client transcripts remain private and are deleted.
 
-ABDA_MCP_READ_SCRIPT_REVISION='1'
+ABDA_MCP_READ_SCRIPT_REVISION='2'
 ABDA_MCP_READ_ROOT=''
 ABDA_NL_MCP_TOKEN=''
 
@@ -134,25 +134,25 @@ from pathlib import Path
 root = Path(sys.argv[1])
 expected_url = sys.argv[2]
 actual_token = os.environ.get("ABDA_NL_MCP_TOKEN", "")
-matches = []
 all_text = []
 for path in root.rglob("*"):
     if not path.is_file() or path.stat().st_size > 1_000_000:
         continue
     text = path.read_text(encoding="utf-8", errors="replace")
     all_text.append(text)
-    try:
-        value = json.loads(text)
-    except json.JSONDecodeError:
-        continue
-    if not isinstance(value, dict):
-        continue
-    server = (value.get("mcpServers") or {}).get("abda-nl")
-    if isinstance(server, dict):
-        matches.append(server)
-if len(matches) != 1:
+canonical_candidates = [root / ".claude" / ".claude.json", root / ".claude.json"]
+canonical = [path for path in canonical_candidates if path.is_file()]
+if len(canonical) != 1:
+    raise SystemExit("STOP: the generated Claude command did not create one main config")
+try:
+    value = json.loads(canonical[0].read_text(encoding="utf-8"))
+except json.JSONDecodeError as exc:
+    raise SystemExit("STOP: the generated Claude main config is not valid JSON") from exc
+if not isinstance(value, dict):
+    raise SystemExit("STOP: the generated Claude main config changed shape")
+server = (value.get("mcpServers") or {}).get("abda-nl")
+if not isinstance(server, dict):
     raise SystemExit("STOP: the generated Claude command did not create one server")
-server = matches[0]
 if server.get("type") != "http" or server.get("url") != expected_url:
     raise SystemExit("STOP: the generated Claude command changed the server endpoint")
 headers = server.get("headers") or {}
