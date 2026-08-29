@@ -2,7 +2,7 @@
 
 Date: 2026-08-28
 
-State: `IMPLEMENTED_NOT_DEPLOYED`
+State: `DEPLOYED_ACCOUNTING_VERIFIED`
 
 This checkpoint defines the first CloudBank-funded trial for the live staging
 service at `https://demo.abda-nl.org`. It is deliberately smaller than the
@@ -62,3 +62,38 @@ and reconciled accounting limits.
 Do not enable OpenRouter during this gate. Expansion beyond 10 funded users is
 a separate promotion that requires reviewing real pilot usage, provider cost,
 error handling, and accounting evidence.
+
+## Live acceptance evidence
+
+The guarded pilot revision `abda-nl-stg-web--trial-pilot-v1` became healthy at
+`https://demo.abda-nl.org`. The deployment kept application source commit
+`9abd0264c715596401d87b83d08ed2e82ab5e34b` and image digest
+`sha256:71f759c7bbfe25cc2ae974f006b8fed853ef87e5db260fc875fa3f50257739f9`.
+
+The first deployment run changed the three approved trial settings, then a raw
+control-plane snapshot comparison reported an additional serialization
+difference. A resume-safe read-only run subsequently verified the complete
+protected application contract, healthy revision, public HTTPS origin, and
+empty ledgers. No second mutation was submitted.
+
+One verified-email account activated the trial and received exactly 5,000,000
+microdollars. A real funded `balanced` request returned a valid answer. The UI
+then displayed $4.98 available. The protected accounting audit reported:
+
+```text
+trial_activations: 1
+trial_allocated_microusd: 5000000
+trial_spent_microusd: 22387
+trial_reserved_microusd: 0
+openrouter_enabled: 0
+ledger_state: used
+result: TRIAL_PILOT_ACCOUNTING_VERIFIED
+Gate 5 shell exit code: 0
+```
+
+The exact settled cost was $0.022387. There were no pending or uncertain trial
+reservations, and the OpenRouter ledger remained disabled and empty. Gate 5
+revision 3 replaces the provider-sensitive raw snapshot comparison with a
+semantic comparison of protected settings while retaining strict validation of
+the image, environment, ingress, domain and certificate, secrets, probes,
+resources, scaling, and workload profile.

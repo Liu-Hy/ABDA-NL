@@ -4,7 +4,7 @@
 # only the trial enabled flag, user cap, and total trial budget on the existing
 # healthy Container App revision. OpenRouter remains disabled.
 
-ABDA_TRIAL_SCRIPT_REVISION='2'
+ABDA_TRIAL_SCRIPT_REVISION='3'
 ABDA_TRIAL_APPLICATION_SOURCE_COMMIT='9abd0264c715596401d87b83d08ed2e82ab5e34b'
 ABDA_TRIAL_IMAGE_SHA256='71f759c7bbfe25cc2ae974f006b8fed853ef87e5db260fc875fa3f50257739f9'
 ABDA_TRIAL_OLD_REVISION='abda-nl-stg-web--0000002'
@@ -331,8 +331,9 @@ def normalized(app):
     properties = app.get("properties") or {}
     configuration = copy.deepcopy(properties.get("configuration") or {})
     template = copy.deepcopy(properties.get("template") or {})
-    template.pop("revisionSuffix", None)
-    for container in template.get("containers") or []:
+    containers = []
+    for source in template.get("containers") or []:
+        container = copy.deepcopy(source)
         env = container.get("env") or []
         for item in env:
             if item.get("name") in {
@@ -341,19 +342,122 @@ def normalized(app):
                 "ABDA_TRIAL_BUDGET_MICROUSD",
             }:
                 item["value"] = "<reviewed-trial-setting>"
-        container["env"] = sorted(env, key=lambda item: str(item.get("name") or ""))
-        container["probes"] = sorted(
-            container.get("probes") or [], key=lambda item: str(item.get("type") or "")
+        env = [
+            {
+                "name": item.get("name"),
+                "value": item.get("value"),
+                "secretRef": item.get("secretRef"),
+            }
+            for item in env
+        ]
+        probes = []
+        for probe in container.get("probes") or []:
+            http_get = probe.get("httpGet") or {}
+            probes.append(
+                {
+                    "type": probe.get("type"),
+                    "httpGet": {
+                        "path": http_get.get("path"),
+                        "port": http_get.get("port"),
+                        "scheme": str(http_get.get("scheme") or "").upper(),
+                        "httpHeaders": sorted(
+                            http_get.get("httpHeaders") or [],
+                            key=lambda item: (
+                                str(item.get("name") or ""),
+                                str(item.get("value") or ""),
+                            ),
+                        ),
+                    },
+                    "initialDelaySeconds": probe.get("initialDelaySeconds", 0),
+                    "periodSeconds": probe.get("periodSeconds", 10),
+                    "timeoutSeconds": probe.get("timeoutSeconds", 1),
+                    "failureThreshold": probe.get("failureThreshold", 3),
+                    "successThreshold": probe.get("successThreshold", 1),
+                }
+            )
+        resources = container.get("resources") or {}
+        containers.append(
+            {
+                "name": container.get("name"),
+                "image": container.get("image"),
+                "command": container.get("command") or [],
+                "args": container.get("args") or [],
+                "env": sorted(env, key=lambda item: str(item.get("name") or "")),
+                "resources": {
+                    "cpu": resources.get("cpu"),
+                    "memory": resources.get("memory"),
+                },
+                "probes": sorted(
+                    probes, key=lambda item: str(item.get("type") or "")
+                ),
+                "volumeMounts": sorted(
+                    container.get("volumeMounts") or [],
+                    key=lambda item: str(item.get("volumeName") or ""),
+                ),
+            }
         )
     ingress = configuration.get("ingress") or {}
-    for item in ingress.get("traffic") or []:
-        item.pop("revisionName", None)
-    configuration["secrets"] = sorted(
-        configuration.get("secrets") or [], key=lambda item: str(item.get("name") or "")
+    traffic = copy.deepcopy(ingress.get("traffic") or [])
+    traffic = [
+        {
+            "latestRevision": item.get("latestRevision"),
+            "weight": item.get("weight"),
+            "label": item.get("label"),
+        }
+        for item in traffic
+    ]
+    custom_domains = copy.deepcopy(ingress.get("customDomains") or [])
+    custom_domains = sorted(
+        [
+            {
+                "name": item.get("name"),
+                "bindingType": item.get("bindingType"),
+                "certificateId": str(item.get("certificateId") or "").lower(),
+            }
+            for item in custom_domains
+        ],
+        key=lambda item: str(item.get("name") or ""),
     )
+    scale = template.get("scale") or {}
+    identity = app.get("identity") or {}
     return {
-        "configuration": configuration,
-        "template": template,
+        "identity": {
+            "type": identity.get("type"),
+            "userAssignedIdentities": sorted(
+                (identity.get("userAssignedIdentities") or {}).keys()
+            ),
+        },
+        "activeRevisionsMode": configuration.get("activeRevisionsMode"),
+        "maxInactiveRevisions": configuration.get("maxInactiveRevisions"),
+        "dapr": configuration.get("dapr") or {},
+        "registries": configuration.get("registries") or [],
+        "ingress": {
+            "fqdn": ingress.get("fqdn"),
+            "external": ingress.get("external"),
+            "allowInsecure": ingress.get("allowInsecure"),
+            "targetPort": ingress.get("targetPort"),
+            "transport": str(ingress.get("transport") or "").lower(),
+            "traffic": traffic,
+            "customDomains": custom_domains,
+        },
+        "secretNames": sorted(
+            str(item.get("name") or "")
+            for item in configuration.get("secrets") or []
+        ),
+        "template": {
+            "terminationGracePeriodSeconds": template.get(
+                "terminationGracePeriodSeconds"
+            ),
+            "containers": containers,
+            "initContainers": template.get("initContainers") or [],
+            "volumes": template.get("volumes") or [],
+            "serviceBinds": template.get("serviceBinds") or [],
+            "scale": {
+                "minReplicas": scale.get("minReplicas"),
+                "maxReplicas": scale.get("maxReplicas"),
+                "rules": scale.get("rules") or [],
+            },
+        },
         "workloadProfileName": properties.get("workloadProfileName"),
     }
 
@@ -361,7 +465,7 @@ def normalized(app):
 before = normalized(load(sys.argv[1]))
 after = normalized(load(sys.argv[2]))
 if before != after:
-    raise SystemExit("STOP: settings outside the three reviewed trial values changed")
+    raise SystemExit("STOP: protected settings outside the three reviewed trial values changed")
 PY
 }
 

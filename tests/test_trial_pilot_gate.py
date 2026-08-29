@@ -495,6 +495,16 @@ def test_trial_metrics_enforce_the_ten_user_boundary(tmp_path: Path):
 def test_trial_update_comparison_allows_only_three_trial_values(tmp_path: Path):
     before = _app(phase="disabled")
     after = _app(phase="pilot")
+    after["properties"]["configuration"]["providerManagedDefault"] = {
+        "revisionTransitionThreshold": None
+    }
+    after["properties"]["configuration"]["ingress"]["traffic"][0]["revisionName"] = TARGET_REVISION
+    after["properties"]["configuration"]["ingress"]["customDomains"][0]["validationState"] = (
+        "Succeeded"
+    )
+    after["properties"]["template"]["providerManagedDefault"] = []
+    after["properties"]["template"]["containers"][0]["providerManagedDefault"] = None
+    after["properties"]["template"]["scale"]["providerManagedDefault"] = 30
     before_path = tmp_path / "before.json"
     after_path = tmp_path / "after.json"
     before_path.write_text(json.dumps(before), encoding="utf-8")
@@ -505,6 +515,16 @@ def test_trial_update_comparison_allows_only_three_trial_values(tmp_path: Path):
 
     changed = copy.deepcopy(after)
     changed["properties"]["template"]["containers"][0]["image"] = "example.invalid/drift"
+    after_path.write_text(json.dumps(changed), encoding="utf-8")
+    rejected = _run_function("abda_trial_compare_update", before_path, after_path)
+    assert rejected.returncode != 0
+    assert "outside the three reviewed trial values changed" in rejected.stderr
+
+    changed = copy.deepcopy(after)
+    environment = changed["properties"]["template"]["containers"][0]["env"]
+    next(item for item in environment if item["name"] == "ABDA_LLM_DEFAULT_PROFILE")["value"] = (
+        "quality"
+    )
     after_path.write_text(json.dumps(changed), encoding="utf-8")
     rejected = _run_function("abda_trial_compare_update", before_path, after_path)
     assert rejected.returncode != 0
