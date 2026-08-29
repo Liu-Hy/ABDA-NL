@@ -76,19 +76,28 @@ No migration job or Container App existed when this image record was created.
 The deployment orchestration is pinned separately from the application image:
 
 - Gate source commit:
-  `9634d3d0cc42b88e8800e321102d6456cd3006e6`
+  `0cd8f832f8c3f659d0650a26378b6f5b9c767faf`
 - Gate CI:
-  [`33196469380`](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33196469380)
+  [`33224622118`](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33224622118)
 - Gate script: `deploy/azure/gate3-staging-application.sh`
 - Gate script SHA-256:
-  `9ca6dfe158e5b32f31d6b41d442ae207ea4ab99318de7a53c898590307f00dee`
+  `c84786970b5e2aeacf28cb3b894a9ea3fc0bb55f807bbac390dccd3daf896e46`
 
 All seven CI jobs passed at the gate source commit. Local verification reported
-500 passing tests and four environment-gated skips. The gate also passed Bash
-syntax validation, ShellCheck 0.11.0 at style severity, a staged Gitleaks
-8.30.1 scan, and a complete mocked run through both resource-only what-if
-reviews. The mocked operator cancelled at the final confirmation, and the
-command log proved that no deployment creation or job execution occurred.
+500 passing tests and four environment-gated skips. Revision 2 passed Bash
+syntax validation, both Ruff checks, a complete mocked run from an unrelated
+temporary working directory, a fresh public-clone checksum test, and an
+immutable-download checksum test. The mocked operator cancelled at the final
+confirmation, and the command log proved that no deployment creation or job
+execution occurred.
+
+The first operator run of revision 1 stopped during source verification before
+credential input or deployment confirmation. The checksum producer changed to
+the cloned checkout, but the piped `sha256sum` consumer retained the Cloud Shell
+working directory. Revision 2 runs both operations inside the cloned checkout
+and makes the mocked test start from an unrelated temporary directory so this
+failure cannot recur unnoticed. The stopped revision 1 run did not change
+Azure state.
 
 The gate clones and verifies the application source commit above, checks the
 four deployment-template hashes, confirms anonymous access to the exact image
