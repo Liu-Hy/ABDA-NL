@@ -4,13 +4,18 @@
 # The gate preserves the complete application configuration and does not rerun
 # migrations or change secrets, Auth0, DNS, trial limits, or provider routing.
 
-ABDA_MCP_IMAGE_SCRIPT_REVISION='2'
-ABDA_MCP_IMAGE_SOURCE_COMMIT='c55aa0d67562d2a08ea4fa158aab262e432ddb88'
-ABDA_MCP_IMAGE_OLD_IMAGE_SHA256='a1488eaf90d21f68c3e2a1e4398ee4ecadea24677fa8a08e882894d7b41cece7'
-ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0'
-ABDA_MCP_IMAGE_OLD_REVISION='abda-nl-stg-web--mcp-82f97fb'
-ABDA_MCP_IMAGE_TARGET_SUFFIX='mcp-c55aa0d'
-ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--mcp-c55aa0d'
+ABDA_MCP_IMAGE_SCRIPT_REVISION="${ABDA_MCP_IMAGE_SCRIPT_REVISION:-2}"
+ABDA_MCP_IMAGE_SOURCE_COMMIT="${ABDA_MCP_IMAGE_SOURCE_COMMIT:-c55aa0d67562d2a08ea4fa158aab262e432ddb88}"
+ABDA_MCP_IMAGE_OLD_IMAGE_SHA256="${ABDA_MCP_IMAGE_OLD_IMAGE_SHA256:-a1488eaf90d21f68c3e2a1e4398ee4ecadea24677fa8a08e882894d7b41cece7}"
+ABDA_MCP_IMAGE_NEW_IMAGE_SHA256="${ABDA_MCP_IMAGE_NEW_IMAGE_SHA256:-2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0}"
+ABDA_MCP_IMAGE_OLD_REVISION="${ABDA_MCP_IMAGE_OLD_REVISION:-abda-nl-stg-web--mcp-82f97fb}"
+ABDA_MCP_IMAGE_TARGET_SUFFIX="${ABDA_MCP_IMAGE_TARGET_SUFFIX:-mcp-c55aa0d}"
+ABDA_MCP_IMAGE_TARGET_REVISION="${ABDA_MCP_IMAGE_TARGET_REVISION:-abda-nl-stg-web--mcp-c55aa0d}"
+ABDA_MCP_IMAGE_GATE_TITLE="${ABDA_MCP_IMAGE_GATE_TITLE:-MCP command image}"
+ABDA_MCP_IMAGE_CONFIRMATION="${ABDA_MCP_IMAGE_CONFIRMATION:-DEPLOY_ABDA_MCP_COMMAND_FINAL_FIX}"
+ABDA_MCP_IMAGE_RESULT="${ABDA_MCP_IMAGE_RESULT:-MCP_COMMAND_FINAL_FIX_DEPLOYED_CLIENT_TEST_REQUIRED}"
+ABDA_MCP_IMAGE_POST_ACTION_ONE="${ABDA_MCP_IMAGE_POST_ACTION_ONE:-Sign in, create a short-lived read-only MCP token, and inspect its Claude command.}"
+ABDA_MCP_IMAGE_POST_ACTION_TWO="${ABDA_MCP_IMAGE_POST_ACTION_TWO:-Confirm that -- separates the --header value from the abda-nl server name.}"
 ABDA_MCP_IMAGE_ROOT=''
 
 abda_mcp_image_cleanup() {
@@ -21,13 +26,15 @@ abda_mcp_image_cleanup() {
         -d "${ABDA_MCP_IMAGE_ROOT:-}" ]]; then
     rm -rf -- "$ABDA_MCP_IMAGE_ROOT"
   fi
-  printf '\nMCP command image gate shell exit code: %s\n' "$exit_code"
+  printf '\n%s gate shell exit code: %s\n' \
+    "$ABDA_MCP_IMAGE_GATE_TITLE" "$exit_code"
 }
 
 abda_mcp_image_error() {
   local exit_code=$?
   trap - ERR
-  printf '\nSTOP: MCP command image gate failed in section: %s\n' \
+  printf '\nSTOP: %s gate failed in section: %s\n' \
+    "$ABDA_MCP_IMAGE_GATE_TITLE" \
     "${ABDA_MCP_IMAGE_SECTION:-unknown}" >&2
   printf '%s\n' \
     'Do not delete resources or rerun blindly.' \
@@ -37,7 +44,8 @@ abda_mcp_image_error() {
 
 abda_mcp_image_interrupt() {
   trap - ERR INT
-  printf '\nSTOP: MCP command image gate was interrupted in section: %s\n' \
+  printf '\nSTOP: %s gate was interrupted in section: %s\n' \
+    "$ABDA_MCP_IMAGE_GATE_TITLE" \
     "${ABDA_MCP_IMAGE_SECTION:-unknown}" >&2
   exit 130
 }
@@ -487,8 +495,8 @@ abda_mcp_image_main() {
   trap abda_mcp_image_interrupt INT
   ABDA_MCP_IMAGE_SECTION='bootstrap'
 
-  printf 'ABDA-NL MCP command image script revision: %s\n' \
-    "$ABDA_MCP_IMAGE_SCRIPT_REVISION"
+  printf 'ABDA-NL %s script revision: %s\n' \
+    "$ABDA_MCP_IMAGE_GATE_TITLE" "$ABDA_MCP_IMAGE_SCRIPT_REVISION"
   printf '%s\n' \
     'This resume-safe gate updates only the existing web container image.' \
     'It does not rerun migrations or change secrets, Auth0, DNS, certificates,' \
@@ -574,11 +582,12 @@ PY
       "$ABDA_IMAGE_REPOSITORY" "$ABDA_MCP_IMAGE_NEW_IMAGE_SHA256"
     printf '%s\n' \
       'Azure single revision mode keeps the current healthy revision serving' \
-      'until the replacement passes its startup and readiness probes.' \
-      'Type DEPLOY_ABDA_MCP_COMMAND_FINAL_FIX to continue, or press Enter to cancel.'
+      'until the replacement passes its startup and readiness probes.'
+    printf 'Type %s to continue, or press Enter to cancel.\n' \
+      "$ABDA_MCP_IMAGE_CONFIRMATION"
     local confirmation=''
     IFS= read -r -p 'Confirmation: ' confirmation
-    if [[ "$confirmation" != 'DEPLOY_ABDA_MCP_COMMAND_FINAL_FIX' ]]; then
+    if [[ "$confirmation" != "$ABDA_MCP_IMAGE_CONFIRMATION" ]]; then
       printf 'Cancelled without changing Azure.\n'
       return 0
     fi
@@ -616,7 +625,7 @@ PY
   abda_mcp_image_public_acceptance "$ABDA_MCP_IMAGE_ROOT/after"
   abda_mcp_image_validate_static_fix "$ABDA_MCP_IMAGE_ROOT/after"
 
-  printf '\nABDA-NL MCP command image status:\n'
+  printf '\nABDA-NL %s status:\n' "$ABDA_MCP_IMAGE_GATE_TITLE"
   printf 'script_revision: %s\n' "$ABDA_MCP_IMAGE_SCRIPT_REVISION"
   printf 'source_commit: %s\n' "$ABDA_MCP_IMAGE_SOURCE_COMMIT"
   printf 'image_digest: sha256:%s\n' "$ABDA_MCP_IMAGE_NEW_IMAGE_SHA256"
@@ -631,10 +640,10 @@ PY
   printf 'secrets_changed: false\n'
   printf 'application_contract_preserved: true\n'
   printf 'public_acceptance: passed\n'
-  printf 'result: MCP_COMMAND_FINAL_FIX_DEPLOYED_CLIENT_TEST_REQUIRED\n'
+  printf 'result: %s\n' "$ABDA_MCP_IMAGE_RESULT"
   printf '%s\n' \
-    'Sign in, create a short-lived read-only MCP token, and inspect its Claude command.' \
-    'Confirm that -- separates the --header value from the abda-nl server name.' \
+    "$ABDA_MCP_IMAGE_POST_ACTION_ONE" \
+    "$ABDA_MCP_IMAGE_POST_ACTION_TWO" \
     'Then send this status and the shell exit code to Codex for client acceptance.'
 }
 
