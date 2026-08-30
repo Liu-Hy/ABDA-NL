@@ -51,6 +51,18 @@ should receive one checklist for all observations after the candidate image is
 healthy. The other steps are automated or have exact, narrowly bounded cloud
 confirmations.
 
+## Short Cloud Shell helper
+
+`deploy/azure/consolidated-operator-gate.sh` gives the operator one short local
+command for each cloud phase. It downloads each underlying Gate from one exact
+source commit, checks its SHA-256 before execution, and prints the mutation
+boundary first. Run its `verify` phase before `deploy`.
+
+The helper intentionally has no run-all option. Deployment, disposable-account
+deletion, monitoring resources, rollback, and budget promotion keep their own
+confirmations and recovery points. A failed phase can therefore be rerun without
+silently advancing to a later mutation.
+
 ## Mutation boundaries
 
 - Gate 15 changes only the web image and revision suffix.
