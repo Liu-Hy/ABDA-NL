@@ -5,10 +5,10 @@
 # only after an exact phase-specific confirmation. It never changes Azure
 # configuration, Auth0, DNS, secrets, trial settings, or provider routing.
 
-ABDA_PRIVACY_SCRIPT_REVISION='2'
-ABDA_PRIVACY_APPLICATION_SOURCE_COMMIT='c55aa0d67562d2a08ea4fa158aab262e432ddb88'
-ABDA_PRIVACY_IMAGE_SHA256='2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0'
-ABDA_PRIVACY_EXPECTED_REVISION='abda-nl-stg-web--mcp-c55aa0d'
+ABDA_PRIVACY_SCRIPT_REVISION='3'
+ABDA_PRIVACY_APPLICATION_SOURCE_COMMIT='0b2a2aad93427dfec65c11def7f6434ed1c9abfb'
+ABDA_PRIVACY_IMAGE_SHA256='ffea9cff567b8694cc556aa4ba91a67e8ab5001cffc3f54c97f2aaaf6a2b4593'
+ABDA_PRIVACY_EXPECTED_REVISION='abda-nl-stg-web--revoke-0b2a2aa'
 ABDA_PRIVACY_REQUEST_REFERENCE='PRIV-ACCEPT-20260829-01'
 ABDA_PRIVACY_ROOT=''
 
@@ -414,6 +414,48 @@ os.environ.pop(EMAIL_ENV, None)
 PY
 }
 
+abda_privacy_run_runner() {
+  local runner_payload=$1
+  local attempt=0
+  for (( attempt=1; attempt<=3; attempt++ )); do
+    az containerapp replica list \
+      --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
+      --revision "$ABDA_PRIVACY_EXPECTED_REVISION" --output json \
+      >"$ABDA_PRIVACY_ROOT/replicas-$attempt.json"
+    local replica_name=''
+    replica_name="$(abda_privacy_select_replica \
+      "$ABDA_PRIVACY_ROOT/replicas-$attempt.json")"
+    printf 'selected_ready_replica: %s (attempt %s/3)\n' \
+      "$replica_name" "$attempt"
+
+    local attempt_log="$ABDA_PRIVACY_ROOT/container-exec-$attempt.log"
+    local exec_status=0
+    set +e
+    az containerapp exec \
+      --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
+      --revision "$ABDA_PRIVACY_EXPECTED_REVISION" --replica "$replica_name" \
+      --container "$ABDA_CONTAINER_NAME" \
+      --command "/opt/venv/bin/python -c \"import base64;exec(compile(base64.b64decode('$runner_payload'),'<privacy-acceptance>','exec'))\"" \
+      2>&1 | tee "$attempt_log"
+    exec_status=${PIPESTATUS[0]}
+    set -e
+    if (( exec_status == 0 )); then
+      cp "$attempt_log" "$ABDA_PRIVACY_ROOT/container-exec.log"
+      return 0
+    fi
+    if grep -Fq 'Handshake status 404 Not Found' "$attempt_log" && \
+       ! grep -Eq '^(phase|result): ' "$attempt_log"; then
+      printf 'Azure exec was unavailable before the runner connected. Retrying safely.\n'
+      if (( attempt < 3 )); then
+        sleep 5
+        continue
+      fi
+    fi
+    abda_privacy_fail "Azure container exec exited with status $exec_status"
+  done
+  abda_privacy_fail 'Azure container exec remained unavailable after three safe attempts'
+}
+
 abda_privacy_main() {
   set -Eeuo pipefail
   set +x
@@ -460,14 +502,7 @@ abda_privacy_main() {
     --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
     --output json >"$ABDA_PRIVACY_ROOT/app.json"
   abda_privacy_validate_app "$ABDA_PRIVACY_ROOT/app.json"
-  az containerapp replica list \
-    --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
-    --revision "$ABDA_PRIVACY_EXPECTED_REVISION" --output json \
-    >"$ABDA_PRIVACY_ROOT/replicas.json"
-  local replica_name=''
-  replica_name="$(abda_privacy_select_replica "$ABDA_PRIVACY_ROOT/replicas.json")"
   printf 'application_revision: %s\n' "$ABDA_PRIVACY_EXPECTED_REVISION"
-  printf 'selected_ready_replica: %s\n' "$replica_name"
 
   ABDA_PRIVACY_SECTION='public readiness verification'
   printf '\n[3/6] Rechecking public readiness...\n'
@@ -505,18 +540,7 @@ PY
   local runner_payload=''
   runner_payload="$(abda_privacy_runner_source | base64 | tr -d '\n')"
   [[ -n "$runner_payload" ]] || abda_privacy_fail 'the privacy runner payload is empty'
-  local exec_status=0
-  set +e
-  az containerapp exec \
-    --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
-    --revision "$ABDA_PRIVACY_EXPECTED_REVISION" --replica "$replica_name" \
-    --container "$ABDA_CONTAINER_NAME" \
-    --command "/opt/venv/bin/python -c \"import base64;exec(compile(base64.b64decode('$runner_payload'),'<privacy-acceptance>','exec'))\"" \
-    2>&1 | tee "$ABDA_PRIVACY_ROOT/container-exec.log"
-  exec_status=${PIPESTATUS[0]}
-  set -e
-  (( exec_status == 0 )) || \
-    abda_privacy_fail "Azure container exec exited with status $exec_status"
+  abda_privacy_run_runner "$runner_payload"
 
   ABDA_PRIVACY_SECTION='content-free receipt verification'
   printf '\n[6/6] Verifying the content-free privacy receipt...\n'

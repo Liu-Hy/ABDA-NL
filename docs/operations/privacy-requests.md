@@ -44,8 +44,9 @@ subject, project content, token hash, or request content.
 
 `deploy/azure/gate11-privacy-acceptance.sh` turns the manual sequence below into
 a bounded two-run staging acceptance. The pinned gate currently accepts only
-the approved MCP image revision `abda-nl-stg-web--mcp-c55aa0d` and stops if the
-deployed application changes.
+the approved unthrottled-revocation image revision
+`abda-nl-stg-web--revoke-0b2a2aa` and stops if the deployed application
+changes.
 
 Prepare one disposable verified-email account as follows:
 
@@ -79,6 +80,13 @@ result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
 Delete the still-blocked disposable user from Auth0 only after the second
 receipt succeeds. The gate never changes Azure configuration, secrets, DNS,
 Auth0, trial limits, or provider routing.
+
+The Gate refreshes the ready replica before each execution. It retries only an
+Azure exec failure that explicitly reports a preconnection HTTP 404 and has
+not printed a privacy phase or result marker. A runner validation failure or
+any output that could follow a mutation is never retried automatically. The
+database status remains the authority between the preparation and deletion
+runs.
 
 ## Produce an access export
 

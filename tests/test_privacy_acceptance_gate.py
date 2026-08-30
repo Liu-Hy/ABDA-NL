@@ -27,10 +27,10 @@ from app.db.models import (
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate11-privacy-acceptance.sh"
 EMAIL = "privacy-gate@example.edu"
-EXPECTED_REVISION = "abda-nl-stg-web--mcp-c55aa0d"
+EXPECTED_REVISION = "abda-nl-stg-web--revoke-0b2a2aa"
 EXPECTED_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0"
+    "ffea9cff567b8694cc556aa4ba91a67e8ab5001cffc3f54c97f2aaaf6a2b4593"
 )
 
 
@@ -191,10 +191,12 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
         "DELETE_PRIVACY_ACCEPTANCE",
         "PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES",
         "LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED",
-        "abda-nl-stg-web--mcp-c55aa0d",
+        "abda-nl-stg-web--revoke-0b2a2aa",
+        "Handshake status 404 Not Found",
+        "Retrying safely",
     ):
         assert expected in source
-    assert source.count("\n  az containerapp exec ") == 2
+    assert source.count("\n    az containerapp exec ") == 1
     assert "az containerapp update" not in source
     assert "az containerapp delete" not in source
     assert "az group delete" not in source
@@ -206,7 +208,7 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
     assert "updated_at" in runner
     assert "age < 900" in runner
     assert "token_hash" not in runner.split("forbidden =", 1)[0]
-    assert "–" not in source and "—" not in source
+    assert "\N{EN DASH}" not in source and "\N{EM DASH}" not in source
 
 
 def test_app_preflight_accepts_only_the_approved_revision(tmp_path: Path):
@@ -220,6 +222,70 @@ def test_app_preflight_accepts_only_the_approved_revision(tmp_path: Path):
     result = _run_function("abda_privacy_validate_app", wrong)
     assert result.returncode != 0
     assert "application revision changed" in result.stderr
+
+
+def test_exec_retry_is_limited_to_preconnection_404(tmp_path: Path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    counter = tmp_path / "exec-count"
+    fake_az = fake_bin / "az"
+    fake_az.write_text(
+        """#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import sys
+
+arguments = sys.argv[1:]
+if arguments[:3] == ["containerapp", "replica", "list"]:
+    print(json.dumps([{
+        "name": "ready-replica",
+        "properties": {
+            "runningState": "Running",
+            "containers": [{"name": "web", "ready": True}],
+        },
+    }]))
+    raise SystemExit(0)
+if arguments[:2] == ["containerapp", "exec"]:
+    path = Path(os.environ["ABDA_PRIVACY_TEST_COUNTER"])
+    count = int(path.read_text() if path.exists() else "0") + 1
+    path.write_text(str(count))
+    if count == 1:
+        print("Handshake status 404 Not Found")
+        raise SystemExit(1)
+    print("phase: prepared")
+    print("result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES")
+    raise SystemExit(0)
+raise SystemExit("unexpected az command")
+""",
+        encoding="utf-8",
+    )
+    fake_az.chmod(0o755)
+    gate_root = tmp_path / "gate-root"
+    gate_root.mkdir()
+    command = (
+        f"source {shlex.quote(str(GATE))}; "
+        "abda_privacy_set_constants; "
+        f"ABDA_PRIVACY_ROOT={shlex.quote(str(gate_root))}; "
+        "sleep() { :; }; "
+        "abda_privacy_run_runner harmless-payload"
+    )
+    environment = os.environ.copy()
+    environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
+    environment["ABDA_PRIVACY_TEST_COUNTER"] = str(counter)
+    result = subprocess.run(
+        ["bash", "-c", command],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert result.returncode == 0, result.stderr
+    assert counter.read_text(encoding="utf-8") == "2"
+    assert "Retrying safely" in result.stdout
+    assert "PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES" in (
+        gate_root / "container-exec.log"
+    ).read_text(encoding="utf-8")
 
 
 def test_embedded_runner_prepares_waits_and_deletes_disposable_data(tmp_path: Path):
