@@ -786,20 +786,9 @@ def post_mcp_token(
 )
 def delete_mcp_token(
     token_id: str,
-    request: Request,
     user: User = Depends(require_verified_user),
     session: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
 ) -> Response:
-    enforce_rate_limit(
-        request,
-        session,
-        settings,
-        scope="mcp_token_revoke",
-        limit=60,
-        window_seconds=3600,
-        user_id=user.id,
-    )
     try:
         revoke_mcp_token(session, user, token_id)
     except MCPTokenNotFoundError as exc:

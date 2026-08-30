@@ -254,29 +254,23 @@ def test_token_management_requires_login_checks_origin_and_discloses_once(client
         assert raw_token not in repr(record.__dict__)
 
 
-def test_token_revocation_is_not_blocked_by_the_creation_rate_limit(
+def test_token_revocation_is_never_rate_limited(
     client: TestClient,
     monkeypatch,
 ) -> None:
-    calls: list[dict] = []
-
-    def capture_rate_limit(*_args, **kwargs) -> None:
-        calls.append(kwargs)
-
-    monkeypatch.setattr(account_routes, "enforce_rate_limit", capture_rate_limit)
     _login(client, "mcp-independent-revocation@example.edu")
-    calls.clear()
     created = _create_token(client, name="Revocation boundary")
+
+    def reject_rate_limit_call(*_args, **_kwargs) -> None:
+        raise AssertionError("credential revocation must not invoke a rate limiter")
+
+    monkeypatch.setattr(account_routes, "enforce_rate_limit", reject_rate_limit_call)
     revoked = client.delete(
         f"/api/mcp/tokens/{created['id']}",
         headers={"Origin": "http://testserver"},
     )
 
     assert revoked.status_code == 204
-    assert [(call["scope"], call["limit"], call["window_seconds"]) for call in calls] == [
-        ("mcp_token_mutation", 10, 3600),
-        ("mcp_token_revoke", 60, 3600),
-    ]
 
 
 def test_mcp_wire_authentication_discovery_and_read_tools(client: TestClient):
