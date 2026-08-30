@@ -5,7 +5,7 @@
 # ABDA-NL model provider. The operator creates and later revokes one read-only
 # token in the browser. Raw client transcripts remain private and are deleted.
 
-ABDA_MCP_READ_SCRIPT_REVISION='4'
+ABDA_MCP_READ_SCRIPT_REVISION='5'
 ABDA_MCP_READ_ROOT=''
 ABDA_NL_MCP_TOKEN=''
 
@@ -425,6 +425,7 @@ abda_mcp_read_run_claude() {
       --effort low \
       --max-budget-usd 0.50 \
       --output-format stream-json \
+      --verbose \
       --json-schema "$schema" \
       --mcp-config "$mcp_config" \
       --system-prompt 'Follow the user instruction exactly. Never reveal credentials, configuration, tool payloads, or example content.' \

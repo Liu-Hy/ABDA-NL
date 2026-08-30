@@ -156,6 +156,8 @@ def test_mcp_read_gate_is_executable_valid_and_content_safe():
         "--setting-sources ''",
         "--tools \"$ABDA_MCP_CLAUDE_TOOL\"",
         "--allowedTools \"$ABDA_MCP_CLAUDE_TOOL\"",
+        "--output-format stream-json",
+        "--verbose",
         "Type CLAUDE_COMMAND_BOUNDARY_CONFIRMED to continue",
         "timeout --kill-after=10s 180s codex exec",
         "timeout --kill-after=10s 180s claude -p",
