@@ -51,6 +51,11 @@ Token creation and revocation reject cross-origin browser requests. Staging
 and production require an `Origin` header that exactly matches the configured
 public base URL.
 
+Token creation is rate limited, but revocation is deliberately not rate
+limited. Revocation already requires a verified session, an exact same-origin
+request, and ownership of the selected credential. A creation throttle must
+never prevent a user from disabling a credential that may be exposed.
+
 The MCP endpoint is `/mcp/`. It uses the official SDK's stateless Streamable
 HTTP implementation and its bearer-authentication components. Static personal
 tokens do not enable or advertise MCP OAuth metadata. A later OAuth

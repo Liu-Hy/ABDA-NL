@@ -81,15 +81,38 @@ or receiving private project content.
 6. The gate makes one funded `add-fact` proposal using an instruction already
    covered by the model evaluation suite. It verifies a positive settled cost,
    then proves the complete project payload and version stayed unchanged.
-7. When prompted, delete only `MCP scoped acceptance, delete me` from the
-   browser. The gate proves the project is no longer accessible.
+7. When prompted, select **Archive** only for
+   `MCP scoped acceptance, delete me` in the browser. The gate proves the
+   project is no longer accessible through active project routes.
 8. Revoke both acceptance tokens when prompted. The gate proves that both now
    receive HTTP 401.
 
 The gate never calls `apply_project_ops`, prints private MCP payloads, or
 changes Azure configuration. Its temporary state is mode 600 and removed on
-exit. If it stops after project creation, delete the named disposable project
+exit. If it stops after project creation, archive the named disposable project
 and revoke both tokens before retrying.
+
+### Live scoped-write checkpoint, 2026-08-29
+
+Revision 3 of the scoped-write gate passed against
+`https://demo.abda-nl.org`. The read-only credential could not create a
+project. The full-scope credential created and read one disposable project,
+updated its metadata with the observed version, and received a rejection for
+a stale write. A funded CloudBank proposal recorded a positive settled cost
+but did not change the project. Browser archiving removed the disposable
+project from active access, and both credentials returned HTTP 401 after
+revocation. The content-free result was:
+
+```text
+result: LIVE_MCP_SCOPED_WRITE_ACCEPTANCE_VERIFIED
+```
+
+Repeated acceptance attempts also exposed that token creation and revocation
+shared one ten-per-hour mutation bucket. That coupling delayed cleanup even
+though credential revocation is a safety operation. Source commit
+`0b2a2aad93427dfec65c11def7f6434ed1c9abfb` removes rate limiting from the
+verified, same-origin, ownership-checked revocation endpoint while retaining
+the creation throttle.
 
 ## Content-free receipt
 
@@ -103,7 +126,8 @@ proposal_did_not_apply: passed
 funded_proposal_cost_recorded: passed
 disposable_project_removed: passed
 all_acceptance_tokens_revoked: passed
-result: LIVE_CODEX_AND_CLAUDE_MCP_ACCEPTANCE_VERIFIED
+read_client_result: LIVE_CODEX_AND_CLAUDE_MCP_READ_ACCEPTANCE_VERIFIED
+scoped_write_result: LIVE_MCP_SCOPED_WRITE_ACCEPTANCE_VERIFIED
 ```
 
 Do not record token prefixes, project identifiers, project names returned by
