@@ -95,7 +95,12 @@ function openModal(id, focusSelector = null) {
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
   window.setTimeout(() => {
-    const target = focusSelector ? modal.querySelector(focusSelector) : modalFocusableElements(modal)[0];
+    const requested = focusSelector
+      ? [...modal.querySelectorAll(focusSelector)].find(element => (
+        !element.disabled && element.offsetParent !== null
+      ))
+      : null;
+    const target = requested || modalFocusableElements(modal)[0];
     const content = modal.querySelector('.modal-content');
     if (content && !content.hasAttribute('tabindex')) content.setAttribute('tabindex', '-1');
     (target || content)?.focus();
@@ -163,7 +168,10 @@ function initWorkspaceUI() {
 function openWorkspace(tab = 'account', options = {}) {
   switchWorkspaceTab(tab);
   if (options.prepareSave) prepareProjectCreateForm();
-  openModal('modal-workspace', '.workspace-panel.active input, .workspace-panel.active button');
+  openModal(
+    'modal-workspace',
+    '.workspace-panel.active input, .workspace-panel.active button, .workspace-panel.active a[href]',
+  );
   if (tab === 'projects' && state.authSession.authenticated) refreshProjects({ quiet: true });
   if (tab === 'mcp' && state.authSession.authenticated) refreshMCPTokens({ quiet: true });
 }

@@ -370,6 +370,17 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(explain_button).to_be_focused()
 
             workspace_button = page.locator("#workspace-btn")
+            page.locator("#dev-login-form").evaluate("element => { element.hidden = true; }")
+            page.locator("#oidc-login-link").evaluate("element => { element.hidden = false; }")
+            workspace_button.focus()
+            workspace_button.press("Enter")
+            expect(page.get_by_role("dialog", name="Research workspace")).to_be_visible()
+            expect(page.locator("#oidc-login-link")).to_be_focused()
+            page.keyboard.press("Escape")
+            expect(workspace_button).to_be_focused()
+            page.locator("#oidc-login-link").evaluate("element => { element.hidden = true; }")
+            page.locator("#dev-login-form").evaluate("element => { element.hidden = false; }")
+
             workspace_button.focus()
             workspace_button.press("Enter")
             dialog = page.get_by_role("dialog", name="Research workspace")

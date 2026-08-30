@@ -132,6 +132,15 @@ Record:
 
 Test the final public origin, not a static file copy.
 
+Run the read-only automated public-origin gate after the final image is healthy:
+
+```bash
+.venv/bin/python deploy/azure/gate13_public_browser_accessibility.py
+```
+
+Retain only its content-free status receipt. It does not take screenshots,
+submit credentials, call a model, or change Azure configuration.
+
 - [ ] Automated WCAG A and AA checks pass at desktop and narrow widths.
 - [ ] Chromium and Firefox complete the primary workflow.
 - [ ] Safari completes the primary workflow when a macOS device is available.

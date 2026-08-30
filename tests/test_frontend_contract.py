@@ -86,6 +86,13 @@ def test_oidc_login_does_not_copy_share_fragments_into_server_urls():
     assert "refreshExternalOIDCLogin" in source
 
 
+def test_modal_focus_falls_back_when_the_requested_control_is_hidden():
+    source = (STATIC_ROOT / "workspace.js").read_text(encoding="utf-8")
+    assert "element.offsetParent !== null" in source
+    assert "const target = requested || modalFocusableElements(modal)[0]" in source
+    assert ".workspace-panel.active a[href]" in source
+
+
 def test_logout_uses_same_origin_fetch_before_oidc_navigation():
     inventory = _inventory()
     logout_form = inventory.attributes_by_id["logout-form"]

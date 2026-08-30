@@ -161,5 +161,9 @@ current unthrottled-revocation image and safely retries only a confirmed
 preconnection Azure exec 404. Gate 12 is the final
 three-setting promotion from the ten-user pilot to 100 users and from disabled
 to outage-only OpenRouter fallback while retaining independent $500 hard caps.
-Both gates are prepared and covered by focused tests. Gate 12 must remain last
-and must not run merely because its source tests pass.
+Both gates are prepared and covered by focused tests. The read-only Gate 13
+checks the final public origin in Chromium and Firefox at desktop,
+zoom-equivalent, and mobile widths. It combines WCAG A and AA scans with
+keyboard focus, focus trapping, focus return, reduced-motion, reflow, policy
+link, console, and page-error checks. Gate 12 must remain the final configuration
+mutation and must not run merely because its source tests pass.
