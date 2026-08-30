@@ -38,12 +38,14 @@ for an earlier application identity.
 7. Complete the combined presentation-hardware checks: Safari, a screen reader,
    actual 200 percent zoom, ordinary local browser opening, and the laptop
    `ssh delta-demo` tunnel.
-8. Promote the verified pilot to 100 users, $5 per user, $500 total trial
+8. Add the prepared apex and `www` Cloudflare redirect, then verify that the
+   public, authentication, and email hostnames remain separate.
+9. Promote the verified pilot to 100 users, $5 per user, $500 total trial
    allocation, and the independently capped OpenRouter outage route with Gate
    12.
-9. Run one final external release check and retain its content-free receipt.
+10. Run one final external release check and retain its content-free receipt.
 
-Steps 5 through 7 are the consolidated human acceptance batch. The operator
+Steps 5 through 8 are the consolidated human acceptance batch. The operator
 should receive one checklist for all observations after the candidate image is
 healthy. The other steps are automated or have exact, narrowly bounded cloud
 confirmations.
