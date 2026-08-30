@@ -44,6 +44,20 @@ Pass criteria:
 - Neither client can access MCP with the revoked token.
 - No private project tool or ABDA-NL model provider is called.
 
+### Live read-client checkpoint, 2026-08-29
+
+Revision 5 of the gate passed against `https://demo.abda-nl.org` with Codex
+CLI 0.150.1 and Claude Code 2.1.247. Both clients called `list_examples` with
+the same `projects:read` credential, and both lost access after that credential
+was revoked in the browser. The generated Claude command argument boundary was
+confirmed, the real token was not stored in the isolated Claude configuration,
+no private-project tool or ABDA-NL model provider was called, and no raw client
+transcript was printed or retained. The content-free result was:
+
+```text
+result: LIVE_CODEX_AND_CLAUDE_MCP_READ_ACCEPTANCE_VERIFIED
+```
+
 ## Scoped write, version, and proposal test
 
 The second gate uses direct MCP protocol calls for deterministic write
