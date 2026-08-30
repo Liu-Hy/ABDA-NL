@@ -24,11 +24,14 @@ def test_unthrottled_revocation_gate_is_pinned_and_narrow():
         "abda-nl-stg-web--revoke-0b2a2aa",
         "DEPLOY_ABDA_UNTHROTTLED_REVOCATION",
         "UNTHROTTLED_CREDENTIAL_REVOCATION_DEPLOYED_BROWSER_TEST_REQUIRED",
+        "1bfebc7b9d8a76bf01332205260778aa1e9bd409377f1a8bb50e211d63c9379f",
+        "1eb9fd852a306de9ab00d6412491426bb0cd78c9",
     ):
         assert expected in source
     assert "gate10-mcp-command-image.sh" in source
     assert "az " not in source
-    assert "curl " not in source
+    assert source.count("\n  curl ") == 1
+    assert "raw.githubusercontent.com/Liu-Hy/ABDA-NL" in source
     assert "read -r -s" not in source
     assert "\u2013" not in source and "\u2014" not in source
 
