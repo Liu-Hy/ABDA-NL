@@ -5,7 +5,7 @@
 # One temporary project is created from a bundled public example and must be
 # removed in the browser before the gate can pass.
 
-ABDA_MCP_SCOPED_SCRIPT_REVISION='2'
+ABDA_MCP_SCOPED_SCRIPT_REVISION='3'
 ABDA_MCP_SCOPED_ROOT=''
 ABDA_MCP_READ_TOKEN=''
 ABDA_MCP_WRITE_TOKEN=''
@@ -418,8 +418,8 @@ def run_mutation() -> None:
         or operation.get("op") != "add-fact"
     ):
         fail("the model proposal did not return the expected bounded operation")
-    if proposal.get("billing_source") != "trial":
-        fail("the live proposal did not use funded trial accounting")
+    if proposal.get("billing_source") != "cloudbank":
+        fail("the live proposal did not use the funded CloudBank route")
     cost = proposal.get("cost_microusd")
     if not isinstance(cost, int) or cost <= 0:
         fail("the live proposal did not record a positive settled cost")
@@ -441,6 +441,7 @@ def run_mutation() -> None:
     print("token_account_match: passed")
     print("optimistic_metadata_update: passed")
     print("stale_version_rejection: passed")
+    print("funded_cloudbank_route: passed")
     print("funded_proposal_cost_recorded: passed")
     print("proposal_did_not_apply: passed")
 
@@ -570,6 +571,7 @@ abda_mcp_scoped_main() {
   printf 'scoped_project_write: passed\n'
   printf 'stale_version_rejected: passed\n'
   printf 'proposal_did_not_apply: passed\n'
+  printf 'funded_cloudbank_route: passed\n'
   printf 'funded_proposal_cost_recorded: passed\n'
   printf 'disposable_project_removed: passed\n'
   printf 'all_acceptance_tokens_revoked: passed\n'

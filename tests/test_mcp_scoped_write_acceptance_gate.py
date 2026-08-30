@@ -148,7 +148,7 @@ class MCPFixture:
                     },
                     "reviewed": False,
                     "review_issues": [],
-                    "billing_source": "trial",
+                    "billing_source": "cloudbank",
                     "cost_microusd": 321,
                 },
             )
@@ -230,6 +230,8 @@ def test_scoped_write_gate_is_executable_valid_and_secret_safe() -> None:
         "Keep this shell open. In the browser, create a separate 30-day token named",
         "IFS= read -r -s -p 'Full-scope MCP token: '",
         "proposal_did_not_apply: passed",
+        'proposal.get("billing_source") != "cloudbank"',
+        "funded_cloudbank_route: passed",
         "azure_configuration_changed: false",
     ):
         assert expected in source
