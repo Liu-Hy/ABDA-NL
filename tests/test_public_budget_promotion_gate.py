@@ -18,7 +18,7 @@ GATE = ROOT / "deploy" / "azure" / "gate12-public-budget-promotion.sh"
 APP = "abda-nl-stg-web"
 GENERATED_HOST = "abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io"
 CUSTOM_HOST = "demo.abda-nl.org"
-PILOT_REVISION = "abda-nl-stg-web--release-3faf6eb"
+PILOT_REVISION = "abda-nl-stg-web--restore-3faf6eb"
 PUBLIC_REVISION = "abda-nl-stg-web--public-100-3faf6eb"
 IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
@@ -92,7 +92,7 @@ def _app(*, phase: str) -> dict:
     if phase == "pilot":
         public = False
         latest = ready = PILOT_REVISION
-        suffix = "release-3faf6eb"
+        suffix = "restore-3faf6eb"
     elif phase == "public":
         public = True
         latest = ready = PUBLIC_REVISION

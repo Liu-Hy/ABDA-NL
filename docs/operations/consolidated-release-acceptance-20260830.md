@@ -29,23 +29,24 @@ for an earlier application identity.
    `gate15-consolidated-release-image.sh`.
 2. Run the read-only public browser accessibility Gate 13.
 3. Run the read-only release and sanitized-log Gate 9.
-4. Rehearse the compatible image rollback and automatic restoration with Gate
-   10.
-5. Run the public-origin BYOK Gate 10 and the disposable-account privacy Gate
+4. Run the public-origin BYOK Gate 10 and the disposable-account privacy Gate
    11 during one browser and Cloud Shell session.
-6. Deploy the six bounded monitoring resources with Gate 14 and confirm its one
+5. Deploy the six bounded monitoring resources with Gate 14 and confirm its one
    test message in the support inbox.
-7. Complete the combined presentation-hardware checks: Safari, a screen reader,
+6. Complete the combined presentation-hardware checks: Safari, a screen reader,
    actual 200 percent zoom, ordinary local browser opening, and the laptop
    `ssh delta-demo` tunnel.
-8. Add the prepared apex and `www` Cloudflare redirect, then verify that the
+7. Add the prepared apex and `www` Cloudflare redirect, then verify that the
    public, authentication, and email hostnames remain separate.
+8. Rehearse the compatible image rollback and automatic restoration with Gate
+   10. The restoration creates the exact revision expected by the promotion
+   Gate.
 9. Promote the verified pilot to 100 users, $5 per user, $500 total trial
    allocation, and the independently capped OpenRouter outage route with Gate
    12.
 10. Run one final external release check and retain its content-free receipt.
 
-Steps 5 through 8 are the consolidated human acceptance batch. The operator
+Steps 4 through 7 are the consolidated human acceptance batch. The operator
 should receive one checklist for all observations after the candidate image is
 healthy. The other steps are automated or have exact, narrowly bounded cloud
 confirmations.
