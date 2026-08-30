@@ -44,9 +44,10 @@ subject, project content, token hash, or request content.
 
 `deploy/azure/gate11-privacy-acceptance.sh` turns the manual sequence below into
 a bounded two-run staging acceptance. The pinned gate currently accepts only
-the approved unthrottled-revocation image revision
-`abda-nl-stg-web--revoke-0b2a2aa` and stops if the deployed application
-changes.
+the consolidated candidate revision `abda-nl-stg-web--release-3faf6eb` and
+exact image digest
+`sha256:78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d`.
+It stops if the deployed application changes.
 
 Prepare one disposable verified-email account as follows:
 

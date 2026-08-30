@@ -4,10 +4,10 @@
 # The gate executes the image's own release checker and summarizes log counts.
 # It never prints raw log messages or secret values.
 
-ABDA_AUDIT_SCRIPT_REVISION='2'
-ABDA_AUDIT_SOURCE_COMMIT='6d0fb4403c01b37d101f0d03bd9c3070b8f1e343'
-ABDA_AUDIT_IMAGE_SHA256='282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13'
-ABDA_AUDIT_REVISION='abda-nl-stg-web--ux-6d0fb44'
+ABDA_AUDIT_SCRIPT_REVISION='3'
+ABDA_AUDIT_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
+ABDA_AUDIT_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
+ABDA_AUDIT_REVISION='abda-nl-stg-web--release-3faf6eb'
 ABDA_AUDIT_ROOT=''
 
 abda_audit_cleanup() {
@@ -509,7 +509,7 @@ abda_audit_main() {
   ABDA_AUDIT_SECTION='sanitized log ingestion audit'
   printf '\n[4/6] Querying 48 hours of count-only log evidence with a 75-second limit...\n'
   local logs_query=''
-  logs_query="$(cat <<'KQL'
+  logs_query="$(cat <<KQL
 let ConsoleLogs = ContainerAppConsoleLogs_CL
 | where TimeGenerated >= ago(48h) and ContainerAppName_s == 'abda-nl-stg-web'
 | project TimeGenerated, Kind='console', Revision=tostring(RevisionName_s), Message=tostring(Log_s);
@@ -522,7 +522,7 @@ ConsoleLogs
     total_logs=count(),
     console_logs=countif(Kind == 'console'),
     system_logs=countif(Kind == 'system'),
-    current_revision_logs=countif(Revision == 'abda-nl-stg-web--ux-6d0fb44'),
+    current_revision_logs=countif(Revision == '$ABDA_AUDIT_REVISION'),
     request_logs=countif(Kind == 'console' and Message contains 'request_complete'),
     request_query_markers=countif(Kind == 'console' and Message contains 'request_complete' and Message contains '?'),
     email_like=countif(Message matches regex '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}'),

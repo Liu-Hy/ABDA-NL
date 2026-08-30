@@ -4,10 +4,10 @@
 # key. The gate uses protected aggregate metrics and count-only logs. Its small
 # content-free state file makes every post-call check safe to resume.
 
-ABDA_BYOK_SCRIPT_REVISION='2'
-ABDA_BYOK_APPLICATION_SOURCE_COMMIT='0b2a2aad93427dfec65c11def7f6434ed1c9abfb'
-ABDA_BYOK_IMAGE_SHA256='ffea9cff567b8694cc556aa4ba91a67e8ab5001cffc3f54c97f2aaaf6a2b4593'
-ABDA_BYOK_EXPECTED_REVISION='abda-nl-stg-web--revoke-0b2a2aa'
+ABDA_BYOK_SCRIPT_REVISION='3'
+ABDA_BYOK_APPLICATION_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
+ABDA_BYOK_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
+ABDA_BYOK_EXPECTED_REVISION='abda-nl-stg-web--release-3faf6eb'
 ABDA_BYOK_ROOT=''
 ABDA_BYOK_STATE_PATH=''
 ABDA_BYOK_COMPLETE=0

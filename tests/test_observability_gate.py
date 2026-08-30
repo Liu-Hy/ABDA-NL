@@ -11,10 +11,10 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate9-observability-audit.sh"
 APP = "abda-nl-stg-web"
-REVISION = "abda-nl-stg-web--ux-6d0fb44"
+REVISION = "abda-nl-stg-web--release-3faf6eb"
 IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13"
+    "78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d"
 )
 
 

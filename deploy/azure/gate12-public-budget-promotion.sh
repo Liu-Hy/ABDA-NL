@@ -4,12 +4,12 @@
 # This gate changes only the trial user cap, total trial budget, and the public
 # OpenRouter outage-fallback switch on the existing immutable web image.
 
-ABDA_PROMOTION_SCRIPT_REVISION='1'
-ABDA_PROMOTION_APPLICATION_SOURCE_COMMIT='6d0fb4403c01b37d101f0d03bd9c3070b8f1e343'
-ABDA_PROMOTION_IMAGE_SHA256='282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13'
-ABDA_PROMOTION_OLD_REVISION='abda-nl-stg-web--restore-6d0fb44'
-ABDA_PROMOTION_TARGET_SUFFIX='public-100-v1'
-ABDA_PROMOTION_TARGET_REVISION='abda-nl-stg-web--public-100-v1'
+ABDA_PROMOTION_SCRIPT_REVISION='2'
+ABDA_PROMOTION_APPLICATION_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
+ABDA_PROMOTION_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
+ABDA_PROMOTION_OLD_REVISION='abda-nl-stg-web--release-3faf6eb'
+ABDA_PROMOTION_TARGET_SUFFIX='public-100-3faf6eb'
+ABDA_PROMOTION_TARGET_REVISION='abda-nl-stg-web--public-100-3faf6eb'
 ABDA_PROMOTION_ROOT=''
 
 abda_promotion_cleanup() {

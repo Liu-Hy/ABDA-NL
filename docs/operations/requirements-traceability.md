@@ -124,12 +124,18 @@ the deployed custom origin, real verified-email session, funded pilot request,
 reconciled accounting, public HTTPS checks, and Delta cross-login-node
 contingency evidence.
 
+The 2026-08-30
+[consolidated release checkpoint](consolidated-release-acceptance-20260830.md)
+binds the final focus and portable-launch fixes to one complete CI run, one
+immutable image digest, and one GitHub provenance attestation. Its Azure
+deployment and consolidated operator batch remain explicit pending evidence.
+
 ## Release-only evidence still required
 
 The repository is not sufficient evidence for these remaining items:
 
-1. The prepared MCP scoped-write Gate and OpenRouter BYOK browser acceptance at
-   the public origin.
+1. OpenRouter BYOK browser acceptance at the public origin for the consolidated
+   image.
 2. Privacy-command operation against an isolated staging account.
 3. Azure alert notification ownership and delivery.
 4. The exact laptop `ssh delta-demo` browser path.

@@ -32,12 +32,16 @@ The browser operator confirms that a reload removes the in-memory key. The
 operator then reapplies the key without making another provider call, signs
 out, signs back in, and confirms that the field is empty again.
 
-Revision 2 no longer depends on a long-lived interactive Container Apps exec
+Revision 3 no longer depends on a long-lived interactive Container Apps exec
 session. It writes only timestamps, aggregate counters, immutable image
 identity, and a browser-phase marker to a mode-600 resume file. Each browser
 confirmation advances that marker atomically. If a later Azure or log query
 fails, rerunning the same pinned gate resumes the read-only checks without
 repeating the paid provider call. The state is removed after success.
+
+The current Gate is pinned to consolidated candidate revision
+`abda-nl-stg-web--release-3faf6eb` and exact image digest
+`sha256:78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d`.
 
 Provider accounts can independently reject an otherwise correct BYOK request
 because of account quota, billing, or model access. This gate uses the current

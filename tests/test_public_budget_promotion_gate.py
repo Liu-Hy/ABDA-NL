@@ -18,11 +18,11 @@ GATE = ROOT / "deploy" / "azure" / "gate12-public-budget-promotion.sh"
 APP = "abda-nl-stg-web"
 GENERATED_HOST = "abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io"
 CUSTOM_HOST = "demo.abda-nl.org"
-PILOT_REVISION = "abda-nl-stg-web--restore-6d0fb44"
-PUBLIC_REVISION = "abda-nl-stg-web--public-100-v1"
+PILOT_REVISION = "abda-nl-stg-web--release-3faf6eb"
+PUBLIC_REVISION = "abda-nl-stg-web--public-100-3faf6eb"
 IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "282a2cb13cbdabe7f60a7efaa41c5fded7b1a4efeb467cc758064c7cadf30f13"
+    "78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d"
 )
 CERTIFICATE_ID = (
     "/subscriptions/00e62f6e-2174-40b2-b428-8ebfd7c2ac54/"
@@ -92,15 +92,15 @@ def _app(*, phase: str) -> dict:
     if phase == "pilot":
         public = False
         latest = ready = PILOT_REVISION
-        suffix = "restore-6d0fb44"
+        suffix = "release-3faf6eb"
     elif phase == "public":
         public = True
         latest = ready = PUBLIC_REVISION
-        suffix = "public-100-v1"
+        suffix = "public-100-3faf6eb"
     elif phase == "public_pending":
         public = True
         latest, ready = PUBLIC_REVISION, PILOT_REVISION
-        suffix = "public-100-v1"
+        suffix = "public-100-3faf6eb"
     else:
         raise ValueError(phase)
     probes = [
@@ -309,7 +309,7 @@ def _install_fakes(tmp_path: Path) -> tuple[dict[str, str], Path]:
             }
             if not required.issubset(args):
                 raise SystemExit(f"public update values changed: {args!r}")
-            if args[args.index("--revision-suffix") + 1] != "public-100-v1":
+            if args[args.index("--revision-suffix") + 1] != "public-100-3faf6eb":
                 raise SystemExit("public revision suffix changed")
             state.write_text("public", encoding="utf-8")
         else:
