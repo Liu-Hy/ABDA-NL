@@ -123,6 +123,11 @@ Record:
       output is attached to the release record.
 - [ ] Log Analytics receives sanitized application events and retains them for
       30 days.
+- [ ] The exact Azure alert deployment gate creates only its reviewed action
+      group, platform alerts, Application Insights component, standard web
+      test, and public-readiness alert.
+- [ ] The public readiness test checks HTTP 200 and TLS from three regions, and
+      a test notification reaches the monitored support mailbox.
 - [ ] OIDC callback codes and share fragments are absent from logs.
 - [ ] A previous compatible image has a documented rollback command.
 - [ ] PostgreSQL point-in-time restore ownership and the seven-day window are
