@@ -537,10 +537,10 @@ abda_mcp_scoped_main() {
   printf '\n[4/7] Waiting for exact browser cleanup of the disposable project...\n'
   printf '%s\n' \
     'At demo.abda-nl.org, open Research workspace, then Projects.' \
-    'Refresh the list and delete the newest project named:' \
+    'Refresh the list and Archive the newest project named:' \
     '  MCP scoped acceptance, delete me' \
-    'Do not delete another project.'
-  IFS= read -r -p 'Type PROJECT_DELETED after deletion: ' ABDA_CONFIRMATION
+    'Do not archive another project.'
+  IFS= read -r -p 'Type PROJECT_DELETED after it is archived: ' ABDA_CONFIRMATION
   [[ "$ABDA_CONFIRMATION" == 'PROJECT_DELETED' ]] || \
     abda_mcp_scoped_fail 'project deletion was not confirmed'
 

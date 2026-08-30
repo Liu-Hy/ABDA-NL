@@ -224,7 +224,7 @@ def test_scoped_write_gate_is_executable_valid_and_secret_safe() -> None:
         "LIVE_MCP_SCOPED_WRITE_ACCEPTANCE_VERIFIED",
         "__abda_missing_scope_probe__",
         "after_proposal != before_proposal",
-        "Type PROJECT_DELETED after deletion",
+        "Type PROJECT_DELETED after it is archived",
         "Type TOKENS_REVOKED after both are revoked",
         "IFS= read -r -s -p 'Read-only MCP token: '",
         "Keep this shell open. In the browser, create a separate 30-day token named",

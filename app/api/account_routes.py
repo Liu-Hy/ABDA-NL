@@ -795,8 +795,8 @@ def delete_mcp_token(
         request,
         session,
         settings,
-        scope="mcp_token_mutation",
-        limit=10,
+        scope="mcp_token_revoke",
+        limit=60,
         window_seconds=3600,
         user_id=user.id,
     )
