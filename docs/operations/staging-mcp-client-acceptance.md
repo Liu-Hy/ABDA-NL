@@ -114,6 +114,14 @@ though credential revocation is a safety operation. Source commit
 verified, same-origin, ownership-checked revocation endpoint while retaining
 the creation throttle.
 
+The corresponding immutable image
+`sha256:ffea9cff567b8694cc556aa4ba91a67e8ab5001cffc3f54c97f2aaaf6a2b4593`
+was deployed as revision `abda-nl-stg-web--revoke-0b2a2aa`. Public acceptance
+passed without a migration or secret change. The operator then created one
+read-only credential, revoked it immediately, refreshed the browser, and
+confirmed that the credential and its Revoke control disappeared without a
+rate-limit error.
+
 ## Content-free receipt
 
 Record only:
@@ -126,6 +134,8 @@ proposal_did_not_apply: passed
 funded_proposal_cost_recorded: passed
 disposable_project_removed: passed
 all_acceptance_tokens_revoked: passed
+unthrottled_revocation_deployed: passed
+immediate_browser_revocation: passed
 read_client_result: LIVE_CODEX_AND_CLAUDE_MCP_READ_ACCEPTANCE_VERIFIED
 scoped_write_result: LIVE_MCP_SCOPED_WRITE_ACCEPTANCE_VERIFIED
 ```

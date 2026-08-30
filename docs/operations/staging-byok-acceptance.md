@@ -11,26 +11,33 @@ operator script.
   `https://demo.abda-nl.org`.
 - Never paste the key into Azure Cloud Shell, chat, a document, or a command.
 - The browser makes exactly one short paid request on the key owner's account.
-- The script reads Azure control-plane state, application accounting rows, and
-  count-only Log Analytics results. It does not print raw logs or private
-  account content.
+- The script reads Azure control-plane state, protected aggregate accounting
+  metrics, and count-only Log Analytics results. It does not print raw logs,
+  private account content, or secret values.
 - It does not deploy, restart, update a setting, change a secret, activate a
   trial, or enable public OpenRouter failover.
 
 ## Evidence collected
 
-The embedded read-only verifier proves that all physical calls for the one
-browser request use `byok:openrouter:gemini-3.7-flash`, have a successful event
-with metered usage, and leave both the user's trial ledger and the independent
-owner-funded OpenRouter emergency ledger unchanged. It hashes the user's
-private project, share, and MCP metadata before and after the call without
-printing that material.
+The gate snapshots protected aggregate metrics immediately before the browser
+call. It then proves that the model-event count increased by a bounded amount
+while funded-trial spending, reservations, allocations, and the independent
+owner-funded OpenRouter emergency ledger remained unchanged. Count-only logs
+prove that the accepted `byok:openrouter:gemini-3.7-flash` route ran and that no
+provider-key, authorization, bearer-token, or email pattern entered managed
+logs. Unit, PostgreSQL, browser, and schema tests separately prove the
+request-scoped key and no-storage implementation boundary.
 
 The browser operator confirms that a reload removes the in-memory key. The
 operator then reapplies the key without making another provider call, signs
-out, signs back in, and confirms that the field is empty again. Finally, the
-gate waits for a count-only Log Analytics query that sees the accepted route
-and zero provider-key, authorization, bearer-token, or email patterns.
+out, signs back in, and confirms that the field is empty again.
+
+Revision 2 no longer depends on a long-lived interactive Container Apps exec
+session. It writes only timestamps, aggregate counters, immutable image
+identity, and a browser-phase marker to a mode-600 resume file. Each browser
+confirmation advances that marker atomically. If a later Azure or log query
+fails, rerunning the same pinned gate resumes the read-only checks without
+repeating the paid provider call. The state is removed after success.
 
 Provider accounts can independently reject an otherwise correct BYOK request
 because of account quota, billing, or model access. This gate uses the current

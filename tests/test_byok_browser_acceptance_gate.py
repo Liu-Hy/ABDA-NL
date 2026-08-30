@@ -1,52 +1,21 @@
-"""Contracts for the live public-browser BYOK acceptance gate."""
+"""Contracts for the resumable public-browser BYOK acceptance gate."""
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
-import os
 from pathlib import Path
-import select as select_io
 import shlex
 import subprocess
-import sys
-import time
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.db.models import (
-    Base,
-    EmergencyBudget,
-    LLMUsageEvent,
-    TrialGrant,
-    User,
-    utc_now,
-)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate10-byok-browser-acceptance.sh"
-EMAIL = "byok-gate@example.edu"
-EXPECTED_REVISION = "abda-nl-stg-web--mcp-c55aa0d"
+EXPECTED_REVISION = "abda-nl-stg-web--revoke-0b2a2aa"
 EXPECTED_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "2df0bf98401adb6f72d1b930d83ab68bd2466de756b0bead3864f3d41d30b9d0"
+    "ffea9cff567b8694cc556aa4ba91a67e8ab5001cffc3f54c97f2aaaf6a2b4593"
 )
-
-
-def _runner_source() -> str:
-    result = subprocess.run(
-        [
-            "bash",
-            "-c",
-            f"source {shlex.quote(str(GATE))}; abda_byok_runner_source",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    compile(result.stdout, "<byok-browser-acceptance>", "exec")
-    return result.stdout
 
 
 def _run_function(function: str, *arguments: Path | str) -> subprocess.CompletedProcess[str]:
@@ -86,6 +55,7 @@ def _application(*, revision: str = EXPECTED_REVISION) -> dict:
         for name, secret in {
             "ABDA_DATABASE_URL": "database-url",
             "ABDA_SESSION_SECRET": "session-secret",
+            "ABDA_MCP_TOKEN_PEPPER": "mcp-token-pepper",
             "ABDA_METRICS_TOKEN": "metrics-token",
             "ABDA_OIDC_CLIENT_SECRET": "oidc-client-secret",
             "AZURE_OPENAI_API_KEY": "foundry-api-key",
@@ -139,113 +109,67 @@ def _public_config() -> dict:
     }
 
 
-def _seed_database(path: Path) -> str:
-    engine = create_engine(f"sqlite+pysqlite:///{path}")
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(bind=engine, expire_on_commit=False)
-    now = utc_now()
-    with factory() as session:
-        user = User(
-            email=EMAIL,
-            email_verified=True,
-            display_name="BYOK Gate",
-            created_at=now,
-            updated_at=now,
-            last_login_at=now,
-        )
-        session.add(user)
-        session.flush()
-        session.add(
-            TrialGrant(
-                user_id=user.id,
-                program_key="global",
-                granted_microusd=5_000_000,
-                spent_microusd=60_775,
-                reserved_microusd=0,
-                activated_at=now,
-            )
-        )
-        session.add(
-            EmergencyBudget(
-                key="openrouter",
-                enabled=False,
-                hard_limit_microusd=500_000_000,
-                spent_microusd=149,
-                reserved_microusd=0,
-                updated_at=now,
-            )
-        )
-        session.commit()
-        user_id = user.id
-    engine.dispose()
-    return user_id
+def _metric_values() -> dict[str, int]:
+    return {
+        "abda_trial_enabled": 1,
+        "abda_trial_max_users": 10,
+        "abda_trial_grant_microusd": 5_000_000,
+        "abda_trial_budget_microusd": 50_000_000,
+        "abda_trial_activations": 1,
+        "abda_trial_allocated_microusd": 5_000_000,
+        "abda_trial_spent_microusd": 60_775,
+        "abda_trial_reserved_microusd": 0,
+        "abda_trial_uncertain_charged_reservations": 0,
+        "abda_trial_uncertain_charged_microusd": 0,
+        "abda_openrouter_enabled": 0,
+        "abda_openrouter_budget_microusd": 500_000_000,
+        "abda_openrouter_spent_microusd": 149,
+        "abda_openrouter_reserved_microusd": 0,
+        "abda_openrouter_uncertain_charged_reservations": 0,
+        "abda_openrouter_uncertain_charged_microusd": 0,
+        "abda_llm_usage_events_total": 10,
+    }
 
 
-def _runner_environment(database: Path) -> dict[str, str]:
-    environment = os.environ.copy()
-    environment.update(
-        {
-            "ABDA_DATABASE_URL": f"sqlite+pysqlite:///{database}",
-            "ABDA_ENVIRONMENT": "test",
-            "ABDA_AUTH_MODE": "dev",
-            "ABDA_AUTO_CREATE_DB": "0",
-            "ABDA_SESSION_SECRET": "s" * 48,
-            "ABDA_MCP_TOKEN_PEPPER": "p" * 48,
-        }
+def _write_metrics(path: Path, values: dict[str, int]) -> None:
+    path.write_text(
+        "\n".join(f"{name} {value}" for name, value in values.items()) + "\n",
+        encoding="utf-8",
     )
-    return environment
 
 
-def _wait_for_ready(process: subprocess.Popen[str]) -> str:
-    assert process.stdout is not None
-    lines: list[str] = []
-    deadline = time.monotonic() + 8
-    while time.monotonic() < deadline:
-        ready, _, _ = select_io.select([process.stdout], [], [], 0.25)
-        if not ready:
-            continue
-        line = process.stdout.readline()
-        if not line:
-            break
-        lines.append(line)
-        if "browser_test_ready: true" in line:
-            return "".join(lines)
-    process.kill()
-    raise AssertionError("embedded BYOK runner did not reach browser readiness")
-
-
-def test_gate_is_read_only_secret_safe_and_syntactically_valid():
+def test_gate_is_read_only_secret_safe_resumable_and_syntactically_valid() -> None:
     assert GATE.stat().st_mode & 0o111
     subprocess.run(["bash", "-n", str(GATE)], check=True)
     source = GATE.read_text(encoding="utf-8")
-    runner = _runner_source()
-
     for expected in (
+        "LIVE_BYOK_PRIVACY_AND_ACCOUNTING_ACCEPTANCE_VERIFIED",
+        EXPECTED_REVISION,
         "BYOK_OPENROUTER_CALL_CONFIRMED",
         "BYOK_RELOAD_CLEAR_CONFIRMED",
         "BYOK_SIGNOUT_CLEAR_CONFIRMED",
-        "LIVE_BYOK_PRIVACY_AND_ACCOUNTING_ACCEPTANCE_VERIFIED",
-        EXPECTED_REVISION,
+        "A prior baseline was found. Do not repeat a successful browser model call.",
         "provider_key_entered_in_shell: false",
         "raw_log_messages_printed: false",
+        "secret_values_printed: false",
     ):
         assert expected in source
-    assert source.count("\n  az containerapp exec ") == 2
     for forbidden in (
+        "az containerapp exec",
+        "az containerapp ssh",
         "az containerapp update",
         "az containerapp delete",
-        "az containerapp secret",
+        "az deployment",
         "az group delete",
-        "read -r -s -p 'OpenRouter",
+        "read -r -s",
+        "getpass.getpass",
     ):
         assert forbidden not in source
-    assert "getpass.getpass" in runner
-    assert "provider key" not in runner.lower()
-    assert "openrouter_api_key" not in runner.lower()
+    assert "OpenRouter key only into the browser password field" in source
     assert "\N{EM DASH}" not in source and "\N{EN DASH}" not in source
 
 
-def test_preflights_accept_only_the_approved_app_and_public_config(tmp_path: Path):
+def test_preflights_accept_only_the_approved_app_and_public_config(tmp_path: Path) -> None:
     valid_app = tmp_path / "app.json"
     valid_app.write_text(json.dumps(_application()), encoding="utf-8")
     result = _run_function("abda_byok_validate_app", valid_app)
@@ -274,62 +198,112 @@ def test_preflights_accept_only_the_approved_app_and_public_config(tmp_path: Pat
     assert "storage boundary changed" in result.stderr
 
 
-def test_embedded_runner_proves_byok_accounting_and_private_state_boundaries(
-    tmp_path: Path,
-):
-    database = tmp_path / "byok.sqlite3"
-    user_id = _seed_database(database)
-    runner = _runner_source()
-    process = subprocess.Popen(
-        [sys.executable, "-u", "-c", runner],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        cwd=ROOT,
-        env=_runner_environment(database),
-    )
-    assert process.stdin is not None
-    process.stdin.write(f"{EMAIL}\n")
-    process.stdin.flush()
-    prefix = _wait_for_ready(process)
+def test_metrics_snapshot_and_comparison_prove_independent_ledgers(tmp_path: Path) -> None:
+    values = _metric_values()
+    before_metrics = tmp_path / "before.metrics"
+    before_snapshot = tmp_path / "before.json"
+    _write_metrics(before_metrics, values)
+    result = _run_function("abda_byok_metrics_snapshot", before_metrics, before_snapshot)
+    assert result.returncode == 0, result.stderr
 
-    engine = create_engine(f"sqlite+pysqlite:///{database}")
-    factory = sessionmaker(bind=engine, expire_on_commit=False)
-    with factory() as session:
-        session.add(
-            LLMUsageEvent(
-                request_id="byok-browser-request",
-                user_id=user_id,
-                provider="openrouter",
-                route="byok:openrouter:gemini-3.7-flash",
-                model="gemini-3.7-flash",
-                billing_source="byok",
-                request_kind="chat",
-                status="succeeded",
-                input_tokens=120,
-                output_tokens=24,
-                cost_microusd=321,
-                latency_ms=20,
-            )
-        )
-        session.commit()
-    engine.dispose()
-
-    process.stdin.write(
-        "BYOK_OPENROUTER_CALL_CONFIRMED\n"
-        "BYOK_RELOAD_CLEAR_CONFIRMED\n"
-        "BYOK_SIGNOUT_CLEAR_CONFIRMED\n"
+    state = tmp_path / "state.json"
+    started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    result = _run_function(
+        "abda_byok_create_state",
+        before_snapshot,
+        state,
+        started_at,
     )
-    process.stdin.flush()
-    process.stdin.close()
-    process.stdin = None
-    stdout, stderr = process.communicate(timeout=10)
-    output = prefix + stdout
-    assert process.returncode == 0, stderr
-    assert "BYOK_BROWSER_AND_DATABASE_ACCEPTANCE_VERIFIED_LOG_AUDIT_REQUIRED" in output
-    assert "trial_ledger_unchanged: true" in output
-    assert "openrouter_emergency_ledger_unchanged: true" in output
-    assert "private_project_state_unchanged: true" in output
-    assert "settled_byok_cost_microusd: 321" in output
-    assert EMAIL not in output
+    assert result.returncode == 0, result.stderr
+    assert state.stat().st_mode & 0o077 == 0
+
+    after_values = dict(values)
+    after_values["abda_llm_usage_events_total"] += 1
+    after_metrics = tmp_path / "after.metrics"
+    after_snapshot = tmp_path / "after.json"
+    _write_metrics(after_metrics, after_values)
+    result = _run_function("abda_byok_metrics_snapshot", after_metrics, after_snapshot)
+    assert result.returncode == 0, result.stderr
+    comparison = tmp_path / "comparison.txt"
+    result = _run_function(
+        "abda_byok_compare_metrics",
+        state,
+        after_snapshot,
+        comparison,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "llm_usage_event_delta: 1" in comparison.read_text(encoding="utf-8")
+
+    changed_values = dict(after_values)
+    changed_values["abda_trial_spent_microusd"] += 1
+    changed_metrics = tmp_path / "changed.metrics"
+    changed_snapshot = tmp_path / "changed.json"
+    _write_metrics(changed_metrics, changed_values)
+    assert _run_function(
+        "abda_byok_metrics_snapshot", changed_metrics, changed_snapshot
+    ).returncode == 0
+    result = _run_function(
+        "abda_byok_compare_metrics",
+        state,
+        changed_snapshot,
+        tmp_path / "changed-result.txt",
+    )
+    assert result.returncode != 0
+    assert "abda_trial_spent_microusd" in result.stderr
+
+
+def test_resume_state_records_each_irreversible_browser_checkpoint(tmp_path: Path) -> None:
+    metrics = tmp_path / "metrics.json"
+    metrics.write_text(json.dumps(_metric_values()), encoding="utf-8")
+    state = tmp_path / "state.json"
+    started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert _run_function(
+        "abda_byok_create_state", metrics, state, started_at
+    ).returncode == 0
+
+    phase = _run_function("abda_byok_state_phase", state)
+    assert phase.returncode == 0, phase.stderr
+    assert phase.stdout.strip() == "awaiting_call"
+    for expected, target in (
+        ("awaiting_call", "call_confirmed"),
+        ("call_confirmed", "reload_confirmed"),
+        ("reload_confirmed", "browser_confirmed"),
+    ):
+        result = _run_function("abda_byok_transition_state", state, expected, target)
+        assert result.returncode == 0, result.stderr
+        phase = _run_function("abda_byok_state_phase", state)
+        assert phase.stdout.strip() == target
+
+
+def test_log_summary_requires_route_evidence_and_zero_secret_indicators(tmp_path: Path) -> None:
+    valid = tmp_path / "valid.json"
+    valid.write_text(
+        json.dumps(
+            {
+                "byok_route_logs": 2,
+                "provider_key_like": 0,
+                "api_key_field_like": 0,
+                "email_like": 0,
+                "bearer_like": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = _run_function("abda_byok_validate_log_summary", valid)
+    assert result.returncode == 0, result.stderr
+
+    missing = tmp_path / "missing.json"
+    payload = json.loads(valid.read_text(encoding="utf-8"))
+    payload["byok_route_logs"] = 0
+    missing.write_text(json.dumps(payload), encoding="utf-8")
+    result = _run_function("abda_byok_validate_log_summary", missing)
+    assert result.returncode != 0
+    assert "WAITING_FOR_BYOK_LOG_INGESTION" in result.stderr
+
+    unsafe = tmp_path / "unsafe.json"
+    payload["byok_route_logs"] = 1
+    payload["provider_key_like"] = 1
+    unsafe.write_text(json.dumps(payload), encoding="utf-8")
+    result = _run_function("abda_byok_validate_log_summary", unsafe)
+    assert result.returncode != 0
+    assert "unsafe entries" in result.stderr
