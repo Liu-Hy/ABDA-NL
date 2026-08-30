@@ -5,7 +5,7 @@
 # One temporary project is created from a bundled public example and must be
 # removed in the browser before the gate can pass.
 
-ABDA_MCP_SCOPED_SCRIPT_REVISION='1'
+ABDA_MCP_SCOPED_SCRIPT_REVISION='2'
 ABDA_MCP_SCOPED_ROOT=''
 ABDA_MCP_READ_TOKEN=''
 ABDA_MCP_WRITE_TOKEN=''
@@ -508,12 +508,15 @@ abda_mcp_scoped_main() {
     "$ABDA_PUBLIC_ORIGIN/health/ready" \
     >"$ABDA_MCP_SCOPED_ROOT/public-ready.json"
   printf '%s\n' \
-    'Create two separate 30-day tokens in Research workspace, Codex and Claude:' \
-    '  1. MCP scope read acceptance, only Read examples and private projects.' \
-    '  2. MCP scoped write acceptance, all three permissions.' \
-    'Paste each token only at its hidden prompt. Nothing will be displayed.'
+    'Create one 30-day token named MCP scope read acceptance.' \
+    'Keep only Read examples and private projects checked.' \
+    'Paste it only at the hidden prompt. Nothing will be displayed.'
   IFS= read -r -s -p 'Read-only MCP token: ' ABDA_MCP_READ_TOKEN
   printf '\n'
+  printf '%s\n' \
+    'Keep this shell open. In the browser, create a separate 30-day token named' \
+    'MCP scoped write acceptance with all three permissions checked.' \
+    'Paste that new token only at the next hidden prompt.'
   IFS= read -r -s -p 'Full-scope MCP token: ' ABDA_MCP_WRITE_TOKEN
   printf '\n'
   export ABDA_MCP_READ_TOKEN

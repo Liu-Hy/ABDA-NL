@@ -53,10 +53,11 @@ or receiving private project content.
 
 1. Create a 30-day credential named `MCP scope read acceptance` with only
    `projects:read`.
-2. Create a separate 30-day credential named `MCP scoped write acceptance`
-   with all three permissions.
-3. Run `deploy/azure/gate10-mcp-scoped-write-acceptance.sh` from a normal Delta
-   terminal. Paste both values only at their hidden prompts.
+2. Run `deploy/azure/gate10-mcp-scoped-write-acceptance.sh` from a normal Delta
+   terminal and paste the read-only value at its hidden prompt.
+3. Keep the shell open. When prompted, create a separate 30-day credential
+   named `MCP scoped write acceptance` with all three permissions, then paste
+   that new value at the second hidden prompt.
 4. The gate safely proves that the read-only token cannot create a project. Its
    denial probe deliberately names a nonexistent source example, so a broken
    scope check still cannot create anything.

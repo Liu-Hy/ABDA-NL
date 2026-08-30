@@ -227,6 +227,7 @@ def test_scoped_write_gate_is_executable_valid_and_secret_safe() -> None:
         "Type PROJECT_DELETED after deletion",
         "Type TOKENS_REVOKED after both are revoked",
         "IFS= read -r -s -p 'Read-only MCP token: '",
+        "Keep this shell open. In the browser, create a separate 30-day token named",
         "IFS= read -r -s -p 'Full-scope MCP token: '",
         "proposal_did_not_apply: passed",
         "azure_configuration_changed: false",
@@ -241,6 +242,9 @@ def test_scoped_write_gate_is_executable_valid_and_secret_safe() -> None:
         "env |",
     ):
         assert forbidden not in source
+    assert source.index("Read-only MCP token: ") < source.index(
+        "create a separate 30-day token named"
+    ) < source.index("Full-scope MCP token: ")
     assert "\N{EM DASH}" not in source
     assert "\N{EN DASH}" not in source
 
