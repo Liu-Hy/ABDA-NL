@@ -163,7 +163,9 @@ jobs:
           abda-nl-release-check --help >/dev/null
           cd "$RUNNER_TEMP"
           XDG_STATE_HOME="$RUNNER_TEMP/state" \
-            abda-nl --host 127.0.0.1 --port 18001 --no-browser --basic \
+          ABDA_BROWSER_CAPTURE_PATH="$RUNNER_TEMP/browser-url.txt" \
+          BROWSER="$GITHUB_WORKSPACE/tests/helpers/capture_browser.py %s" \
+            abda-nl --host 127.0.0.1 --port 18001 --basic \
             >"$RUNNER_TEMP/wheel-server.log" 2>&1 &
           ABDA_CI_WHEEL_PID=$!
           cleanup() {
@@ -187,6 +189,17 @@ jobs:
             sleep 1
           done
           test "$ABDA_CI_READY" -eq 1
+          ABDA_CI_BROWSER_OPENED=0
+          for ABDA_CI_ATTEMPT in $(seq 1 30); do
+            if test -s "$RUNNER_TEMP/browser-url.txt"; then
+              ABDA_CI_BROWSER_OPENED=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ABDA_CI_BROWSER_OPENED" -eq 1
+          test "$(tr -d '\r\n' <"$RUNNER_TEMP/browser-url.txt")" = \
+            "http://127.0.0.1:18001"
           test "$(
             curl --fail --silent --show-error \
               http://127.0.0.1:18001/scenarios |
