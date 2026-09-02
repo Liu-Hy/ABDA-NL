@@ -303,8 +303,13 @@ def test_production_defaults_use_host_cookie_and_exact_trusted_host(monkeypatch)
     settings = Settings.from_environment()
     assert settings.session_cookie == "__Host-abda_session"
     assert settings.cookie_secure is True
-    assert "demo.abda-nl.org" in settings.trusted_hosts
-    assert "*" not in settings.trusted_hosts
+    assert settings.trusted_hosts == (
+        "127.0.0.1",
+        "localhost",
+        "[::1]",
+        "testserver",
+        "demo.abda-nl.org",
+    )
     assert settings.proxy_mode == "azure-container-apps"
     assert settings.database_pool_size == 4
     assert settings.database_max_overflow == 1

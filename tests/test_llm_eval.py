@@ -12,9 +12,11 @@ from app.evals.llm_eval import (
     evaluate_propose,
     evaluate_review,
     load_suite,
+    main,
     run_evaluation,
     summarize_route,
 )
+from app.llm.catalog import load_model_catalog
 from app.llm.client import LLMResponse, ToolCallResponse
 from app.llm.routing import (
     CallContext,
@@ -80,6 +82,16 @@ def test_suite_is_versioned_and_hashable():
     assert suite["gates"]["min_case_pass_rate"] == 1.0
     assert len(suite["cases"]) >= 16
     assert len(digest) == 64
+
+
+def test_route_listing_exposes_only_public_selector_fields(capsys, monkeypatch):
+    monkeypatch.setattr("app.cli.serve._load_environment", lambda: None)
+    assert main(["--list-routes"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    catalog = load_model_catalog()
+    assert len(lines) == len(catalog.routes)
+    assert all(len(line.split("\t")) == 3 for line in lines)
+    assert {line.split("\t", 1)[0] for line in lines} == set(catalog.routes)
 
 
 def test_chat_case_requires_grounding_and_expected_concepts():

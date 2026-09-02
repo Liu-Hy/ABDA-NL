@@ -601,7 +601,6 @@ def _run_chat_request(
     ops: list[dict],
     scenario_dir: Path,
     context_kind: str,
-    context_id: str,
 ) -> ChatResponse:
     from app.llm.chat_service import run_turn
 
@@ -627,17 +626,15 @@ def _run_chat_request(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     log.info(
-        "chat_turn request_id=%s context=%s context_id=%s msgs=%d route=%s "
-        "cost_microusd=%d validator_flags=%d retried=%s stop=%s",
+        "chat_turn request_id=%s context=%s msgs=%d route=%s cost_microusd=%d "
+        "validator_flags=%d retried=%s",
         raw_request.state.request_id,
         context_kind,
-        context_id,
         len(payload.messages),
         result.route,
         result.cost_microusd,
         len(result.validator_flags),
         result.retried,
-        result.stop_reason,
     )
     return ChatResponse(
         message=result.text,
@@ -664,7 +661,6 @@ def _run_propose_request(
     ops: list[dict],
     scenario_dir: Path,
     context_kind: str,
-    context_id: str,
 ) -> ProposeResponse:
     from app.llm.edit_service import ProposerRetryExhausted, run_propose
 
@@ -704,13 +700,10 @@ def _run_propose_request(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     log.info(
-        "propose_turn request_id=%s context=%s context_id=%s task=%s op_id=%s "
-        "route=%s cost_microusd=%d attempts=%d reviewed=%s review_issues=%d",
+        "propose_turn request_id=%s context=%s route=%s cost_microusd=%d "
+        "attempts=%d reviewed=%s review_issues=%d",
         raw_request.state.request_id,
         context_kind,
-        context_id,
-        payload.task,
-        result.op.get("id"),
         result.route,
         result.cost_microusd,
         result.proposer_attempts,
@@ -821,7 +814,6 @@ def post_chat(
         ops=ops,
         scenario_dir=scenario_dir,
         context_kind="example",
-        context_id=payload.scenario_id,
     )
 
 
@@ -864,7 +856,6 @@ def post_propose(
         ops=ops,
         scenario_dir=scenario_dir,
         context_kind="example",
-        context_id=payload.scenario_id,
     )
 
 
@@ -929,7 +920,6 @@ def post_project_chat(
         ops=ops,
         scenario_dir=_project_scenario_dir(project),
         context_kind="project",
-        context_id=project_id,
     )
 
 
@@ -971,7 +961,6 @@ def post_project_propose(
         ops=ops,
         scenario_dir=_project_scenario_dir(project),
         context_kind="project",
-        context_id=project_id,
     )
 
 
@@ -1020,12 +1009,7 @@ def post_save_scenario(
         examples_root=EXAMPLES_ROOT,
         overwrite=request.overwrite,
     )
-    log.info(
-        "scenario_saved source=%s saved_as=%s overwrite=%s",
-        request.source_id,
-        request.save_as_id,
-        request.overwrite,
-    )
+    log.info("scenario_saved overwrite=%s", request.overwrite)
 
     # Reload from disk and return the fresh bundle so the UI can pivot.
     saved = load_scenario(target / "scenario.yaml")

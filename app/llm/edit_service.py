@@ -515,7 +515,10 @@ def _sum_usage(*usages: dict[str, int]) -> dict[str, int]:
 def _coerce_modify_id(task: str, op: dict[str, Any], existing_id: str | None) -> dict[str, Any]:
     """For modify-rule, force the op id back to the requested existing_id."""
     if task == "modify-rule" and existing_id and op.get("id") != existing_id:
-        log.info("proposer_id_coerced requested=%s proposer=%s", existing_id, op.get("id"))
+        # Identifiers can originate in a user request or model response. The
+        # event is useful operationally, but the identifiers themselves are
+        # private, high-cardinality data and do not belong in service logs.
+        log.info("proposer_id_coerced")
         op["id"] = existing_id
     return op
 
@@ -687,9 +690,7 @@ def run_propose(
             accepted_advisory = advisory
             accepted_notes = _complete_unknown_premise_notes(advisory, notes)
             log.info(
-                "propose_validated task=%s op_id=%s attempts=%d advisory=%d notes=%d",
-                task,
-                candidate.get("id"),
+                "propose_validated attempts=%d advisory=%d notes=%d",
                 attempt,
                 len(advisory),
                 len(accepted_notes),
@@ -699,18 +700,20 @@ def run_propose(
         last_blocking = blocking
         last_notes = notes
         log.info(
-            "propose_validator_flagged task=%s op_id=%s attempt=%d blocking=%d advisory=%d notes=%d",
-            task, candidate.get("id"), attempt, len(blocking), len(advisory), len(notes),
+            "propose_validator_flagged attempt=%d blocking=%d advisory=%d notes=%d",
+            attempt,
+            len(blocking),
+            len(advisory),
+            len(notes),
         )
         if attempt < MAX_PROPOSER_ATTEMPTS:
             next_user_message = _build_validator_retry_message(user_message, blocking)
 
     if op is None:
         log.warning(
-            "propose_exhausted task=%s attempts=%d last_blocking_codes=%s notes=%d",
-            task,
+            "propose_exhausted attempts=%d last_blocking=%d notes=%d",
             MAX_PROPOSER_ATTEMPTS,
-            [i.code for i in last_blocking],
+            len(last_blocking),
             len(last_notes),
         )
         raise ProposerRetryExhausted(MAX_PROPOSER_ATTEMPTS, last_blocking, last_notes)

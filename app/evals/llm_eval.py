@@ -548,9 +548,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     catalog = load_model_catalog()
     if args.list_routes:
         for route in catalog.routes.values():
-            print(
-                f"{route.id}\t{route.provider}\t{route.model}\t{route.billing_source}"
-            )
+            # Billing metadata is intentionally omitted. Operators need the
+            # stable route selector, provider, and model here, while funding
+            # details remain in the validated catalog and evaluation report.
+            print(f"{route.id}\t{route.provider}\t{route.model}")
         return 0
     if not args.routes:
         print("At least one --route is required.", file=sys.stderr)

@@ -107,7 +107,14 @@ def test_operator_bootstrap_is_owner_controlled_and_secret_safe():
     assert "select Resend" in auth0
     assert "ABDA_DEPLOY_DESIRED_HOSTNAME" in deployment
     assert deployment.count("read -rsp") >= 7
-    assert "demo.example.org" in example_environment
+    public_url_lines = [
+        line
+        for line in example_environment.splitlines()
+        if line.startswith("# ABDA_PUBLIC_BASE_URL=")
+    ]
+    assert public_url_lines == [
+        "# ABDA_PUBLIC_BASE_URL=https://demo.example.org"
+    ]
     assert "ischool.illinois.edu" not in example_environment
 
 

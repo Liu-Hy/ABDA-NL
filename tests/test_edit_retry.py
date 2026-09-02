@@ -6,7 +6,11 @@ These tests verify that behavior.
 """
 from __future__ import annotations
 
-from app.llm.edit_service import _build_validator_retry_message, _shorten_id_hint
+from app.llm.edit_service import (
+    _build_validator_retry_message,
+    _coerce_modify_id,
+    _shorten_id_hint,
+)
 from app.llm.edit_validator import MAX_ID_LEN, ValidationIssue
 
 
@@ -48,6 +52,18 @@ def test_shorten_handles_single_token_over_limit():
 
 def test_shorten_returns_empty_for_empty_input():
     assert _shorten_id_hint("") == ""
+
+
+def test_id_coercion_log_omits_user_and_model_identifiers(caplog):
+    operation = {"id": "model_id\nforged_event"}
+    with caplog.at_level("INFO", logger="app.llm.edit_service"):
+        result = _coerce_modify_id(
+            "modify-rule",
+            operation,
+            "requested_id\nforged_event",
+        )
+    assert result["id"] == "requested_id\nforged_event"
+    assert [record.message for record in caplog.records] == ["proposer_id_coerced"]
 
 
 # --- _build_validator_retry_message: id_too_long path ---
