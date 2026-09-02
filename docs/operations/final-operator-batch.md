@@ -2,10 +2,10 @@
 
 State: hardened image and remaining manual release Gates prepared
 
-Runbook revision: `source-security-20260902.1`
+Runbook revision: `source-security-20260902.2`
 
 Before running any remaining phase, confirm that the consolidated helper block
-below uses commit `6fb5c410de49410cc8d5938eeec1d2d929e1cf6e`. Stop and refresh this
+below uses commit `ec32553dd88f2d27bf349fc58b3397e68f81be00`. Stop and refresh this
 file from the personal repository's `development` branch if a saved copy uses
 an older commit.
 
@@ -48,9 +48,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='6fb5c410de49410cc8d5938eeec1d2d929e1cf6e'
+c='ec32553dd88f2d27bf349fc58b3397e68f81be00'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='7bf6b6f73d6981f561d778a499232745c3b28b42b9d217dba1f7981cc19a5d55'
+s='cf70a0ad04cdcb09f86214dd48c299427702206d45ca72b621adbf4ba8b1b949'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
@@ -209,7 +209,8 @@ result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
 Only after this second receipt, return to the same Auth0 user and select
 **Delete User** from the details page or actions menu. Confirm deletion. The
 private project is removed by the privacy Gate, so there is no separate
-browser Archive action.
+browser Archive action. The shareable Gate receipts omit both the email address
+and its derived account fingerprint.
 
 ## 3. Add the friendly root-domain redirect
 

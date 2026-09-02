@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import re
 
@@ -13,6 +14,7 @@ AUDIT = AZURE / "gate9-observability-audit.sh"
 PRIVACY = AZURE / "gate11-privacy-acceptance.sh"
 ROLLBACK = AZURE / "gate10-rollback-rehearsal.sh"
 PROMOTION = AZURE / "gate12-public-budget-promotion.sh"
+OPERATOR_HELPER = AZURE / "consolidated-operator-gate.sh"
 
 
 def _assignment(path: Path, name: str) -> str:
@@ -82,3 +84,24 @@ def test_operator_runbook_keeps_privacy_before_rollback_and_promotion():
         )
     ]
     assert positions == sorted(positions)
+
+
+def test_operator_runbook_pins_the_exact_current_helper():
+    runbook = (
+        ROOT / "docs" / "operations" / "final-operator-batch.md"
+    ).read_text(encoding="utf-8")
+    helper_sha256 = hashlib.sha256(OPERATOR_HELPER.read_bytes()).hexdigest()
+
+    assert "ec32553dd88f2d27bf349fc58b3397e68f81be00" in runbook
+    assert helper_sha256 == "cf70a0ad04cdcb09f86214dd48c299427702206d45ca72b621adbf4ba8b1b949"
+    assert f"s='{helper_sha256}'" in runbook
+
+
+def test_shareable_privacy_gate_receipt_has_no_email_derived_fingerprint():
+    gate = PRIVACY.read_text(encoding="utf-8")
+    runbook = (
+        ROOT / "docs" / "operations" / "final-operator-batch.md"
+    ).read_text(encoding="utf-8")
+
+    assert 'print(f"account_fingerprint:' not in gate
+    assert "shareable Gate receipts omit both the email address" in runbook

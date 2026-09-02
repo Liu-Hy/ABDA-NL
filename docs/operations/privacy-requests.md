@@ -36,8 +36,10 @@ environment variable named `ABDA_PRIVACY_USER_EMAIL`. Do not place the address
 in a command argument, deployment name, source file, or ordinary environment
 template.
 
-The inspect output contains only a 16-character account fingerprint, status,
-timestamps, counts, and monetary totals. It contains no email, identity
+The inspect output contains a pseudonymous 16-character account fingerprint,
+status, timestamps, counts, and monetary totals. Treat that fingerprint as
+private operator data because it is derived from the verified address. Do not
+copy it into a shared release receipt. The output contains no email, identity
 subject, project content, token hash, or request content.
 
 ## Staging acceptance gate
@@ -80,7 +82,8 @@ result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
 
 Delete the still-blocked disposable user from Auth0 only after the second
 receipt succeeds. The gate never changes Azure configuration, secrets, DNS,
-Auth0, trial limits, or provider routing.
+Auth0, trial limits, or provider routing. Its shareable receipts omit both the
+email address and its derived account fingerprint.
 
 The Gate refreshes the ready replica before each execution. It retries only an
 Azure exec failure that explicitly reports a preconnection HTTP 404 and has
