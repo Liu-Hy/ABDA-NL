@@ -60,6 +60,12 @@ submission. Inbox delivery remains a separate human observation and should be
 recorded during the consolidated release acceptance. Do not trigger a real 5xx
 burst or stop the public replica merely to test notifications.
 
+Azure's Action Group test message is a synthetic delivery check. Its body can
+name placeholder resources such as `test-storageAccount`, `test-RG`, and a
+sample subscription or alert identifier. Those values do not describe a
+resource created in the ABDA-NL subscription. The deployment receipt and Gate
+verification identify the real six monitoring resources separately.
+
 ## Live staging evidence
 
 On 2026-09-02, Gate 14 revision 3 completed against subscription-scoped resource
