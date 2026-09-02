@@ -123,6 +123,9 @@ def test_postgres_recovery_is_private_new_server_and_reviewed_cutover():
     recovery = (operations / "database-recovery.md").read_text(encoding="utf-8")
     deployment = (operations / "public-deployment.md").read_text(encoding="utf-8")
     checklist = (operations / "release-checklist.md").read_text(encoding="utf-8")
+    traceability = (operations / "requirements-traceability.md").read_text(
+        encoding="utf-8"
+    )
     playbook = (operations / "comma-2026-demo-playbook.md").read_text(
         encoding="utf-8"
     )
@@ -138,6 +141,7 @@ def test_postgres_recovery_is_private_new_server_and_reviewed_cutover():
     assert "database-recovery.md" in deployment
     assert "database-recovery.md" in checklist
     assert "database-recovery.md" in playbook
+    assert "[PostgreSQL recovery runbook](database-recovery.md)" in traceability
     assert "docs/operations/database-recovery.md" in readme
 
 
