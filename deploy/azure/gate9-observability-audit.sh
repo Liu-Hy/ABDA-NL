@@ -337,6 +337,7 @@ names = (
     "console_logs",
     "system_logs",
     "current_revision_logs",
+    "current_revision_request_logs",
     "request_logs",
     "request_query_markers",
     "email_like",
@@ -352,7 +353,14 @@ for name in names:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise SystemExit(f"STOP: Log Analytics returned an invalid {name} count")
     values[name] = value
-for name in ("total_logs", "console_logs", "system_logs", "current_revision_logs", "request_logs"):
+for name in (
+    "total_logs",
+    "console_logs",
+    "system_logs",
+    "current_revision_logs",
+    "current_revision_request_logs",
+    "request_logs",
+):
     if values[name] == 0:
         raise SystemExit(f"STOP: Log Analytics has no {name} in the audit window")
 unsafe = (
@@ -369,6 +377,24 @@ for name in unsafe:
         raise SystemExit(f"STOP: Log Analytics found {values[name]} {name} entries")
 for name in names:
     print(f"{name}: {values[name]}")
+PY
+}
+
+abda_audit_current_revision_logs_ready() {
+  local path=$1
+  python3 - "$path" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    rows = json.load(handle)
+if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+    raise SystemExit(1)
+row = rows[0]
+for name in ("current_revision_logs", "current_revision_request_logs"):
+    value = row.get(name)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise SystemExit(1)
 PY
 }
 
@@ -580,6 +606,11 @@ ConsoleLogs
     console_logs=countif(Kind == 'console'),
     system_logs=countif(Kind == 'system'),
     current_revision_logs=countif(Revision == '$ABDA_AUDIT_REVISION'),
+    current_revision_request_logs=countif(
+      Revision == '$ABDA_AUDIT_REVISION'
+      and Kind == 'console'
+      and Message contains 'request_complete'
+    ),
     request_logs=countif(Kind == 'console' and Message contains 'request_complete'),
     request_query_markers=countif(Kind == 'console' and Message contains 'request_complete' and Message contains '?'),
     email_like=countif(Message matches regex '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}'),
@@ -617,27 +648,46 @@ PY
     abda_audit_fail "Azure access-token acquisition exited with status $token_status"
   abda_audit_write_log_api_auth \
     "$ABDA_AUDIT_ROOT/log-token.json" "$ABDA_AUDIT_ROOT/log-curl-config"
-  local log_api_status=0
-  set +e
   curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
-    --connect-timeout 10 --max-time 75 \
-    --config "$ABDA_AUDIT_ROOT/log-curl-config" \
-    --header 'Content-Type: application/json' \
-    --request POST \
-    --data-binary "@$ABDA_AUDIT_ROOT/log-query.json" \
-    "https://api.loganalytics.azure.com/v1/workspaces/$workspace_id/query" \
-    --output "$ABDA_AUDIT_ROOT/log-api-response.json"
-  log_api_status=$?
-  set -e
+    --connect-timeout 10 --max-time 30 \
+    "$ABDA_PUBLIC_ORIGIN/health/ready" \
+    --output "$ABDA_AUDIT_ROOT/log-seed-ready.json"
+  local log_api_status=0
+  local log_ingestion_ready='false'
+  local log_attempt=0
+  for log_attempt in {1..12}; do
+    set +e
+    curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
+      --connect-timeout 10 --max-time 75 \
+      --config "$ABDA_AUDIT_ROOT/log-curl-config" \
+      --header 'Content-Type: application/json' \
+      --request POST \
+      --data-binary "@$ABDA_AUDIT_ROOT/log-query.json" \
+      "https://api.loganalytics.azure.com/v1/workspaces/$workspace_id/query" \
+      --output "$ABDA_AUDIT_ROOT/log-api-response.json"
+    log_api_status=$?
+    set -e
+    if (( log_api_status == 28 )); then
+      abda_audit_fail 'Log Analytics API timed out after 75 seconds'
+    fi
+    (( log_api_status == 0 )) || \
+      abda_audit_fail "Log Analytics API exited with curl status $log_api_status"
+    rm -f -- "$ABDA_AUDIT_ROOT/log-summary.json"
+    abda_audit_convert_log_api_response \
+      "$ABDA_AUDIT_ROOT/log-api-response.json" \
+      "$ABDA_AUDIT_ROOT/log-summary.json"
+    if abda_audit_current_revision_logs_ready \
+      "$ABDA_AUDIT_ROOT/log-summary.json"; then
+      printf 'log_ingestion_attempt: %s/12 passed\n' "$log_attempt"
+      log_ingestion_ready='true'
+      break
+    fi
+    printf 'log_ingestion_attempt: %s/12 waiting\n' "$log_attempt"
+    sleep 15
+  done
   rm -f -- "$ABDA_AUDIT_ROOT/log-curl-config"
-  if (( log_api_status == 28 )); then
-    abda_audit_fail 'Log Analytics API timed out after 75 seconds'
-  fi
-  (( log_api_status == 0 )) || \
-    abda_audit_fail "Log Analytics API exited with curl status $log_api_status"
-  abda_audit_convert_log_api_response \
-    "$ABDA_AUDIT_ROOT/log-api-response.json" \
-    "$ABDA_AUDIT_ROOT/log-summary.json"
+  [[ "$log_ingestion_ready" == 'true' ]] || \
+    abda_audit_fail 'current-revision request logs were not ingested within three minutes'
   abda_audit_validate_log_summary "$ABDA_AUDIT_ROOT/log-summary.json" \
     | tee "$ABDA_AUDIT_ROOT/log-result.txt"
 

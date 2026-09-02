@@ -175,6 +175,7 @@ def test_observability_gate_is_executable_valid_and_read_only():
         "--expected-trial-max-users $ABDA_TRIAL_MAX_USERS",
         "--expected-openrouter-enabled $ABDA_OPENROUTER_ENABLED",
         "private_identifier_field_like",
+        "log_ingestion_attempt:",
         "RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
         "FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
     ):
@@ -205,6 +206,7 @@ def test_observability_gate_converts_direct_log_api_response(tmp_path: Path):
         "console_logs",
         "system_logs",
         "current_revision_logs",
+        "current_revision_request_logs",
         "request_logs",
         "request_query_markers",
         "email_like",
@@ -214,7 +216,7 @@ def test_observability_gate_converts_direct_log_api_response(tmp_path: Path):
         "provider_key_like",
         "private_identifier_field_like",
     ]
-    values = [500, 350, 150, 300, 250, 0, 0, 0, 0, 0, 0, 0]
+    values = [500, 350, 150, 300, 200, 250, 0, 0, 0, 0, 0, 0, 0]
     _write_json(
         response,
         {
@@ -348,6 +350,7 @@ def test_observability_gate_accepts_counts_and_rejects_secret_indicators(tmp_pat
         "console_logs": 350,
         "system_logs": 150,
         "current_revision_logs": 300,
+        "current_revision_request_logs": 200,
         "request_logs": 250,
         "request_query_markers": 0,
         "email_like": 0,
@@ -361,6 +364,8 @@ def test_observability_gate_accepts_counts_and_rejects_secret_indicators(tmp_pat
     result = _run_function("abda_audit_validate_log_summary", summary)
     assert result.returncode == 0, result.stderr
     assert "request_logs: 250" in result.stdout
+    readiness = _run_function("abda_audit_current_revision_logs_ready", summary)
+    assert readiness.returncode == 0, readiness.stderr
 
     values["share_fragment_like"] = 1
     _write_json(summary, [values])
@@ -376,6 +381,15 @@ def test_observability_gate_accepts_counts_and_rejects_secret_indicators(tmp_pat
     assert result.returncode != 0
     assert "private_identifier_field_like" in result.stderr
     assert "project_id" not in result.stderr
+
+    values["private_identifier_field_like"] = 0
+    values["current_revision_request_logs"] = 0
+    _write_json(summary, [values])
+    result = _run_function("abda_audit_validate_log_summary", summary)
+    assert result.returncode != 0
+    assert "current_revision_request_logs" in result.stderr
+    readiness = _run_function("abda_audit_current_revision_logs_ready", summary)
+    assert readiness.returncode != 0
 
 
 def test_observability_gate_extracts_and_validates_sanitized_release_receipt(
