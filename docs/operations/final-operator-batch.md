@@ -1,6 +1,10 @@
 # Final public-service operator batch
 
-State: prepared; run after the consolidated candidate is healthy
+State: paused while the managed-boundary replacement candidate is prepared
+
+Do not run the pinned helper below. It targets the superseded `3faf6eb`
+candidate. A replacement helper and immutable image identity will be recorded
+here after the managed filesystem boundary and bounded capacity smoke pass.
 
 This runbook collects the remaining account and browser work into one operator
 session. The Azure alert deployment and its email-delivery test are already
