@@ -1,9 +1,10 @@
 # Delta contingency checkpoint, 2026-08-29
 
-State: server-side Delta launcher path verified, laptop tunnel retest pending
+State: server-side Delta lifecycle verified, laptop tunnel retest pending
 
-This checkpoint records a read-only verification of the private Delta fallback.
-No server was restarted or reconfigured.
+This checkpoint records live verification of the private Delta fallback. The
+initial checks were read-only. A later lifecycle check deliberately restarted
+the launcher-managed process without changing its configuration.
 
 ## Tracked launcher contract
 
@@ -53,6 +54,14 @@ A third read-only check on 2026-09-02 produced the same result on
 `make run PORT={port} HOST={host}`, both health endpoints returned their exact
 success payloads, and `/config` exposed only the public model catalog and
 feature flags. The check did not restart or reconfigure the running demo.
+
+A later lifecycle check on 2026-09-02 ran `demo doctor`, then deliberately ran
+`demo restart` from the repository. The launcher reported the demo ready,
+`demo status` reported the expected repository and pinned node, and
+`GET http://127.0.0.1:8765/health/ready` returned `{"status":"ready"}` after
+the replacement process started. The tracked `.demo.json` remained unchanged.
+At the same checkpoint, the managed public readiness endpoint also returned
+`{"status":"ready"}`. No model provider was called.
 
 ## Boundary not yet claimed
 
