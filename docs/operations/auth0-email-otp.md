@@ -151,6 +151,15 @@ ten-user pilot and stagger invitations instead of advertising immediate
 100-user registration. Do not replace the production sender with Auth0's
 built-in test sender.
 
+Auth0 Free itself has ample identity capacity for this release. Its current
+plan includes Passwordless, one custom domain, and up to 25,000 monthly active
+users. Its Free Authentication API policy separately limits passwordless-code
+starts to 50 per hour from one source IP. This is not a global 50-user limit,
+but many attendees behind one conference-network address can share it. Keep
+the presentation account signed in before the talk. For a workshop expecting
+more than 50 first-time registrations from one shared network within an hour,
+stagger onboarding or review a higher Auth0 tier before the event.
+
 ## 4. Application settings
 
 Set these deployment values from the application and tenant settings:
@@ -204,6 +213,7 @@ cannot prove email delivery or tenant configuration.
 - [Auth0 custom domains](https://auth0.com/docs/customize/custom-domains)
 - [Auth0 passwordless authentication on database connections](https://auth0.com/docs/authenticate/database-connections/passwordless-authentication-for-db-connect)
 - [Auth0 Passwordless Email](https://auth0.com/docs/authenticate/passwordless/authentication-methods/email-otp)
+- [Auth0 Free rate limits](https://auth0.com/docs/troubleshoot/customer-support/operational-policies/rate-limit-policy/rate-limit-configurations/free-public)
 - [Auth0 verified email guidance](https://auth0.com/docs/manage-users/user-accounts/user-profiles/verified-email-usage)
 - [Auth0 application settings](https://auth0.com/docs/get-started/applications/application-settings)
 - [Auth0 OIDC logout](https://auth0.com/docs/authenticate/login/logout/log-users-out-of-auth0)
