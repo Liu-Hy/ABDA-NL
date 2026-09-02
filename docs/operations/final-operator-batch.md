@@ -1,51 +1,26 @@
 # Final public-service operator batch
 
-State: deploy the managed-boundary replacement, then pause for the capacity smoke
+State: replacement, capacity, and public browser Gates passed; run the pilot audit
 
-Runbook revision: `managed-boundary-20260902`
+Runbook revision: `managed-boundary-20260902.2`
 
-Before running any phase, confirm that the first immutable source commit shown
-below is `eb7d5e9f5533b4a66f5f4c7ba3587ccf0d310659`. If an older copy starts by
-downloading a consolidated helper at commit `1ee512032aaebb3300ecb4dd18a18be16e90e97b`,
-stop and refresh this file from the personal repository's `development` branch.
-That older download is harmless when it was only checksum-verified, but none of
-its phases should be run for the managed-boundary replacement.
+Before running any remaining phase, confirm that the consolidated helper block
+below uses commit `3d309826df74c105ccb536b381b5b2b9df2d6f6e`. If an older copy uses
+commit `1ee512032aaebb3300ecb4dd18a18be16e90e97b`, stop and refresh this file
+from the personal repository's `development` branch. That older download is
+harmless when it was only checksum-verified, but none of its phases should be
+run for this replacement.
 
-The remaining helper in this document is refreshed for the replacement image.
-Do not start its BYOK, privacy, rollback, promotion, or final-audit phases until
-the replacement receipt and bounded capacity smoke have both passed.
+Gate 18 deployed the replacement as `abda-nl-stg-web--secure-b873112`, proved
+that the managed filesystem-save route is rejected without mutation, and
+preserved the application contract and all settings. Gate 17 then completed
+123 requests at concurrency 20 with no failure or response drift. Scenario p95
+was 306 ms and state p95 was 763 ms against a 6,000 ms limit. Gate 13 passed
+the public Chromium and Firefox WCAG, viewport, keyboard, reduced-motion, and
+policy-link checks with no console or page errors.
 
-The replacement application identity is:
-
-- application source commit: `b873112040dbfe645683d1b5e7d9adb122173ed2`
-- image digest: `sha256:567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c`
-- target revision: `abda-nl-stg-web--secure-b873112`
-
-Use a new or existing Azure Cloud Shell session. Do not reuse an older `p`
-variable. Paste this complete block once:
-
-```bash
-u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='eb7d5e9f5533b4a66f5f4c7ba3587ccf0d310659'
-f='deploy/azure/gate18-managed-boundary-image.sh'
-s='e9bcbc6a54867ee37d7849c1d35cedc8a7b345bf946f612413211b78594d24af'
-g="$(mktemp /tmp/abda-managed-boundary.XXXXXX)"
-curl -fsSL "$u/$c/$f" -o "$g"
-printf '%s  %s\n' "$s" "$g" | sha256sum --check
-bash "$g"
-```
-
-The checksum must report `OK`. At the one confirmation prompt, type
-`DEPLOY_ABDA_MANAGED_BOUNDARY` once and press Enter once. Cloud Shell may not
-display the typed characters. Wait for the next numbered step instead of
-typing the phrase again. Required success ends with:
-
-```text
-result: MANAGED_BOUNDARY_IMAGE_DEPLOYED_CAPACITY_SMOKE_REQUIRED
-```
-
-Stop at that receipt and send it to Codex. The bounded capacity smoke runs
-from Delta and requires no browser or Cloud Shell work from the operator.
+Acceptance evidence for this exact artifact is recorded in
+[the managed-boundary release record](managed-boundary-release-acceptance-20260902.md).
 
 This runbook collects the remaining account and browser work into one operator
 session. The Azure alert deployment and its email-delivery test are already
@@ -87,6 +62,33 @@ The final line must report `OK`. Keep this shell open. Cloud Shell may not show
 typed confirmation text after a prompt. Type each exact phrase once, press
 Enter once, and wait. The confirmation was accepted if the next numbered step
 appears. Do not type it again at the ordinary `haoyang [ ~ ]$` shell prompt.
+
+Verify the complete immutable Gate bundle before running a phase:
+
+```bash
+bash "$p" verify
+```
+
+Required success ends with:
+
+```text
+result: ALL_CONSOLIDATED_OPERATOR_GATES_VERIFIED
+```
+
+## 0. Audit the replacement image
+
+Run the read-only Azure, HTTPS, accounting, and count-only log audit:
+
+```bash
+bash "$p" audit
+```
+
+It does not change Azure or call a model. The bounded Log Analytics queries can
+take a few minutes. Required success ends with:
+
+```text
+result: RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
+```
 
 ## 1. Complete the BYOK browser Gate
 
