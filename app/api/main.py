@@ -202,6 +202,7 @@ def _scenario_sort_key(scenario_id: str) -> tuple[int, str]:
 async def _lifespan(_app: FastAPI):
     init_engine()
     initialize_database()
+    _warm_managed_baseline_cache(get_settings())
     mcp_runtime = create_mcp_runtime()
     mcp_http_app.bind(mcp_runtime.app)
     try:
@@ -334,6 +335,14 @@ def _baseline_state_bundle(scenario_id: str, settings: Settings) -> dict:
     if settings.is_managed_service:
         return _cached_managed_baseline_bundle(scenario_id)
     return _compute_state_bundle(_load_baseline(scenario_id))
+
+
+def _warm_managed_baseline_cache(settings: Settings) -> None:
+    if not settings.is_managed_service:
+        return
+    for scenario_id in SCENARIO_ORDER:
+        _cached_managed_baseline_bundle(scenario_id)
+    log.info("managed_baseline_cache_ready scenarios=%d", len(SCENARIO_ORDER))
 
 
 @app.get("/config", response_model=ConfigResponse)

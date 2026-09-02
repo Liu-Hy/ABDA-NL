@@ -1560,6 +1560,31 @@ def test_managed_baseline_cache_reuses_only_immutable_state(
     assert calls == 2
 
 
+def test_managed_baseline_cache_is_warmed_before_serving(
+    monkeypatch,
+):
+    from app.api import main as main_module
+
+    original_compute = main_module._compute_state_bundle
+    calls = 0
+
+    def counted_compute(scenario):
+        nonlocal calls
+        calls += 1
+        return original_compute(scenario)
+
+    managed_settings = replace(get_settings(), environment="staging")
+    monkeypatch.setattr(main_module, "_compute_state_bundle", counted_compute)
+    main_module._cached_managed_baseline_bundle.cache_clear()
+    try:
+        main_module._warm_managed_baseline_cache(managed_settings)
+        main_module._warm_managed_baseline_cache(managed_settings)
+    finally:
+        main_module._cached_managed_baseline_bundle.cache_clear()
+
+    assert calls == len(main_module.SCENARIO_ORDER)
+
+
 def test_development_baselines_remain_uncached(
     client: TestClient,
     monkeypatch,
