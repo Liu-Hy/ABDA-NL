@@ -1,8 +1,8 @@
 # Staging release-candidate image checkpoint, 2026-08-29
 
-State: shared-view candidate deployed, public and authenticated browser
-acceptance passed, outage fallback accounting passed, remaining operator checks
-in progress
+State: historical release-candidate evidence, superseded by the
+[source-security checkpoint](source-security-checkpoint-20260902.md) and
+[current operator sequence](final-operator-batch.md)
 
 This checkpoint identifies the first staging image that contains the privacy
 operations command, the controlled OpenRouter outage drill, and the corrected

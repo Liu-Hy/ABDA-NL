@@ -2,7 +2,8 @@
 
 Date: 2026-08-28
 
-State: `GATE5_TRIAL_ACCOUNTING_VERIFIED`
+State: historical Gate 5 evidence, superseded by the
+[current operator sequence](final-operator-batch.md)
 
 This record summarizes live evidence collected after the initial Azure
 infrastructure and application deployment records. It contains no credentials,

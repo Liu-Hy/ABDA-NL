@@ -1,5 +1,10 @@
 # Staging MCP client acceptance
 
+Status: live read, revocation, scoped-write, and non-applying proposal
+acceptance completed on 2026-08-29. Repeat only after an MCP authentication,
+scope, project, or routing change. This procedure is retained as evidence and
+is not part of the [current operator sequence](final-operator-batch.md).
+
 This procedure proves that the public HTTPS MCP endpoint works from real Codex
 and Claude Code clients. The first gate uses only bundled public examples and
 one disposable read-only token. A later gate checks project ownership,

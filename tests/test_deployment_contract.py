@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -143,6 +144,24 @@ def test_postgres_recovery_is_private_new_server_and_reviewed_cutover():
     assert "database-recovery.md" in playbook
     assert "[PostgreSQL recovery runbook](database-recovery.md)" in traceability
     assert "docs/operations/database-recovery.md" in readme
+
+
+def test_operations_index_names_one_current_sequence_and_has_valid_doc_links():
+    index_path = ROOT / "docs" / "operations" / "README.md"
+    index = index_path.read_text(encoding="utf-8")
+    normalized_index = " ".join(index.split())
+
+    assert "only current ordered sequence" in normalized_index
+    assert "[final public-service operator batch](final-operator-batch.md)" in index
+    assert (
+        "Do not reconstruct a current command from a historical checkpoint"
+        in normalized_index
+    )
+
+    relative_links = re.findall(r"\]\(([^)#]+\.md)(?:#[^)]*)?\)", index)
+    assert relative_links
+    for relative_link in relative_links:
+        assert (index_path.parent / relative_link).is_file(), relative_link
 
 
 def test_azure_deploys_only_the_public_digest_pinned_ghcr_image():

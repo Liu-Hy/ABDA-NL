@@ -1,5 +1,9 @@
 # Staging BYOK browser acceptance
 
+Status: completed for the managed-boundary image on 2026-09-02. Do not rerun
+solely for the logging-only source-security transition. Use the
+[current operator sequence](final-operator-batch.md) for release decisions.
+
 Run this acceptance after the read and scoped-write MCP checks, and before the
 disposable-account privacy deletion check. It validates one real OpenRouter
 request at `https://demo.abda-nl.org` without exposing the provider key to the
