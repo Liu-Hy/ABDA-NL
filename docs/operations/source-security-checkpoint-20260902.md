@@ -1,6 +1,6 @@
 # Development source security checkpoint, 2026-09-02
 
-State: source scan clean; publication and Azure deployment of the replacement image pending
+State: source scan clean and immutable image verified; Azure deployment pending
 
 This checkpoint records source-level security evidence without treating it as
 evidence for the older image that Azure currently serves. The public service
@@ -72,12 +72,32 @@ setting was enabled and read back through the GitHub API on 2026-09-02. Public
 researchers can now use the documented private advisory form instead of
 [disclosing an unpatched issue publicly](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository).
 
-## Artifact boundary
+## Immutable image evidence
+
+The annotated tag
+`service-image-staging-source-security-20260902-182221` identifies source
+commit `c173dd5983ba209b17c585c0c82aeb33c2e49028`. The tag-triggered
+[image workflow run 33666791617](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33666791617)
+reran the complete tests and dependency audits, built the production image,
+pulled and smoke-tested its exact digest, and published GitHub build
+provenance.
+
+- image: `ghcr.io/liu-hy/abda-nl@sha256:ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64`
+- attestation: [44790406](https://github.com/Liu-Hy/ABDA-NL/attestations/44790406)
+- OCI source: `https://github.com/Liu-Hy/ABDA-NL`
+- OCI revision: `c173dd5983ba209b17c585c0c82aeb33c2e49028`
+- OCI license: `MIT`
+
+An independent anonymous registry fetch returned that exact manifest digest
+and all three labels. The GitHub attestation verifier accepted the digest
+against `Liu-Hy/ABDA-NL`.
+
+## Deployment boundary
 
 This checkpoint does not change Azure, DNS, Auth0, Resend, trial limits,
-OpenRouter settings, the database, or the currently deployed image. Before
-calling the hardening live, publish one immutable image from the final source
-commit, verify its digest and provenance, deploy only that image, then rerun
-public release checks and the count-only sanitized-log audit. Earlier live
-BYOK and browser evidence remains useful for unchanged behavior, but it must
-not be relabeled as execution evidence from the new image.
+OpenRouter settings, the database, or the currently deployed image. Azure
+continues to serve source `b873112` until Gate 19 performs its explicit
+image-only transition. Gate 19 and the following read-only audit are pinned in
+[the final operator batch](final-operator-batch.md). Earlier live BYOK and
+browser evidence remains applicable to unchanged behavior, but it is not
+relabeled as execution evidence from the new image.

@@ -1,37 +1,35 @@
 # Final public-service operator batch
 
-State: replacement, capacity, public browser, and BYOK Gates passed; run the pilot audit
+State: hardened image and remaining manual release Gates prepared
 
-Runbook revision: `managed-boundary-20260902.3`
+Runbook revision: `source-security-20260902.1`
 
 Before running any remaining phase, confirm that the consolidated helper block
-below uses commit `fef96609bcda828e0a30c5a0a2ebcabfc1dca7fc`. Stop and refresh this
+below uses commit `6fb5c410de49410cc8d5938eeec1d2d929e1cf6e`. Stop and refresh this
 file from the personal repository's `development` branch if a saved copy uses
-an older commit. The previous helper remains harmless for completed phases,
-but its BYOK phase cannot distinguish a real billing error from unrelated
-funded traffic during the same public acceptance window.
+an older commit.
 
-Gate 18 deployed the replacement as `abda-nl-stg-web--secure-b873112`, proved
-that the managed filesystem-save route is rejected without mutation, and
-preserved the application contract and all settings. Gate 17 then completed
-123 requests at concurrency 20 with no failure or response drift. Scenario p95
-was 306 ms and state p95 was 763 ms against a 6,000 ms limit. Gate 13 passed
-the public Chromium and Firefox WCAG, viewport, keyboard, reduced-motion, and
-policy-link checks with no console or page errors.
+The managed-boundary image already passed capacity, public Chromium and
+Firefox accessibility, and live OpenRouter BYOK acceptance. The subsequent
+runtime changes remove private or model-derived identifiers from operational
+logs and reduce evaluator route-list output. They do not change authentication,
+BYOK key handling, projects, sharing, MCP, routing, budgets, database schema,
+or browser code. CodeQL reports zero findings for the new source, and the
+image workflow rebuilt, smoke-tested, and attested its exact digest.
 
-Acceptance evidence for this exact artifact is recorded in
-[the managed-boundary release record](managed-boundary-release-acceptance-20260902.md).
+This runbook collects the remaining cloud and account work into one operator
+batch. The Azure alert deployment, alert-email delivery, BYOK browser Gate,
+bounded capacity smoke, and automated Chromium and Firefox accessibility Gate
+are already complete. Do not rerun them unless their corresponding code or
+configuration changes.
 
-This runbook collects the remaining account and browser work into one operator
-session. The Azure alert deployment and its email-delivery test are already
-complete. Do not rerun the alerts phase unless the monitoring configuration
-changes.
+The hardened release identity is:
 
-The replacement release identity is:
-
-- application source commit: `b873112040dbfe645683d1b5e7d9adb122173ed2`
-- image digest: `sha256:567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c`
-- pilot revision: `abda-nl-stg-web--secure-b873112`
+- application source commit: `c173dd5983ba209b17c585c0c82aeb33c2e49028`
+- source tag: `service-image-staging-source-security-20260902-182221`
+- image digest: `sha256:ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64`
+- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/44790406`
+- target pilot revision: `abda-nl-stg-web--harden-c173dd5`
 - public origin: `https://demo.abda-nl.org`
 
 Before running the final promotion, confirm production email capacity. The
@@ -50,9 +48,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='fef96609bcda828e0a30c5a0a2ebcabfc1dca7fc'
+c='6fb5c410de49410cc8d5938eeec1d2d929e1cf6e'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='71693677973fd21388df8fe1a0003109c5b9e2dee1e154536f52c9d44875f4af'
+s='7bf6b6f73d6981f561d778a499232745c3b28b42b9d217dba1f7981cc19a5d55'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
@@ -62,6 +60,9 @@ The final line must report `OK`. Keep this shell open. Cloud Shell may not show
 typed confirmation text after a prompt. Type each exact phrase once, press
 Enter once, and wait. The confirmation was accepted if the next numbered step
 appears. Do not type it again at the ordinary `haoyang [ ~ ]$` shell prompt.
+If the Cloud Shell session closes, no release state is lost. Open a new session
+and repeat only the preparation block above to recreate its temporary `p`
+value, then resume the required phase.
 
 Verify the complete immutable Gate bundle before running a phase:
 
@@ -75,16 +76,32 @@ Required success ends with:
 result: ALL_CONSOLIDATED_OPERATOR_GATES_VERIFIED
 ```
 
-## 0. Audit the replacement image
+## 0. Deploy and audit the hardened image
 
-Run the read-only Azure, HTTPS, accounting, and count-only log audit:
+Deploy the exact attested image:
+
+```bash
+bash "$p" deploy
+```
+
+At the confirmation prompt, type `DEPLOY_ABDA_SOURCE_SECURITY_IMAGE` once and
+press Enter. The Gate changes only the web image and revision suffix. It proves
+that application settings and secret references are unchanged, does not rerun
+a migration, and completes public endpoint checks before returning:
+
+```text
+result: SOURCE_SECURITY_IMAGE_DEPLOYED_AUDIT_REQUIRED
+```
+
+Then run the read-only Azure, HTTPS, accounting, and count-only log audit:
 
 ```bash
 bash "$p" audit
 ```
 
-It does not change Azure or call a model. The bounded Log Analytics queries can
-take a few minutes. Required success ends with:
+It does not change Azure or call a model. It creates one readiness request,
+then waits up to three minutes for current-revision request logs before checking
+the 30-day workspace and sensitive-pattern counts. Required success ends with:
 
 ```text
 result: RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
@@ -92,8 +109,10 @@ result: RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 
 ## 1. Complete the BYOK browser Gate
 
-Status: completed on 2026-09-02 for the managed-boundary image. Do not rerun
-unless the application image, BYOK handling, routing, or accounting changes.
+Status: completed on 2026-09-02. Do not rerun for the source-security image.
+The intervening runtime diff changes logging and evaluator output only, while
+the new deployment Gate proves that the complete application contract remains
+unchanged.
 
 Use the normal browser account that has already activated the funded pilot.
 Start the Gate:
@@ -199,11 +218,11 @@ Follow the exact dashboard values in
 the proxied `@` and `www` placeholder records and one narrowly matched 301
 redirect rule. It must not match `demo`, `login`, or `auth`.
 
-After the two records and rule are saved, run this read-only check from the
-repository on Delta:
+After the two records and rule are saved, return to the same Cloud Shell and
+run this read-only check:
 
 ```bash
-.venv/bin/python deploy/cloudflare/gate16_public_hostname_boundary.py
+bash "$p" hostname
 ```
 
 It verifies root and `www` redirects, path and query preservation, direct demo
