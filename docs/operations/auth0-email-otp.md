@@ -18,6 +18,14 @@ administrator is required before public registration opens when the selected
 plan permits it, but it does not block private staging. Do not share one
 person's Dashboard login.
 
+Auth0's public plan table checked on 2026-09-02 includes Passwordless and one
+custom domain in the Free plan. Its custom-domain documentation says the Free
+tenant must keep a valid credit card on file for ownership and fraud checks,
+but that card is not charged for this verification. The current
+`login.abda-nl.org` design therefore does not depend on the temporary feature
+trial shown after tenant creation. Recheck the plan only if Auth0 announces a
+pricing change or the tenant reports a feature-expiration warning.
+
 Create a Regular Web Application named `ABDA-NL Public Service`. Record its
 domain, client ID, and client secret in the private operator record. Use
 Authorization Code flow and exact URLs, without wildcards.
@@ -120,6 +128,23 @@ Customize the OTP email with:
 Send test messages to UIUC, Gmail, and another external provider. Confirm that
 delivery latency is acceptable and that failures appear in Auth0 logs.
 
+### Capacity before general registration
+
+Resend's public plan table checked on 2026-09-02 gives the Free transactional
+plan 100 messages per day and 3,000 per month. Its account-limit documentation
+also gives all plans a default five-request-per-second sending limit. Every OTP
+login consumes a message, so 100 first-time users alone can exhaust the Free
+daily allowance without leaving room for retries or returning users.
+
+The ten-user pilot can remain on Free. Before promoting the service to 100
+funded users, the recommended operational choice is Resend Transactional Pro,
+currently listed at $20 per month for 50,000 messages with no daily limit. The
+operator should still monitor the Usage and Logs pages during a conference
+surge. If a paid sender is not approved, keep the funded program at the
+ten-user pilot and stagger invitations instead of advertising immediate
+100-user registration. Do not replace the production sender with Auth0's
+built-in test sender.
+
 ## 4. Application settings
 
 Set these deployment values from the application and tenant settings:
@@ -169,6 +194,8 @@ cannot prove email delivery or tenant configuration.
 
 ## Primary references
 
+- [Auth0 pricing and plan comparison](https://auth0.com/pricing)
+- [Auth0 custom domains](https://auth0.com/docs/customize/custom-domains)
 - [Auth0 passwordless authentication on database connections](https://auth0.com/docs/authenticate/database-connections/passwordless-authentication-for-db-connect)
 - [Auth0 Passwordless Email](https://auth0.com/docs/authenticate/passwordless/authentication-methods/email-otp)
 - [Auth0 verified email guidance](https://auth0.com/docs/manage-users/user-accounts/user-profiles/verified-email-usage)
@@ -177,3 +204,5 @@ cannot prove email delivery or tenant configuration.
 - [Auth0 production email providers](https://auth0.com/docs/customize/email/smtp-email-providers)
 - [Auth0 Resend provider](https://auth0.com/docs/customize/email/smtp-email-providers/resend)
 - [Resend Cloudflare verification](https://resend.com/docs/knowledge-base/cloudflare)
+- [Resend pricing](https://resend.com/pricing/)
+- [Resend account quotas and limits](https://resend.com/docs/knowledge-base/account-quotas-and-limits)

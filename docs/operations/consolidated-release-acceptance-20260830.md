@@ -67,7 +67,9 @@ for an earlier application identity.
 8. Rehearse the compatible image rollback and automatic restoration with Gate
    10. The restoration creates the exact revision expected by the promotion
    Gate.
-9. Promote the verified pilot to 100 users, $5 per user, $500 total trial
+9. Confirm that the production email sender has capacity above the 100-message
+   daily Free limit, or deliberately keep the ten-user pilot. Then promote the
+   verified pilot to 100 users, $5 per user, $500 total trial
    allocation, and the independently capped OpenRouter outage route with Gate
    12.
 10. Run Gate 9 in public mode and retain its content-free receipt. It must

@@ -14,6 +14,14 @@ The current release identity is:
 - pilot revision: `abda-nl-stg-web--release-3faf6eb`
 - public origin: `https://demo.abda-nl.org`
 
+Before running the final promotion, confirm production email capacity. The
+current Resend Free limit of 100 messages per day has no headroom for 100 new
+OTP users plus retries and returning logins. The recommended public-launch
+choice is Resend Transactional Pro, currently $20 per month with no daily
+limit. Keep the existing verified domain and API key integration. If the
+service remains on Free, stop after the ten-user pilot and stagger invitations
+instead of running the 100-user promotion.
+
 ## Prepare one Cloud Shell session
 
 A new or existing Azure Cloud Shell session is acceptable. Paste this complete
