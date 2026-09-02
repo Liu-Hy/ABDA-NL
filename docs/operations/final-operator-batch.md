@@ -2,14 +2,14 @@
 
 State: replacement, capacity, and public browser Gates passed; run the pilot audit
 
-Runbook revision: `managed-boundary-20260902.2`
+Runbook revision: `managed-boundary-20260902.3`
 
 Before running any remaining phase, confirm that the consolidated helper block
-below uses commit `3d309826df74c105ccb536b381b5b2b9df2d6f6e`. If an older copy uses
-commit `1ee512032aaebb3300ecb4dd18a18be16e90e97b`, stop and refresh this file
-from the personal repository's `development` branch. That older download is
-harmless when it was only checksum-verified, but none of its phases should be
-run for this replacement.
+below uses commit `fef96609bcda828e0a30c5a0a2ebcabfc1dca7fc`. Stop and refresh this
+file from the personal repository's `development` branch if a saved copy uses
+an older commit. The previous helper remains harmless for completed phases,
+but its BYOK phase cannot distinguish a real billing error from unrelated
+funded traffic during the same public acceptance window.
 
 Gate 18 deployed the replacement as `abda-nl-stg-web--secure-b873112`, proved
 that the managed filesystem-save route is rejected without mutation, and
@@ -50,9 +50,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='3d309826df74c105ccb536b381b5b2b9df2d6f6e'
+c='fef96609bcda828e0a30c5a0a2ebcabfc1dca7fc'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='be12ed5bb38c004f0f709176e88a4de419f5b169dede012ac3d566c0d9915e7a'
+s='71693677973fd21388df8fe1a0003109c5b9e2dee1e154536f52c9d44875f4af'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
