@@ -4,16 +4,16 @@
 # The gate changes only the web image and revision suffix. It never runs a
 # migration, changes a secret or setting, calls a model, or changes DNS/Auth0.
 
-ABDA_ROLLBACK_SCRIPT_REVISION='3'
-ABDA_CURRENT_SOURCE_COMMIT='b873112040dbfe645683d1b5e7d9adb122173ed2'
-ABDA_CURRENT_IMAGE_SHA256='567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c'
-ABDA_ROLLBACK_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
-ABDA_ROLLBACK_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
-ABDA_CURRENT_REVISION='abda-nl-stg-web--secure-b873112'
-ABDA_ROLLBACK_SUFFIX='rollback-3faf6eb'
-ABDA_ROLLBACK_REVISION='abda-nl-stg-web--rollback-3faf6eb'
-ABDA_RESTORE_SUFFIX='restore-b873112'
-ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-b873112'
+ABDA_ROLLBACK_SCRIPT_REVISION='4'
+ABDA_CURRENT_SOURCE_COMMIT='c173dd5983ba209b17c585c0c82aeb33c2e49028'
+ABDA_CURRENT_IMAGE_SHA256='ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64'
+ABDA_ROLLBACK_SOURCE_COMMIT='b873112040dbfe645683d1b5e7d9adb122173ed2'
+ABDA_ROLLBACK_IMAGE_SHA256='567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c'
+ABDA_CURRENT_REVISION='abda-nl-stg-web--harden-c173dd5'
+ABDA_ROLLBACK_SUFFIX='rollback-b873112'
+ABDA_ROLLBACK_REVISION='abda-nl-stg-web--rollback-b873112'
+ABDA_RESTORE_SUFFIX='restore-c173dd5'
+ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-c173dd5'
 ABDA_ROLLBACK_ROOT=''
 
 abda_rollback_cleanup() {
@@ -653,7 +653,7 @@ abda_rollback_print_status() {
   printf 'restored_acceptance: passed\n'
   printf 'result: COMPATIBLE_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED\n'
   printf '%s\n' \
-    'The current shared-view image is healthy again. Send this status and the shell exit code to Codex.'
+    'The current security-hardened image is healthy again. Send this status and the shell exit code to Codex.'
 }
 
 abda_rollback_main() {
@@ -782,7 +782,7 @@ abda_rollback_main() {
     printf 'rollback_acceptance: passed\n'
 
     ABDA_ROLLBACK_SECTION='current image restoration'
-    printf '\n[7/9] Restoring the current shared-view image automatically...\n'
+    printf '\n[7/9] Restoring the current security-hardened image automatically...\n'
     abda_rollback_update_image \
       "$ABDA_CURRENT_IMAGE_SHA256" "$ABDA_RESTORE_SUFFIX"
     phase='restore_pending'

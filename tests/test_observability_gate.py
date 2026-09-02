@@ -11,11 +11,11 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate9-observability-audit.sh"
 APP = "abda-nl-stg-web"
-REVISION = "abda-nl-stg-web--secure-b873112"
-PUBLIC_REVISION = "abda-nl-stg-web--public-100-b873112"
+REVISION = "abda-nl-stg-web--harden-c173dd5"
+PUBLIC_REVISION = "abda-nl-stg-web--public-100-c173dd5"
 IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c"
+    "ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64"
 )
 
 
@@ -174,6 +174,7 @@ def test_observability_gate_is_executable_valid_and_read_only():
         "timeout --foreground --signal=INT --kill-after=5s 120s",
         "--expected-trial-max-users $ABDA_TRIAL_MAX_USERS",
         "--expected-openrouter-enabled $ABDA_OPENROUTER_ENABLED",
+        "private_identifier_field_like",
         "RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
         "FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
     ):
@@ -211,8 +212,9 @@ def test_observability_gate_converts_direct_log_api_response(tmp_path: Path):
         "share_fragment_like",
         "oidc_code_like",
         "provider_key_like",
+        "private_identifier_field_like",
     ]
-    values = [500, 350, 150, 300, 250, 0, 0, 0, 0, 0, 0]
+    values = [500, 350, 150, 300, 250, 0, 0, 0, 0, 0, 0, 0]
     _write_json(
         response,
         {
@@ -353,6 +355,7 @@ def test_observability_gate_accepts_counts_and_rejects_secret_indicators(tmp_pat
         "share_fragment_like": 0,
         "oidc_code_like": 0,
         "provider_key_like": 0,
+        "private_identifier_field_like": 0,
     }
     _write_json(summary, [values])
     result = _run_function("abda_audit_validate_log_summary", summary)
@@ -365,6 +368,14 @@ def test_observability_gate_accepts_counts_and_rejects_secret_indicators(tmp_pat
     assert result.returncode != 0
     assert "share_fragment_like" in result.stderr
     assert "#share=" not in result.stderr
+
+    values["share_fragment_like"] = 0
+    values["private_identifier_field_like"] = 1
+    _write_json(summary, [values])
+    result = _run_function("abda_audit_validate_log_summary", summary)
+    assert result.returncode != 0
+    assert "private_identifier_field_like" in result.stderr
+    assert "project_id" not in result.stderr
 
 
 def test_observability_gate_extracts_and_validates_sanitized_release_receipt(

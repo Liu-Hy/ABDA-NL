@@ -4,9 +4,9 @@
 # The gate executes the image's own release checker and summarizes log counts.
 # It never prints raw log messages or secret values.
 
-ABDA_AUDIT_SCRIPT_REVISION='5'
-ABDA_AUDIT_SOURCE_COMMIT='b873112040dbfe645683d1b5e7d9adb122173ed2'
-ABDA_AUDIT_IMAGE_SHA256='567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c'
+ABDA_AUDIT_SCRIPT_REVISION='6'
+ABDA_AUDIT_SOURCE_COMMIT='c173dd5983ba209b17c585c0c82aeb33c2e49028'
+ABDA_AUDIT_IMAGE_SHA256='ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64'
 ABDA_AUDIT_RELEASE_STAGE=''
 ABDA_AUDIT_REVISION=''
 ABDA_AUDIT_RESULT=''
@@ -62,7 +62,7 @@ abda_audit_set_constants() {
   case "$release_stage" in
     --pilot)
       ABDA_AUDIT_RELEASE_STAGE='pilot'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--secure-b873112'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--harden-c173dd5'
       ABDA_TRIAL_MAX_USERS='10'
       ABDA_TRIAL_BUDGET_MICROUSD='50000000'
       ABDA_OPENROUTER_ENABLED='false'
@@ -70,7 +70,7 @@ abda_audit_set_constants() {
       ;;
     --public)
       ABDA_AUDIT_RELEASE_STAGE='public'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-b873112'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-c173dd5'
       ABDA_TRIAL_MAX_USERS='100'
       ABDA_TRIAL_BUDGET_MICROUSD='500000000'
       ABDA_OPENROUTER_ENABLED='true'
@@ -344,6 +344,7 @@ names = (
     "share_fragment_like",
     "oidc_code_like",
     "provider_key_like",
+    "private_identifier_field_like",
 )
 values = {}
 for name in names:
@@ -361,6 +362,7 @@ unsafe = (
     "share_fragment_like",
     "oidc_code_like",
     "provider_key_like",
+    "private_identifier_field_like",
 )
 for name in unsafe:
     if values[name] != 0:
@@ -584,7 +586,11 @@ ConsoleLogs
     bearer_like=countif(tolower(Message) matches regex '(abda_mcp_[a-z0-9_-]{16,}|bearer +[a-z0-9._~-]{16,})'),
     share_fragment_like=countif(tolower(Message) contains '#share='),
     oidc_code_like=countif(tolower(Message) matches regex '[?&]code=[a-z0-9._~-]{8,}'),
-    provider_key_like=countif(tolower(Message) matches regex '(sk-[a-z0-9_-]{20,}|aiza[a-z0-9_-]{20,})')
+    provider_key_like=countif(tolower(Message) matches regex '(sk-[a-z0-9_-]{20,}|aiza[a-z0-9_-]{20,})'),
+    private_identifier_field_like=countif(
+      Revision == '$ABDA_AUDIT_REVISION'
+      and tolower(Message) matches regex '(^| )(account_id|credential_id|project_id|scenario_id|proposer_id|context_id|task|stop_reason)='
+    )
 KQL
 )"
   python3 - "$ABDA_AUDIT_ROOT/log-query.json" "$logs_query" <<'PY'
