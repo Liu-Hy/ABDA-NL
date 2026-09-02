@@ -44,6 +44,23 @@ cap. The CloudBank report recorded $0.784728 of metered provider cost with no
 operator-paid spend. Recompute the report hashes before citing or promoting
 this evidence.
 
+## Public route refresh on 2026-09-02
+
+The selected OpenRouter fallback was rechecked against current public provider
+metadata without making a paid call. `google/gemini-3.7-flash` remained
+available from two providers at $0.75 per million input tokens and $3.75 per
+million output tokens, with tool calling and structured outputs. OpenRouter's
+current routing contract still supports both `data_collection: deny` and
+per-request `zdr: true`, which the application sends together.
+
+Anthropic's release notes and current Sonnet 5 page also state that its $2/$10
+launch price became the standard direct price. The catalog already contains
+that price. The unused OpenRouter Sonnet 5 route deliberately retains its
+higher $3/$15 admission ceiling, so this correction does not loosen a spending
+boundary. No selected route, deployed model name, request contract, or public
+profile changed, and no new model evaluation was required for this metadata
+refresh.
+
 ## Live route revalidation on 2026-08-28
 
 After the external service prerequisites were completed, both validated routes
@@ -141,3 +158,6 @@ cheap models.
 - [Deploy and use Claude in Foundry](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-claude)
 - [OpenRouter provider routing](https://openrouter.ai/docs/guides/routing/provider-selection)
 - [OpenRouter Zero Data Retention](https://openrouter.ai/docs/guides/features/zdr)
+- [OpenRouter Gemini 3.7 Flash](https://openrouter.ai/google/gemini-3.7-flash)
+- [Anthropic release notes](https://platform.claude.com/docs/en/release-notes/overview)
+- [Claude Sonnet 5](https://platform.claude.com/docs/en/models/sonnet-5/whats-new-sonnet-5)

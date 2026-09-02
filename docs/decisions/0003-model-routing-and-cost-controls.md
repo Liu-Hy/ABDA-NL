@@ -18,7 +18,10 @@ Live checks on 2026-08-17 established the following provider reality:
 
 - The Azure Foundry catalog advertised newer Claude, GPT, DeepSeek, and Qwen models, but deployment probes for the new candidates returned `404 DeploymentNotFound`. The usable project deployments remained Claude Sonnet 4.6, GPT-5.4 mini, and GPT-5.5. Catalog visibility is therefore not treated as deployment availability.
 - Google released stable Gemini 3.7 Flash on 2026-08-13. It supports function calling and structured outputs, and OpenRouter exposed a privacy-compatible tool route during the live gate.
-- Anthropic prices Claude Sonnet 5 at an introductory $2 per million input tokens and $10 per million output tokens through 2026-08-31, followed by standard $3/$15 pricing. The catalog records the current direct price, while the OpenRouter route ceiling already uses the announced standard price.
+- Anthropic launched Claude Sonnet 5 at $2 per million input tokens and $10 per
+  million output tokens, then announced that this would remain its standard
+  price. The catalog records that direct price. The OpenRouter route ceiling
+  remains at the more conservative $3/$15 level.
 - OpenAI documents GPT-5.6 Luna, Terra, and Sol at $0.20/$1.20, $2/$12, and $5/$30 per million input/output tokens, respectively.
 - OpenRouter exposes model-specific provider routes, exact response cost, price ceilings, parameter compatibility filters, and data-collection filters. Its credit purchases add a 5.5 percent fee even though inference prices have no markup.
 
@@ -152,6 +155,16 @@ therefore remains non-public.
 
 Additional paid smoke tests established that GPT-5.6 Sol and DeepSeek V4 Pro could use the required chat and tool surfaces. They were not promoted after cheaper candidates passed the complete gate. GPT-5.6 Luna was throttled during the tool matrix. The tested Qwen 3.6 routes had no tool endpoint that also satisfied the required data-collection policy. These models remain cataloged for later reevaluation, not production fallback.
 
+On 2026-09-02, the public route facts were refreshed without making a paid
+provider call. OpenRouter still listed `google/gemini-3.7-flash`, two serving
+providers, the same $0.75/$3.75 per-million-token price, tool calling, and
+structured output support. Its current routing documentation still supports
+per-request `data_collection: deny` and `zdr: true`. Anthropic's release notes
+and current Sonnet 5 model page state that its $2/$10 launch price became the
+standard price. These checks did not change a selected route, request contract,
+or admission ceiling, so the previously completed ABDA quality gates remain the
+relevant behavioral evidence.
+
 ## Consequences
 
 The UI and API can report the actual model, provider, route, billing source, and project-accounted cost for each completed operation. Provider-specific credentials remain server-side during funded calls.
@@ -167,6 +180,8 @@ Expected failures use sanitized API responses. Missing trial credit returns HTTP
 - [Deploy and use Claude in Foundry](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-claude)
 - [Azure model lifecycle guidance](https://learn.microsoft.com/en-au/azure/ai-foundry/concepts/model-lifecycle-retirement?view=azureml-api-2)
 - [Anthropic model pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+- [Anthropic release notes](https://platform.claude.com/docs/en/release-notes/overview)
+- [Claude Sonnet 5](https://platform.claude.com/docs/en/models/sonnet-5/whats-new-sonnet-5)
 - [Google Gemini 3.7 Flash model](https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash)
 - [Google Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing)
 - [OpenAI GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
@@ -177,3 +192,4 @@ Expected failures use sanitized API responses. Missing trial credit returns HTTP
 - [OpenRouter usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting)
 - [OpenRouter fees](https://openrouter.ai/docs/faq)
 - [OpenRouter models API](https://openrouter.ai/api/v1/models)
+- [OpenRouter Gemini 3.7 Flash](https://openrouter.ai/google/gemini-3.7-flash)

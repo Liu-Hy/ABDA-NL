@@ -19,8 +19,8 @@ models:
   claude-sonnet-5:
     family: anthropic
     display_name: Claude Sonnet 5
-    # Introductory direct price through 2026-08-31. OpenRouter admission uses
-    # the announced standard $3/$15 price as its conservative ceiling.
+    # Anthropic made the launch price the standard price in August 2026.
+    # OpenRouter admission retains $3/$15 as a conservative ceiling.
     input_usd_per_million: "2.00"
     output_usd_per_million: "10.00"
     cache_read_usd_per_million: "0.20"

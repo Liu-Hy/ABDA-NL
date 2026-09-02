@@ -82,7 +82,7 @@ review behavior, latency, cost, and complete provider-call accounting.
 | CloudBank Claude Sonnet 4.6 | Current suite version 4 passed 48 of 48 cases, with 7,982 ms p95 wall time, zero provider or parser errors, and no OpenRouter spend. The raw artifact has SHA-256 `544f8017350244fe1d7d1d83de8840ac86c8303d4d47b441f6a6967bf99fcd7b`. | Balanced primary |
 | OpenRouter Gemini 3.7 Flash | Current suite version 4 passed 48 of 48 cases under per-request ZDR and no-data-collection enforcement, with 10,621 ms p95 wall time, zero provider or parser errors, and 3,627 microUSD average owner-accounted cost per case. The raw artifact has SHA-256 `cb2f4f37a2897ad1fc65732897cf549090ed9ab893685ee82a0104b8fbc1a215`. | Balanced outage fallback |
 | CloudBank GPT-5.4 mini | Complete evaluation passed 45 of 48. Repeated clean-review runs produced unnecessary warnings. | Economy remains hidden |
-| OpenRouter Claude Sonnet 5 | Complete evaluation passed 45 of 48 because of repeated false-positive review warnings. Its current $2/$10 direct price is introductory through 2026-08-31, while the route ceiling uses standard $3/$15 pricing. | Not promoted |
+| OpenRouter Claude Sonnet 5 | Complete evaluation passed 45 of 48 because of repeated false-positive review warnings. Anthropic made its $2/$10 launch price the standard direct price. The route keeps a conservative $3/$15 ceiling. | Not promoted |
 | New CloudBank Claude, GPT, DeepSeek, and Qwen candidates | Live project probes returned 404 for the configured candidate deployment names. Catalog visibility does not prove project deployment. | Await a real CloudBank deployment, then rerun the unchanged gate |
 
 The detailed routing decision and primary-source links are in
