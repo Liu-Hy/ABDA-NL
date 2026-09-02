@@ -1,10 +1,10 @@
 # Final public-service operator batch
 
-State: deploy the managed-boundary replacement before continuing this batch
+State: deploy the managed-boundary replacement, then pause for the capacity smoke
 
-Do not run the older helper below until this checkpoint is complete. It targets
-the superseded `3faf6eb` candidate. After the replacement and bounded capacity
-smoke pass, the remaining helper and identities will be refreshed.
+The remaining helper in this document is refreshed for the replacement image.
+Do not start its BYOK, privacy, rollback, promotion, or final-audit phases until
+the replacement receipt and bounded capacity smoke have both passed.
 
 The replacement application identity is:
 
@@ -43,11 +43,11 @@ session. The Azure alert deployment and its email-delivery test are already
 complete. Do not rerun the alerts phase unless the monitoring configuration
 changes.
 
-The current release identity is:
+The replacement release identity is:
 
-- application source commit: `3faf6ebd94c4dcb69fa36cb1aba481db15a9f973`
-- image digest: `sha256:78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d`
-- pilot revision: `abda-nl-stg-web--release-3faf6eb`
+- application source commit: `b873112040dbfe645683d1b5e7d9adb122173ed2`
+- image digest: `sha256:567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c`
+- pilot revision: `abda-nl-stg-web--secure-b873112`
 - public origin: `https://demo.abda-nl.org`
 
 Before running the final promotion, confirm production email capacity. The
@@ -66,9 +66,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='1ee512032aaebb3300ecb4dd18a18be16e90e97b'
+c='3d309826df74c105ccb536b381b5b2b9df2d6f6e'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='09532309a7c0d4da72cf8f408301f85fc41a2378f7e2679c8049a1b4edf823e7'
+s='be12ed5bb38c004f0f709176e88a4de419f5b169dede012ac3d566c0d9915e7a'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
