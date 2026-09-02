@@ -15,9 +15,14 @@ def test_codeql_workflow_is_python_only_pinned_and_least_privilege() -> None:
     assert text.count(f"@{CODEQL_SHA}") == 2
     assert "languages: python" in text
     assert "queries: security-extended" in text
+    assert "id: analyze" in text
+    assert "Require a clean security scan" in text
+    assert 'root.rglob("*.sarif")' in text
+    assert "CodeQL reported {findings} security finding(s)" in text
     assert "security-events: write" in text
     assert "contents: write" not in text
     assert "packages: write" not in text
     assert "id-token: write" not in text
     assert "pull-requests: write" not in text
     assert "branches:\n      - development" in text
+    assert "schedule:" not in text
