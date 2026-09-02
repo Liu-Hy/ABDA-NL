@@ -40,6 +40,13 @@ Dependabot-alert and secret-scanning-alert sets were both empty. The GitHub
 attestation verifier accepted the exact deployed digest against
 `Liu-Hy/ABDA-NL`.
 
+A separate read-only remote check confirmed that both `idaks/ABDA-NL:main`
+and `Liu-Hy/ABDA-NL:main` still point to paper-demo commit `e4be41c`, whose
+[iDAKS CI run 32413305836](https://github.com/idaks/ABDA-NL/actions/runs/32413305836)
+passed. Hosted-service work remains confined to the personal repository's
+`development` branch. This preserves the reviewed paper artifact while the
+service release proceeds independently.
+
 ## Replacement purpose
 
 The prior candidate allowed the local filesystem scenario-save route whenever

@@ -203,6 +203,28 @@ result: PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED
 ## 4. Rehearse rollback, promote, and run the final audit
 
 Proceed only after the BYOK, privacy, and hostname receipts above are present.
+Before starting this section, confirm the transactional-email plan that backs
+the Auth0 Resend provider:
+
+1. Sign in to the Resend account that owns `auth.abda-nl.org`.
+2. Open **Settings**, then **Billing**. The Billing page is the documented
+   place to view or change the subscription.
+3. For a 100-user public launch, use **Transactional Pro**, 50,000 emails per
+   month for $20 per month. It has no daily email limit. Do not select a
+   marketing plan, Scale, a dedicated IP, or an additional-domain add-on for
+   ABDA-NL. Transactional overages are also unnecessary for this launch size.
+4. Confirm that Billing shows the paid transactional plan. Do not copy payment
+   details into an operator receipt. The existing domain, API key, Auth0
+   provider configuration, and verified delivery evidence remain unchanged.
+
+The [Resend pricing page](https://resend.com/pricing?product=transactional)
+currently lists Free at 100 emails per day and Transactional Pro at $20 per
+month with no daily limit. The
+[Resend billing guide](https://resend.com/docs/dashboard/settings/billing)
+documents the **Settings**, **Billing** path. If the account remains on Free,
+do not run the 100-user promotion. Keep the ten-user pilot and stagger access
+until sender capacity is increased.
+
 Run these commands in order:
 
 ```bash
