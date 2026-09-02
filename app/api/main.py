@@ -21,6 +21,7 @@ import os
 import secrets
 import time
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
@@ -323,6 +324,18 @@ def _compute_state_bundle(scenario) -> dict:
     return compute_state_bundle(scenario)
 
 
+@lru_cache(maxsize=32)
+def _cached_managed_baseline_bundle(scenario_id: str) -> dict:
+    """Compile one immutable public example once per worker process."""
+    return _compute_state_bundle(_load_baseline(scenario_id))
+
+
+def _baseline_state_bundle(scenario_id: str, settings: Settings) -> dict:
+    if settings.is_managed_service:
+        return _cached_managed_baseline_bundle(scenario_id)
+    return _compute_state_bundle(_load_baseline(scenario_id))
+
+
 @app.get("/config", response_model=ConfigResponse)
 def get_config() -> ConfigResponse:
     return build_llm_config(llm_enabled=_read_llm_flag())
@@ -505,9 +518,11 @@ def list_scenarios() -> ScenarioListResponse:
 
 
 @app.get("/scenarios/{scenario_id}", response_model=StateResponse)
-def get_scenario(scenario_id: str) -> StateResponse:
-    scenario = _load_baseline(scenario_id)
-    return StateResponse(**_compute_state_bundle(scenario))
+def get_scenario(
+    scenario_id: str,
+    settings: Settings = Depends(get_settings),
+) -> StateResponse:
+    return StateResponse(**_baseline_state_bundle(scenario_id, settings))
 
 
 @app.post("/state", response_model=StateResponse)
@@ -524,6 +539,10 @@ def post_state(
         scope="state_compute",
         limit=settings.anonymous_requests_per_minute,
     )
+    if not payload.diff_ops:
+        return StateResponse(
+            **_baseline_state_bundle(payload.scenario_id, settings)
+        )
     baseline = _load_baseline(payload.scenario_id)
     ops = [op.model_dump() for op in payload.diff_ops]
     effective = apply_ops(baseline, ops)
@@ -946,8 +965,16 @@ def post_project_propose(
     )
 
 
-@app.post("/scenarios", response_model=SaveScenarioResponse, status_code=201)
-def post_save_scenario(request: SaveScenarioRequest) -> SaveScenarioResponse:
+@app.post(
+    "/scenarios",
+    response_model=SaveScenarioResponse,
+    status_code=201,
+    dependencies=[Depends(require_same_origin)],
+)
+def post_save_scenario(
+    request: SaveScenarioRequest,
+    settings: Settings = Depends(get_settings),
+) -> SaveScenarioResponse:
     """Save the current (baseline + diff_ops) state as a new scenario.
 
     Writes `examples/<save_as_id>/` with a diff-applied
@@ -965,7 +992,7 @@ def post_save_scenario(request: SaveScenarioRequest) -> SaveScenarioResponse:
       409 scenario_id_collision -- target exists and overwrite=false
       500 save_verification_failed -- post-write rebuild failed (rare)
     """
-    if get_settings().is_production:
+    if settings.is_managed_service:
         raise HTTPException(
             status_code=403,
             detail="filesystem saves are disabled; save this work as a private project",

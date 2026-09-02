@@ -128,6 +128,9 @@ Record:
       test, and public-readiness alert.
 - [ ] The public readiness test checks HTTP 200 and TLS from three regions, and
       a test notification reaches the monitored support mailbox.
+- [ ] The bounded public capacity smoke completes 40 readiness, 40 bundled
+      scenario, and 40 deterministic state requests at concurrency 20 with no
+      HTTP failure, response drift, or post-burst readiness loss.
 - [ ] OIDC callback codes and share fragments are absent from logs.
 - [ ] A previous compatible image has a documented rollback command.
 - [ ] PostgreSQL point-in-time restore ownership and the seven-day window are

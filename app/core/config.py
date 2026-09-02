@@ -84,6 +84,11 @@ class Settings:
         return self.environment == "production"
 
     @property
+    def is_managed_service(self) -> bool:
+        """Return whether the process serves a remotely managed deployment."""
+        return self.environment in {"staging", "production"}
+
+    @property
     def auth_enabled(self) -> bool:
         return self.auth_mode in {"dev", "oidc"}
 

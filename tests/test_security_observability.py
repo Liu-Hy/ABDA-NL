@@ -96,6 +96,20 @@ def test_azure_proxy_mode_rejects_malformed_rightmost_address():
     assert _client_subject(request, settings) == "client:10.42.0.7"
 
 
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    [
+        ("development", False),
+        ("test", False),
+        ("staging", True),
+        ("production", True),
+    ],
+)
+def test_managed_service_boundary(environment: str, expected: bool):
+    settings = replace(get_settings(), environment=environment)
+    assert settings.is_managed_service is expected
+
+
 def test_internal_metrics_are_low_cardinality_and_include_budget_totals(
     client: TestClient,
 ):

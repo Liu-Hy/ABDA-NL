@@ -7,12 +7,14 @@ structured error responses, and Popov baseline regression.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.core.config import get_settings
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -534,6 +536,58 @@ def test_save_scenario_happy_path(client: TestClient, save_sandbox):
     # Saved directory is on disk.
     assert (save_sandbox / "popov_user_copy" / "scenario.yaml").is_file()
     assert (save_sandbox / "popov_user_copy" / "corpus").is_dir()
+
+
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_managed_service_rejects_legacy_filesystem_save(
+    client: TestClient,
+    save_sandbox,
+    environment: str,
+):
+    managed_settings = replace(
+        get_settings(),
+        environment=environment,
+        public_base_url="https://demo.abda-nl.org",
+    )
+    app.dependency_overrides[get_settings] = lambda: managed_settings
+    try:
+        response = client.post(
+            "/scenarios",
+            headers={"Origin": "https://demo.abda-nl.org"},
+            json={
+                "source_id": "popov_v_hayashi",
+                "diff_ops": [],
+                "save_as_id": "must_not_be_written",
+                "title": "Must not be written",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+    assert response.status_code == 403
+    assert response.json()["detail"].startswith("filesystem saves are disabled")
+    assert not (save_sandbox / "must_not_be_written").exists()
+
+
+def test_legacy_filesystem_save_rejects_cross_site_request(
+    client: TestClient,
+    save_sandbox,
+):
+    response = client.post(
+        "/scenarios",
+        headers={
+            "Origin": "https://attacker.example",
+            "Sec-Fetch-Site": "cross-site",
+        },
+        json={
+            "source_id": "popov_v_hayashi",
+            "diff_ops": [],
+            "save_as_id": "cross_site_write",
+            "title": "Cross-site write",
+        },
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "cross_origin_request"
+    assert not (save_sandbox / "cross_site_write").exists()
 
 
 def test_save_scenario_with_diff_ops_applied(client: TestClient, save_sandbox):
@@ -1449,6 +1503,89 @@ def test_post_state_empty_ops_equivalent_to_get_scenario(client: TestClient):
         "/state", json={"scenario_id": "medical_ppi", "diff_ops": []}
     ).json()
     assert g == p
+
+
+def test_managed_baseline_cache_reuses_only_immutable_state(
+    client: TestClient,
+    monkeypatch,
+):
+    from app.api import main as main_module
+
+    original_compute = main_module._compute_state_bundle
+    calls = 0
+
+    def counted_compute(scenario):
+        nonlocal calls
+        calls += 1
+        return original_compute(scenario)
+
+    managed_settings = replace(
+        get_settings(),
+        environment="staging",
+        public_base_url="https://demo.abda-nl.org",
+    )
+    monkeypatch.setattr(main_module, "_compute_state_bundle", counted_compute)
+    main_module._cached_managed_baseline_bundle.cache_clear()
+    app.dependency_overrides[get_settings] = lambda: managed_settings
+    try:
+        first = client.get("/scenarios/popov_v_hayashi")
+        second = client.get("/scenarios/popov_v_hayashi")
+        empty_state = client.post(
+            "/state",
+            json={"scenario_id": "popov_v_hayashi", "diff_ops": []},
+            headers={"Origin": "https://demo.abda-nl.org"},
+        )
+        changed_state = client.post(
+            "/state",
+            json={
+                "scenario_id": "popov_v_hayashi",
+                "diff_ops": [
+                    {
+                        "op": "toggle-assumption",
+                        "id": "equity_compromise_open",
+                    }
+                ],
+            },
+            headers={"Origin": "https://demo.abda-nl.org"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+        main_module._cached_managed_baseline_bundle.cache_clear()
+
+    assert first.status_code == 200
+    assert second.json() == first.json()
+    assert empty_state.json() == first.json()
+    assert changed_state.status_code == 200
+    assert changed_state.json() != first.json()
+    assert calls == 2
+
+
+def test_development_baselines_remain_uncached(
+    client: TestClient,
+    monkeypatch,
+):
+    from app.api import main as main_module
+
+    original_compute = main_module._compute_state_bundle
+    calls = 0
+
+    def counted_compute(scenario):
+        nonlocal calls
+        calls += 1
+        return original_compute(scenario)
+
+    development_settings = replace(get_settings(), environment="development")
+    monkeypatch.setattr(main_module, "_compute_state_bundle", counted_compute)
+    main_module._cached_managed_baseline_bundle.cache_clear()
+    app.dependency_overrides[get_settings] = lambda: development_settings
+    try:
+        assert client.get("/scenarios/fire_prevention").status_code == 200
+        assert client.get("/scenarios/fire_prevention").status_code == 200
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+        main_module._cached_managed_baseline_bundle.cache_clear()
+
+    assert calls == 2
 
 
 def test_self_referential_rule_is_admitted_with_bounded_args(client: TestClient):

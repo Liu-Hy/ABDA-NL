@@ -71,7 +71,8 @@ browser tabs from silently overwriting one another.
 - Session cookies contain only a signed internal user identifier. Provider
   access tokens and user API keys never belong in browser cookies.
 - The legacy filesystem save remains available for local paper-demo workflows,
-  but production rejects it and directs users to private projects.
+  but managed staging and production deployments reject it and direct users to
+  private projects.
 - Share tokens cannot be recovered after creation. A lost token is replaced by
   creating a new share link.
 - Raising the free-trial budget requires an explicit database and deployment

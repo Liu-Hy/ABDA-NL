@@ -89,7 +89,7 @@ does not place the ID token in the signed browser session cookie.
 
 Anonymous example reading remains available. Account, project, trial, share,
 and MCP mutations require same-origin browser requests or scoped MCP bearer
-credentials. Production rejects the legacy filesystem save API.
+credentials. Staging and production reject the legacy filesystem save API.
 
 The application limits request bodies before parsing them. PostgreSQL-backed
 rate buckets apply separate limits to anonymous traffic, mutations, and LLM
