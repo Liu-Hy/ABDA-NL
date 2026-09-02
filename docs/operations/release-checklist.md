@@ -27,6 +27,9 @@ Record:
 - [ ] Ruff, migration parity, and the complete pytest suite pass.
 - [ ] CI audits both runtime and development locks for known Python package
       vulnerabilities on Python 3.10 and 3.13.
+- [ ] The pinned CodeQL `security-extended` workflow completes for the exact
+      source commit, its SARIF clean check passes, and the development ref has
+      zero open code-scanning alerts.
 - [ ] The runtime and development locks regenerate without a diff on their
       native Python 3.10 and 3.13 interpreters.
 - [ ] All Bicep modules and parameter files compile with the pinned Bicep CLI.
@@ -42,6 +45,8 @@ Record:
       `ghcr.io/OWNER/abda-nl@sha256:...` URI, not any tag.
 - [ ] Anonymous pull from GHCR succeeds before Azure deployment.
 - [ ] A staged-content secret scan is clean.
+- [ ] `SECURITY.md` points to a working private vulnerability-reporting form,
+      and repository Private Vulnerability Reporting is enabled.
 
 ## Model and budget gates
 
