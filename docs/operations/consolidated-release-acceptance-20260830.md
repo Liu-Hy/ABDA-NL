@@ -23,11 +23,12 @@ returned the same digest during an independent anonymous manifest check.
 
 Later operator, documentation, catalog-comment, and test-harness commits do not
 change any model value or production application behavior in this image. The
-latest repository checkpoint, commit `ae94194`, passed all seven CI jobs in run
-`33651002436`, including both browser engines, both Python versions, PostgreSQL,
-deployment artifacts, and secret scanning. The deployed candidate therefore
-remains the release artifact while its acceptance tooling continues from the
-newer repository checkpoint.
+latest repository checkpoint, commit `7f2c0d0`, passed all seven CI jobs in run
+`33653660379`, including both browser engines, both Python versions, PostgreSQL,
+deployment artifacts, and secret scanning. This checkpoint also adds the COMMA
+demonstration playbook and a deterministic regression for its Popov v. Hayashi
+what-if sequence. The deployed candidate therefore remains the release artifact
+while its acceptance tooling continues from the newer repository checkpoint.
 
 ## Verified live evidence
 
