@@ -1,6 +1,6 @@
 # Final public-service operator batch
 
-State: replacement, capacity, and public browser Gates passed; run the pilot audit
+State: replacement, capacity, public browser, and BYOK Gates passed; run the pilot audit
 
 Runbook revision: `managed-boundary-20260902.3`
 
@@ -91,6 +91,9 @@ result: RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 ```
 
 ## 1. Complete the BYOK browser Gate
+
+Status: completed on 2026-09-02 for the managed-boundary image. Do not rerun
+unless the application image, BYOK handling, routing, or accounting changes.
 
 Use the normal browser account that has already activated the funded pilot.
 Start the Gate:

@@ -85,8 +85,10 @@ Record:
 - [ ] A BYOK request succeeds for each advertised provider with a disposable
       test key where practical.
 - [ ] The live public-origin BYOK gate records a successful OpenRouter request,
-      unchanged trial and emergency ledgers, unchanged private project state,
-      browser reload and sign-out clearing, and zero key-like log indicators.
+      zero BYOK trial charge, an unchanged emergency ledger, exact
+      reconciliation of any separate concurrent funded traffic, unchanged
+      private project state, browser reload and sign-out clearing, and zero
+      key-like log indicators.
 - [ ] Reload and sign-out remove the browser's BYOK value.
 - [ ] Database, logs, cookies, URLs, project exports, and share records contain
       no BYOK secret.

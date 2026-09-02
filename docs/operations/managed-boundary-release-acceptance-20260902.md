@@ -1,6 +1,6 @@
 # Managed-boundary release acceptance, 2026-09-02
 
-State: image deployed; capacity and public browser acceptance verified; pilot audit pending
+State: capacity, public browser, and BYOK acceptance verified; pilot audit pending
 
 This record binds every remaining public-service acceptance result to one
 application artifact. Historical evidence remains useful for unchanged
@@ -128,23 +128,42 @@ motion and privacy and terms links before registration also passed:
 result: LIVE_PUBLIC_CHROMIUM_FIREFOX_ACCESSIBILITY_VERIFIED
 ```
 
+Gate 10 revision 5 then resumed the already completed browser checks without
+making another model request. It confirmed one OpenRouter Gemini 3.7 Flash
+BYOK action, key clearing after reload, and key clearing after sign-out and
+sign-in. The audit found three model events in the bounded window: two BYOK
+result logs and one separate CloudBank-funded result. The funded result cost
+was 18,437 microUSD, exactly matching the trial-spend increase. BYOK therefore
+charged zero trial credit, while the independently capped emergency OpenRouter
+ledger remained unchanged at 149 microUSD. Count-only logs found zero provider
+key, API-key field, email, bearer, or other secret indicators. No Azure
+configuration changed:
+
+```text
+result: LIVE_BYOK_PRIVACY_AND_ACCOUNTING_ACCEPTANCE_VERIFIED
+```
+
+The original revision 4 Gate rejected any global trial-spend change. That
+assumption was unsuitable for a public multi-user service because an unrelated
+funded request can settle during the same observation window. Revision 5
+retains the strict BYOK and emergency-ledger boundaries, but accepts concurrent
+trial usage only when separate CloudBank result logs explain the exact cost.
+
 ## Ordered remaining acceptance
 
 1. Gate 9 repeats external HTTPS, protected-metrics, accounting, 30-day log
    retention, and count-only sensitive-pattern checks against the replacement.
-2. Gate 10 completes one public-origin OpenRouter BYOK request, reload clearing,
-   sign-out clearing, unchanged funded ledgers, and zero key-like log matches.
-3. Gate 11 exports and deletes one blocked disposable account after the bounded
+2. Gate 11 exports and deletes one blocked disposable account after the bounded
    waiting period.
-4. Gate 16 verifies the separately configured apex and `www` redirect without
+3. Gate 16 verifies the separately configured apex and `www` redirect without
    capturing the `demo`, `login`, or `auth` hostnames.
-5. The compatible rollback rehearsal changes only the image, accepts the prior
+4. The compatible rollback rehearsal changes only the image, accepts the prior
    candidate, and restores this candidate automatically.
-6. After outbound email capacity is confirmed, Gate 12 promotes the trial to
+5. After outbound email capacity is confirmed, Gate 12 promotes the trial to
    100 users and $500 total while enabling the separately capped $500
    OpenRouter outage route.
-7. The final Gate 9 audit verifies the exact promoted revision, caps, idle
-    reservations, public endpoints, protected metrics, and sanitized logs.
+6. The final Gate 9 audit verifies the exact promoted revision, caps, idle
+   reservations, public endpoints, protected metrics, and sanitized logs.
 
 The current commands and confirmation boundaries are in
 [the final operator batch](final-operator-batch.md). A result is complete only
@@ -160,6 +179,6 @@ readiness gates rather than application deployment gates.
 
 ## Current stop boundary
 
-Run the read-only pilot Gate 9 audit next. Do not run BYOK, privacy, rollback,
-promotion, or the final public audit until its replacement-image receipt is
-recorded.
+Run the read-only pilot Gate 9 audit next. BYOK is complete. Do not run privacy,
+rollback, promotion, or the final public audit until the replacement-image
+audit receipt is recorded.
