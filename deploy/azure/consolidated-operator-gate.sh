@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='2'
-ABDA_OPERATOR_SOURCE_COMMIT='4e572a53bcce88119179533906fb71d97bc746c6'
+ABDA_OPERATOR_SCRIPT_REVISION='3'
+ABDA_OPERATOR_SOURCE_COMMIT='9919911c0bb280e0a9e5762f50c4a7da89efbc0a'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -75,7 +75,7 @@ abda_operator_gate_metadata() {
     alerts)
       printf '%s\n' \
         'deploy/azure/gate14_observability_alerts.py' \
-        '9108f50ee11cb03bfdc431b348fea2d72a6a4b5092e629ae12c80b6e3c3903c9' \
+        'b2fe0ab9433583e7c5d2ff6fa5a1ea0fee37aa51ba3435d4bd00e5d9c5003c05' \
         'python3' \
         'Creates or updates only six reviewed Azure Monitor resources.'
       ;;
