@@ -186,6 +186,10 @@ and zero sensitive-pattern log counts.
 
 ## 5. Conference hardware batch
 
+Use the
+[`COMMA 2026 demonstration playbook`](comma-2026-demo-playbook.md) for the
+rehearsed narrative, role split, preflight, and recovery ladder.
+
 These checks require the actual presentation hardware and can be performed
 closer to COMMA without blocking the public-service accounting promotion:
 
