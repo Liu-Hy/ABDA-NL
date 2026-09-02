@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='5'
-ABDA_OPERATOR_SOURCE_COMMIT='b93ebbec106bf016f23beb9d4ac37ecd5121bc0f'
+ABDA_OPERATOR_SCRIPT_REVISION='6'
+ABDA_OPERATOR_SOURCE_COMMIT='9835f8068614532a7be20fdde7049245cf415bd6'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -63,7 +63,7 @@ abda_operator_gate_metadata() {
     byok)
       printf '%s\n' \
         'deploy/azure/gate10-byok-browser-acceptance.sh' \
-        'f1a04508eb218887f52a62f57d66c540e3c6f6bd29e806e817486c8d4279b072' \
+        'e372c39b3141957da6ab4aa39bd3936eb9000f18899d204952e02b29e74a7844' \
         'bash' \
         'One browser BYOK call, no Azure configuration change.'
       ;;

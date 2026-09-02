@@ -15,7 +15,7 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
     source = SCRIPT.read_text(encoding="utf-8")
     for expected in (
-        "b93ebbec106bf016f23beb9d4ac37ecd5121bc0f",
+        "9835f8068614532a7be20fdde7049245cf415bd6",
         "gate18-managed-boundary-image.sh",
         "gate9-observability-audit.sh",
         "gate10-byok-browser-acceptance.sh",
@@ -25,7 +25,7 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
         "gate12-public-budget-promotion.sh",
         "e9bcbc6a54867ee37d7849c1d35cedc8a7b345bf946f612413211b78594d24af",
         "27b923a061135fb29fbd9e2481a66f54e483b2f65c68ee63aab8331f76764a2d",
-        "f1a04508eb218887f52a62f57d66c540e3c6f6bd29e806e817486c8d4279b072",
+        "e372c39b3141957da6ab4aa39bd3936eb9000f18899d204952e02b29e74a7844",
         "31571966b1f1bc589dc7f1f050e62c3bd99afef4a07f6c9df5a78d13b12091cd",
         "b2fe0ab9433583e7c5d2ff6fa5a1ea0fee37aa51ba3435d4bd00e5d9c5003c05",
         "e816ea15b771c38f42055655b7ed8b1bf4f9cbc8edc167d74c0ebf06dce859b3",
