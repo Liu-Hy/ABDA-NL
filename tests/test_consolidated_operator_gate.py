@@ -15,7 +15,7 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
     source = SCRIPT.read_text(encoding="utf-8")
     for expected in (
-        "9919911c0bb280e0a9e5762f50c4a7da89efbc0a",
+        "d86715ec08d5a9ec10fb738a15ee956f8436f653",
         "gate15-consolidated-release-image.sh",
         "gate9-observability-audit.sh",
         "gate10-byok-browser-acceptance.sh",
@@ -23,6 +23,9 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
         "gate14_observability_alerts.py",
         "gate10-rollback-rehearsal.sh",
         "gate12-public-budget-promotion.sh",
+        "final-audit",
+        "gate_arguments=(--pilot)",
+        "gate_arguments=(--public)",
         "ALL_CONSOLIDATED_OPERATOR_GATES_VERIFIED",
     ):
         assert expected in source
@@ -59,6 +62,7 @@ def test_operator_helper_help_is_local_and_lists_ordered_phases():
             "alerts",
             "rollback",
             "promote",
+            "final-audit",
         )
     ]
     assert positions == sorted(positions)

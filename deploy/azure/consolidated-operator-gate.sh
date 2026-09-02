@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='3'
-ABDA_OPERATOR_SOURCE_COMMIT='9919911c0bb280e0a9e5762f50c4a7da89efbc0a'
+ABDA_OPERATOR_SCRIPT_REVISION='4'
+ABDA_OPERATOR_SOURCE_COMMIT='d86715ec08d5a9ec10fb738a15ee956f8436f653'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -35,6 +35,8 @@ Phases, in required order:
   alerts    Deploy and test the bounded Azure Monitor resources
   rollback  Rehearse the compatible image rollback and automatic restoration
   promote   Promote 10 users to 100 and enable bounded outage fallback
+  final-audit
+            Run the read-only audit against the promoted public limits
 
 There is intentionally no run-all phase. Browser and cloud mutations retain
 their individual confirmations and recovery boundaries.
@@ -54,7 +56,7 @@ abda_operator_gate_metadata() {
     audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        'ceed8f2eb5e31bb568844de3675f2bf43b6cf2da2b766d89d8fb4e581ed43523' \
+        '7bfccaa8422a8ab3709e826a9e592b7062a9777a3f4503713584853533e2dea6' \
         'bash' \
         'Read-only Azure, HTTPS, release, and count-only log checks.'
       ;;
@@ -92,6 +94,13 @@ abda_operator_gate_metadata() {
         'e117c6a50227d80ee5322a6b596eb6d890cacc6c56de1dd276fde69b0217a39e' \
         'bash' \
         'Changes only three reviewed trial and fallback settings.'
+      ;;
+    final-audit)
+      printf '%s\n' \
+        'deploy/azure/gate9-observability-audit.sh' \
+        '7bfccaa8422a8ab3709e826a9e592b7062a9777a3f4503713584853533e2dea6' \
+        'bash' \
+        'Read-only audit of the promoted 100-user public boundary.'
       ;;
     *)
       return 1
@@ -148,7 +157,7 @@ abda_operator_main() {
 
   if [[ "$phase" == 'verify' ]]; then
     local gate=''
-    for gate in deploy audit byok privacy alerts rollback promote; do
+    for gate in deploy audit byok privacy alerts rollback promote final-audit; do
       abda_operator_download "$gate" >/dev/null
       printf 'verified: %s\n' "$gate"
     done
@@ -174,7 +183,16 @@ abda_operator_main() {
   }
   printf 'phase: %s\n' "$phase"
   printf 'boundary: %s\n\n' "$boundary"
-  "$interpreter" "$gate_path"
+  local gate_arguments=()
+  case "$phase" in
+    audit)
+      gate_arguments=(--pilot)
+      ;;
+    final-audit)
+      gate_arguments=(--public)
+      ;;
+  esac
+  "$interpreter" "$gate_path" "${gate_arguments[@]}"
 }
 
 trap abda_operator_cleanup EXIT

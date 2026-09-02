@@ -70,7 +70,9 @@ for an earlier application identity.
 9. Promote the verified pilot to 100 users, $5 per user, $500 total trial
    allocation, and the independently capped OpenRouter outage route with Gate
    12.
-10. Run one final external release check and retain its content-free receipt.
+10. Run Gate 9 in public mode and retain its content-free receipt. It must
+    recognize 100 users, the $500 trial allocation, enabled bounded outage
+    fallback, and the exact promoted revision.
 
 Steps 1, 2, 3, and 5 are complete for this candidate. Steps 4 and 6 through 10
 remain.
@@ -87,8 +89,9 @@ command for each cloud phase. It downloads each underlying Gate from one exact
 source commit, checks its SHA-256 before execution, and prints the mutation
 boundary first. Run its `verify` phase before `deploy`.
 
-Operator helper revision 3 is recorded at commit `5927c9a`. It pins the repaired
-Alert Gate at commit `9919911` and verifies every downloaded Gate before use.
+Operator helper revision 4 pins all Gate sources at commit `d86715e`. Its
+`audit` phase checks the ten-user pilot. Its `final-audit` phase checks the
+promoted public limits, so a valid promotion is no longer rejected as drift.
 
 The helper intentionally has no run-all option. Deployment, disposable-account
 deletion, monitoring resources, rollback, and budget promotion keep their own
