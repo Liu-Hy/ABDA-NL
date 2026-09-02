@@ -235,7 +235,8 @@ result: PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED
 
 ## 4. Rehearse rollback, promote, and run the final audit
 
-Proceed only after the BYOK, privacy, and hostname receipts above are present.
+Proceed only after the hardened deployment and audit, BYOK, privacy, and
+hostname receipts above are present.
 Before starting this section, confirm the transactional-email plan that backs
 the Auth0 Resend provider:
 
