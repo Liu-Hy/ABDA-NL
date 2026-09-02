@@ -140,6 +140,31 @@ def _save_browser_evidence(page, name: str) -> None:
     )
 
 
+def _wait_for_demo_ready(page) -> None:
+    page.wait_for_function(
+        """() => {
+            const name = document.querySelector('#scenario-name');
+            const conclusion = document.querySelector(
+              '#conclusions-list .conclusion-card',
+            );
+            return name
+              && name.textContent.trim()
+              && name.textContent.trim() !== 'Loading...'
+              && conclusion;
+        }"""
+    )
+
+
+def _goto_ready_demo(page, url: str) -> None:
+    page.goto(url, wait_until="domcontentloaded")
+    _wait_for_demo_ready(page)
+
+
+def _reload_ready_demo(page) -> None:
+    page.reload(wait_until="domcontentloaded")
+    _wait_for_demo_ready(page)
+
+
 def test_assistant_markdown_is_inert_in_real_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 
@@ -158,7 +183,7 @@ def test_assistant_markdown_is_inert_in_real_browser(live_browser_server):
         browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
         page = browser.new_page()
         try:
-            page.goto(live_browser_server, wait_until="networkidle")
+            _goto_ready_demo(page, live_browser_server)
             page.evaluate(
                 """payload => {
                     window.__abdaXssFired = 0;
@@ -222,7 +247,7 @@ def test_oidc_logout_uses_fetch_origin_under_no_referrer_policy(
             ),
         )
         try:
-            page.goto(live_browser_server, wait_until="networkidle")
+            _goto_ready_demo(page, live_browser_server)
             page.evaluate(
                 """() => {
                     state.authSession = {
@@ -261,7 +286,7 @@ def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
         browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
         page = browser.new_page()
         try:
-            page.goto(live_browser_server, wait_until="networkidle")
+            _goto_ready_demo(page, live_browser_server)
             page.evaluate("window.__abdaXssFired = 0")
             page.locator("#workspace-btn").click()
             page.locator("#dev-login-email").fill("content-safety@example.edu")
@@ -335,7 +360,7 @@ def test_research_workspace_in_browser(live_browser_server):
         page.on("pageerror", lambda error: page_errors.append(str(error)))
 
         try:
-            page.goto(live_browser_server, wait_until="networkidle")
+            _goto_ready_demo(page, live_browser_server)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
             assert page.locator("#scenario-select option").count() >= 6
             expect(page.locator("#conclusions-list .conclusion-card").first).to_be_visible()
@@ -424,7 +449,7 @@ def test_research_workspace_in_browser(live_browser_server):
             shared_context = browser.new_context(viewport={"width": 1440, "height": 900})
             try:
                 shared_page = shared_context.new_page()
-                shared_page.goto(share_url, wait_until="networkidle")
+                _goto_ready_demo(shared_page, share_url)
                 expect(shared_page.locator("#context-indicator")).to_have_text(
                     "Shared read-only"
                 )
@@ -505,7 +530,7 @@ def test_research_workspace_in_browser(live_browser_server):
             _axe_report(page, "ASPIC view")
             page.keyboard.press("Escape")
 
-            page.reload(wait_until="networkidle")
+            _reload_ready_demo(page)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
             page.locator("#ai-access-btn").click()
             expect(page.locator("#byok-api-key")).to_have_value("")
@@ -513,7 +538,7 @@ def test_research_workspace_in_browser(live_browser_server):
             page.keyboard.press("Escape")
 
             page.set_viewport_size({"width": 720, "height": 450})
-            page.reload(wait_until="networkidle")
+            _reload_ready_demo(page)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
             zoom_overflow = page.evaluate(
                 "Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) "
@@ -523,7 +548,7 @@ def test_research_workspace_in_browser(live_browser_server):
             _axe_report(page, "200 percent zoom equivalent")
 
             page.set_viewport_size({"width": 390, "height": 844})
-            page.reload(wait_until="networkidle")
+            _reload_ready_demo(page)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
             overflow = page.evaluate(
                 "Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) "
