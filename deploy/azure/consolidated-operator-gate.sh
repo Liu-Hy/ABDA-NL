@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='8'
-ABDA_OPERATOR_SOURCE_COMMIT='d7883de84d792b5bb93d3e744e8048cf38553a81'
+ABDA_OPERATOR_SCRIPT_REVISION='9'
+ABDA_OPERATOR_SOURCE_COMMIT='e6d3d96a9ce84fd8b5022f39b31c323a2ca979f7'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -71,7 +71,7 @@ abda_operator_gate_metadata() {
     privacy)
       printf '%s\n' \
         'deploy/azure/gate11-privacy-acceptance.sh' \
-        '31571966b1f1bc589dc7f1f050e62c3bd99afef4a07f6c9df5a78d13b12091cd' \
+        'a7a772e6ec850c51456205120fbdf0b93b0fc3fdf60bdbaee3567f3dc3816a6e' \
         'bash' \
         'Changes only one disposable account after exact confirmations.'
       ;;
