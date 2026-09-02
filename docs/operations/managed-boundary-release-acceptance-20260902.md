@@ -29,6 +29,17 @@ alter the immutable application image. Complete CI run
 [33660132569](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33660132569)
 covered that bundle and runbook, with all seven jobs successful.
 
+The later evidence-only checkpoint is commit `1fb674c`, with complete CI run
+[33661284038](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33661284038).
+All seven jobs passed again. A read-only GitHub API check on 2026-09-02 also
+confirmed that the personal service repository remained public, used `main`
+as its default branch, enforced the seven required CI checks on an up-to-date
+branch even for administrators, and kept secret scanning, push protection,
+Dependabot security updates, and vulnerability alerts enabled. The open
+Dependabot-alert and secret-scanning-alert sets were both empty. The GitHub
+attestation verifier accepted the exact deployed digest against
+`Liu-Hy/ABDA-NL`.
+
 ## Replacement purpose
 
 The prior candidate allowed the local filesystem scenario-save route whenever
