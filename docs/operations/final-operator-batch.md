@@ -1,10 +1,42 @@
 # Final public-service operator batch
 
-State: paused while the managed-boundary replacement candidate is prepared
+State: deploy the managed-boundary replacement before continuing this batch
 
-Do not run the pinned helper below. It targets the superseded `3faf6eb`
-candidate. A replacement helper and immutable image identity will be recorded
-here after the managed filesystem boundary and bounded capacity smoke pass.
+Do not run the older helper below until this checkpoint is complete. It targets
+the superseded `3faf6eb` candidate. After the replacement and bounded capacity
+smoke pass, the remaining helper and identities will be refreshed.
+
+The replacement application identity is:
+
+- application source commit: `b873112040dbfe645683d1b5e7d9adb122173ed2`
+- image digest: `sha256:567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c`
+- target revision: `abda-nl-stg-web--secure-b873112`
+
+Use a new or existing Azure Cloud Shell session. Do not reuse an older `p`
+variable. Paste this complete block once:
+
+```bash
+u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
+c='eb7d5e9f5533b4a66f5f4c7ba3587ccf0d310659'
+f='deploy/azure/gate18-managed-boundary-image.sh'
+s='e9bcbc6a54867ee37d7849c1d35cedc8a7b345bf946f612413211b78594d24af'
+g="$(mktemp /tmp/abda-managed-boundary.XXXXXX)"
+curl -fsSL "$u/$c/$f" -o "$g"
+printf '%s  %s\n' "$s" "$g" | sha256sum --check
+bash "$g"
+```
+
+The checksum must report `OK`. At the one confirmation prompt, type
+`DEPLOY_ABDA_MANAGED_BOUNDARY` once and press Enter once. Cloud Shell may not
+display the typed characters. Wait for the next numbered step instead of
+typing the phrase again. Required success ends with:
+
+```text
+result: MANAGED_BOUNDARY_IMAGE_DEPLOYED_CAPACITY_SMOKE_REQUIRED
+```
+
+Stop at that receipt and send it to Codex. The bounded capacity smoke runs
+from Delta and requires no browser or Cloud Shell work from the operator.
 
 This runbook collects the remaining account and browser work into one operator
 session. The Azure alert deployment and its email-delivery test are already
