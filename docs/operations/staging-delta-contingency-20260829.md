@@ -48,6 +48,12 @@ A second read-only Delta check on 2026-08-30 again passed `demo doctor` and
 ready, and public configuration responses from loopback port 8765. The running
 demo was not restarted or reconfigured.
 
+A third read-only check on 2026-09-02 produced the same result on
+`dt-login03.delta.ncsa.illinois.edu`. The tracked launcher still uses
+`make run PORT={port} HOST={host}`, both health endpoints returned their exact
+success payloads, and `/config` exposed only the public model catalog and
+feature flags. The check did not restart or reconfigure the running demo.
+
 ## Boundary not yet claimed
 
 This server-side check does not prove the laptop path. Before the conference,

@@ -21,6 +21,14 @@ built the production container, pulled the exact digest anonymously, passed the
 container smoke test, and published GitHub build provenance. The registry also
 returned the same digest during an independent anonymous manifest check.
 
+Later operator, documentation, catalog-comment, and test-harness commits do not
+change any model value or production application behavior in this image. The
+latest repository checkpoint, commit `ae94194`, passed all seven CI jobs in run
+`33651002436`, including both browser engines, both Python versions, PostgreSQL,
+deployment artifacts, and secret scanning. The deployed candidate therefore
+remains the release artifact while its acceptance tooling continues from the
+newer repository checkpoint.
+
 ## Verified live evidence
 
 The following checks were completed against the same immutable candidate at

@@ -10,7 +10,7 @@ the `demo` DNS record.
 
 ## Current evidence
 
-On 2026-08-30, authoritative and recursive DNS returned no address for the apex
+On 2026-09-02, authoritative and recursive DNS returned no address for the apex
 or `www`, while `https://demo.abda-nl.org/health/ready` returned HTTP 200.
 The missing apex response is therefore a DNS and redirect configuration gap,
 not an application outage.
