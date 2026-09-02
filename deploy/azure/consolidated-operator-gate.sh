@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='6'
-ABDA_OPERATOR_SOURCE_COMMIT='9835f8068614532a7be20fdde7049245cf415bd6'
+ABDA_OPERATOR_SCRIPT_REVISION='7'
+ABDA_OPERATOR_SOURCE_COMMIT='c4e474f9f9d090d9d3a7679197c98d6b6ac77ea8'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -28,10 +28,11 @@ Usage: consolidated-operator-gate.sh PHASE
 
 Phases, in required order:
   verify    Download and hash-check every pinned gate without running one
-  deploy    Deploy only the managed-boundary application image
+  deploy    Deploy only the source-security application image
   audit     Run the read-only release and sanitized-log audit
   byok      Run the browser-assisted, no-storage BYOK acceptance
   privacy   Run or resume the disposable-account privacy acceptance
+  hostname  Verify the Cloudflare redirect and public DNS boundary
   alerts    Deploy and test the bounded Azure Monitor resources
   rollback  Rehearse the compatible image rollback and automatic restoration
   promote   Promote 10 users to 100 and enable bounded outage fallback
@@ -48,15 +49,15 @@ abda_operator_gate_metadata() {
   case "$phase" in
     deploy)
       printf '%s\n' \
-        'deploy/azure/gate18-managed-boundary-image.sh' \
-        'e9bcbc6a54867ee37d7849c1d35cedc8a7b345bf946f612413211b78594d24af' \
+        'deploy/azure/gate19-source-security-image.sh' \
+        '56f1c612bf3c97e5d332f023cea50c05a8b411e4ab173515a80b6a683eb1cb55' \
         'bash' \
         'Changes only the existing web image and revision suffix.'
       ;;
     audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        '27b923a061135fb29fbd9e2481a66f54e483b2f65c68ee63aab8331f76764a2d' \
+        '25b8606ec105e6d628eef941d66568e84c13a0a3f7ba40a14db7557225cdc3f0' \
         'bash' \
         'Read-only Azure, HTTPS, release, and count-only log checks.'
       ;;
@@ -74,6 +75,13 @@ abda_operator_gate_metadata() {
         'bash' \
         'Changes only one disposable account after exact confirmations.'
       ;;
+    hostname)
+      printf '%s\n' \
+        'deploy/cloudflare/gate16_public_hostname_boundary.py' \
+        'bb528ff37e21a0b4219e5ced7f3f1e5ffbd2ea2324f2cdcda1fdc6e010f94d7c' \
+        'python3' \
+        'Read-only HTTPS and DNS checks for the friendly public hostnames.'
+      ;;
     alerts)
       printf '%s\n' \
         'deploy/azure/gate14_observability_alerts.py' \
@@ -84,21 +92,21 @@ abda_operator_gate_metadata() {
     rollback)
       printf '%s\n' \
         'deploy/azure/gate10-rollback-rehearsal.sh' \
-        'e816ea15b771c38f42055655b7ed8b1bf4f9cbc8edc167d74c0ebf06dce859b3' \
+        'c4e2f56d6172a64b22a21894fe29d94836bb3ceb8b9af54aa73fb4e705c68398' \
         'bash' \
         'Changes only the web image twice and restores the candidate.'
       ;;
     promote)
       printf '%s\n' \
         'deploy/azure/gate12-public-budget-promotion.sh' \
-        '43ef8ad7955a4916415cdb645661e00aa67edbe05df9b6f4211afe45fc29df73' \
+        'a5330f5e0a452ebdbecfe7df5a9c90cd52145b602192713a9e6dc7a9a13e19ac' \
         'bash' \
         'Changes only three reviewed trial and fallback settings.'
       ;;
     final-audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        '27b923a061135fb29fbd9e2481a66f54e483b2f65c68ee63aab8331f76764a2d' \
+        '25b8606ec105e6d628eef941d66568e84c13a0a3f7ba40a14db7557225cdc3f0' \
         'bash' \
         'Read-only audit of the promoted 100-user public boundary.'
       ;;
@@ -157,7 +165,7 @@ abda_operator_main() {
 
   if [[ "$phase" == 'verify' ]]; then
     local gate=''
-    for gate in deploy audit byok privacy alerts rollback promote final-audit; do
+    for gate in deploy audit byok privacy hostname alerts rollback promote final-audit; do
       abda_operator_download "$gate" >/dev/null
       printf 'verified: %s\n' "$gate"
     done
