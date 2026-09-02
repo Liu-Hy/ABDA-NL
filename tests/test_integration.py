@@ -9,6 +9,7 @@ from app.abda_bridge import (
     build_attacks,
     init_engine,
 )
+from app.scenario.catalog import load_bundled_scenario
 from app.scenario.diff_ops import apply
 from app.scenario.loader import scenario_from_dict, scenario_to_rule_collection
 from app.scenario.serialize import serialize_af
@@ -51,6 +52,22 @@ def test_toggling_assumption_flips_conclusion_label():
     # Baseline must not be mutated.
     assert baseline.assumptions["a"].active is True
 
+
+def test_comma_demo_equity_what_if_is_reproducible():
+    baseline = load_bundled_scenario("popov_v_hayashi")
+    baseline_labels = _compute(baseline)["labels_by_proposition"]
+    assert baseline_labels["popov_legit_claim"] == "accepted"
+    assert baseline_labels["hayashi_legit_claim"] == "accepted"
+    assert baseline_labels["equal_division"] == "absent"
+
+    changed = apply(
+        baseline,
+        [{"op": "toggle-assumption", "id": "equity_compromise_open"}],
+    )
+    changed_labels = _compute(changed)["labels_by_proposition"]
+    assert changed_labels["popov_legit_claim"] == "accepted"
+    assert changed_labels["hayashi_legit_claim"] == "accepted"
+    assert changed_labels["equal_division"] == "undecided"
 
 def test_undercut_targeting_inactive_rule_is_inert():
     # r1 is inactive, so it's omitted from the RuleCollection. r2 concludes
