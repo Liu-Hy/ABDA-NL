@@ -123,8 +123,19 @@ Success ends with:
 result: LIVE_BYOK_PRIVACY_AND_ACCOUNTING_ACCEPTANCE_VERIFIED
 ```
 
-The Gate confirms that neither project-funded ledger changed and that no
-key-like value appeared in the count-only log audit.
+The Gate confirms that the BYOK request did not charge the trial or the
+owner-funded emergency ledger, and that no key-like value appeared in the
+count-only log audit. If unrelated funded traffic occurs during the same
+window, the Gate accepts it only when separate funded-route result logs account
+for the exact trial-spend change.
+
+If the browser answer succeeded but the Gate reports that the call was not
+confirmed, do not make another model request. Rerun `bash "$p" byok` in the
+same Cloud Shell session. The Gate will report `resume_phase: awaiting_call`
+from its protected three-hour baseline. Enter
+`BYOK_OPENROUTER_CALL_CONFIRMED`, then complete only the reload and sign-out
+clearing checks. An empty or mistyped confirmation cannot spend funds or
+change Azure, and it does not discard the saved baseline.
 
 ## 2. Prepare and delete one disposable privacy account
 

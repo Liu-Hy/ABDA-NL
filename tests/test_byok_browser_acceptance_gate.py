@@ -248,8 +248,27 @@ def test_metrics_snapshot_and_comparison_prove_independent_ledgers(tmp_path: Pat
         changed_snapshot,
         tmp_path / "changed-result.txt",
     )
+    assert result.returncode == 0, result.stderr
+    assert "trial_spent_delta_microusd: 1" in (
+        tmp_path / "changed-result.txt"
+    ).read_text(encoding="utf-8")
+
+    protected_values = dict(after_values)
+    protected_values["abda_openrouter_spent_microusd"] += 1
+    protected_metrics = tmp_path / "protected.metrics"
+    protected_snapshot = tmp_path / "protected.json"
+    _write_metrics(protected_metrics, protected_values)
+    assert _run_function(
+        "abda_byok_metrics_snapshot", protected_metrics, protected_snapshot
+    ).returncode == 0
+    result = _run_function(
+        "abda_byok_compare_metrics",
+        state,
+        protected_snapshot,
+        tmp_path / "protected-result.txt",
+    )
     assert result.returncode != 0
-    assert "abda_trial_spent_microusd" in result.stderr
+    assert "abda_openrouter_spent_microusd" in result.stderr
 
 
 def test_resume_state_records_each_irreversible_browser_checkpoint(tmp_path: Path) -> None:
@@ -276,11 +295,18 @@ def test_resume_state_records_each_irreversible_browser_checkpoint(tmp_path: Pat
 
 
 def test_log_summary_requires_route_evidence_and_zero_secret_indicators(tmp_path: Path) -> None:
+    before = _metric_values()
+    state = tmp_path / "state.json"
+    state.write_text(json.dumps({"metrics_before": before}), encoding="utf-8")
+    after = tmp_path / "after.json"
+    after.write_text(json.dumps({**before, "abda_llm_usage_events_total": 11}), encoding="utf-8")
     valid = tmp_path / "valid.json"
     valid.write_text(
         json.dumps(
             {
                 "byok_route_logs": 2,
+                "funded_route_logs": 0,
+                "funded_logged_cost_microusd": 0,
                 "provider_key_like": 0,
                 "api_key_field_like": 0,
                 "email_like": 0,
@@ -289,14 +315,47 @@ def test_log_summary_requires_route_evidence_and_zero_secret_indicators(tmp_path
         ),
         encoding="utf-8",
     )
-    result = _run_function("abda_byok_validate_log_summary", valid)
+    result = _run_function("abda_byok_validate_log_summary", valid, state, after)
     assert result.returncode == 0, result.stderr
+    assert "concurrent_funded_usage: absent" in result.stdout
+
+    concurrent_after = tmp_path / "concurrent-after.json"
+    concurrent_after.write_text(
+        json.dumps(
+            {
+                **before,
+                "abda_trial_spent_microusd": before["abda_trial_spent_microusd"] + 17,
+                "abda_llm_usage_events_total": 12,
+            }
+        ),
+        encoding="utf-8",
+    )
+    concurrent = tmp_path / "concurrent.json"
+    concurrent_payload = json.loads(valid.read_text(encoding="utf-8"))
+    concurrent_payload["funded_route_logs"] = 1
+    concurrent_payload["funded_logged_cost_microusd"] = 17
+    concurrent.write_text(json.dumps(concurrent_payload), encoding="utf-8")
+    result = _run_function(
+        "abda_byok_validate_log_summary", concurrent, state, concurrent_after
+    )
+    assert result.returncode == 0, result.stderr
+    assert "concurrent_funded_usage: separately_reconciled" in result.stdout
+
+    unexplained = tmp_path / "unexplained.json"
+    unexplained_payload = dict(concurrent_payload)
+    unexplained_payload["funded_logged_cost_microusd"] = 16
+    unexplained.write_text(json.dumps(unexplained_payload), encoding="utf-8")
+    result = _run_function(
+        "abda_byok_validate_log_summary", unexplained, state, concurrent_after
+    )
+    assert result.returncode != 0
+    assert "not explained" in result.stderr
 
     missing = tmp_path / "missing.json"
     payload = json.loads(valid.read_text(encoding="utf-8"))
     payload["byok_route_logs"] = 0
     missing.write_text(json.dumps(payload), encoding="utf-8")
-    result = _run_function("abda_byok_validate_log_summary", missing)
+    result = _run_function("abda_byok_validate_log_summary", missing, state, after)
     assert result.returncode != 0
     assert "WAITING_FOR_BYOK_LOG_INGESTION" in result.stderr
 
@@ -304,7 +363,7 @@ def test_log_summary_requires_route_evidence_and_zero_secret_indicators(tmp_path
     payload["byok_route_logs"] = 1
     payload["provider_key_like"] = 1
     unsafe.write_text(json.dumps(payload), encoding="utf-8")
-    result = _run_function("abda_byok_validate_log_summary", unsafe)
+    result = _run_function("abda_byok_validate_log_summary", unsafe, state, after)
     assert result.returncode != 0
     assert "unsafe entries" in result.stderr
 

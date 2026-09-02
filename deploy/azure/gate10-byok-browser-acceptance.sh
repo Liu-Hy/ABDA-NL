@@ -4,7 +4,7 @@
 # key. The gate uses protected aggregate metrics and count-only logs. Its small
 # content-free state file makes every post-call check safe to resume.
 
-ABDA_BYOK_SCRIPT_REVISION='4'
+ABDA_BYOK_SCRIPT_REVISION='5'
 ABDA_BYOK_APPLICATION_SOURCE_COMMIT='b873112040dbfe645683d1b5e7d9adb122173ed2'
 ABDA_BYOK_IMAGE_SHA256='567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c'
 ABDA_BYOK_EXPECTED_REVISION='abda-nl-stg-web--secure-b873112'
@@ -440,15 +440,20 @@ with open(state_path, encoding="utf-8") as handle:
 with open(after_path, encoding="utf-8") as handle:
     after = json.load(handle)
 event_name = "abda_llm_usage_events_total"
+trial_spent_name = "abda_trial_spent_microusd"
 for name, value in before.items():
-    if name != event_name and after.get(name) != value:
+    if name not in {event_name, trial_spent_name} and after.get(name) != value:
         raise SystemExit(f"STOP: BYOK changed protected aggregate metric {name}")
+trial_spent_delta = after[trial_spent_name] - before[trial_spent_name]
+if trial_spent_delta < 0:
+    raise SystemExit("STOP: the funded trial spent total decreased")
 delta = after[event_name] - before[event_name]
-if not 1 <= delta <= 4:
+if not 1 <= delta <= 64:
     raise SystemExit("STOP: the browser action did not create a bounded model-event increase")
 descriptor = os.open(result_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
     handle.write(f"llm_usage_event_delta: {delta}\n")
+    handle.write(f"trial_spent_delta_microusd: {trial_spent_delta}\n")
     handle.write(f"trial_spent_microusd: {after['abda_trial_spent_microusd']}\n")
     handle.write(f"openrouter_emergency_spent_microusd: {after['abda_openrouter_spent_microusd']}\n")
 PY
@@ -540,20 +545,29 @@ PY
 
 abda_byok_validate_log_summary() {
   local path=$1
-  python3 - "$path" <<'PY'
+  local state_path=$2
+  local after_path=$3
+  python3 - "$path" "$state_path" "$after_path" <<'PY'
 import json
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as handle:
+summary_path, state_path, after_path = sys.argv[1:]
+with open(summary_path, encoding="utf-8") as handle:
     row = json.load(handle)
-names = (
+with open(state_path, encoding="utf-8") as handle:
+    before = json.load(handle)["metrics_before"]
+with open(after_path, encoding="utf-8") as handle:
+    after = json.load(handle)
+count_names = (
     "byok_route_logs",
+    "funded_route_logs",
+    "funded_logged_cost_microusd",
     "provider_key_like",
     "api_key_field_like",
     "email_like",
     "bearer_like",
 )
-for name in names:
+for name in count_names:
     value = row.get(name)
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise SystemExit(f"STOP: Log Analytics returned an invalid {name} count")
@@ -561,11 +575,38 @@ if row["byok_route_logs"] < 1:
     raise SystemExit("WAITING_FOR_BYOK_LOG_INGESTION")
 if row["byok_route_logs"] > 12:
     raise SystemExit("STOP: the BYOK log window contains too many accepted-route entries")
-for name in names[1:]:
+for name in (
+    "provider_key_like",
+    "api_key_field_like",
+    "email_like",
+    "bearer_like",
+):
     if row[name] != 0:
         raise SystemExit(f"STOP: Log Analytics found {row[name]} unsafe entries")
-for name in names:
+trial_delta = (
+    after["abda_trial_spent_microusd"]
+    - before["abda_trial_spent_microusd"]
+)
+funded_cost = row["funded_logged_cost_microusd"]
+if trial_delta:
+    if row["funded_route_logs"] < 1:
+        raise SystemExit(
+            "STOP: funded trial spend changed without a separate funded-route result"
+        )
+    if funded_cost != trial_delta:
+        raise SystemExit(
+            "STOP: funded trial spend is not explained by separate funded-route results"
+        )
+elif funded_cost:
+    raise SystemExit(
+        "STOP: funded-route result cost was logged without matching trial settlement"
+    )
+for name in count_names:
     print(f"{name}: {row[name]}")
+print(
+    "concurrent_funded_usage: "
+    + ("separately_reconciled" if trial_delta else "absent")
+)
 PY
 }
 
@@ -712,7 +753,7 @@ abda_byok_main() {
   printf 'browser_signout_cleared_key: confirmed\n'
 
   ABDA_BYOK_SECTION='aggregate accounting verification'
-  printf '\n[6/7] Proving funded and emergency ledgers were unchanged...\n'
+  printf '\n[6/7] Checking BYOK isolation and classifying concurrent funded usage...\n'
   abda_byok_fetch_metrics "$ABDA_BYOK_ROOT/after"
   abda_byok_compare_metrics \
     "$ABDA_BYOK_STATE_PATH" "$ABDA_BYOK_ROOT/after-snapshot.json" \
@@ -739,8 +780,13 @@ ContainerAppConsoleLogs_CL
     and ContainerAppName_s == 'abda-nl-stg-web'
     and RevisionName_s == '$ABDA_BYOK_EXPECTED_REVISION'
 | extend Message=tostring(Log_s)
+| extend IsModelResult=(Message contains 'chat_turn request_id=' or Message contains 'propose_turn request_id=')
+| extend ResultRoute=extract('route=([^ ]+)', 1, Message)
+| extend ResultCost=tolong(extract('cost_microusd=([0-9]+)', 1, Message))
 | summarize
-    byok_route_logs=countif(Message contains 'route=byok:openrouter:gemini-3.7-flash'),
+    byok_route_logs=countif(IsModelResult and ResultRoute == 'byok:openrouter:gemini-3.7-flash'),
+    funded_route_logs=countif(IsModelResult and ResultRoute startswith 'cloudbank-'),
+    funded_logged_cost_microusd=sumif(ResultCost, IsModelResult and ResultRoute startswith 'cloudbank-'),
     provider_key_like=countif(tolower(Message) matches regex '(sk-[a-z0-9_-]{20,}|aiza[a-z0-9_-]{20,})'),
     api_key_field_like=countif(tolower(Message) contains 'api_key' or tolower(Message) contains 'x-goog-api-key' or tolower(Message) contains 'authorization:'),
     email_like=countif(Message matches regex '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}'),
@@ -793,7 +839,10 @@ PY
         "$ABDA_BYOK_ROOT/log-api-response.json" "$ABDA_BYOK_ROOT/log-summary.json"
       local summary_status=0
       set +e
-      abda_byok_validate_log_summary "$ABDA_BYOK_ROOT/log-summary.json" \
+      abda_byok_validate_log_summary \
+        "$ABDA_BYOK_ROOT/log-summary.json" \
+        "$ABDA_BYOK_STATE_PATH" \
+        "$ABDA_BYOK_ROOT/after-snapshot.json" \
         >"$ABDA_BYOK_ROOT/log-result.txt" 2>"$ABDA_BYOK_ROOT/log-validation.err"
       summary_status=$?
       set -e
@@ -837,7 +886,8 @@ PY
   printf 'provider: openrouter\n'
   printf 'model: gemini-3.7-flash\n'
   printf 'billing_source: byok\n'
-  printf 'trial_ledger_unchanged: true\n'
+  printf 'byok_trial_charge_microusd: 0\n'
+  printf 'concurrent_trial_usage_reconciled: true\n'
   printf 'openrouter_emergency_ledger_unchanged: true\n'
   printf 'browser_reload_cleared_key: confirmed\n'
   printf 'browser_signout_cleared_key: confirmed\n'
