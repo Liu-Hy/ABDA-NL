@@ -62,7 +62,7 @@ def summarize_phase(
     observations: list[Observation],
     *,
     expected_sha256: str,
-    p95_limit_ms: int,
+    p95_limit_ms: int | None,
 ) -> PhaseSummary:
     if len(observations) != REQUESTS_PER_PHASE:
         raise CapacitySmokeError(
@@ -89,7 +89,7 @@ def summarize_phase(
         p95_ms=_percentile(elapsed, 0.95),
         maximum_ms=max(elapsed),
     )
-    if summary.p95_ms > p95_limit_ms:
+    if p95_limit_ms is not None and summary.p95_ms > p95_limit_ms:
         raise CapacitySmokeError(
             f"{name} p95 latency {summary.p95_ms} ms exceeds {p95_limit_ms} ms"
         )
@@ -187,26 +187,45 @@ async def run_smoke(
         if final_ready.status_code != 200 or final_ready.json() != EXPECTED_READY:
             raise CapacitySmokeError("the public readiness check failed after the burst")
 
-    return [
+    summaries = [
         summarize_phase(
             "readiness",
             ready_observations,
             expected_sha256=expected_ready_sha256,
-            p95_limit_ms=READY_P95_LIMIT_MS,
+            p95_limit_ms=None,
         ),
         summarize_phase(
             "scenario",
             scenario_observations,
             expected_sha256=expected_scenario_sha256,
-            p95_limit_ms=DETERMINISTIC_P95_LIMIT_MS,
+            p95_limit_ms=None,
         ),
         summarize_phase(
             "state",
             state_observations,
             expected_sha256=expected_scenario_sha256,
-            p95_limit_ms=DETERMINISTIC_P95_LIMIT_MS,
+            p95_limit_ms=None,
         ),
     ]
+    limits = {
+        "readiness": READY_P95_LIMIT_MS,
+        "scenario": DETERMINISTIC_P95_LIMIT_MS,
+        "state": DETERMINISTIC_P95_LIMIT_MS,
+    }
+    violations = [
+        item for item in summaries if item.p95_ms > limits[item.name]
+    ]
+    if violations:
+        failed = ", ".join(
+            f"{item.name} p95 {item.p95_ms} ms exceeds {limits[item.name]} ms"
+            for item in violations
+        )
+        observed = "; ".join(
+            f"{item.name} p50={item.p50_ms} p95={item.p95_ms} max={item.maximum_ms} ms"
+            for item in summaries
+        )
+        raise CapacitySmokeError(f"{failed}; all observations: {observed}")
+    return summaries
 
 
 def main() -> int:
