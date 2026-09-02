@@ -21,6 +21,7 @@ import os
 import secrets
 import time
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -333,7 +334,7 @@ def _cached_managed_baseline_bundle(scenario_id: str) -> dict:
 
 def _baseline_state_bundle(scenario_id: str, settings: Settings) -> dict:
     if settings.is_managed_service:
-        return _cached_managed_baseline_bundle(scenario_id)
+        return deepcopy(_cached_managed_baseline_bundle(scenario_id))
     return _compute_state_bundle(_load_baseline(scenario_id))
 
 

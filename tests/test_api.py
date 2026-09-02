@@ -1530,6 +1530,10 @@ def test_managed_baseline_cache_reuses_only_immutable_state(
     try:
         first = client.get("/scenarios/popov_v_hayashi")
         second = client.get("/scenarios/popov_v_hayashi")
+        isolated_copy = main_module._baseline_state_bundle(
+            "popov_v_hayashi", managed_settings
+        )
+        isolated_copy["scenario"]["title"] = "Poisoned local copy"
         empty_state = client.post(
             "/state",
             json={"scenario_id": "popov_v_hayashi", "diff_ops": []},
@@ -1555,6 +1559,7 @@ def test_managed_baseline_cache_reuses_only_immutable_state(
     assert first.status_code == 200
     assert second.json() == first.json()
     assert empty_state.json() == first.json()
+    assert empty_state.json()["scenario"]["title"] != "Poisoned local copy"
     assert changed_state.status_code == 200
     assert changed_state.json() != first.json()
     assert calls == 2
