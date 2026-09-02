@@ -16,6 +16,7 @@ import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings, get_settings
+from app.core.safe_logging import exception_diagnostic
 from app.db.session import get_session_factory
 from app.llm.catalog import (
     ModelCatalog,
@@ -407,8 +408,14 @@ class MeteredClient:
                             release_llm_call(session, reservation, event=event)
                     else:
                         record_llm_event(session, event)
-            except Exception:  # noqa: BLE001
-                log.exception("llm_failure_accounting_failed route=%s", self.route)
+            except Exception as accounting_exc:  # noqa: BLE001
+                diagnostic = exception_diagnostic(accounting_exc)
+                log.error(
+                    "llm_failure_accounting_failed route=%s exception=%s location=%s",
+                    self.route,
+                    diagnostic.kind,
+                    diagnostic.location,
+                )
             if spend_reservation is not None:
                 if failed_cost:
                     self.spend_cap.settle(spend_reservation, failed_cost)

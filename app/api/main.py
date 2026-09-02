@@ -171,6 +171,7 @@ from app.scenario.loader import load_scenario, scenario_from_dict
 from app.scenario.save import save_scenario
 from app.scenario.state import compute_state_bundle
 from app.core.config import Settings, get_settings
+from app.core.safe_logging import exception_diagnostic
 from app.db.session import database_is_ready, initialize_database
 from app.mcp.server import create_mcp_runtime, mcp_http_app
 from app.services.projects import (
@@ -262,10 +263,12 @@ async def _request_context(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception as exc:
-        log.exception(
-            "request_unhandled request_id=%s exception=%s",
+        diagnostic = exception_diagnostic(exc)
+        log.error(
+            "request_unhandled request_id=%s exception=%s location=%s",
             request.state.request_id,
-            type(exc).__name__,
+            diagnostic.kind,
+            diagnostic.location,
         )
         response = JSONResponse(
             status_code=500,

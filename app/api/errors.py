@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from app.abda_bridge import ArgumentConstructionError
 from app.api.models import ErrorDetail, ErrorResponse
+from app.core.safe_logging import exception_diagnostic
 from app.scenario.diff_ops import DiffOpError
 from app.scenario.catalog import ScenarioNotFoundError
 from app.scenario.loader import ScenarioValidationError
@@ -116,10 +117,12 @@ async def _request_validation_handler(
 
 async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     request_id = getattr(request.state, "request_id", None)
-    log.exception(
-        "request_unhandled request_id=%s exception=%s",
+    diagnostic = exception_diagnostic(exc)
+    log.error(
+        "request_unhandled request_id=%s exception=%s location=%s",
         request_id,
-        type(exc).__name__,
+        diagnostic.kind,
+        diagnostic.location,
     )
     return JSONResponse(
         status_code=500,

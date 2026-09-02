@@ -32,6 +32,7 @@ from app.api.llm_access import (
 )
 from app.api.models import DiffOp, LLMRequestOptions
 from app.core.config import get_settings
+from app.core.safe_logging import exception_diagnostic
 from app.db.models import Project, User
 from app.db.session import get_session_factory
 from app.llm.chat_service import run_turn
@@ -201,7 +202,13 @@ def _tool_boundary(operation: str) -> Iterator[None]:
     except ValueError as exc:
         raise MCPToolUserError(str(exc)) from exc
     except Exception as exc:
-        log.exception("MCP tool failed operation=%s", operation)
+        diagnostic = exception_diagnostic(exc)
+        log.error(
+            "MCP tool failed operation=%s exception=%s location=%s",
+            operation,
+            diagnostic.kind,
+            diagnostic.location,
+        )
         raise MCPToolUserError(
             "ABDA-NL could not complete this operation. Try again later."
         ) from exc
