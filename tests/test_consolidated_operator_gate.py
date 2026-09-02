@@ -15,7 +15,7 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
     source = SCRIPT.read_text(encoding="utf-8")
     for expected in (
-        "7093c87034242f06b986eec84487b2cc87cd8054",
+        "8717cfdd1fadde48874b76ad8ab0be9477f4d738",
         "gate19-source-security-image.sh",
         "gate9-observability-audit.sh",
         "gate10-byok-browser-acceptance.sh",
@@ -24,14 +24,14 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
         "gate14_observability_alerts.py",
         "gate10-rollback-rehearsal.sh",
         "gate12-public-budget-promotion.sh",
-        "56f1c612bf3c97e5d332f023cea50c05a8b411e4ab173515a80b6a683eb1cb55",
-        "f67abb753fd23fd47624bad57f09c75a6355be6c805a9254e15cf45df9549dcb",
+        "3ffb0e7a2c1f42627c45c530d6dcfb289f4afed47ed1849ca7dedffe0e00ed4e",
+        "59db2e3f304fcd8dfc7fadad87c25d68dbe45b0e17440b9a7277467e24bf7857",
         "e372c39b3141957da6ab4aa39bd3936eb9000f18899d204952e02b29e74a7844",
-        "c3b439b40754ed9b98f38b78050fcd7eb71d86d74e727aec417b6c433b0529b4",
+        "3de116749fb7fa3631df0f3e115eb60756782834bc9a47c9aa20db9af0e78197",
         "bb528ff37e21a0b4219e5ced7f3f1e5ffbd2ea2324f2cdcda1fdc6e010f94d7c",
         "b2fe0ab9433583e7c5d2ff6fa5a1ea0fee37aa51ba3435d4bd00e5d9c5003c05",
-        "c4e2f56d6172a64b22a21894fe29d94836bb3ceb8b9af54aa73fb4e705c68398",
-        "a5330f5e0a452ebdbecfe7df5a9c90cd52145b602192713a9e6dc7a9a13e19ac",
+        "a1a41ff17038894a255c4175b06c44422b6887e09f47c36f5b66a91845039273",
+        "712f0206fc330249e15d0d59793ad9a6e5c317a6fc752b6f2dccfa384c2bb04d",
         "final-audit",
         "gate_arguments=(--pilot)",
         "gate_arguments=(--public)",

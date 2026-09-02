@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='10'
-ABDA_OPERATOR_SOURCE_COMMIT='7093c87034242f06b986eec84487b2cc87cd8054'
+ABDA_OPERATOR_SCRIPT_REVISION='11'
+ABDA_OPERATOR_SOURCE_COMMIT='8717cfdd1fadde48874b76ad8ab0be9477f4d738'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -50,14 +50,14 @@ abda_operator_gate_metadata() {
     deploy)
       printf '%s\n' \
         'deploy/azure/gate19-source-security-image.sh' \
-        '56f1c612bf3c97e5d332f023cea50c05a8b411e4ab173515a80b6a683eb1cb55' \
+        '3ffb0e7a2c1f42627c45c530d6dcfb289f4afed47ed1849ca7dedffe0e00ed4e' \
         'bash' \
         'Changes only the existing web image and revision suffix.'
       ;;
     audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        'f67abb753fd23fd47624bad57f09c75a6355be6c805a9254e15cf45df9549dcb' \
+        '59db2e3f304fcd8dfc7fadad87c25d68dbe45b0e17440b9a7277467e24bf7857' \
         'bash' \
         'Read-only Azure, HTTPS, release, and count-only log checks.'
       ;;
@@ -71,7 +71,7 @@ abda_operator_gate_metadata() {
     privacy)
       printf '%s\n' \
         'deploy/azure/gate11-privacy-acceptance.sh' \
-        'c3b439b40754ed9b98f38b78050fcd7eb71d86d74e727aec417b6c433b0529b4' \
+        '3de116749fb7fa3631df0f3e115eb60756782834bc9a47c9aa20db9af0e78197' \
         'bash' \
         'Changes only one disposable account after exact confirmations.'
       ;;
@@ -92,21 +92,21 @@ abda_operator_gate_metadata() {
     rollback)
       printf '%s\n' \
         'deploy/azure/gate10-rollback-rehearsal.sh' \
-        'c4e2f56d6172a64b22a21894fe29d94836bb3ceb8b9af54aa73fb4e705c68398' \
+        'a1a41ff17038894a255c4175b06c44422b6887e09f47c36f5b66a91845039273' \
         'bash' \
         'Changes only the web image twice and restores the candidate.'
       ;;
     promote)
       printf '%s\n' \
         'deploy/azure/gate12-public-budget-promotion.sh' \
-        'a5330f5e0a452ebdbecfe7df5a9c90cd52145b602192713a9e6dc7a9a13e19ac' \
+        '712f0206fc330249e15d0d59793ad9a6e5c317a6fc752b6f2dccfa384c2bb04d' \
         'bash' \
         'Changes only three reviewed trial and fallback settings.'
       ;;
     final-audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        'f67abb753fd23fd47624bad57f09c75a6355be6c805a9254e15cf45df9549dcb' \
+        '59db2e3f304fcd8dfc7fadad87c25d68dbe45b0e17440b9a7277467e24bf7857' \
         'bash' \
         'Read-only audit of the promoted 100-user public boundary.'
       ;;
