@@ -118,6 +118,29 @@ def test_operator_bootstrap_is_owner_controlled_and_secret_safe():
     assert "ischool.illinois.edu" not in example_environment
 
 
+def test_postgres_recovery_is_private_new_server_and_reviewed_cutover():
+    operations = ROOT / "docs" / "operations"
+    recovery = (operations / "database-recovery.md").read_text(encoding="utf-8")
+    deployment = (operations / "public-deployment.md").read_text(encoding="utf-8")
+    checklist = (operations / "release-checklist.md").read_text(encoding="utf-8")
+    playbook = (operations / "comma-2026-demo-playbook.md").read_text(
+        encoding="utf-8"
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    normalized_recovery = " ".join(recovery.split())
+
+    assert "Source server: `abda-nl-stg-postgres-bgjhpbgw`" in recovery
+    assert "Native backup retention: 7 days" in recovery
+    assert "Every point-in-time restore creates a new server" in recovery
+    assert "Do not select public access" in normalized_recovery
+    assert "Cutover is a separate maintenance event" in recovery
+    assert "az postgres flexible-server delete" not in recovery
+    assert "database-recovery.md" in deployment
+    assert "database-recovery.md" in checklist
+    assert "database-recovery.md" in playbook
+    assert "docs/operations/database-recovery.md" in readme
+
+
 def test_azure_deploys_only_the_public_digest_pinned_ghcr_image():
     infrastructure = (AZURE / "infra.bicep").read_text(encoding="utf-8")
     application = (AZURE / "app.bicep").read_text(encoding="utf-8")

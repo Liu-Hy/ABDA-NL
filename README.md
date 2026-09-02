@@ -201,6 +201,7 @@ email OIDC, and an explicit migration job. Operator documentation is tracked in:
 - [Funded model promotion](docs/operations/model-promotion.md)
 - [Staging MCP client acceptance](docs/operations/staging-mcp-client-acceptance.md)
 - [Privacy request operations](docs/operations/privacy-requests.md)
+- [PostgreSQL recovery](docs/operations/database-recovery.md)
 - [Public and COMMA release checklist](docs/operations/release-checklist.md)
 - [COMMA 2026 demonstration playbook](docs/operations/comma-2026-demo-playbook.md)
 - [Public security and operations decision](docs/decisions/0006-public-service-security-and-operations.md)

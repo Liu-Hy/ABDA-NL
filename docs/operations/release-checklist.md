@@ -140,8 +140,10 @@ Record:
       HTTP failure, response drift, or post-burst readiness loss.
 - [ ] OIDC callback codes and share fragments are absent from logs.
 - [ ] A previous compatible image has a documented rollback command.
-- [ ] PostgreSQL point-in-time restore ownership and the seven-day window are
-      understood by at least two team members.
+- [ ] At least two team members have reviewed the
+      [PostgreSQL recovery runbook](database-recovery.md), can identify the
+      source server and seven-day point-in-time window, and understand that a
+      restore creates a separate private server before any controlled cutover.
 
 ## Accessibility and browser gates
 

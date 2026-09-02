@@ -123,6 +123,12 @@ Database, identity-integrity, authorization, or accounting uncertainty is not
 a reason to bypass a guard. Disable new funded use after the talk if necessary
 and continue only with a deterministic instance.
 
+Database recovery is an incident operation, not a live-demo action. Before the
+conference, Haoyang and one technical reviewer should complete the content-free
+tabletop in the [PostgreSQL recovery runbook](database-recovery.md). During the
+talk, use the deterministic fallback instead of attempting a restore or
+database cutover.
+
 ## Operator preflight
 
 On the presentation day, the operator checks these from unprojected devices:

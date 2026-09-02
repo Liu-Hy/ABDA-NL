@@ -502,11 +502,12 @@ Repeat every acceptance check against
 
 ## Updates and rollback
 
-The current staging image-only transition is pinned in the
-[2026-08-29 release-candidate checkpoint](staging-release-candidate-20260829.md)
-and guarded by `deploy/azure/gate6-release-candidate-image.sh`. That gate is
-specific to its recorded old and target digests. Do not reuse it for a later
-release by editing values in Cloud Shell.
+The active staging image-only transition is pinned in the
+[source-security checkpoint](source-security-checkpoint-20260902.md) and
+guarded by `deploy/azure/gate19-source-security-image.sh`. It moves only from
+the recorded managed-boundary image to the attested source-security image. The
+older numbered image gates remain historical evidence. Do not reuse one for a
+later release by editing values in Cloud Shell.
 
 The current staging rollback rehearsal is separately pinned in
 `deploy/azure/gate10-rollback-rehearsal.sh`. It recognizes the current,
@@ -520,7 +521,7 @@ provider routing did not change.
 The final capacity change is separately guarded by
 `deploy/azure/gate12-public-budget-promotion.sh`. Run it only after the release
 audit, rollback rehearsal, MCP, BYOK, and disposable-account privacy acceptance
-are complete. It accepts only the restored shared-view image and the safely
+are complete. It accepts only the restored source-security image and the safely
 idle ten-user pilot. Its one Azure mutation changes exactly these values:
 
 - `ABDA_TRIAL_MAX_USERS` from 10 to 100
@@ -558,9 +559,11 @@ compatible with the current schema. Schema changes should therefore remain
 backward-compatible across at least one release.
 
 Azure PostgreSQL keeps seven days of backups in this deployment. A point-in-time
-restore creates a new server. Validate the restored server privately, rerun the
-migration job against it, and only then update the application database secret.
-Do not overwrite or delete the original server during investigation.
+restore creates a new billable server and never overwrites the source. Use the
+[PostgreSQL recovery runbook](database-recovery.md) to select a reviewed UTC
+restore point, preserve private networking, validate the new server without a
+public cutover, and separate restoration from any later application-secret
+change. Do not overwrite or delete the original server during investigation.
 
 If the public service fails during COMMA, keep the public status message simple,
 disable new trial activations if accounting is uncertain, and use the tested
@@ -580,6 +583,8 @@ their safety checks.
 - [PostgreSQL Flexible Server access management](https://learn.microsoft.com/en-us/azure/postgresql/security/security-access-control)
 - [PostgreSQL default privileges](https://www.postgresql.org/docs/current/sql-alterdefaultprivileges.html)
 - [Azure PostgreSQL Flexible Server limits](https://learn.microsoft.com/en-us/azure/postgresql/configure-maintain/concepts-limits)
+- [Azure PostgreSQL backup and restore](https://learn.microsoft.com/en-us/azure/postgresql/backup-restore/concepts-backup-restore)
+- [Azure PostgreSQL custom restore point](https://learn.microsoft.com/en-us/azure/postgresql/backup-restore/how-to-restore-custom-restore-point)
 - [SQLAlchemy engine pool configuration](https://docs.sqlalchemy.org/en/20/core/engines.html)
 - [Bicep parameter environment variables](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/bicep-functions-parameters-file)
 - [Secure Bicep parameters](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/scenarios-secrets)

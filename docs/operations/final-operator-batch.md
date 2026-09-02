@@ -287,7 +287,7 @@ The final audit is read-only. It verifies the promoted revision, public caps,
 idle reservations, protected metrics, HTTPS behavior, 30-day log retention,
 and zero sensitive-pattern log counts.
 
-## 5. Conference hardware batch
+## 5. Conference and team readiness batch
 
 Use the
 [`COMMA 2026 demonstration playbook`](comma-2026-demo-playbook.md) for the
@@ -312,6 +312,9 @@ closer to COMMA without blocking the public-service accounting promotion:
    `/config` response.
 6. Complete two narrated dry runs using the public site, then rehearse the
    deterministic local or Delta fallback without a model provider.
+7. With Haoyang and one technical reviewer, complete the content-free tabletop
+   in the [PostgreSQL recovery runbook](database-recovery.md). Do not create a
+   restored server for this review.
 
 Record only content-free receipts and observations. Never project or retain an
 API key, OTP, session cookie, share token, MCP token, Auth0 secret, or private
