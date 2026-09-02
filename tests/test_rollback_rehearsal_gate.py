@@ -14,16 +14,16 @@ GATE = ROOT / "deploy" / "azure" / "gate10-rollback-rehearsal.sh"
 APP = "abda-nl-stg-web"
 GENERATED_HOST = "abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io"
 CUSTOM_HOST = "demo.abda-nl.org"
-CURRENT_REVISION = "abda-nl-stg-web--release-3faf6eb"
-ROLLBACK_REVISION = "abda-nl-stg-web--rollback-0b2a2aa"
-RESTORE_REVISION = "abda-nl-stg-web--restore-3faf6eb"
+CURRENT_REVISION = "abda-nl-stg-web--secure-b873112"
+ROLLBACK_REVISION = "abda-nl-stg-web--rollback-3faf6eb"
+RESTORE_REVISION = "abda-nl-stg-web--restore-b873112"
 CURRENT_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d"
+    "567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c"
 )
 ROLLBACK_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "ffea9cff567b8694cc556aa4ba91a67e8ab5001cffc3f54c97f2aaaf6a2b4593"
+    "78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d"
 )
 CERTIFICATE_ID = (
     "/subscriptions/00e62f6e-2174-40b2-b428-8ebfd7c2ac54/"
@@ -109,23 +109,23 @@ def _app(phase: str) -> dict:
     if phase == "current":
         image = CURRENT_IMAGE
         latest = ready = CURRENT_REVISION
-        suffix = "release-3faf6eb"
+        suffix = "secure-b873112"
     elif phase == "rollback_pending":
         image = ROLLBACK_IMAGE
         latest, ready = ROLLBACK_REVISION, CURRENT_REVISION
-        suffix = "rollback-0b2a2aa"
+        suffix = "rollback-3faf6eb"
     elif phase == "rollback":
         image = ROLLBACK_IMAGE
         latest = ready = ROLLBACK_REVISION
-        suffix = "rollback-0b2a2aa"
+        suffix = "rollback-3faf6eb"
     elif phase == "restore_pending":
         image = CURRENT_IMAGE
         latest, ready = RESTORE_REVISION, ROLLBACK_REVISION
-        suffix = "restore-3faf6eb"
+        suffix = "restore-b873112"
     elif phase == "restored":
         image = CURRENT_IMAGE
         latest = ready = RESTORE_REVISION
-        suffix = "restore-3faf6eb"
+        suffix = "restore-b873112"
     else:
         raise ValueError(phase)
     probes = [
@@ -210,8 +210,8 @@ def test_rollback_gate_is_executable_valid_and_narrow():
     subprocess.run(["bash", "-n", str(GATE)], check=True)
     source = GATE.read_text(encoding="utf-8")
     for expected in (
+        "b873112040dbfe645683d1b5e7d9adb122173ed2",
         "3faf6ebd94c4dcb69fa36cb1aba481db15a9f973",
-        "0b2a2aad93427dfec65c11def7f6434ed1c9abfb",
         CURRENT_IMAGE.split("sha256:", 1)[1],
         ROLLBACK_IMAGE.split("sha256:", 1)[1],
         CURRENT_REVISION,
@@ -303,12 +303,12 @@ def test_rollback_gate_validates_both_registry_images(tmp_path: Path):
         (
             "current",
             CURRENT_IMAGE.split("sha256:", 1)[1],
-            "3faf6ebd94c4dcb69fa36cb1aba481db15a9f973",
+            "b873112040dbfe645683d1b5e7d9adb122173ed2",
         ),
         (
             "rollback",
             ROLLBACK_IMAGE.split("sha256:", 1)[1],
-            "0b2a2aad93427dfec65c11def7f6434ed1c9abfb",
+            "3faf6ebd94c4dcb69fa36cb1aba481db15a9f973",
         ),
     ):
         headers = tmp_path / f"{label}.headers"

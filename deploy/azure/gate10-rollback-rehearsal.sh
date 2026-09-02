@@ -4,16 +4,16 @@
 # The gate changes only the web image and revision suffix. It never runs a
 # migration, changes a secret or setting, calls a model, or changes DNS/Auth0.
 
-ABDA_ROLLBACK_SCRIPT_REVISION='2'
-ABDA_CURRENT_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
-ABDA_CURRENT_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
-ABDA_ROLLBACK_SOURCE_COMMIT='0b2a2aad93427dfec65c11def7f6434ed1c9abfb'
-ABDA_ROLLBACK_IMAGE_SHA256='ffea9cff567b8694cc556aa4ba91a67e8ab5001cffc3f54c97f2aaaf6a2b4593'
-ABDA_CURRENT_REVISION='abda-nl-stg-web--release-3faf6eb'
-ABDA_ROLLBACK_SUFFIX='rollback-0b2a2aa'
-ABDA_ROLLBACK_REVISION='abda-nl-stg-web--rollback-0b2a2aa'
-ABDA_RESTORE_SUFFIX='restore-3faf6eb'
-ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-3faf6eb'
+ABDA_ROLLBACK_SCRIPT_REVISION='3'
+ABDA_CURRENT_SOURCE_COMMIT='b873112040dbfe645683d1b5e7d9adb122173ed2'
+ABDA_CURRENT_IMAGE_SHA256='567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c'
+ABDA_ROLLBACK_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
+ABDA_ROLLBACK_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
+ABDA_CURRENT_REVISION='abda-nl-stg-web--secure-b873112'
+ABDA_ROLLBACK_SUFFIX='rollback-3faf6eb'
+ABDA_ROLLBACK_REVISION='abda-nl-stg-web--rollback-3faf6eb'
+ABDA_RESTORE_SUFFIX='restore-b873112'
+ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-b873112'
 ABDA_ROLLBACK_ROOT=''
 
 abda_rollback_cleanup() {

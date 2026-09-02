@@ -4,9 +4,9 @@
 # The gate executes the image's own release checker and summarizes log counts.
 # It never prints raw log messages or secret values.
 
-ABDA_AUDIT_SCRIPT_REVISION='4'
-ABDA_AUDIT_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
-ABDA_AUDIT_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
+ABDA_AUDIT_SCRIPT_REVISION='5'
+ABDA_AUDIT_SOURCE_COMMIT='b873112040dbfe645683d1b5e7d9adb122173ed2'
+ABDA_AUDIT_IMAGE_SHA256='567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c'
 ABDA_AUDIT_RELEASE_STAGE=''
 ABDA_AUDIT_REVISION=''
 ABDA_AUDIT_RESULT=''
@@ -62,7 +62,7 @@ abda_audit_set_constants() {
   case "$release_stage" in
     --pilot)
       ABDA_AUDIT_RELEASE_STAGE='pilot'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--release-3faf6eb'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--secure-b873112'
       ABDA_TRIAL_MAX_USERS='10'
       ABDA_TRIAL_BUDGET_MICROUSD='50000000'
       ABDA_OPENROUTER_ENABLED='false'
@@ -70,7 +70,7 @@ abda_audit_set_constants() {
       ;;
     --public)
       ABDA_AUDIT_RELEASE_STAGE='public'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-3faf6eb'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-b873112'
       ABDA_TRIAL_MAX_USERS='100'
       ABDA_TRIAL_BUDGET_MICROUSD='500000000'
       ABDA_OPENROUTER_ENABLED='true'
