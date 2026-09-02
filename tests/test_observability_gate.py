@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate9-observability-audit.sh"
 APP = "abda-nl-stg-web"
 REVISION = "abda-nl-stg-web--release-3faf6eb"
+PUBLIC_REVISION = "abda-nl-stg-web--public-100-3faf6eb"
 IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
     "78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d"
@@ -35,22 +36,41 @@ def _run_function(function: str, *arguments: Path | str) -> subprocess.Completed
     )
 
 
+def _run_public_function(
+    function: str, *arguments: Path | str
+) -> subprocess.CompletedProcess[str]:
+    quoted = " ".join(shlex.quote(str(argument)) for argument in arguments)
+    return subprocess.run(
+        [
+            "bash",
+            "-c",
+            (
+                f"source {shlex.quote(str(GATE))}; "
+                f"abda_audit_set_constants --public; {function} {quoted}"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
 def _write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
-def _environment() -> list[dict[str, str]]:
+def _environment(*, public: bool = False) -> list[dict[str, str]]:
     values = {
         "ABDA_ENVIRONMENT": "staging",
         "ABDA_AUTH_MODE": "oidc",
         "ABDA_PUBLIC_BASE_URL": "https://demo.abda-nl.org",
         "ABDA_TRIAL_ENABLED": "True",
-        "ABDA_TRIAL_MAX_USERS": "10",
+        "ABDA_TRIAL_MAX_USERS": "100" if public else "10",
         "ABDA_TRIAL_GRANT_MICROUSD": "5000000",
-        "ABDA_TRIAL_BUDGET_MICROUSD": "50000000",
+        "ABDA_TRIAL_BUDGET_MICROUSD": "500000000" if public else "50000000",
         "ABDA_LLM_ALLOW_BYOK": "1",
         "ABDA_LLM_REQUIRE_AUTH": "1",
-        "ABDA_OPENROUTER_FAILOVER_ENABLED": "False",
+        "ABDA_OPENROUTER_FAILOVER_ENABLED": "True" if public else "False",
         "ABDA_OPENROUTER_BUDGET_MICROUSD": "500000000",
     }
     environment = [{"name": name, "value": value} for name, value in values.items()]
@@ -67,14 +87,14 @@ def _environment() -> list[dict[str, str]]:
     return environment
 
 
-def _app() -> dict:
+def _app(*, public: bool = False) -> dict:
     return {
         "name": APP,
         "properties": {
             "provisioningState": "Succeeded",
             "runningStatus": "Running",
-            "latestRevisionName": REVISION,
-            "latestReadyRevisionName": REVISION,
+            "latestRevisionName": PUBLIC_REVISION if public else REVISION,
+            "latestReadyRevisionName": PUBLIC_REVISION if public else REVISION,
             "configuration": {
                 "activeRevisionsMode": "Single",
                 "ingress": {
@@ -90,7 +110,7 @@ def _app() -> dict:
                     {
                         "name": "web",
                         "image": IMAGE,
-                        "env": _environment(),
+                        "env": _environment(public=public),
                     }
                 ],
             },
@@ -98,7 +118,7 @@ def _app() -> dict:
     }
 
 
-def _release_receipt() -> dict:
+def _release_receipt(*, public: bool = False) -> dict:
     return {
         "origin": "https://demo.abda-nl.org",
         "checks": {
@@ -125,13 +145,13 @@ def _release_receipt() -> dict:
         },
         "budgets": {
             "trial_enabled": 1,
-            "trial_max_users": 10,
+            "trial_max_users": 100 if public else 10,
             "trial_grant_microusd": 5_000_000,
-            "trial_budget_microusd": 50_000_000,
+            "trial_budget_microusd": 500_000_000 if public else 50_000_000,
             "trial_activations": 1,
             "trial_allocated_microusd": 5_000_000,
             "trial_spent_microusd": 60_775,
-            "openrouter_enabled": 0,
+            "openrouter_enabled": 1 if public else 0,
             "openrouter_budget_microusd": 500_000_000,
             "openrouter_spent_microusd": 149,
         },
@@ -153,8 +173,9 @@ def test_observability_gate_is_executable_valid_and_read_only():
         "--max-time 75",
         "timeout --foreground --signal=INT --kill-after=5s 120s",
         "--expected-trial-max-users $ABDA_TRIAL_MAX_USERS",
-        "--expected-openrouter-enabled false",
+        "--expected-openrouter-enabled $ABDA_OPENROUTER_ENABLED",
         "RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
+        "FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
     ):
         assert expected in source
     for forbidden in (
@@ -257,6 +278,27 @@ def test_observability_gate_accepts_exact_current_application(tmp_path: Path):
     assert "ABDA_TRIAL_MAX_USERS" in result.stderr
 
 
+def test_observability_gate_accepts_only_exact_promoted_application(
+    tmp_path: Path,
+):
+    path = tmp_path / "public-app.json"
+    _write_json(path, _app(public=True))
+    result = _run_public_function("abda_audit_validate_app", path)
+    assert result.returncode == 0, result.stderr
+
+    changed = _app(public=True)
+    environment = changed["properties"]["template"]["containers"][0]["env"]
+    next(
+        item
+        for item in environment
+        if item["name"] == "ABDA_OPENROUTER_FAILOVER_ENABLED"
+    )["value"] = "False"
+    _write_json(path, changed)
+    result = _run_public_function("abda_audit_validate_app", path)
+    assert result.returncode != 0
+    assert "ABDA_OPENROUTER_FAILOVER_ENABLED" in result.stderr
+
+
 def test_observability_gate_validates_workspace_destination(tmp_path: Path):
     workspace = tmp_path / "workspace.json"
     environment = tmp_path / "environment.json"
@@ -350,3 +392,18 @@ def test_observability_gate_extracts_and_validates_sanitized_release_receipt(
     result = _run_function("abda_audit_validate_release_check", receipt)
     assert result.returncode != 0
     assert "trial_max_users" in result.stderr
+
+
+def test_observability_gate_validates_promoted_release_receipt(tmp_path: Path):
+    receipt = tmp_path / "public-receipt.json"
+    _write_json(receipt, _release_receipt(public=True))
+    result = _run_public_function("abda_audit_validate_release_check", receipt)
+    assert result.returncode == 0, result.stderr
+    assert "release_check: passed" in result.stdout
+
+    value = json.loads(receipt.read_text(encoding="utf-8"))
+    value["budgets"]["openrouter_enabled"] = 0
+    _write_json(receipt, value)
+    result = _run_public_function("abda_audit_validate_release_check", receipt)
+    assert result.returncode != 0
+    assert "openrouter_enabled" in result.stderr

@@ -53,7 +53,24 @@ Deploy the rule. Do not use an all-subdomains wildcard. It could also capture
 
 ## Acceptance
 
-After DNS resolves, verify all of these from an ordinary network:
+After DNS resolves, run the repository's read-only boundary Gate from Delta or
+another ordinary network:
+
+```bash
+.venv/bin/python deploy/cloudflare/gate16_public_hostname_boundary.py
+```
+
+The Gate uses only DNS queries and fixed HTTP GET requests. It requires no
+credential and changes no external state. It verifies both redirects, exact
+path and query preservation, the direct demo readiness endpoint, the Auth0
+custom-domain issuer, and the Resend SPF, DKIM, DMARC, and MX records. Success
+ends with:
+
+```text
+result: PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED
+```
+
+For a manual spot check, use:
 
 ```bash
 curl --head https://abda-nl.org/

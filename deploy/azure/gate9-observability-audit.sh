@@ -4,10 +4,12 @@
 # The gate executes the image's own release checker and summarizes log counts.
 # It never prints raw log messages or secret values.
 
-ABDA_AUDIT_SCRIPT_REVISION='3'
+ABDA_AUDIT_SCRIPT_REVISION='4'
 ABDA_AUDIT_SOURCE_COMMIT='3faf6ebd94c4dcb69fa36cb1aba481db15a9f973'
 ABDA_AUDIT_IMAGE_SHA256='78481da1f49f9b049509eafc61da1c95d55ac42e425c4ab1dbb04d700971b55d'
-ABDA_AUDIT_REVISION='abda-nl-stg-web--release-3faf6eb'
+ABDA_AUDIT_RELEASE_STAGE=''
+ABDA_AUDIT_REVISION=''
+ABDA_AUDIT_RESULT=''
 ABDA_AUDIT_ROOT=''
 
 abda_audit_cleanup() {
@@ -44,6 +46,7 @@ abda_audit_fail() {
 }
 
 abda_audit_set_constants() {
+  local release_stage="${1:---pilot}"
   ABDA_EXPECTED_SUBSCRIPTION='00e62f6e-2174-40b2-b428-8ebfd7c2ac54'
   ABDA_EXPECTED_TENANT='040f05eb-33ab-462f-af54-fb4bedb055ae'
   ABDA_EXPECTED_USER='hliu2@cloudbank.org'
@@ -54,10 +57,29 @@ abda_audit_set_constants() {
   ABDA_LOGS_NAME='abda-nl-stg-logs-bgjhpbgw'
   ABDA_IMAGE_REPOSITORY='ghcr.io/liu-hy/abda-nl'
   ABDA_PUBLIC_ORIGIN='https://demo.abda-nl.org'
-  ABDA_TRIAL_MAX_USERS='10'
   ABDA_TRIAL_GRANT_MICROUSD='5000000'
-  ABDA_TRIAL_BUDGET_MICROUSD='50000000'
   ABDA_OPENROUTER_BUDGET_MICROUSD='500000000'
+  case "$release_stage" in
+    --pilot)
+      ABDA_AUDIT_RELEASE_STAGE='pilot'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--release-3faf6eb'
+      ABDA_TRIAL_MAX_USERS='10'
+      ABDA_TRIAL_BUDGET_MICROUSD='50000000'
+      ABDA_OPENROUTER_ENABLED='false'
+      ABDA_AUDIT_RESULT='RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED'
+      ;;
+    --public)
+      ABDA_AUDIT_RELEASE_STAGE='public'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-3faf6eb'
+      ABDA_TRIAL_MAX_USERS='100'
+      ABDA_TRIAL_BUDGET_MICROUSD='500000000'
+      ABDA_OPENROUTER_ENABLED='true'
+      ABDA_AUDIT_RESULT='FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED'
+      ;;
+    *)
+      abda_audit_fail 'usage: gate9-observability-audit.sh [--pilot|--public]'
+      ;;
+  esac
 }
 
 abda_audit_validate_identity() {
@@ -85,11 +107,24 @@ abda_audit_validate_app() {
   local path=$1
   python3 - "$path" "$ABDA_APP_NAME" "$ABDA_AUDIT_REVISION" \
     "$ABDA_IMAGE_REPOSITORY@sha256:$ABDA_AUDIT_IMAGE_SHA256" \
-    "$ABDA_PUBLIC_ORIGIN" <<'PY'
+    "$ABDA_PUBLIC_ORIGIN" "$ABDA_TRIAL_MAX_USERS" \
+    "$ABDA_TRIAL_GRANT_MICROUSD" "$ABDA_TRIAL_BUDGET_MICROUSD" \
+    "$ABDA_OPENROUTER_ENABLED" "$ABDA_OPENROUTER_BUDGET_MICROUSD" <<'PY'
 import json
 import sys
 
-path, expected_app, expected_revision, expected_image, expected_origin = sys.argv[1:]
+(
+    path,
+    expected_app,
+    expected_revision,
+    expected_image,
+    expected_origin,
+    trial_max_users,
+    trial_grant,
+    trial_budget,
+    openrouter_enabled,
+    openrouter_budget,
+) = sys.argv[1:]
 with open(path, encoding="utf-8") as handle:
     app = json.load(handle)
 properties = app.get("properties") or {}
@@ -136,13 +171,13 @@ expected_values = {
     "ABDA_AUTH_MODE": "oidc",
     "ABDA_PUBLIC_BASE_URL": expected_origin,
     "ABDA_TRIAL_ENABLED": "true",
-    "ABDA_TRIAL_MAX_USERS": "10",
-    "ABDA_TRIAL_GRANT_MICROUSD": "5000000",
-    "ABDA_TRIAL_BUDGET_MICROUSD": "50000000",
+    "ABDA_TRIAL_MAX_USERS": trial_max_users,
+    "ABDA_TRIAL_GRANT_MICROUSD": trial_grant,
+    "ABDA_TRIAL_BUDGET_MICROUSD": trial_budget,
     "ABDA_LLM_ALLOW_BYOK": "1",
     "ABDA_LLM_REQUIRE_AUTH": "1",
-    "ABDA_OPENROUTER_FAILOVER_ENABLED": "false",
-    "ABDA_OPENROUTER_BUDGET_MICROUSD": "500000000",
+    "ABDA_OPENROUTER_FAILOVER_ENABLED": openrouter_enabled,
+    "ABDA_OPENROUTER_BUDGET_MICROUSD": openrouter_budget,
 }
 for name, expected in expected_values.items():
     actual = str(environment.get(name, {}).get("value") or "")
@@ -372,11 +407,26 @@ PY
 
 abda_audit_validate_release_check() {
   local path=$1
-  python3 - "$path" <<'PY'
+  python3 - "$path" "$ABDA_TRIAL_MAX_USERS" \
+    "$ABDA_TRIAL_GRANT_MICROUSD" "$ABDA_TRIAL_BUDGET_MICROUSD" \
+    "$ABDA_OPENROUTER_ENABLED" "$ABDA_OPENROUTER_BUDGET_MICROUSD" <<'PY'
 import json
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as handle:
+(
+    path,
+    trial_max_users_text,
+    trial_grant_text,
+    trial_budget_text,
+    openrouter_enabled_text,
+    openrouter_budget_text,
+) = sys.argv[1:]
+trial_max_users = int(trial_max_users_text)
+trial_grant = int(trial_grant_text)
+trial_budget = int(trial_budget_text)
+openrouter_enabled = int(openrouter_enabled_text.lower() == "true")
+openrouter_budget = int(openrouter_budget_text)
+with open(path, encoding="utf-8") as handle:
     value = json.load(handle)
 checks = value.get("checks") or {}
 expected_checks = {
@@ -405,11 +455,11 @@ if set((config.get("byok_model_counts") or {}).keys()) != {
 budgets = value.get("budgets") or {}
 expected_budget_values = {
     "trial_enabled": 1,
-    "trial_max_users": 10,
-    "trial_grant_microusd": 5_000_000,
-    "trial_budget_microusd": 50_000_000,
-    "openrouter_enabled": 0,
-    "openrouter_budget_microusd": 500_000_000,
+    "trial_max_users": trial_max_users,
+    "trial_grant_microusd": trial_grant,
+    "trial_budget_microusd": trial_budget,
+    "openrouter_enabled": openrouter_enabled,
+    "openrouter_budget_microusd": openrouter_budget,
 }
 for name, expected in expected_budget_values.items():
     if budgets.get(name) != expected:
@@ -421,14 +471,14 @@ openrouter_spent = budgets.get("openrouter_spent_microusd")
 if (
     isinstance(activations, bool)
     or not isinstance(activations, int)
-    or not 1 <= activations <= 10
-    or allocated != activations * 5_000_000
+    or not 1 <= activations <= trial_max_users
+    or allocated != activations * trial_grant
     or isinstance(trial_spent, bool)
     or not isinstance(trial_spent, int)
     or not 0 <= trial_spent <= allocated
     or isinstance(openrouter_spent, bool)
     or not isinstance(openrouter_spent, int)
-    or not 0 <= openrouter_spent <= 500_000_000
+    or not 0 <= openrouter_spent <= openrouter_budget
 ):
     raise SystemExit("STOP: the release receipt ledgers do not reconcile")
 pool = value.get("database_pool") or {}
@@ -453,13 +503,18 @@ abda_audit_main() {
   trap abda_audit_cleanup EXIT
   ABDA_AUDIT_SECTION='bootstrap'
 
+  if (( $# > 1 )); then
+    abda_audit_fail 'usage: gate9-observability-audit.sh [--pilot|--public]'
+  fi
+  abda_audit_set_constants "${1:---pilot}"
+
   printf 'ABDA-NL Gate 9 release and observability audit revision: %s\n' \
     "$ABDA_AUDIT_SCRIPT_REVISION"
+  printf 'release_stage: %s\n' "$ABDA_AUDIT_RELEASE_STAGE"
   printf '%s\n' \
     'This gate is read-only. It runs HTTPS checks and count-only log queries.' \
     'It does not print log messages or secret values, call a model, deploy, restart, or change Azure configuration.'
 
-  abda_audit_set_constants
   local command_name=''
   for command_name in az curl python3 tee timeout; do
     command -v "$command_name" >/dev/null 2>&1 || \
@@ -478,7 +533,7 @@ abda_audit_main() {
     --output table
 
   ABDA_AUDIT_SECTION='application and replica verification'
-  printf '\n[2/6] Verifying the exact healthy shared-view image and one ready replica...\n'
+  printf '\n[2/6] Verifying the exact healthy release image and one ready replica...\n'
   az containerapp show \
     --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
     --output json >"$ABDA_AUDIT_ROOT/app.json"
@@ -589,7 +644,7 @@ PY
     --name "$ABDA_APP_NAME" --resource-group "$ABDA_RESOURCE_GROUP" \
     --revision "$ABDA_AUDIT_REVISION" --replica "$replica_name" \
     --container "$ABDA_CONTAINER_NAME" \
-    --command "/opt/venv/bin/python -m app.cli.release_check --metrics-token-env ABDA_METRICS_TOKEN --expected-trial-enabled true --expected-trial-max-users $ABDA_TRIAL_MAX_USERS --expected-trial-budget-microusd $ABDA_TRIAL_BUDGET_MICROUSD --expected-openrouter-enabled false --expected-openrouter-budget-microusd $ABDA_OPENROUTER_BUDGET_MICROUSD $ABDA_PUBLIC_ORIGIN" \
+    --command "/opt/venv/bin/python -m app.cli.release_check --metrics-token-env ABDA_METRICS_TOKEN --expected-trial-enabled true --expected-trial-max-users $ABDA_TRIAL_MAX_USERS --expected-trial-budget-microusd $ABDA_TRIAL_BUDGET_MICROUSD --expected-openrouter-enabled $ABDA_OPENROUTER_ENABLED --expected-openrouter-budget-microusd $ABDA_OPENROUTER_BUDGET_MICROUSD $ABDA_PUBLIC_ORIGIN" \
     2>&1 | tee "$ABDA_AUDIT_ROOT/release-check.log"
   exec_status=${PIPESTATUS[0]}
   set -e
@@ -608,6 +663,7 @@ PY
   printf '\n[6/6] Reporting the content-free audit receipt...\n'
   printf '\nABDA-NL Gate 9 release and observability status:\n'
   printf 'script_revision: %s\n' "$ABDA_AUDIT_SCRIPT_REVISION"
+  printf 'release_stage: %s\n' "$ABDA_AUDIT_RELEASE_STAGE"
   printf 'application_source_commit: %s\n' "$ABDA_AUDIT_SOURCE_COMMIT"
   printf 'image_digest: sha256:%s\n' "$ABDA_AUDIT_IMAGE_SHA256"
   printf 'subscription_id: %s\n' "$ABDA_EXPECTED_SUBSCRIPTION"
@@ -622,7 +678,7 @@ PY
   printf 'secret_values_printed: false\n'
   printf 'model_provider_called: false\n'
   printf 'azure_configuration_changed: false\n'
-  printf 'result: RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED\n'
+  printf 'result: %s\n' "$ABDA_AUDIT_RESULT"
   printf 'Send this status and the shell exit code to Codex.\n'
 }
 

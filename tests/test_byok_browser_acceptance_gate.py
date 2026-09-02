@@ -307,3 +307,53 @@ def test_log_summary_requires_route_evidence_and_zero_secret_indicators(tmp_path
     result = _run_function("abda_byok_validate_log_summary", unsafe)
     assert result.returncode != 0
     assert "unsafe entries" in result.stderr
+
+
+def test_logging_preflight_accepts_real_azure_cli_workspace_shape(
+    tmp_path: Path,
+) -> None:
+    customer_id = "7c934e73-9e5a-45da-8387-fb65442be197"
+    workspace = tmp_path / "workspace.json"
+    workspace.write_text(
+        json.dumps(
+            {
+                "name": "abda-nl-stg-logs-bgjhpbgw",
+                "customerId": customer_id,
+                "retentionInDays": 30,
+                "provisioningState": "Succeeded",
+            }
+        ),
+        encoding="utf-8",
+    )
+    environment = tmp_path / "environment.json"
+    environment.write_text(
+        json.dumps(
+            {
+                "name": "abda-nl-stg-environment",
+                "properties": {
+                    "appLogsConfiguration": {
+                        "destination": "log-analytics",
+                        "logAnalyticsConfiguration": {
+                            "customerId": customer_id.upper(),
+                        },
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run_function(
+        "abda_byok_validate_logging_configuration", workspace, environment
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == customer_id
+
+    payload = json.loads(workspace.read_text(encoding="utf-8"))
+    payload["retentionInDays"] = 7
+    workspace.write_text(json.dumps(payload), encoding="utf-8")
+    result = _run_function(
+        "abda_byok_validate_logging_configuration", workspace, environment
+    )
+    assert result.returncode != 0
+    assert "workspace boundary changed" in result.stderr
