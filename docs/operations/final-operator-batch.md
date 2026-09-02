@@ -2,6 +2,15 @@
 
 State: deploy the managed-boundary replacement, then pause for the capacity smoke
 
+Runbook revision: `managed-boundary-20260902`
+
+Before running any phase, confirm that the first immutable source commit shown
+below is `eb7d5e9f5533b4a66f5f4c7ba3587ccf0d310659`. If an older copy starts by
+downloading a consolidated helper at commit `1ee512032aaebb3300ecb4dd18a18be16e90e97b`,
+stop and refresh this file from the personal repository's `development` branch.
+That older download is harmless when it was only checksum-verified, but none of
+its phases should be run for the managed-boundary replacement.
+
 The remaining helper in this document is refreshed for the replacement image.
 Do not start its BYOK, privacy, rollback, promotion, or final-audit phases until
 the replacement receipt and bounded capacity smoke have both passed.

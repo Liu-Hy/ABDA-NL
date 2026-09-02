@@ -1,5 +1,10 @@
 # Consolidated staging release acceptance
 
+Historical checkpoint: this file records the 2026-08-30 candidate and must not
+be used as the current operator sequence. Use
+[the final public-service operator batch](final-operator-batch.md) for the
+managed-boundary replacement and all remaining release work.
+
 State: candidate deployed; public browser, release audit, and alert gates verified;
 remaining operator batch pending
 
