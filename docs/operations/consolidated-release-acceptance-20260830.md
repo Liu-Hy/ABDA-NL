@@ -78,9 +78,9 @@ Steps 1, 2, 3, and 5 are complete for this candidate. Steps 4 and 6 through 10
 remain.
 
 Steps 4 through 7 are the consolidated human acceptance batch. The operator
-should receive one checklist for all observations after the candidate image is
-healthy. The other steps are automated or have exact, narrowly bounded cloud
-confirmations.
+should use [the final operator batch](final-operator-batch.md) for all
+observations after the candidate image is healthy. The other steps are
+automated or have exact, narrowly bounded cloud confirmations.
 
 ## Short Cloud Shell helper
 

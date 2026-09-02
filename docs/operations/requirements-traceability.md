@@ -135,13 +135,17 @@ explicitly separate.
 
 ## Release-only evidence still required
 
-The repository is not sufficient evidence for these remaining items:
+The repository is not sufficient evidence for these remaining items. They are
+collected in [the final operator batch](final-operator-batch.md):
 
 1. OpenRouter BYOK browser acceptance at the public origin for the consolidated
    image.
 2. Privacy-command operation against an isolated staging account.
-3. The exact laptop `ssh delta-demo` browser path.
-4. Safari, screen-reader, presentation display, conference network, and two
+3. Deployment and read-only verification of the prepared root-domain redirect.
+4. The final-image rollback and restoration, public budget promotion, and
+   promoted-state release audit.
+5. The exact laptop `ssh delta-demo` browser path.
+6. Safari, screen-reader, presentation display, conference network, and two
    complete rehearsal runs.
 
 These are explicit items in [the release checklist](release-checklist.md), not
