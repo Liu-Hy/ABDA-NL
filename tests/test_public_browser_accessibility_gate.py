@@ -29,6 +29,7 @@ def test_gate_is_executable_content_free_and_syntactically_valid() -> None:
     source = GATE.read_text(encoding="utf-8")
     for expected in (
         "LIVE_PUBLIC_CHROMIUM_FIREFOX_ACCESSIBILITY_VERIFIED",
+        'SCRIPT_REVISION = "2"',
         "wcag22aa",
         "reduced_motion=\"reduce\"",
         "#oidc-login-link",
@@ -70,3 +71,9 @@ def test_gate_accepts_the_exact_public_origin_with_one_optional_slash() -> None:
     assert module.validated_origin("https://demo.abda-nl.org/") == (
         "https://demo.abda-nl.org"
     )
+
+
+def test_gate_accepts_fresh_and_cache_revalidated_browser_navigation() -> None:
+    module = _module()
+    assert module.SUCCESSFUL_NAVIGATION_STATUSES == {200, 304}
+    assert module.SCRIPT_REVISION == "2"

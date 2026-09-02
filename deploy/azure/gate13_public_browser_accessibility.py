@@ -15,6 +15,8 @@ from playwright.sync_api import Page, expect, sync_playwright
 DEFAULT_ORIGIN = "https://demo.abda-nl.org"
 BROWSERS = ("chromium", "firefox")
 WCAG_TAGS = ("wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa")
+SUCCESSFUL_NAVIGATION_STATUSES = frozenset((200, 304))
+SCRIPT_REVISION = "2"
 
 
 @dataclass
@@ -59,8 +61,8 @@ def axe_scan(page: Page, evidence: BrowserEvidence, label: str) -> None:
 
 def open_explorer(page: Page, origin: str) -> None:
     response = page.goto(origin, wait_until="domcontentloaded", timeout=30_000)
-    if response is None or response.status != 200:
-        raise AssertionError("the public explorer did not return HTTP 200")
+    if response is None or response.status not in SUCCESSFUL_NAVIGATION_STATUSES:
+        raise AssertionError("the public explorer did not load successfully")
     expect(page.locator("#scenario-name")).not_to_have_text("Loading...", timeout=30_000)
     if page.locator("#scenario-select option").count() < 6:
         raise AssertionError("the public explorer exposed fewer than six scenarios")
@@ -80,8 +82,8 @@ def assert_no_horizontal_overflow(page: Page, label: str) -> None:
 
 def exercise_desktop(page: Page, origin: str, evidence: BrowserEvidence) -> None:
     open_explorer(page, origin)
-    expect(page.locator('a[href="/privacy.html"]')).to_be_visible()
-    expect(page.locator('a[href="/terms.html"]')).to_be_visible()
+    expect(page.locator('a[href="/privacy.html"]').first).to_be_visible()
+    expect(page.locator('a[href="/terms.html"]').first).to_be_visible()
     assert_no_horizontal_overflow(page, f"{evidence.engine} desktop")
     evidence.viewport_checks += 1
     axe_scan(page, evidence, "desktop explorer")
@@ -144,8 +146,8 @@ def exercise_policy_pages(page: Page, origin: str) -> None:
         ("/terms.html", "Terms of use"),
     ):
         response = page.goto(origin + path, wait_until="domcontentloaded", timeout=30_000)
-        if response is None or response.status != 200:
-            raise AssertionError(f"{path} did not return HTTP 200")
+        if response is None or response.status not in SUCCESSFUL_NAVIGATION_STATUSES:
+            raise AssertionError(f"{path} did not load successfully")
         expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible()
 
 
@@ -199,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print("ABDA-NL public browser accessibility status:")
+    print(f"script_revision: {SCRIPT_REVISION}")
     print(f"public_origin: {origin}")
     for result in results:
         print(f"{result.engine}_axe_scans: {result.axe_scans}")

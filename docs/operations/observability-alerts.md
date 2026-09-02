@@ -1,6 +1,6 @@
 # Azure Monitor alerts and public readiness checks
 
-State: infrastructure prepared and compiler-validated, live deployment pending
+State: live deployment, exact resource verification, and email delivery verified
 
 ABDA-NL uses two complementary monitoring layers. Platform metrics report what
 Azure Container Apps observes inside the application resource. A standard
@@ -59,6 +59,26 @@ The content-free receipt proves that Azure accepted the deployment and test
 submission. Inbox delivery remains a separate human observation and should be
 recorded during the consolidated release acceptance. Do not trigger a real 5xx
 burst or stop the public replica merely to test notifications.
+
+## Live staging evidence
+
+On 2026-09-02, Gate 14 revision 3 completed against subscription-scoped resource
+group `abda-nl-staging`. It verified the action group, both Container Apps metric
+alerts, workspace-linked Application Insights component, three-region standard
+web test, and public-readiness alert. Azure accepted the bounded static-threshold
+test notification, and the message reached the monitored inbox through
+`support@abda-nl.org`.
+
+The final receipt was
+`OBSERVABILITY_ALERTS_DEPLOYED_DELIVERY_CONFIRMATION_PENDING`, followed by the
+separate inbox delivery confirmation. It also recorded
+`application_changed: false` and `model_provider_called: false`.
+
+The live Azure response exposed two computed representation details absent from
+the original fixtures. Azure CLI returns Log Analytics workspace properties at
+the top level, while the action-group API adds a read-only receiver status.
+Gate revision 3 accepts both documented workspace representations, verifies the
+configured receiver fields, and requires its computed status to be `Enabled`.
 
 ## Primary references
 

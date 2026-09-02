@@ -1,6 +1,7 @@
 # Consolidated staging release acceptance
 
-State: immutable image verified, Azure deployment and final operator batch pending
+State: candidate deployed; public browser, release audit, and alert gates verified;
+remaining operator batch pending
 
 This checkpoint keeps every remaining release test attached to one application
 artifact. Small browser observations are collected into one operator session
@@ -19,6 +20,31 @@ The image workflow repeated the complete test suite and dependency audits,
 built the production container, pulled the exact digest anonymously, passed the
 container smoke test, and published GitHub build provenance. The registry also
 returned the same digest during an independent anonymous manifest check.
+
+## Verified live evidence
+
+The following checks were completed against the same immutable candidate at
+`https://demo.abda-nl.org`:
+
+- Gate 15 deployed the candidate as revision
+  `abda-nl-stg-web--release-3faf6eb` without rerunning migrations or changing
+  secrets.
+- Gate 9 passed the external release check, 30-day Log Analytics retention,
+  count-only sensitive-pattern audit, and reconciled accounting checks.
+- Gate 13 revision 2 passed on 2026-09-02. Chromium and Firefox each completed
+  six WCAG A and AA scans, three viewport checks, and three keyboard checks with
+  no console or page errors. Reduced motion and pre-registration policy links
+  also passed.
+- Gate 14 revision 3 verified the exact six Azure Monitor resources and
+  submitted one static-threshold test notification. The message reached the
+  monitored inbox through `support@abda-nl.org`. The receipt reported no
+  application change and no model-provider call.
+
+The Alert Gate initially found two verifier-only differences in real Azure
+responses: Log Analytics fields are flattened by Azure CLI, and action-group
+email receivers include the read-only `status` field. Focused regressions now
+cover both real response contracts. Neither repair changed the deployed
+application or widened the six-resource mutation boundary.
 
 ## Ordered release sequence
 
@@ -46,6 +72,9 @@ for an earlier application identity.
    12.
 10. Run one final external release check and retain its content-free receipt.
 
+Steps 1, 2, 3, and 5 are complete for this candidate. Steps 4 and 6 through 10
+remain.
+
 Steps 4 through 7 are the consolidated human acceptance batch. The operator
 should receive one checklist for all observations after the candidate image is
 healthy. The other steps are automated or have exact, narrowly bounded cloud
@@ -57,6 +86,9 @@ confirmations.
 command for each cloud phase. It downloads each underlying Gate from one exact
 source commit, checks its SHA-256 before execution, and prints the mutation
 boundary first. Run its `verify` phase before `deploy`.
+
+Operator helper revision 3 is recorded at commit `5927c9a`. It pins the repaired
+Alert Gate at commit `9919911` and verifies every downloaded Gate before use.
 
 The helper intentionally has no run-all option. Deployment, disposable-account
 deletion, monitoring resources, rollback, and budget promotion keep their own
