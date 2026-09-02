@@ -1009,7 +1009,7 @@ def post_save_scenario(
         examples_root=EXAMPLES_ROOT,
         overwrite=request.overwrite,
     )
-    log.info("scenario_saved overwrite=%s", request.overwrite)
+    log.info("scenario_saved")
 
     # Reload from disk and return the fresh bundle so the UI can pivot.
     saved = load_scenario(target / "scenario.yaml")
