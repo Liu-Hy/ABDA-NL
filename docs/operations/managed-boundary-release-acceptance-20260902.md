@@ -1,6 +1,13 @@
 # Managed-boundary release acceptance, 2026-09-02
 
-State: capacity, public browser, and BYOK acceptance verified; pilot audit pending
+State: historical managed-boundary checkpoint, superseded by the source-security
+release candidate
+
+For current operator steps, use
+[the source-security checkpoint](source-security-checkpoint-20260902.md) and
+[the final operator batch](final-operator-batch.md). This record is retained as
+evidence for the image that completed capacity, accessibility, and BYOK
+acceptance.
 
 This record binds every remaining public-service acceptance result to one
 application artifact. Historical evidence remains useful for unchanged
@@ -177,8 +184,9 @@ actual 200 percent browser zoom, automatic local browser opening, and the
 presenter account, and the presenter/operator role split remain conference
 readiness gates rather than application deployment gates.
 
-## Current stop boundary
+## Historical stop boundary
 
-Run the read-only pilot Gate 9 audit next. BYOK is complete. Do not run privacy,
-rollback, promotion, or the final public audit until the replacement-image
-audit receipt is recorded.
+At this checkpoint, the next step was the read-only pilot Gate 9 audit. That
+sequence has since been replaced by the source-security image deployment and
+audit in the final operator batch. BYOK remains complete and must not be
+repeated solely because of the logging-only source-security change.

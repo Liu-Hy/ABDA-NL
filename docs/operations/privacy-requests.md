@@ -1,6 +1,6 @@
 # Privacy request operations
 
-Status: implemented in the managed-boundary candidate. Live operation against
+Status: implemented in the source-security candidate. Live operation against
 an isolated disposable account remains an acceptance gate.
 
 This runbook supports verified access exports and permanent deletion requests.
@@ -44,9 +44,9 @@ subject, project content, token hash, or request content.
 
 `deploy/azure/gate11-privacy-acceptance.sh` turns the manual sequence below into
 a bounded two-run staging acceptance. The pinned gate currently accepts only
-the managed-boundary candidate revision `abda-nl-stg-web--secure-b873112` and
+the source-security candidate revision `abda-nl-stg-web--harden-c173dd5` and
 exact image digest
-`sha256:567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c`.
+`sha256:ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64`.
 It stops if the deployed application changes.
 
 Prepare one disposable verified-email account as follows:
