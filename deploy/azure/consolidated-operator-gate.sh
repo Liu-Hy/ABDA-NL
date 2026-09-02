@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='4'
-ABDA_OPERATOR_SOURCE_COMMIT='d86715ec08d5a9ec10fb738a15ee956f8436f653'
+ABDA_OPERATOR_SCRIPT_REVISION='5'
+ABDA_OPERATOR_SOURCE_COMMIT='b93ebbec106bf016f23beb9d4ac37ecd5121bc0f'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -28,7 +28,7 @@ Usage: consolidated-operator-gate.sh PHASE
 
 Phases, in required order:
   verify    Download and hash-check every pinned gate without running one
-  deploy    Deploy only the consolidated application image
+  deploy    Deploy only the managed-boundary application image
   audit     Run the read-only release and sanitized-log audit
   byok      Run the browser-assisted, no-storage BYOK acceptance
   privacy   Run or resume the disposable-account privacy acceptance
@@ -48,29 +48,29 @@ abda_operator_gate_metadata() {
   case "$phase" in
     deploy)
       printf '%s\n' \
-        'deploy/azure/gate15-consolidated-release-image.sh' \
-        '1ecd495299bd63ef5edcb6ecc730df7a3942008382402e4ddd53d9f9f4838614' \
+        'deploy/azure/gate18-managed-boundary-image.sh' \
+        'e9bcbc6a54867ee37d7849c1d35cedc8a7b345bf946f612413211b78594d24af' \
         'bash' \
         'Changes only the existing web image and revision suffix.'
       ;;
     audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        '7bfccaa8422a8ab3709e826a9e592b7062a9777a3f4503713584853533e2dea6' \
+        '27b923a061135fb29fbd9e2481a66f54e483b2f65c68ee63aab8331f76764a2d' \
         'bash' \
         'Read-only Azure, HTTPS, release, and count-only log checks.'
       ;;
     byok)
       printf '%s\n' \
         'deploy/azure/gate10-byok-browser-acceptance.sh' \
-        'de70312f42133940ca2311a4679e9ef256659d9b2944416d846bde2bed0b325a' \
+        'f1a04508eb218887f52a62f57d66c540e3c6f6bd29e806e817486c8d4279b072' \
         'bash' \
         'One browser BYOK call, no Azure configuration change.'
       ;;
     privacy)
       printf '%s\n' \
         'deploy/azure/gate11-privacy-acceptance.sh' \
-        'b343a60f7a28608f59b1ff08de93ba16de3eedc6d39590025119d0a919ab4cce' \
+        '31571966b1f1bc589dc7f1f050e62c3bd99afef4a07f6c9df5a78d13b12091cd' \
         'bash' \
         'Changes only one disposable account after exact confirmations.'
       ;;
@@ -84,21 +84,21 @@ abda_operator_gate_metadata() {
     rollback)
       printf '%s\n' \
         'deploy/azure/gate10-rollback-rehearsal.sh' \
-        '155df59251eafcdef9edeb8d4b1cd643e06964e0ce7deda45b5fe54bb0c9107c' \
+        'e816ea15b771c38f42055655b7ed8b1bf4f9cbc8edc167d74c0ebf06dce859b3' \
         'bash' \
         'Changes only the web image twice and restores the candidate.'
       ;;
     promote)
       printf '%s\n' \
         'deploy/azure/gate12-public-budget-promotion.sh' \
-        'e117c6a50227d80ee5322a6b596eb6d890cacc6c56de1dd276fde69b0217a39e' \
+        '43ef8ad7955a4916415cdb645661e00aa67edbe05df9b6f4211afe45fc29df73' \
         'bash' \
         'Changes only three reviewed trial and fallback settings.'
       ;;
     final-audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        '7bfccaa8422a8ab3709e826a9e592b7062a9777a3f4503713584853533e2dea6' \
+        '27b923a061135fb29fbd9e2481a66f54e483b2f65c68ee63aab8331f76764a2d' \
         'bash' \
         'Read-only audit of the promoted 100-user public boundary.'
       ;;

@@ -15,14 +15,21 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
     source = SCRIPT.read_text(encoding="utf-8")
     for expected in (
-        "d86715ec08d5a9ec10fb738a15ee956f8436f653",
-        "gate15-consolidated-release-image.sh",
+        "b93ebbec106bf016f23beb9d4ac37ecd5121bc0f",
+        "gate18-managed-boundary-image.sh",
         "gate9-observability-audit.sh",
         "gate10-byok-browser-acceptance.sh",
         "gate11-privacy-acceptance.sh",
         "gate14_observability_alerts.py",
         "gate10-rollback-rehearsal.sh",
         "gate12-public-budget-promotion.sh",
+        "e9bcbc6a54867ee37d7849c1d35cedc8a7b345bf946f612413211b78594d24af",
+        "27b923a061135fb29fbd9e2481a66f54e483b2f65c68ee63aab8331f76764a2d",
+        "f1a04508eb218887f52a62f57d66c540e3c6f6bd29e806e817486c8d4279b072",
+        "31571966b1f1bc589dc7f1f050e62c3bd99afef4a07f6c9df5a78d13b12091cd",
+        "b2fe0ab9433583e7c5d2ff6fa5a1ea0fee37aa51ba3435d4bd00e5d9c5003c05",
+        "e816ea15b771c38f42055655b7ed8b1bf4f9cbc8edc167d74c0ebf06dce859b3",
+        "43ef8ad7955a4916415cdb645661e00aa67edbe05df9b6f4211afe45fc29df73",
         "final-audit",
         "gate_arguments=(--pilot)",
         "gate_arguments=(--public)",
