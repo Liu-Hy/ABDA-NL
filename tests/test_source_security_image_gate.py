@@ -16,11 +16,11 @@ def test_source_security_image_gate_is_pinned_and_narrow():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "c173dd5983ba209b17c585c0c82aeb33c2e49028",
+        "51702e175bd14d4cb54075808f839d173d561324",
         "567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c",
-        "ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64",
+        "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
         "abda-nl-stg-web--secure-b873112",
-        "abda-nl-stg-web--harden-c173dd5",
+        "abda-nl-stg-web--harden-51702e1",
         "DEPLOY_ABDA_SOURCE_SECURITY_IMAGE",
         "SOURCE_SECURITY_IMAGE_DEPLOYED_AUDIT_REQUIRED",
         "1bfebc7b9d8a76bf01332205260778aa1e9bd409377f1a8bb50e211d63c9379f",
@@ -64,10 +64,10 @@ def test_source_security_wrapper_sets_exact_shared_gate_values():
         text=True,
     )
     assert result.stdout.splitlines() == [
-        "c173dd5983ba209b17c585c0c82aeb33c2e49028",
+        "51702e175bd14d4cb54075808f839d173d561324",
         "567ec34602e1b5ab1e1a9b01864f2a67219910dc3080300bc108eb33d569856c",
-        "ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64",
+        "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
         "abda-nl-stg-web--secure-b873112",
-        "abda-nl-stg-web--harden-c173dd5",
+        "abda-nl-stg-web--harden-51702e1",
         "DEPLOY_ABDA_SOURCE_SECURITY_IMAGE",
     ]

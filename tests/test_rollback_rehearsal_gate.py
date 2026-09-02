@@ -14,12 +14,12 @@ GATE = ROOT / "deploy" / "azure" / "gate10-rollback-rehearsal.sh"
 APP = "abda-nl-stg-web"
 GENERATED_HOST = "abda-nl-stg-web.blueforest-da494f7c.eastus2.azurecontainerapps.io"
 CUSTOM_HOST = "demo.abda-nl.org"
-CURRENT_REVISION = "abda-nl-stg-web--harden-c173dd5"
+CURRENT_REVISION = "abda-nl-stg-web--harden-51702e1"
 ROLLBACK_REVISION = "abda-nl-stg-web--rollback-b873112"
-RESTORE_REVISION = "abda-nl-stg-web--restore-c173dd5"
+RESTORE_REVISION = "abda-nl-stg-web--restore-51702e1"
 CURRENT_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64"
+    "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc"
 )
 ROLLBACK_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
@@ -109,7 +109,7 @@ def _app(phase: str) -> dict:
     if phase == "current":
         image = CURRENT_IMAGE
         latest = ready = CURRENT_REVISION
-        suffix = "harden-c173dd5"
+        suffix = "harden-51702e1"
     elif phase == "rollback_pending":
         image = ROLLBACK_IMAGE
         latest, ready = ROLLBACK_REVISION, CURRENT_REVISION
@@ -121,11 +121,11 @@ def _app(phase: str) -> dict:
     elif phase == "restore_pending":
         image = CURRENT_IMAGE
         latest, ready = RESTORE_REVISION, ROLLBACK_REVISION
-        suffix = "restore-c173dd5"
+        suffix = "restore-51702e1"
     elif phase == "restored":
         image = CURRENT_IMAGE
         latest = ready = RESTORE_REVISION
-        suffix = "restore-c173dd5"
+        suffix = "restore-51702e1"
     else:
         raise ValueError(phase)
     probes = [
@@ -210,7 +210,7 @@ def test_rollback_gate_is_executable_valid_and_narrow():
     subprocess.run(["bash", "-n", str(GATE)], check=True)
     source = GATE.read_text(encoding="utf-8")
     for expected in (
-        "c173dd5983ba209b17c585c0c82aeb33c2e49028",
+        "51702e175bd14d4cb54075808f839d173d561324",
         "b873112040dbfe645683d1b5e7d9adb122173ed2",
         CURRENT_IMAGE.split("sha256:", 1)[1],
         ROLLBACK_IMAGE.split("sha256:", 1)[1],
@@ -303,7 +303,7 @@ def test_rollback_gate_validates_both_registry_images(tmp_path: Path):
         (
             "current",
             CURRENT_IMAGE.split("sha256:", 1)[1],
-            "c173dd5983ba209b17c585c0c82aeb33c2e49028",
+            "51702e175bd14d4cb54075808f839d173d561324",
         ),
         (
             "rollback",

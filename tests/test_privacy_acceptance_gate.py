@@ -27,10 +27,10 @@ from app.db.models import (
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate11-privacy-acceptance.sh"
 EMAIL = "privacy-gate@example.edu"
-EXPECTED_REVISION = "abda-nl-stg-web--harden-c173dd5"
+EXPECTED_REVISION = "abda-nl-stg-web--harden-51702e1"
 EXPECTED_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
-    "ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64"
+    "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc"
 )
 
 
@@ -191,7 +191,7 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
         "DELETE_PRIVACY_ACCEPTANCE",
         "PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES",
         "LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED",
-        "abda-nl-stg-web--harden-c173dd5",
+        "abda-nl-stg-web--harden-51702e1",
         "Handshake status 404 Not Found",
         "Retrying safely",
     ):

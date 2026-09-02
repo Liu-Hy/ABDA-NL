@@ -1,6 +1,7 @@
 # Development source security checkpoint, 2026-09-02
 
-State: source scan clean and immutable image verified; Azure deployment pending
+State: source scan clean and superseding immutable image verified; Azure
+deployment pending
 
 This checkpoint records source-level security evidence without treating it as
 evidence for the older image that Azure currently serves. The public service
@@ -72,7 +73,7 @@ setting was enabled and read back through the GitHub API on 2026-09-02. Public
 researchers can now use the documented private advisory form instead of
 [disclosing an unpatched issue publicly](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository).
 
-## Immutable image evidence
+## Initial immutable image evidence
 
 The annotated tag
 `service-image-staging-source-security-20260902-182221` identifies source
@@ -92,12 +93,51 @@ An independent anonymous registry fetch returned that exact manifest digest
 and all three labels. The GitHub attestation verifier accepted the digest
 against `Liu-Hy/ABDA-NL`.
 
+## Superseding exception-diagnostic hardening
+
+A final review found that four unexpected-error handlers still used automatic
+exception logging. Although ordinary request and model-result fields were
+already sanitized, an arbitrary parser or database exception message could
+contain user-supplied text. Commit
+`51702e175bd14d4cb54075808f839d173d561324` replaced those paths with a
+shared safe diagnostic that records only the exception class and the final
+internal filename, function, and line number. It never records the exception
+message or a traceback.
+
+The new regression suite injects a deliberately private email and bearer-like
+string into an exception, then proves that neither the MCP response nor the
+captured log contains it. A source invariant also forbids `log.exception` in
+application code. The complete local suite passed with 705 tests and five
+intentional skips. The complete seven-job
+[CI run 33672007813](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33672007813)
+and [CodeQL run 33672007757](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33672007757)
+passed, and the repository reported zero open code-scanning alerts.
+
+The annotated tag
+`service-image-staging-safe-exceptions-20260902-191532` identifies that exact
+commit. [Image workflow run 33672235004](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33672235004)
+reran the complete test and dependency-audit boundary, built the production
+image, pulled and smoke-tested its exact digest, and published GitHub build
+provenance.
+
+- image: `ghcr.io/liu-hy/abda-nl@sha256:a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc`
+- attestation: [44802693](https://github.com/Liu-Hy/ABDA-NL/attestations/44802693)
+- OCI source: `https://github.com/Liu-Hy/ABDA-NL`
+- OCI revision: `51702e175bd14d4cb54075808f839d173d561324`
+- OCI license: `MIT`
+
+The GitHub attestation verifier accepted this newer digest against
+`Liu-Hy/ABDA-NL`. This image supersedes the earlier candidate for the pending
+Azure deployment. The earlier record remains above as historical evidence and
+is not relabeled as evidence for the newer source.
+
 ## Deployment boundary
 
 This checkpoint does not change Azure, DNS, Auth0, Resend, trial limits,
 OpenRouter settings, the database, or the currently deployed image. Azure
 continues to serve source `b873112` until Gate 19 performs its explicit
-image-only transition. Gate 19 and the following read-only audit are pinned in
+image-only transition to source `51702e1`. Gate 19 and the following read-only
+audit are pinned in
 [the final operator batch](final-operator-batch.md). Earlier live BYOK and
 browser evidence remains applicable to unchanged behavior, but it is not
 relabeled as execution evidence from the new image.

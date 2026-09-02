@@ -46,9 +46,9 @@ subject, project content, token hash, or request content.
 
 `deploy/azure/gate11-privacy-acceptance.sh` turns the manual sequence below into
 a bounded two-run staging acceptance. The pinned gate currently accepts only
-the source-security candidate revision `abda-nl-stg-web--harden-c173dd5` and
+the source-security candidate revision `abda-nl-stg-web--harden-51702e1` and
 exact image digest
-`sha256:ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64`.
+`sha256:a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc`.
 It stops if the deployed application changes.
 
 Prepare one disposable verified-email account as follows:
