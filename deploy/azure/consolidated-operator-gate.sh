@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_OPERATOR_SCRIPT_REVISION='7'
-ABDA_OPERATOR_SOURCE_COMMIT='c4e474f9f9d090d9d3a7679197c98d6b6ac77ea8'
+ABDA_OPERATOR_SCRIPT_REVISION='8'
+ABDA_OPERATOR_SOURCE_COMMIT='d7883de84d792b5bb93d3e744e8048cf38553a81'
 ABDA_OPERATOR_ROOT=''
 
 abda_operator_cleanup() {
@@ -57,7 +57,7 @@ abda_operator_gate_metadata() {
     audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        '25b8606ec105e6d628eef941d66568e84c13a0a3f7ba40a14db7557225cdc3f0' \
+        'f67abb753fd23fd47624bad57f09c75a6355be6c805a9254e15cf45df9549dcb' \
         'bash' \
         'Read-only Azure, HTTPS, release, and count-only log checks.'
       ;;
@@ -106,7 +106,7 @@ abda_operator_gate_metadata() {
     final-audit)
       printf '%s\n' \
         'deploy/azure/gate9-observability-audit.sh' \
-        '25b8606ec105e6d628eef941d66568e84c13a0a3f7ba40a14db7557225cdc3f0' \
+        'f67abb753fd23fd47624bad57f09c75a6355be6c805a9254e15cf45df9549dcb' \
         'bash' \
         'Read-only audit of the promoted 100-user public boundary.'
       ;;
