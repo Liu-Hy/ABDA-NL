@@ -92,6 +92,7 @@ def _action_group(module) -> dict:
                     "name": "abda-support",
                     "emailAddress": "support@abda-nl.org",
                     "useCommonAlertSchema": True,
+                    "status": "Enabled",
                 }
             ],
             "smsReceivers": [],
@@ -405,6 +406,14 @@ def test_unexpected_action_group_receiver_is_rejected() -> None:
     group = _action_group(module)
     group["properties"]["webhookReceivers"] = [{"name": "unexpected"}]
     with pytest.raises(module.GateFailure, match="unexpected receiver"):
+        module.validate_action_group(group)
+
+
+def test_disabled_action_group_email_receiver_is_rejected() -> None:
+    module = _module()
+    group = _action_group(module)
+    group["properties"]["emailReceivers"][0]["status"] = "Disabled"
+    with pytest.raises(module.GateFailure, match="not enabled"):
         module.validate_action_group(group)
 
 

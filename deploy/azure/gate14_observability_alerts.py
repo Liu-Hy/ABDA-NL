@@ -13,7 +13,7 @@ import tempfile
 from typing import Any, Sequence
 
 
-SCRIPT_REVISION = "2"
+SCRIPT_REVISION = "3"
 SOURCE_COMMIT = "b63109adbc09f1265d4eccf9ad934fa6cd46cfa2"
 SOURCE_REPOSITORY = "https://github.com/Liu-Hy/ABDA-NL.git"
 BICEP_VERSION = "0.46.1"
@@ -257,14 +257,21 @@ def validate_action_group(group: Any) -> str:
         raise GateFailure("the deployed action group location changed")
     if properties.get("enabled") is not True or properties.get("groupShortName") != "abda-alert":
         raise GateFailure("the deployed action group settings changed")
-    if receivers != [
-        {
-            "name": "abda-support",
-            "emailAddress": ALERT_EMAIL,
-            "useCommonAlertSchema": True,
-        }
-    ]:
+    if len(receivers) != 1:
         raise GateFailure("the deployed action group email receiver changed")
+    receiver = receivers[0]
+    if not isinstance(receiver, dict):
+        raise GateFailure("the deployed action group email receiver changed")
+    observed_receiver = (
+        receiver.get("name"),
+        str(receiver.get("emailAddress") or "").lower(),
+        receiver.get("useCommonAlertSchema"),
+    )
+    expected_receiver = ("abda-support", ALERT_EMAIL.lower(), True)
+    if observed_receiver != expected_receiver:
+        raise GateFailure("the deployed action group email receiver changed")
+    if receiver.get("status") != "Enabled":
+        raise GateFailure("the deployed action group email receiver is not enabled")
     if not _empty_receiver_lists(properties):
         raise GateFailure("the deployed action group has an unexpected receiver")
     return expected_id
