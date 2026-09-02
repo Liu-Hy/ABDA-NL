@@ -2,20 +2,23 @@
 
 State: hardened image and remaining manual release Gates prepared
 
-Runbook revision: `source-security-20260902.2`
+Runbook revision: `source-security-20260902.3`
 
 Before running any remaining phase, confirm that the consolidated helper block
-below uses commit `ec32553dd88f2d27bf349fc58b3397e68f81be00`. Stop and refresh this
+below uses commit `f87eb6cff299c72ef75c16990d1defb10466cbdc`. Stop and refresh this
 file from the personal repository's `development` branch if a saved copy uses
 an older commit.
 
 The managed-boundary image already passed capacity, public Chromium and
 Firefox accessibility, and live OpenRouter BYOK acceptance. The subsequent
 runtime changes remove private or model-derived identifiers from operational
-logs and reduce evaluator route-list output. They do not change authentication,
-BYOK key handling, projects, sharing, MCP, routing, budgets, database schema,
-or browser code. CodeQL reports zero findings for the new source, and the
-image workflow rebuilt, smoke-tested, and attested its exact digest.
+logs, reduce evaluator route-list output, and prevent unexpected exception
+messages or tracebacks from entering logs. Safe diagnostics retain only the
+exception class and internal code location. These changes do not alter
+authentication, BYOK key handling, projects, sharing, MCP, routing, budgets,
+database schema, or browser code. CodeQL reports zero findings for the new
+source, and the image workflow rebuilt, smoke-tested, and attested its exact
+digest.
 
 This runbook collects the remaining cloud and account work into one operator
 batch. The Azure alert deployment, alert-email delivery, BYOK browser Gate,
@@ -25,11 +28,11 @@ configuration changes.
 
 The hardened release identity is:
 
-- application source commit: `c173dd5983ba209b17c585c0c82aeb33c2e49028`
-- source tag: `service-image-staging-source-security-20260902-182221`
-- image digest: `sha256:ecf7531064fe6f86d3d647e9f0239bfbe5e082d71c5fcdd5e7e7fb91e9b32a64`
-- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/44790406`
-- target pilot revision: `abda-nl-stg-web--harden-c173dd5`
+- application source commit: `51702e175bd14d4cb54075808f839d173d561324`
+- source tag: `service-image-staging-safe-exceptions-20260902-191532`
+- image digest: `sha256:a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc`
+- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/44802693`
+- target pilot revision: `abda-nl-stg-web--harden-51702e1`
 - public origin: `https://demo.abda-nl.org`
 
 Before running the final promotion, confirm production email capacity. The
@@ -48,9 +51,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='ec32553dd88f2d27bf349fc58b3397e68f81be00'
+c='f87eb6cff299c72ef75c16990d1defb10466cbdc'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='cf70a0ad04cdcb09f86214dd48c299427702206d45ca72b621adbf4ba8b1b949'
+s='2bc61624d6949259402b8f3a2317b36783abd2605aeb30a1bd407a93bd294bc1'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
@@ -109,9 +112,9 @@ result: RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 
 ## 1. Complete the BYOK browser Gate
 
-Status: completed on 2026-09-02. Do not rerun for the source-security image.
-The intervening runtime diff changes logging and evaluator output only, while
-the new deployment Gate proves that the complete application contract remains
+Status: completed on 2026-09-02. Do not rerun for the hardened image. The
+intervening runtime diff changes logging and evaluator output only, while the
+new deployment Gate proves that the complete application contract remains
 unchanged.
 
 Use the normal browser account that has already activated the funded pilot.
