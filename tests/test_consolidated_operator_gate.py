@@ -15,7 +15,7 @@ def test_operator_helper_is_valid_pinned_and_non_mutating_itself():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
     source = SCRIPT.read_text(encoding="utf-8")
     for expected in (
-        "9f2165cb55ce251a5301f64dcadfe79e87afe1de",
+        "4e572a53bcce88119179533906fb71d97bc746c6",
         "gate15-consolidated-release-image.sh",
         "gate9-observability-audit.sh",
         "gate10-byok-browser-acceptance.sh",
