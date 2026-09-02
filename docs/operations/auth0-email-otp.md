@@ -106,6 +106,12 @@ In Resend:
 4. Store the key in the password manager. Do not put it in the ABDA-NL `.env`
    file because only Auth0 uses it.
 
+Resend documents that open and click tracking are disabled by default and
+become active only after a tracking subdomain is configured and verified. The
+current `auth.abda-nl.org` domain has no Tracking DNS record or tracking
+subdomain, so neither mechanism is active even if the domain-creation controls
+were unavailable after setup.
+
 In Auth0, open Branding, Email Provider, enable the external provider, and
 select Resend. Use the same From address in the provider and the Passwordless
 Email connection:
@@ -204,5 +210,6 @@ cannot prove email delivery or tenant configuration.
 - [Auth0 production email providers](https://auth0.com/docs/customize/email/smtp-email-providers)
 - [Auth0 Resend provider](https://auth0.com/docs/customize/email/smtp-email-providers/resend)
 - [Resend Cloudflare verification](https://resend.com/docs/knowledge-base/cloudflare)
+- [Resend open and click tracking](https://resend.com/docs/dashboard/domains/tracking)
 - [Resend pricing](https://resend.com/pricing/)
 - [Resend account quotas and limits](https://resend.com/docs/knowledge-base/account-quotas-and-limits)
