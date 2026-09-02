@@ -73,7 +73,8 @@ def _workspace(module) -> dict:
             "Microsoft.OperationalInsights/workspaces", "abda-nl-stg-logs-bgjhpbgw"
         ),
         "location": "eastus2",
-        "properties": {"provisioningState": "Succeeded", "retentionInDays": 30},
+        "provisioningState": "Succeeded",
+        "retentionInDays": 30,
     }
 
 
@@ -263,6 +264,16 @@ def test_identity_application_and_live_metric_contracts() -> None:
     workspace = _workspace(module)
     assert module.validate_log_workspace(workspace) == workspace["id"]
     module.validate_metric_definitions(_metric_definitions())
+
+
+def test_log_workspace_accepts_raw_arm_resource_shape() -> None:
+    module = _module()
+    workspace = _workspace(module)
+    workspace["properties"] = {
+        "provisioningState": workspace.pop("provisioningState"),
+        "retentionInDays": workspace.pop("retentionInDays"),
+    }
+    assert module.validate_log_workspace(workspace) == workspace["id"]
 
 
 @pytest.mark.parametrize(

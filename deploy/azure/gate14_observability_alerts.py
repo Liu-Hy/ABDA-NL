@@ -13,7 +13,7 @@ import tempfile
 from typing import Any, Sequence
 
 
-SCRIPT_REVISION = "1"
+SCRIPT_REVISION = "2"
 SOURCE_COMMIT = "b63109adbc09f1265d4eccf9ad934fa6cd46cfa2"
 SOURCE_REPOSITORY = "https://github.com/Liu-Hy/ABDA-NL.git"
 BICEP_VERSION = "0.46.1"
@@ -131,13 +131,17 @@ def validate_log_workspace(workspace: Any) -> str:
     if not isinstance(workspace, dict):
         raise GateFailure("the Log Analytics workspace response is malformed")
     properties = workspace.get("properties") or {}
+    provisioning_state = workspace.get(
+        "provisioningState", properties.get("provisioningState")
+    )
+    retention_days = workspace.get("retentionInDays", properties.get("retentionInDays"))
     if str(workspace.get("id") or "").lower() != expected_id.lower():
         raise GateFailure("the Log Analytics workspace identity changed")
     if _normalize_location(workspace.get("location")) != LOCATION:
         raise GateFailure("the Log Analytics workspace region changed")
-    if properties.get("provisioningState") != "Succeeded":
+    if provisioning_state != "Succeeded":
         raise GateFailure("the Log Analytics workspace is not provisioned")
-    if properties.get("retentionInDays") != 30:
+    if retention_days != 30:
         raise GateFailure("the Log Analytics retention period changed")
     return expected_id
 
@@ -539,6 +543,7 @@ def _register_provider_if_needed() -> None:
     confirmation = input("Type REGISTER_ABDA_INSIGHTS to continue: ").strip()
     if confirmation != "REGISTER_ABDA_INSIGHTS":
         raise GateFailure("Microsoft.Insights registration was not authorized")
+    print("Confirmation accepted. Waiting for Microsoft.Insights registration...")
     _run(
         ("az", "provider", "register", "--namespace", "Microsoft.Insights", "--wait"),
         timeout=900,
