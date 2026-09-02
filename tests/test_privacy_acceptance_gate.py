@@ -207,6 +207,7 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
     assert "shutil.rmtree(export_root" in runner
     assert "updated_at" in runner
     assert "age < 900" in runner
+    assert "account_fingerprint:" not in runner
     assert "token_hash" not in runner.split("forbidden =", 1)[0]
     assert "\N{EN DASH}" not in source and "\N{EM DASH}" not in source
 
