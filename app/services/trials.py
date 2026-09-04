@@ -114,6 +114,18 @@ def _reserve(
     grant = session.scalar(
         select(TrialGrant).where(TrialGrant.user_id == user_id).with_for_update()
     )
+    locked_user = session.scalar(
+        select(User)
+        .where(User.id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if (
+        locked_user is None
+        or locked_user.status != "active"
+        or not locked_user.email_verified
+    ):
+        raise TrialUnavailableError("a verified active account is required")
     if grant is None:
         raise InsufficientTrialCreditError("claim trial credit before using funded models")
     available = grant.granted_microusd - grant.spent_microusd - grant.reserved_microusd

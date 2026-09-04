@@ -111,6 +111,28 @@ def test_public_funded_route_requires_authenticated_verified_user():
     assert not router.funded_calls
 
 
+def test_public_llm_route_rejects_an_inactive_user():
+    router = _StubRouter()
+    inactive = _verified_user()
+    inactive.status = "deletion_pending"
+
+    with pytest.raises(LLMAccessError) as error:
+        select_request_llm_client(
+            None,
+            user=inactive,
+            request_id="request-inactive",
+            request_kind="chat",
+            legacy_factory=lambda: object(),
+            settings=_public_settings(),
+            router=router,
+        )
+
+    assert error.value.status_code == 403
+    assert error.value.code == "account_inactive"
+    assert not router.funded_calls
+    assert not router.byok_calls
+
+
 def test_public_funded_route_charges_trial_and_propagates_context():
     router = _StubRouter()
     result = select_request_llm_client(

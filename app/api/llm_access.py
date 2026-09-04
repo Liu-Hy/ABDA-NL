@@ -70,6 +70,12 @@ def _require_llm_access(user: User | None, settings: Settings) -> None:
             "authentication_required",
             "Sign in with a verified email address to use language models.",
         )
+    if user.status != "active":
+        raise LLMAccessError(
+            status.HTTP_403_FORBIDDEN,
+            "account_inactive",
+            "This account is not active. Contact support if you need help.",
+        )
     if not user.email_verified:
         raise LLMAccessError(
             status.HTTP_403_FORBIDDEN,

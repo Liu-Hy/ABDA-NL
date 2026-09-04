@@ -46,7 +46,11 @@ from app.services.projects import (
     resolve_share_link,
     update_project,
 )
-from app.services.trials import TrialUnavailableError, activate_trial
+from app.services.trials import (
+    TrialUnavailableError,
+    activate_trial,
+    reserve_trial_credit,
+)
 
 
 EMAIL = "privacy-researcher@example.edu"
@@ -390,6 +394,42 @@ def test_suspension_blocks_trial_activation_from_a_stale_authenticated_session(
 
         with pytest.raises(TrialUnavailableError):
             activate_trial(requester, user)
+    finally:
+        requester.close()
+
+
+def test_suspension_blocks_funded_reservation_from_a_stale_session(
+    session_factory,
+):
+    user_id = _populate(session_factory)
+    requester = session_factory()
+    try:
+        user = requester.get(User, user_id)
+        assert user is not None
+        requester.commit()
+
+        with session_factory() as operator:
+            prepare_privacy_deletion(
+                operator,
+                EMAIL,
+                request_reference="PRIV-20260904-RESERVATION",
+            )
+
+        with pytest.raises(TrialUnavailableError):
+            reserve_trial_credit(
+                requester,
+                user_id,
+                amount_microusd=1_000,
+                provider="foundry",
+                model="claude-sonnet-4-6",
+                request_kind="chat",
+            )
+        assert requester.scalar(
+            select(UsageReservation).where(
+                UsageReservation.user_id == user_id,
+                UsageReservation.status == "pending",
+            )
+        ) is None
     finally:
         requester.close()
 

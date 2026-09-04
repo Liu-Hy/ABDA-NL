@@ -47,7 +47,11 @@ from app.services.projects import (
     update_project,
 )
 from app.services.rate_limits import consume_rate_limit
-from app.services.trials import TrialUnavailableError, activate_trial
+from app.services.trials import (
+    TrialUnavailableError,
+    activate_trial,
+    reserve_trial_credit,
+)
 
 
 pytestmark = pytest.mark.skipif(
@@ -174,6 +178,7 @@ def _assert_privacy_suspension_closes_stale_mutations() -> None:
             source_scenario_id="fire_prevention",
         )
         _, share_token = create_share_link(seed, user, project.id)
+        activate_trial(seed, user)
         user_id = user.id
         project_id = project.id
         project_version = project.version
@@ -182,13 +187,21 @@ def _assert_privacy_suspension_closes_stale_mutations() -> None:
     stale_share = get_session_factory()()
     stale_mcp = get_session_factory()()
     stale_trial = get_session_factory()()
+    stale_reservation = get_session_factory()()
     try:
         update_user = stale_update.get(User, user_id)
         share_user = stale_share.get(User, user_id)
         mcp_user = stale_mcp.get(User, user_id)
         trial_user = stale_trial.get(User, user_id)
-        assert all((update_user, share_user, mcp_user, trial_user))
-        for session in (stale_update, stale_share, stale_mcp, stale_trial):
+        reservation_user = stale_reservation.get(User, user_id)
+        assert all((update_user, share_user, mcp_user, trial_user, reservation_user))
+        for session in (
+            stale_update,
+            stale_share,
+            stale_mcp,
+            stale_trial,
+            stale_reservation,
+        ):
             session.commit()
 
         with get_session_factory()() as operator:
@@ -221,11 +234,21 @@ def _assert_privacy_suspension_closes_stale_mutations() -> None:
             )
         with pytest.raises(TrialUnavailableError):
             activate_trial(stale_trial, trial_user)
+        with pytest.raises(TrialUnavailableError):
+            reserve_trial_credit(
+                stale_reservation,
+                user_id,
+                amount_microusd=1_000,
+                provider="foundry",
+                model="claude-sonnet-4-6",
+                request_kind="chat",
+            )
     finally:
         stale_update.close()
         stale_share.close()
         stale_mcp.close()
         stale_trial.close()
+        stale_reservation.close()
 
     with get_session_factory()() as operator:
         receipt = delete_privacy_account(
