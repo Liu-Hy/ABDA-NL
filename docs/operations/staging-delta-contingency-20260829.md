@@ -70,6 +70,16 @@ returned their exact success payloads, and `/config` reported the public model
 catalog without exposing a credential. The process was not restarted or
 reconfigured.
 
+Later on 2026-09-04 CDT, the launcher performed one managed restart from the
+current development checkout. It reported ready, the exact readiness payload
+passed, and a deterministic `popov_v_hayashi` state request returned HTTP 200
+with the expected scenario and argumentation-framework objects. No model was
+called. A separate shell on `dt-login04.delta.ncsa.illinois.edu` then ran
+`demo status`; the launcher relayed automatically to the pinned `dt-login03`
+process and reported it running. This verifies the cross-login-node relay
+without reconnecting the operator to a specific node or exposing a public
+listener.
+
 ## Boundary not yet claimed
 
 This server-side check does not prove the laptop path. Before the conference,
