@@ -123,6 +123,7 @@ def test_public_policy_pages_are_linked_and_script_free():
 
     privacy = (STATIC_ROOT / "privacy.html").read_text(encoding="utf-8")
     terms = (STATIC_ROOT / "terms.html").read_text(encoding="utf-8")
+    assert "Last updated September 4, 2026" in privacy
     assert "retained for up to 30 days" in privacy
     assert "retained for 7 days" in privacy
     assert "complete it within 30 days" in privacy
