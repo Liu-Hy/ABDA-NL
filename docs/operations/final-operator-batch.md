@@ -2,7 +2,7 @@
 
 State: hardened image live; privacy preparation complete; permanent deletion next
 
-Runbook revision: `provider-lifecycle-20260904.1`
+Runbook revision: `suspension-integrity-20260904.1`
 
 ## Resume here after the completed privacy preparation
 
@@ -46,9 +46,12 @@ cannot be proven. It rejects empty or malformed billed responses while retaining
 their usage evidence, distinguishes a Gemini content-policy rejection from an
 outage, and deterministically closes provider network clients after API, MCP,
 evaluation, and outage-drill calls. It does not alter authentication, BYOK key
-storage, projects, sharing, MCP scopes, budget limits, database schema, or
-browser interactions. CodeQL reports zero findings for the new source, and the
-image workflow rebuilt, smoke-tested, and attested its exact digest.
+storage, MCP scopes, budget limits, database schema, or browser interactions.
+It also refreshes and locks the durable account row before project, share, MCP
+credential, or trial mutations, so a request authenticated just before privacy
+suspension cannot create new state afterward. CodeQL reports zero findings for
+the new source, and the image workflow rebuilt, smoke-tested, and attested its
+exact digest.
 
 This runbook collects the remaining cloud and account work into one operator
 batch. The hardened-image deployment and live audit, Azure alert deployment,
@@ -68,11 +71,11 @@ The hardened release identity is:
 
 The queued post-privacy cumulative identity is:
 
-- application source commit: `e09fb727da2c34f78f97f28f8591f2b5cc33eeb1`
-- source tag: `service-image-staging-provider-lifecycle-20260904-075321`
-- image digest: `sha256:0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49`
-- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45192912`
-- target pilot revision: `abda-nl-stg-web--integrity-e09fb72`
+- application source commit: `084817fcefdcbee36e223ff6932d6c344618e1c3`
+- source tag: `service-image-staging-suspension-integrity-20260904-083939`
+- image digest: `sha256:ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3`
+- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45200764`
+- target pilot revision: `abda-nl-stg-web--suspend-084817f`
 - public origin: `https://demo.abda-nl.org`
 
 Do not deploy the queued image before the disposable-account privacy deletion
@@ -304,7 +307,7 @@ data. Keep the existing disposable state and blocked Auth0 user. Load the
 current helper above and run the first phase. Do not recreate the project,
 share, token, or account.
 
-## 3. Deploy and audit the cumulative maintenance image
+## 3. Deploy and audit the cumulative service image
 
 Proceed only after the privacy Gate returned
 `LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED` and the disposable Auth0 identity
@@ -356,9 +359,9 @@ At its prompt, type
 `PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE` once and press Enter.
 Use that phrase only after both privacy deletion steps above succeeded. The
 Gate changes only the web image and revision suffix. It verifies the new
-retention, conservative provider-billing, response-validation, and
-client-lifecycle disclosures, and preserves the existing managed-service and
-shared-view boundaries. Required success ends with:
+retention, conservative provider-billing, response-validation, client-lifecycle,
+and account-suspension boundaries, and preserves the existing managed-service
+and shared-view behavior. Required success ends with:
 
 ```text
 result: SERVICE_INTEGRITY_IMAGE_DEPLOYED_AUDIT_REQUIRED
@@ -384,11 +387,12 @@ result: SERVICE_INTEGRITY_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 ```
 
 Do not repeat MCP or OpenRouter BYOK acceptance for this image. Those paths and
-their trust boundaries are unchanged. Provider-accounting and client-lifetime
-behavior is covered by focused failure tests, the full CI matrix, and the one
-funded smoke above. After the deployment receipt is available, Codex can run
-the automated public browser and bounded deterministic capacity checks from
-Delta without another manual browser action.
+their trust boundaries are unchanged. Provider accounting, client lifetime,
+and stale-session suspension behavior are covered by focused tests, the real
+PostgreSQL CI Gate, the full CI matrix, and the one funded smoke above. After
+the deployment receipt is available, Codex can run the automated public browser
+and bounded deterministic capacity checks from Delta without another manual
+browser action.
 
 If Cloud Shell closes, repeat only the block that creates `q`, run
 `bash "$q" verify`, then resume the required phase. Every mutating Gate detects

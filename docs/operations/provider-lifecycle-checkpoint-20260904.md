@@ -1,6 +1,6 @@
 # Provider lifecycle checkpoint, 2026-09-04
 
-State: built, tested, attested, and queued after privacy acceptance
+State: built, tested, and attested, then superseded before deployment
 
 This checkpoint supersedes the queued provider-accounting image before either
 image was deployed. Source commit
@@ -75,3 +75,8 @@ image automatically. Gate 23 may then promote the restored image from the
 ten-user pilot to the reviewed 100-user limits and enable the independently
 capped outage fallback, but only after its external email-capacity prerequisite
 is met.
+
+This image was subsequently superseded before deployment by the
+[account-suspension integrity checkpoint](suspension-integrity-checkpoint-20260904.md),
+which retains all provider lifecycle, accounting, and retention work from this
+checkpoint.

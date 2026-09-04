@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 
-# Deploy the cumulative service-integrity hardening as one image-only Container
-# App update. The shared gate proves that every application setting and secret
-# reference remains unchanged and reruns the public checks.
+# Deploy the cumulative service-integrity and account-suspension hardening as
+# one image-only Container App update. The shared gate proves that every
+# application setting and secret reference remains unchanged and reruns the
+# public checks.
 
 set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_MCP_IMAGE_SCRIPT_REVISION='4'
-ABDA_MCP_IMAGE_SOURCE_COMMIT='e09fb727da2c34f78f97f28f8591f2b5cc33eeb1'
+ABDA_MCP_IMAGE_SCRIPT_REVISION='5'
+ABDA_MCP_IMAGE_SOURCE_COMMIT='084817fcefdcbee36e223ff6932d6c344618e1c3'
 ABDA_MCP_IMAGE_OLD_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
-ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49'
+ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3'
 ABDA_MCP_IMAGE_OLD_REVISION='abda-nl-stg-web--harden-51702e1'
-ABDA_MCP_IMAGE_TARGET_SUFFIX='integrity-e09fb72'
-ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--integrity-e09fb72'
-ABDA_MCP_IMAGE_GATE_TITLE='cumulative service-integrity image'
+ABDA_MCP_IMAGE_TARGET_SUFFIX='suspend-084817f'
+ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--suspend-084817f'
+ABDA_MCP_IMAGE_GATE_TITLE='cumulative service-integrity and suspension image'
 ABDA_MCP_IMAGE_CONFIRMATION='PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE'
 ABDA_MCP_IMAGE_RESULT='SERVICE_INTEGRITY_IMAGE_DEPLOYED_AUDIT_REQUIRED'
 ABDA_MCP_IMAGE_POST_ACTION_ONE='Run one short funded browser request, then continue with the pinned audit.'
