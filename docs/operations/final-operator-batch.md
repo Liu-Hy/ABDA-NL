@@ -316,9 +316,9 @@ complete block once:
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c2='3584c2e8ac762cbca279d895aebb87104762a497'
+c2='3d23869304474c0119456ca53f76b9d2e34c58a5'
 f2='deploy/azure/post-privacy-operator-gate.sh'
-s2='73b6823fc4cb4f4841571388c20506fb56013989b361d72e9788c3e69f1124fe'
+s2='c7cdf2bfcfe25f3752d16b60f86c4f5c5628ff96cfda221affa06a78784bbc3e'
 q="$(mktemp /tmp/abda-post-privacy.XXXXXX)"
 curl -fsSL "$u/$c2/$f2" -o "$q"
 printf '%s  %s\n' "$s2" "$q" | sha256sum --check
@@ -338,12 +338,12 @@ result: ALL_POST_PRIVACY_OPERATOR_GATES_VERIFIED
 ```
 
 This helper also has two intentional commit identities. The download block
-uses `3584c2e8ac762cbca279d895aebb87104762a497` for the helper file. Its
+uses `3d23869304474c0119456ca53f76b9d2e34c58a5` for the helper file. Its
 verification output must begin with:
 
 ```text
-ABDA-NL post-privacy operator helper revision: 5
-Pinned gate source commit: fc01896d53820b22cc1f440916e228690b6de26d
+ABDA-NL post-privacy operator helper revision: 6
+Pinned gate source commit: a233bbd0f3ea7b45b64c8e38a4b1e784f5215348
 ```
 
 The printed commit pins the post-privacy child-Gate bundle and is expected to

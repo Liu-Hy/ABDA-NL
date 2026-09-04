@@ -52,6 +52,11 @@ exact image digest
 `sha256:a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc`.
 It stops if the deployed application changes.
 
+That pin is intentional. It keeps the already prepared account bound to the
+same live code through permanent deletion. The newer account-suspension image
+is queued only for the post-deletion deployment, so it cannot invalidate or
+silently repeat the prepared operation.
+
 Prepare one disposable verified-email account as follows:
 
 1. Do not activate trial credit and do not call a model from this account.
