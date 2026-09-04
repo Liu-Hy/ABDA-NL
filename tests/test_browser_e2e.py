@@ -660,6 +660,75 @@ def test_switching_byok_provider_clears_the_previous_provider_key(
             browser.close()
 
 
+def test_logout_discards_an_in_flight_private_workspace_refresh(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-refresh@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+
+            page.evaluate(
+                """() => {
+                    const original = apiRequest;
+                    window.__resolveStaleProjects = null;
+                    window.__staleProjectsStarted = false;
+                    apiRequest = (path, options = {}) => {
+                      if (path === '/api/projects' && !window.__staleProjectsStarted) {
+                        window.__staleProjectsStarted = true;
+                        return new Promise(resolve => {
+                          window.__resolveStaleProjects = resolve;
+                        });
+                      }
+                      return original(path, options);
+                    };
+                    window.__staleWorkspaceRefresh = refreshAuthenticatedWorkspace({quiet: true});
+                }"""
+            )
+            page.wait_for_function("window.__resolveStaleProjects !== null")
+            page.evaluate(
+                """() => {
+                    state.projects = [{
+                      id: 'stale-private-project',
+                      name: 'Old account private project',
+                      description: '',
+                      source_scenario_id: 'popov_v_hayashi',
+                      version: 1,
+                      created_at: '2026-01-01T00:00:00Z',
+                      updated_at: '2026-01-01T00:00:00Z',
+                    }];
+                    state.chatMessages = [{
+                      role: 'user',
+                      content: 'Old account private chat',
+                    }];
+                    renderProjectsUI();
+                    renderChat();
+                }"""
+            )
+            expect(page.get_by_text("Old account private project")).to_be_attached()
+            expect(page.get_by_text("Old account private chat")).to_be_attached()
+
+            with page.expect_navigation(wait_until="domcontentloaded"):
+                page.locator("#logout-btn").click()
+            _wait_for_demo_ready(page)
+
+            assert page.evaluate("state.authSession.authenticated") is False
+            assert page.evaluate("state.projects.length") == 0
+            assert page.evaluate("state.chatMessages.length") == 0
+            assert page.evaluate("typeof window.__resolveStaleProjects") == "undefined"
+            assert "Old account private project" not in page.locator("body").inner_text()
+            assert "Old account private chat" not in page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 
@@ -993,8 +1062,9 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(dialog).to_be_visible()
             _axe_report(page, "mobile workspace")
             _save_browser_evidence(page, "mobile-workspace")
-            page.locator("#logout-btn").click()
-            expect(page.locator("#global-status")).to_contain_text("Signed out")
+            with page.expect_navigation(wait_until="domcontentloaded"):
+                page.locator("#logout-btn").click()
+            _wait_for_demo_ready(page)
             session = page.evaluate(
                 "async () => (await fetch('/api/auth/session')).json()"
             )

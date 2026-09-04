@@ -296,32 +296,12 @@ async function handleDevelopmentLogin(event) {
 async function handleLogout(event) {
   event.preventDefault();
   setWorkspaceStatus('account-status', 'Signing out...', 'info');
-  const oidcLogout = state.authSession.auth_mode === 'oidc';
   resetBYOKKey();
-  clearMCPSecretPanel();
+  clearWorkspaceOneTimeSecrets();
   try {
     const result = await apiRequest('/api/auth/logout', { method: 'POST' });
-    if (oidcLogout) {
-      if (!result?.logout_url) throw new Error('The identity provider logout URL is unavailable.');
-      window.location.assign(result.logout_url);
-      return;
-    }
-    const leavePrivateProject = state.viewKind === 'project';
-    state.authSession = { authenticated: false, auth_mode: state.authSession.auth_mode, login_url: state.authSession.login_url, user: null };
-    state.trial = null;
-    state.projects = [];
-    state.mcpTokens = [];
-    renderAccountUI();
-    renderAccessSummary();
-    setWorkspaceStatus('account-status', '', 'info');
-    requestCloseModal('modal-workspace');
-    if (leavePrivateProject) {
-      const defaultId = state.scenarios.some(item => item.id === 'popov_v_hayashi')
-        ? 'popov_v_hayashi'
-        : state.scenarios[0]?.id;
-      if (defaultId) await loadScenario(defaultId);
-    }
-    showGlobalStatus('Signed out. Any in-memory provider key was cleared.', 'success');
+    if (!result?.logout_url) throw new Error('The sign-out destination is unavailable.');
+    window.location.assign(result.logout_url);
   } catch (error) {
     setWorkspaceStatus('account-status', error.message, 'error');
   }

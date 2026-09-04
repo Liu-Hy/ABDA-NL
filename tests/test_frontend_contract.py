@@ -162,7 +162,7 @@ def test_modal_focus_falls_back_when_the_requested_control_is_hidden():
     assert ".workspace-panel.active a[href]" in source
 
 
-def test_logout_uses_same_origin_fetch_before_oidc_navigation():
+def test_logout_uses_same_origin_fetch_before_clean_navigation():
     inventory = _inventory()
     logout_form = inventory.attributes_by_id["logout-form"]
     assert logout_form["method"] == "post"
@@ -174,7 +174,12 @@ def test_logout_uses_same_origin_fetch_before_oidc_navigation():
     assert handler.index("event.preventDefault()") < handler.index(
         "apiRequest('/api/auth/logout', { method: 'POST' })"
     )
-    assert "const oidcLogout = state.authSession.auth_mode === 'oidc'" in handler
+    assert handler.index("resetBYOKKey()") < handler.index(
+        "apiRequest('/api/auth/logout', { method: 'POST' })"
+    )
+    assert handler.index("clearWorkspaceOneTimeSecrets()") < handler.index(
+        "apiRequest('/api/auth/logout', { method: 'POST' })"
+    )
     assert "window.location.assign(result.logout_url)" in handler
 
 
