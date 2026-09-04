@@ -743,6 +743,54 @@ def test_authenticated_workspace_keeps_each_successful_partial_refresh(
             browser.close()
 
 
+def test_authenticated_workspace_renders_a_fast_partial_refresh_immediately(
+    live_browser_server,
+):
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("fast-partial-refresh@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            page.locator("#account-signed-in").wait_for(state="visible")
+
+            page.evaluate(
+                """async () => {
+                    const original = apiRequest;
+                    const delayedProjects = new Promise(resolve => {
+                      window.__releaseDelayedProjects = resolve;
+                    });
+                    state.trial = null;
+                    apiRequest = (path, options = {}) => {
+                      if (path === '/api/trial') {
+                        return Promise.resolve({
+                          active: true,
+                          granted_microusd: 5000000,
+                          spent_microusd: 2000,
+                          reserved_microusd: 0,
+                          available_microusd: 4998000,
+                        });
+                      }
+                      if (path === '/api/projects') return delayedProjects;
+                      return original(path, options);
+                    };
+                    window.__partialRefreshPromise = refreshAuthenticatedWorkspace({quiet: true});
+                    await Promise.resolve();
+                    await Promise.resolve();
+                }"""
+            )
+
+            assert page.evaluate("state.trial?.available_microusd") == 4_998_000
+            page.evaluate("window.__releaseDelayedProjects({projects: []})")
+            page.evaluate("window.__partialRefreshPromise")
+        finally:
+            browser.close()
+
+
 def test_logout_discards_an_in_flight_private_workspace_refresh(
     live_browser_server,
 ):
@@ -1369,6 +1417,99 @@ def test_project_change_cannot_be_replaced_by_an_older_save_response(
 
             assert page.evaluate("state.activeProject.id") == "save-b"
             expect(page.locator("#scenario-name")).to_have_text("Save B")
+        finally:
+            browser.close()
+
+
+def test_project_change_cannot_be_replaced_by_an_older_archive_response(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-archive@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    const makeProject = (id, name) => {
+                      const scenario = structuredClone(state.bundle.scenario);
+                      scenario.title = name;
+                      return {
+                        id,
+                        name,
+                        description: '',
+                        source_scenario_id: state.scenario_id,
+                        scenario,
+                        af: structuredClone(state.bundle.af),
+                        version: 1,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      };
+                    };
+                    window.__archiveProjectA = makeProject('archive-a', 'Archive A');
+                    window.__archiveProjectB = makeProject('archive-b', 'Archive B');
+                    setViewContext('project', window.__archiveProjectA);
+                    state.scenario_id = window.__archiveProjectA.source_scenario_id;
+                    state.baseline = window.__archiveProjectA.scenario;
+                    state.diff_ops = [];
+                    setBundle({
+                      scenario: window.__archiveProjectA.scenario,
+                      af: window.__archiveProjectA.af,
+                    });
+                    renderAll();
+                    window.confirm = () => true;
+                    window.__resolveArchiveProjectList = null;
+                    window.fetch = (path, options = {}) => {
+                      if (
+                        path.startsWith('/api/projects/archive-a?')
+                        && options.method === 'DELETE'
+                      ) {
+                        return Promise.resolve(new Response(null, {status: 204}));
+                      }
+                      if (path === '/api/projects' && !options.method) {
+                        return new Promise(resolve => {
+                          window.__resolveArchiveProjectList = () => resolve(new Response(
+                            JSON.stringify({projects: [window.__archiveProjectB]}),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      return original(path, options);
+                    };
+                    window.__oldArchiveRequest = archiveProject(
+                      'archive-a',
+                      'Archive A',
+                      1,
+                    );
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveArchiveProjectList !== null")
+            page.evaluate(
+                """() => {
+                    setViewContext('project', window.__archiveProjectB);
+                    state.scenario_id = window.__archiveProjectB.source_scenario_id;
+                    state.baseline = window.__archiveProjectB.scenario;
+                    state.diff_ops = [];
+                    setBundle({
+                      scenario: window.__archiveProjectB.scenario,
+                      af: window.__archiveProjectB.af,
+                    });
+                    renderAll();
+                    window.__resolveArchiveProjectList();
+                }"""
+            )
+            page.evaluate("() => window.__oldArchiveRequest")
+
+            assert page.evaluate("state.activeProject.id") == "archive-b"
+            expect(page.locator("#scenario-name")).to_have_text("Archive B")
         finally:
             browser.close()
 

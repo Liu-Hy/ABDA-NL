@@ -322,24 +322,33 @@ async function refreshAuthenticatedWorkspace(options = {}) {
   }
   const trialGeneration = ++trialRefreshGeneration;
   const projectGeneration = ++projectRefreshGeneration;
-  const [trialResult, projectsResult] = await Promise.allSettled([
-    apiRequest('/api/trial'),
-    apiRequest('/api/projects'),
+  const trialRequest = apiRequest('/api/trial').then(
+    trial => {
+      if (trialGeneration !== trialRefreshGeneration) return null;
+      state.trial = trial;
+      renderAccountUI();
+      renderAccessSummary();
+      return null;
+    },
+    error => error,
+  );
+  const projectsRequest = apiRequest('/api/projects').then(
+    projects => {
+      if (projectGeneration !== projectRefreshGeneration) return null;
+      state.projects = projects.projects || [];
+      renderAccountUI();
+      renderAccessSummary();
+      return null;
+    },
+    error => error,
+  );
+  const [trialError, projectsError] = await Promise.all([
+    trialRequest,
+    projectsRequest,
   ]);
   const currentFailures = [];
-  if (trialGeneration === trialRefreshGeneration) {
-    if (trialResult.status === 'fulfilled') state.trial = trialResult.value;
-    else currentFailures.push(trialResult.reason);
-  }
-  if (projectGeneration === projectRefreshGeneration) {
-    if (projectsResult.status === 'fulfilled') {
-      state.projects = projectsResult.value.projects || [];
-    } else {
-      currentFailures.push(projectsResult.reason);
-    }
-  }
-  renderAccountUI();
-  renderAccessSummary();
+  if (trialError && trialGeneration === trialRefreshGeneration) currentFailures.push(trialError);
+  if (projectsError && projectGeneration === projectRefreshGeneration) currentFailures.push(projectsError);
   if (currentFailures.length > 0 && !options.quiet) {
     const error = currentFailures[0];
     showGlobalStatus(error?.message || 'The private workspace could not be fully refreshed.', 'error');
@@ -895,9 +904,8 @@ async function archiveProject(projectId, name, version) {
   if (!window.confirm(`Archive the private project "${name}"? Existing share links will stop working.`)) return;
   try {
     await apiRequest(`/api/projects/${encodeURIComponent(projectId)}?expected_version=${encodeURIComponent(version)}`, { method: 'DELETE' });
-    const wasOpen = state.activeProject?.id === projectId;
     await refreshProjects({ quiet: true });
-    if (wasOpen) {
+    if (state.activeProject?.id === projectId) {
       const defaultId = state.scenarios.some(item => item.id === 'popov_v_hayashi')
         ? 'popov_v_hayashi'
         : state.scenarios[0]?.id;
