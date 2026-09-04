@@ -2,7 +2,7 @@
 
 State: hardened image live; privacy preparation complete; permanent deletion next
 
-Runbook revision: `rate-limit-retention-20260904.3`
+Runbook revision: `rate-limit-retention-20260904.4`
 
 ## Resume here after the completed privacy preparation
 
@@ -63,11 +63,11 @@ The hardened release identity is:
 
 The queued post-privacy maintenance identity is:
 
-- application source commit: `db216b83d8df6b2ea487cd8358f05e81e65f8be9`
-- source tag: `service-image-staging-rate-limit-retention-20260904-005804`
-- image digest: `sha256:614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2`
-- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45173216`
-- target pilot revision: `abda-nl-stg-web--retain-db216b8`
+- application source commit: `e008067e3dc9c96862cf4f75228bdf0250848665`
+- source tag: `service-image-staging-rate-limit-retention-notice-20260904-063308`
+- image digest: `sha256:b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29`
+- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45178541`
+- target pilot revision: `abda-nl-stg-web--retain-e008067`
 - public origin: `https://demo.abda-nl.org`
 
 Do not deploy the queued image before the disposable-account privacy deletion

@@ -16,13 +16,13 @@ def test_rate_limit_retention_rollback_is_pinned_and_narrow():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "db216b83d8df6b2ea487cd8358f05e81e65f8be9",
-        "614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2",
+        "e008067e3dc9c96862cf4f75228bdf0250848665",
+        "b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29",
         "51702e175bd14d4cb54075808f839d173d561324",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "abda-nl-stg-web--retain-db216b8",
+        "abda-nl-stg-web--retain-e008067",
         "abda-nl-stg-web--rollback-51702e1",
-        "abda-nl-stg-web--restore-db216b8",
+        "abda-nl-stg-web--restore-e008067",
         "COMPATIBLE_RETENTION_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED",
         "a1a41ff17038894a255c4175b06c44422b6887e09f47c36f5b66a91845039273",
         "830302fc1bf30bf0f00c457fdfe8bc190b3562fe",
@@ -42,6 +42,7 @@ def test_rate_limit_retention_rollback_requires_disclosure_after_restore():
         "Expired records are removed at application startup or by an hourly cleanup "
         "triggered by subsequent traffic."
     ) in source
+    assert "Last updated September 4, 2026" in source
     assert "rate_limit_retention_disclosure: verified" in source
 
 
@@ -67,11 +68,11 @@ def test_rate_limit_retention_rollback_sets_exact_shared_gate_values():
         text=True,
     )
     assert result.stdout.splitlines() == [
-        "db216b83d8df6b2ea487cd8358f05e81e65f8be9",
-        "614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2",
+        "e008067e3dc9c96862cf4f75228bdf0250848665",
+        "b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29",
         "51702e175bd14d4cb54075808f839d173d561324",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "abda-nl-stg-web--retain-db216b8",
+        "abda-nl-stg-web--retain-e008067",
         "abda-nl-stg-web--rollback-51702e1",
-        "abda-nl-stg-web--restore-db216b8",
+        "abda-nl-stg-web--restore-e008067",
     ]

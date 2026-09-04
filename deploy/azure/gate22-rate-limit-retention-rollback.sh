@@ -32,16 +32,16 @@ if [[ "$ABDA_RETENTION_ROLLBACK_SHARED_GATE_TEMPORARY" == 'true' ]]; then
   rm -f -- "$ABDA_RETENTION_ROLLBACK_SHARED_GATE"
 fi
 
-ABDA_ROLLBACK_SCRIPT_REVISION='retention-1'
-ABDA_CURRENT_SOURCE_COMMIT='db216b83d8df6b2ea487cd8358f05e81e65f8be9'
-ABDA_CURRENT_IMAGE_SHA256='614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2'
+ABDA_ROLLBACK_SCRIPT_REVISION='retention-2'
+ABDA_CURRENT_SOURCE_COMMIT='e008067e3dc9c96862cf4f75228bdf0250848665'
+ABDA_CURRENT_IMAGE_SHA256='b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29'
 ABDA_ROLLBACK_SOURCE_COMMIT='51702e175bd14d4cb54075808f839d173d561324'
 ABDA_ROLLBACK_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
-ABDA_CURRENT_REVISION='abda-nl-stg-web--retain-db216b8'
+ABDA_CURRENT_REVISION='abda-nl-stg-web--retain-e008067'
 ABDA_ROLLBACK_SUFFIX='rollback-51702e1'
 ABDA_ROLLBACK_REVISION='abda-nl-stg-web--rollback-51702e1'
-ABDA_RESTORE_SUFFIX='restore-db216b8'
-ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-db216b8'
+ABDA_RESTORE_SUFFIX='restore-e008067'
+ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-e008067'
 
 ABDA_RETENTION_ROLLBACK_PUBLIC_FUNCTION="$(
   declare -f abda_rollback_public_acceptance
@@ -58,6 +58,8 @@ abda_rollback_public_acceptance() {
       'Expired records are removed at application startup or by an hourly cleanup triggered by subsequent traffic.' \
       "$prefix-privacy.html" || \
       abda_rollback_fail 'the restored rate-limit retention disclosure is missing'
+    grep -Fq 'Last updated September 4, 2026' "$prefix-privacy.html" || \
+      abda_rollback_fail 'the restored privacy notice date is stale'
   fi
 }
 
@@ -81,6 +83,7 @@ abda_rollback_print_status() {
   printf 'rollback_acceptance: passed\n'
   printf 'restored_acceptance: passed\n'
   printf 'rate_limit_retention_disclosure: verified\n'
+  printf 'privacy_notice_date: verified\n'
   printf 'result: COMPATIBLE_RETENTION_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED\n'
   printf '%s\n' \
     'The current rate-limit retention image is healthy again. Continue with the bounded public promotion only after its external prerequisites are complete.'

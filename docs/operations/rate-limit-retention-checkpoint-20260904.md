@@ -5,37 +5,41 @@ State: built, tested, attested, and queued after privacy acceptance
 This checkpoint closes one durable-service retention gap. Expired rate-limit
 rows already stopped affecting a request when their fixed window ended, but a
 long-lived replica physically removed them only during startup. Source commit
-`db216b83d8df6b2ea487cd8358f05e81e65f8be9` adds a nonblocking cleanup that
+`e008067e3dc9c96862cf4f75228bdf0250848665` contains a nonblocking cleanup that
 later rate-limited traffic may trigger at most once per process each hour.
 Cleanup failure cannot fail an already-accounted request, and its diagnostic
-omits exception messages and tracebacks.
+omits exception messages and tracebacks. The same commit dates the corresponding
+privacy-notice disclosure September 4, 2026.
 
 ## Verification evidence
 
-The complete local suite passed with 710 tests and five intentional skips.
+The complete local suite passed with 726 tests and five intentional skips.
 The focused security lint passed. The complete seven-job
-[CI run 33842325418](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33842325418)
+[CI run 33844685856](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33844685856)
 then passed on Python 3.10 and 3.13, Chromium, Firefox, PostgreSQL 16,
 deployment artifacts, dependency audits, and complete-history secret scans.
 Its real PostgreSQL test exercises the restricted application role, removes an
 expired bucket, and preserves the current bucket. The enforced
-[CodeQL run 33842325417](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33842325417)
+[CodeQL run 33844685790](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33844685790)
 also passed.
 
 The annotated tag
-`service-image-staging-rate-limit-retention-20260904-005804` identifies the
-exact source commit. [Image workflow run 33842462133](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33842462133)
+`service-image-staging-rate-limit-retention-notice-20260904-063308` identifies
+the exact source commit. [Image workflow run 33844841531](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33844841531)
 reran tests and dependency audits, built the production image, pulled and
 smoke-tested its exact digest, and published GitHub build provenance.
 
-- image: `ghcr.io/liu-hy/abda-nl@sha256:614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2`
-- attestation: [45173216](https://github.com/Liu-Hy/ABDA-NL/attestations/45173216)
+- image: `ghcr.io/liu-hy/abda-nl@sha256:b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29`
+- attestation: [45178541](https://github.com/Liu-Hy/ABDA-NL/attestations/45178541)
 - OCI source: `https://github.com/Liu-Hy/ABDA-NL`
-- OCI revision: `db216b83d8df6b2ea487cd8358f05e81e65f8be9`
+- OCI revision: `e008067e3dc9c96862cf4f75228bdf0250848665`
 - OCI license: `MIT`
 
 An independent GitHub attestation check accepted the SLSA provenance subject
 `ghcr.io/liu-hy/abda-nl` at the exact digest above.
+
+The earlier `db216b8` image remains immutable historical evidence but was never
+deployed. This dated-notice image supersedes it as the only queued target.
 
 ## Deployment boundary
 

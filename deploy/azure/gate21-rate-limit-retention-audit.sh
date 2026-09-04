@@ -33,9 +33,9 @@ if [[ "$ABDA_RETENTION_AUDIT_SHARED_GATE_TEMPORARY" == 'true' ]]; then
   rm -f -- "$ABDA_RETENTION_AUDIT_SHARED_GATE"
 fi
 
-ABDA_AUDIT_SCRIPT_REVISION='retention-1'
-ABDA_AUDIT_SOURCE_COMMIT='db216b83d8df6b2ea487cd8358f05e81e65f8be9'
-ABDA_AUDIT_IMAGE_SHA256='614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2'
+ABDA_AUDIT_SCRIPT_REVISION='retention-2'
+ABDA_AUDIT_SOURCE_COMMIT='e008067e3dc9c96862cf4f75228bdf0250848665'
+ABDA_AUDIT_IMAGE_SHA256='b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29'
 
 abda_audit_set_constants() {
   local release_stage="${1:---pilot}"
@@ -54,7 +54,7 @@ abda_audit_set_constants() {
   case "$release_stage" in
     --pilot)
       ABDA_AUDIT_RELEASE_STAGE='retention-pilot'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--retain-db216b8'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--retain-e008067'
       ABDA_TRIAL_MAX_USERS='10'
       ABDA_TRIAL_BUDGET_MICROUSD='50000000'
       ABDA_OPENROUTER_ENABLED='false'
@@ -62,7 +62,7 @@ abda_audit_set_constants() {
       ;;
     --public)
       ABDA_AUDIT_RELEASE_STAGE='retention-public'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-db216b8'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-e008067'
       ABDA_TRIAL_MAX_USERS='100'
       ABDA_TRIAL_BUDGET_MICROUSD='500000000'
       ABDA_OPENROUTER_ENABLED='true'
