@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.api.models import (
     MAX_DIFF_OPS,
@@ -72,6 +72,12 @@ class ProjectUpdateRequest(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=4000)
     scenario: Optional[dict] = None
+
+    @model_validator(mode="after")
+    def require_change(self) -> ProjectUpdateRequest:
+        if self.name is None and self.description is None and self.scenario is None:
+            raise ValueError("provide a name, description, or scenario to update")
+        return self
 
 
 class ProjectWorkingStateRequest(BaseModel):

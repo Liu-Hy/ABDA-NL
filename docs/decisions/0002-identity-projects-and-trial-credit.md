@@ -30,7 +30,9 @@ PostgreSQL is the production system of record. SQLite is supported for local
 development and tests. Bundled examples remain immutable. A saved project stores
 the validated full scenario document, its source example, owner, timestamps, and
 an optimistic version. Project deletion archives the row. An update succeeds
-only when the caller supplies the version it loaded.
+only when the caller supplies the version it loaded and requests at least one
+metadata or scenario change. Empty updates are rejected without advancing the
+version, which avoids creating artificial conflicts with another editor.
 
 Share links are read-only and revocable. The database stores only a SHA-256 hash
 of each random bearer token. The browser receives the token once in a URL

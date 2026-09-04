@@ -201,6 +201,8 @@ def update_project(
 ) -> Project:
     if expected_version < 1:
         raise ValueError("expected_version must be positive")
+    if name is None and description is None and scenario is None:
+        raise ValueError("provide a name, description, or scenario to update")
     _lock_active_owner(session, owner.id)
     values: dict = {"version": expected_version + 1, "updated_at": utc_now()}
     if name is not None:

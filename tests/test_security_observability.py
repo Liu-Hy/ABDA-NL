@@ -23,6 +23,8 @@ from app.services.projects import (
     ShareLinkLimitError,
     create_project,
     create_share_link,
+    get_project,
+    update_project,
 )
 from app.services.rate_limits import (
     consume_rate_limit,
@@ -353,6 +355,34 @@ def test_project_and_share_record_caps_are_enforced(
         create_share_link(session, user, project.id)
         with pytest.raises(ShareLinkLimitError, match="active share links"):
             create_share_link(session, user, project.id)
+
+
+def test_project_service_rejects_empty_update_without_advancing_version(
+    rate_limit_factory,
+):
+    scenario = scenario_to_dict(load_bundled_scenario("fire_prevention"))
+    with rate_limit_factory() as session:
+        user = User(email="empty-service-update@example.edu", email_verified=True)
+        session.add(user)
+        session.commit()
+        project = create_project(
+            session,
+            user,
+            name="Stable service project",
+            description="",
+            scenario=scenario,
+            source_scenario_id="fire_prevention",
+        )
+
+        with pytest.raises(ValueError, match="name, description, or scenario"):
+            update_project(
+                session,
+                user,
+                project.id,
+                expected_version=project.version,
+            )
+
+        assert get_project(session, user, project.id).version == 1
 
 
 def _production_environment(monkeypatch) -> None:

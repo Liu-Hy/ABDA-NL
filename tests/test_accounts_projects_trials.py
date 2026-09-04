@@ -326,6 +326,32 @@ def test_private_project_lifecycle_and_optimistic_versioning(client: TestClient)
     assert client.get(f"/api/projects/{project_id}").status_code == 404
 
 
+def test_empty_project_update_is_rejected_without_advancing_version(
+    client: TestClient,
+):
+    _login(client, "empty-project-update@example.edu")
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "Stable project version",
+            "source_scenario_id": "fire_prevention",
+            "diff_ops": [],
+        },
+    )
+    assert created.status_code == 201
+    project = created.json()
+
+    rejected = client.put(
+        f"/api/projects/{project['id']}",
+        json={"expected_version": project["version"]},
+    )
+
+    assert rejected.status_code == 422
+    reopened = client.get(f"/api/projects/{project['id']}")
+    assert reopened.status_code == 200
+    assert reopened.json()["version"] == 1
+
+
 def test_project_detail_and_working_state_share_one_compute_limit(
     client: TestClient,
 ):
