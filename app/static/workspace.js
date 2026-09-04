@@ -322,21 +322,27 @@ async function refreshAuthenticatedWorkspace(options = {}) {
   }
   const trialGeneration = ++trialRefreshGeneration;
   const projectGeneration = ++projectRefreshGeneration;
-  try {
-    const [trial, projects] = await Promise.all([
-      apiRequest('/api/trial'),
-      apiRequest('/api/projects'),
-    ]);
-    if (trialGeneration === trialRefreshGeneration) {
-      state.trial = trial;
+  const [trialResult, projectsResult] = await Promise.allSettled([
+    apiRequest('/api/trial'),
+    apiRequest('/api/projects'),
+  ]);
+  const currentFailures = [];
+  if (trialGeneration === trialRefreshGeneration) {
+    if (trialResult.status === 'fulfilled') state.trial = trialResult.value;
+    else currentFailures.push(trialResult.reason);
+  }
+  if (projectGeneration === projectRefreshGeneration) {
+    if (projectsResult.status === 'fulfilled') {
+      state.projects = projectsResult.value.projects || [];
+    } else {
+      currentFailures.push(projectsResult.reason);
     }
-    if (projectGeneration === projectRefreshGeneration) {
-      state.projects = projects.projects || [];
-    }
-    renderAccountUI();
-    renderAccessSummary();
-  } catch (error) {
-    if (!options.quiet) showGlobalStatus(error.message, 'error');
+  }
+  renderAccountUI();
+  renderAccessSummary();
+  if (currentFailures.length > 0 && !options.quiet) {
+    const error = currentFailures[0];
+    showGlobalStatus(error?.message || 'The private workspace could not be fully refreshed.', 'error');
   }
 }
 

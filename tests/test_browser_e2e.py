@@ -676,6 +676,73 @@ def test_switching_byok_provider_clears_the_previous_provider_key(
             browser.close()
 
 
+def test_authenticated_workspace_keeps_each_successful_partial_refresh(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("partial-refresh@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+
+            page.evaluate(
+                """async () => {
+                    const original = apiRequest;
+                    const activeTrial = {
+                      active: true,
+                      granted_microusd: 5000000,
+                      spent_microusd: 1000,
+                      reserved_microusd: 0,
+                      available_microusd: 4999000,
+                    };
+                    state.trial = null;
+                    apiRequest = (path, options = {}) => {
+                      if (path === '/api/trial') return Promise.resolve(activeTrial);
+                      if (path === '/api/projects') {
+                        return Promise.reject(new Error('project refresh unavailable'));
+                      }
+                      return original(path, options);
+                    };
+                    await refreshAuthenticatedWorkspace({quiet: true});
+                    window.__trialAfterPartialRefresh = state.trial;
+
+                    state.projects = [];
+                    apiRequest = (path, options = {}) => {
+                      if (path === '/api/trial') {
+                        return Promise.reject(new Error('trial refresh unavailable'));
+                      }
+                      if (path === '/api/projects') {
+                        return Promise.resolve({projects: [{
+                          id: 'partial-refresh-project',
+                          name: 'Project from partial refresh',
+                          description: '',
+                          source_scenario_id: state.scenario_id,
+                          version: 1,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        }]});
+                      }
+                      return original(path, options);
+                    };
+                    await refreshAuthenticatedWorkspace({quiet: true});
+                }"""
+            )
+
+            assert page.evaluate("window.__trialAfterPartialRefresh.active") is True
+            assert page.evaluate("state.projects.length") == 1
+            expect(page.locator("#project-list")).to_contain_text(
+                "Project from partial refresh"
+            )
+        finally:
+            browser.close()
+
+
 def test_logout_discards_an_in_flight_private_workspace_refresh(
     live_browser_server,
 ):
