@@ -60,3 +60,14 @@ recipients mutation authority.
   saving again.
 - Automated accessibility scans are retained as regression evidence, while
   manual keyboard and screen-reader checks remain part of release readiness.
+
+On 2026-09-04, the first WebKit CI run exposed a serious Axe
+`scrollable-region-focusable` violation in the argument graph. The graph
+viewport is now a labeled keyboard-focusable region with a visible focus
+outline. The follow-up
+[CI run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33858011215)
+passed the complete browser journey in Chromium, Firefox, and Playwright
+WebKit at source `17ef6593de0bcb9fdc213915bda83e3cf38a03bd`. The matching
+[CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33858011673) also
+passed. This automated WebKit evidence reduces Safari-engine risk but does not
+replace the presentation-hardware Safari and screen-reader checks.
