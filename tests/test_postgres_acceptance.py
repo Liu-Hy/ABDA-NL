@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 import os
 from uuid import uuid4
 
@@ -21,7 +22,7 @@ from app.db.session import (
     initialize_database,
     reset_database_caches,
 )
-from app.db.models import Identity, LLMUsageEvent, User
+from app.db.models import Identity, LLMUsageEvent, RateLimitBucket, User, utc_now
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.serialize import scenario_to_dict
 from app.services.accounts import IdentityError, upsert_verified_identity
@@ -151,6 +152,8 @@ def _assert_concurrent_identity_login_is_idempotent() -> None:
 
 
 def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
+    import app.services.rate_limits as rate_limits_module
+
     admin_url = os.environ["ABDA_POSTGRES_TEST_ADMIN_URL"]
     app_password = os.environ["ABDA_POSTGRES_TEST_APP_PASSWORD"]
     app_login = "abda_app"
@@ -246,6 +249,20 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
                 )
                 is not None
             )
+            rate_limit_now = utc_now()
+            session.add(
+                RateLimitBucket(
+                    key="expired-postgres-acceptance",
+                    scope="postgres-test",
+                    request_count=1,
+                    window_started_at=rate_limit_now - timedelta(minutes=2),
+                    expires_at=rate_limit_now - timedelta(minutes=1),
+                )
+            )
+            session.commit()
+            monkeypatch.setattr(
+                rate_limits_module, "_next_rate_limit_cleanup_monotonic", 0.0
+            )
             assert consume_rate_limit(
                 session,
                 scope="postgres-test",
@@ -253,7 +270,14 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
                 limit=2,
                 window_seconds=60,
                 secret=os.environ["ABDA_SESSION_SECRET"],
+                now=rate_limit_now,
             ).allowed
+            assert session.get(RateLimitBucket, "expired-postgres-acceptance") is None
+            assert session.scalar(
+                select(func.count(RateLimitBucket.key)).where(
+                    RateLimitBucket.scope == "postgres-test"
+                )
+            ) == 1
             reservation = reserve_llm_call(
                 session,
                 user_id=user.id,
