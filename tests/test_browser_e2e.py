@@ -819,6 +819,10 @@ def test_research_workspace_in_browser(live_browser_server):
             assert overflow <= 1
             page.locator("#aspic-btn").click()
             expect(page.locator("#aspic-pre")).not_to_have_text("")
+            aspic_width_ratio = page.locator("#modal-aspic .modal-content").evaluate(
+                "element => element.getBoundingClientRect().width / window.innerWidth"
+            )
+            assert aspic_width_ratio >= 0.9
             page.keyboard.press("Escape")
             page.locator("#workspace-btn").click()
             expect(dialog).to_be_visible()

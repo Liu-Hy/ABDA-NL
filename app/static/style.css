@@ -984,6 +984,7 @@ body.llm-disabled .left-panel { width: 100%; }
     padding: .4rem .9rem; border: 1px solid var(--border);
     border-radius: var(--radius); background: var(--surface);
   }
+  .modal-content.modal-aspic-content { width: 94vw; }
   .service-links { grid-column: 1 / -1; justify-content: center; padding: .2rem 0; }
   .workspace-section-heading, .identity-card, .project-card-main, .credential-card-main {
     flex-direction: column; align-items: stretch;
