@@ -371,7 +371,7 @@ async function loadProject(projectId) {
     populateScenarioSelect();
     renderAll();
     renderProjectsUI();
-    closeModal('modal-workspace');
+    requestCloseModal('modal-workspace');
     showGlobalStatus(`Opened private project "${project.name}".`, 'success');
   } catch (error) {
     setWorkspaceStatus('projects-status', error.message, 'error');

@@ -846,6 +846,8 @@ def test_research_workspace_in_browser(live_browser_server):
             finally:
                 shared_context.close()
             page.keyboard.press("Escape")
+            expect(dialog).to_be_hidden()
+            assert page.locator("#latest-share-url").count() == 0
 
             ai_access_button = page.locator("#ai-access-btn")
             ai_access_button.click()
@@ -876,6 +878,10 @@ def test_research_workspace_in_browser(live_browser_server):
             page.keyboard.press("Escape")
             expect(dialog).to_be_hidden()
             expect(ai_access_button).to_be_focused()
+            expect(page.locator("#mcp-secret-panel")).to_be_hidden()
+            expect(page.locator("#mcp-secret-value")).to_have_value("")
+            expect(page.locator("#mcp-codex-config")).to_have_text("")
+            expect(page.locator("#mcp-claude-command")).to_have_text("")
 
             add_fact_button = page.locator('[data-edit-task="add-fact"]').first
             add_fact_button.focus()

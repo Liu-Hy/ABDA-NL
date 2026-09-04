@@ -120,6 +120,9 @@ function requestCloseModal(id) {
     closeEditModal();
   } else if (id === 'modal-suspend-impact') {
     cancelSuspendImpact();
+  } else if (id === 'modal-workspace') {
+    clearWorkspaceOneTimeSecrets();
+    closeModal(id);
   } else {
     closeModal(id);
   }
@@ -311,7 +314,7 @@ async function handleLogout(event) {
     renderAccountUI();
     renderAccessSummary();
     setWorkspaceStatus('account-status', '', 'info');
-    closeModal('modal-workspace');
+    requestCloseModal('modal-workspace');
     if (leavePrivateProject) {
       const defaultId = state.scenarios.some(item => item.id === 'popov_v_hayashi')
         ? 'popov_v_hayashi'
@@ -690,7 +693,7 @@ function currentProjectHTML() {
     </div>
     ${latest ? `
       <div class="share-panel">
-        <strong>New link, shown once</strong>
+        <strong>New link, shown until this workspace closes</strong>
         <div class="share-url-row">
           <input id="latest-share-url" type="text" readonly value="${escapeAttr(latest.url)}" aria-label="New read-only share link">
           <button class="btn" type="button" data-project-action="share-copy">Copy link</button>
@@ -771,7 +774,7 @@ async function createProjectFromCurrentView(event) {
     populateScenarioSelect();
     renderAll();
     await refreshProjects({ quiet: true });
-    closeModal('modal-workspace');
+    requestCloseModal('modal-workspace');
     showGlobalStatus(`Created private project "${project.name}".`, 'success');
   } catch (error) {
     setWorkspaceStatus('projects-status', error.message, 'error');
@@ -985,10 +988,23 @@ async function handleMCPAction(event) {
 function clearMCPSecretPanel() {
   const panel = byId('mcp-secret-panel');
   if (!panel) return;
-  byId('mcp-secret-value').value = '';
+  const value = byId('mcp-secret-value');
+  const revealButton = byId('mcp-secret-reveal-btn');
+  value.value = '';
+  value.type = 'password';
+  revealButton.textContent = 'Show';
+  revealButton.setAttribute('aria-pressed', 'false');
   byId('mcp-codex-config').textContent = '';
   byId('mcp-claude-command').textContent = '';
   panel.hidden = true;
+}
+
+function clearWorkspaceOneTimeSecrets() {
+  state.latestShare = null;
+  const shareInput = byId('latest-share-url');
+  if (shareInput) shareInput.value = '';
+  clearMCPSecretPanel();
+  renderProjectsUI();
 }
 
 async function copyElementText(id, successMessage) {
