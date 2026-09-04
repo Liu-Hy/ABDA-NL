@@ -2,7 +2,8 @@
 
 > **Development branch:** This branch contains experimental hosted-service,
 > identity, usage-quota, model-routing, and MCP work. For the stable demo that
-> accompanies the COMMA 2026 paper, use [`main`](../../tree/main).
+> accompanies the COMMA 2026 paper, use the
+> [`idaks/ABDA-NL` main branch](https://github.com/idaks/ABDA-NL/tree/main).
 
 ABDA-NL is a browser-based natural-language scenario explorer for
 argument-based reasoning.
