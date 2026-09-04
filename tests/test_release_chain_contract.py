@@ -15,6 +15,11 @@ PRIVACY = AZURE / "gate11-privacy-acceptance.sh"
 ROLLBACK = AZURE / "gate10-rollback-rehearsal.sh"
 PROMOTION = AZURE / "gate12-public-budget-promotion.sh"
 OPERATOR_HELPER = AZURE / "consolidated-operator-gate.sh"
+RETENTION_DEPLOY = AZURE / "gate20-rate-limit-retention-image.sh"
+RETENTION_AUDIT = AZURE / "gate21-rate-limit-retention-audit.sh"
+RETENTION_ROLLBACK = AZURE / "gate22-rate-limit-retention-rollback.sh"
+RETENTION_PROMOTION = AZURE / "gate23-rate-limit-retention-promotion.sh"
+POST_PRIVACY_HELPER = AZURE / "post-privacy-operator-gate.sh"
 
 
 def _assignment(path: Path, name: str) -> str:
@@ -66,6 +71,46 @@ def test_active_privacy_runbook_names_the_exact_deploy_target():
     assert f"`sha256:{image_digest}`" in privacy_runbook
 
 
+def test_post_privacy_chain_bridges_from_the_privacy_accepted_image():
+    old_source = _assignment(DEPLOY, "ABDA_MCP_IMAGE_SOURCE_COMMIT")
+    old_digest = _assignment(DEPLOY, "ABDA_MCP_IMAGE_NEW_IMAGE_SHA256")
+    old_revision = _assignment(DEPLOY, "ABDA_MCP_IMAGE_TARGET_REVISION")
+    assert _assignment(PRIVACY, "ABDA_PRIVACY_APPLICATION_SOURCE_COMMIT") == old_source
+    assert _assignment(PRIVACY, "ABDA_PRIVACY_IMAGE_SHA256") == old_digest
+    assert _assignment(PRIVACY, "ABDA_PRIVACY_EXPECTED_REVISION") == old_revision
+
+    assert _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_OLD_IMAGE_SHA256") == old_digest
+    assert _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_OLD_REVISION") == old_revision
+    source = _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_SOURCE_COMMIT")
+    digest = _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_NEW_IMAGE_SHA256")
+    pilot_revision = _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_TARGET_REVISION")
+
+    assert _assignment(RETENTION_AUDIT, "ABDA_AUDIT_SOURCE_COMMIT") == source
+    assert _assignment(RETENTION_AUDIT, "ABDA_AUDIT_IMAGE_SHA256") == digest
+    assert pilot_revision in _assigned_values(RETENTION_AUDIT, "ABDA_AUDIT_REVISION")
+
+    assert _assignment(RETENTION_ROLLBACK, "ABDA_CURRENT_SOURCE_COMMIT") == source
+    assert _assignment(RETENTION_ROLLBACK, "ABDA_CURRENT_IMAGE_SHA256") == digest
+    assert _assignment(RETENTION_ROLLBACK, "ABDA_CURRENT_REVISION") == pilot_revision
+    assert _assignment(RETENTION_ROLLBACK, "ABDA_ROLLBACK_SOURCE_COMMIT") == old_source
+    assert _assignment(RETENTION_ROLLBACK, "ABDA_ROLLBACK_IMAGE_SHA256") == old_digest
+
+    restored_revision = _assignment(RETENTION_ROLLBACK, "ABDA_RESTORE_REVISION")
+    assert (
+        _assignment(RETENTION_PROMOTION, "ABDA_PROMOTION_APPLICATION_SOURCE_COMMIT")
+        == source
+    )
+    assert _assignment(RETENTION_PROMOTION, "ABDA_PROMOTION_IMAGE_SHA256") == digest
+    assert (
+        _assignment(RETENTION_PROMOTION, "ABDA_PROMOTION_OLD_REVISION")
+        == restored_revision
+    )
+    public_revision = _assignment(
+        RETENTION_PROMOTION, "ABDA_PROMOTION_TARGET_REVISION"
+    )
+    assert public_revision in _assigned_values(RETENTION_AUDIT, "ABDA_AUDIT_REVISION")
+
+
 def test_operator_runbook_keeps_privacy_before_rollback_and_promotion():
     runbook = (
         ROOT / "docs" / "operations" / "final-operator-batch.md"
@@ -77,10 +122,12 @@ def test_operator_runbook_keeps_privacy_before_rollback_and_promotion():
             'bash "$p" deploy',
             'bash "$p" audit',
             'bash "$p" privacy',
-            'bash "$p" hostname',
-            'bash "$p" rollback',
-            'bash "$p" promote',
-            'bash "$p" final-audit',
+            'bash "$q" deploy',
+            'bash "$q" audit',
+            'bash "$q" hostname',
+            'bash "$q" rollback',
+            'bash "$q" promote',
+            'bash "$q" final-audit',
         )
     ]
     assert positions == sorted(positions)
@@ -95,6 +142,28 @@ def test_operator_runbook_pins_the_exact_current_helper():
     assert "9fb7386c271355f5adb07b4e8457368d1db44ad8" in runbook
     assert helper_sha256 == "dc75d1295906cdeae9d10dcc4494441e3d12247481fbc8d725a1746ebb4253b6"
     assert f"s='{helper_sha256}'" in runbook
+
+    post_privacy_sha256 = hashlib.sha256(POST_PRIVACY_HELPER.read_bytes()).hexdigest()
+    assert "270826c03a24e41bf1fe96cf48239b501368dc4c" in runbook
+    assert (
+        post_privacy_sha256
+        == "2cf022e56a14617de4e113a8431672c73ff75a04d1212370afd06324c11c7bef"
+    )
+    assert f"s2='{post_privacy_sha256}'" in runbook
+
+
+def test_operator_runbook_names_the_queued_retention_artifact():
+    runbook = (
+        ROOT / "docs" / "operations" / "final-operator-batch.md"
+    ).read_text(encoding="utf-8")
+    source = _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_SOURCE_COMMIT")
+    digest = _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_NEW_IMAGE_SHA256")
+    revision = _assignment(RETENTION_DEPLOY, "ABDA_MCP_IMAGE_TARGET_REVISION")
+
+    assert f"`{source}`" in runbook
+    assert f"`sha256:{digest}`" in runbook
+    assert f"`{revision}`" in runbook
+    assert "DEPLOY_ABDA_RATE_LIMIT_RETENTION_IMAGE" in runbook
 
 
 def test_shareable_privacy_gate_receipt_has_no_email_derived_fingerprint():

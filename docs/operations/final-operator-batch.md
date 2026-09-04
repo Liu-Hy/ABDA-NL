@@ -1,8 +1,8 @@
 # Final public-service operator batch
 
-State: hardened image deployed and audited; remaining manual release Gates prepared
+State: hardened image live; privacy deletion and post-privacy release Gates prepared
 
-Runbook revision: `source-security-20260904.4`
+Runbook revision: `rate-limit-retention-20260904.1`
 
 Before running any remaining phase, confirm that the consolidated helper block
 below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. Stop and refresh this
@@ -36,6 +36,19 @@ The hardened release identity is:
 - provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/44802693`
 - target pilot revision: `abda-nl-stg-web--harden-51702e1`
 - public origin: `https://demo.abda-nl.org`
+
+The queued post-privacy maintenance identity is:
+
+- application source commit: `db216b83d8df6b2ea487cd8358f05e81e65f8be9`
+- source tag: `service-image-staging-rate-limit-retention-20260904-005804`
+- image digest: `sha256:614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2`
+- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45173216`
+- target pilot revision: `abda-nl-stg-web--retain-db216b8`
+- public origin: `https://demo.abda-nl.org`
+
+Do not deploy the queued image before the disposable-account privacy deletion
+receipt. The current privacy Gate is intentionally bound to the hardened live
+image. The post-privacy helper below cannot run or bypass that Gate.
 
 Before running the final promotion, confirm production email capacity. The
 current Resend Free limit of 100 messages per day has no headroom for 100 new
@@ -223,8 +236,8 @@ result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES
 ```
 
 Keep the Auth0 user blocked and wait at least 15 minutes. The Cloudflare work
-in the next section can be completed during this wait. Then run the same
-command again. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, then
+in Section 4 can be completed during this wait. Then run the same command
+again. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, then
 `DELETE_PRIVACY_ACCEPTANCE`. The required second receipt is:
 
 ```text
@@ -249,7 +262,74 @@ data. Keep the existing disposable state and blocked Auth0 user. Load the
 current helper above and run the first phase. Do not recreate the project,
 share, token, or account.
 
-## 3. Add the friendly root-domain redirect
+## 3. Deploy and audit the retention maintenance image
+
+Proceed only after the privacy Gate returned
+`LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED` and the disposable Auth0 identity
+was deleted. A new or existing Cloud Shell session is acceptable. Paste this
+complete block once:
+
+```bash
+u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
+c2='270826c03a24e41bf1fe96cf48239b501368dc4c'
+f2='deploy/azure/post-privacy-operator-gate.sh'
+s2='2cf022e56a14617de4e113a8431672c73ff75a04d1212370afd06324c11c7bef'
+q="$(mktemp /tmp/abda-post-privacy.XXXXXX)"
+curl -fsSL "$u/$c2/$f2" -o "$q"
+printf '%s  %s\n' "$s2" "$q" | sha256sum --check
+```
+
+The final line must report `OK`. Keep the shell open, then verify every nested
+Gate before running one:
+
+```bash
+bash "$q" verify
+```
+
+Required success ends with:
+
+```text
+result: ALL_POST_PRIVACY_OPERATOR_GATES_VERIFIED
+```
+
+Deploy the exact attested maintenance image:
+
+```bash
+bash "$q" deploy
+```
+
+At its prompt, type `DEPLOY_ABDA_RATE_LIMIT_RETENTION_IMAGE` once and press
+Enter. The Gate changes only the web image and revision suffix. It verifies
+the new retention disclosure and preserves the existing managed-service and
+shared-view boundaries. Required success ends with:
+
+```text
+result: RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED
+```
+
+Then run the read-only audit:
+
+```bash
+bash "$q" audit
+```
+
+Required success ends with:
+
+```text
+result: RATE_LIMIT_RETENTION_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
+```
+
+Do not repeat BYOK, MCP, or a funded model call for this maintenance image.
+The image-only Gate proves those application contracts unchanged. After the
+deployment receipt is available, Codex can run the automated public browser
+and bounded deterministic capacity checks from Delta without another manual
+browser action.
+
+If Cloud Shell closes, repeat only the block that creates `q`, run
+`bash "$q" verify`, then resume the required phase. Every mutating Gate detects
+its exact completed or pending revision.
+
+## 4. Add the friendly root-domain redirect
 
 Follow the exact dashboard values in
 [`cloudflare-apex-redirect.md`](cloudflare-apex-redirect.md). This creates only
@@ -260,7 +340,7 @@ After the two records and rule are saved, return to the same Cloud Shell and
 run this read-only check:
 
 ```bash
-bash "$p" hostname
+bash "$q" hostname
 ```
 
 It verifies root and `www` redirects, path and query preservation, direct demo
@@ -271,10 +351,10 @@ uses no credential. Success ends with:
 result: PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED
 ```
 
-## 4. Rehearse rollback, promote, and run the final audit
+## 5. Rehearse rollback, promote, and run the final audit
 
-Proceed only after the hardened deployment and audit, BYOK, privacy, and
-hostname receipts above are present.
+Proceed only after the retention-image deployment and audit, prior BYOK and
+MCP acceptance, privacy deletion, and hostname receipts above are present.
 Before starting this section, confirm the transactional-email plan that backs
 the Auth0 Resend provider:
 
@@ -309,9 +389,9 @@ defense in depth after the deadline, but is not a prerequisite for this Gate.
 Run these commands in order:
 
 ```bash
-bash "$p" rollback
-bash "$p" promote
-bash "$p" final-audit
+bash "$q" rollback
+bash "$q" promote
+bash "$q" final-audit
 ```
 
 The rollback Gate changes only the web image, accepts the compatible older
@@ -325,7 +405,7 @@ change.
 Required final receipts are:
 
 ```text
-result: COMPATIBLE_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED
+result: COMPATIBLE_RETENTION_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED
 result: PUBLIC_BUDGETS_AND_OUTAGE_FALLBACK_PROMOTED
 result: FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 ```
@@ -334,7 +414,7 @@ The final audit is read-only. It verifies the promoted revision, public caps,
 idle reservations, protected metrics, HTTPS behavior, 30-day log retention,
 and zero sensitive-pattern log counts.
 
-## 5. Conference and team readiness batch
+## 6. Conference and team readiness batch
 
 Use the
 [`COMMA 2026 demonstration playbook`](comma-2026-demo-playbook.md) for the
