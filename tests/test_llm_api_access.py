@@ -77,6 +77,16 @@ def test_byok_request_representation_and_json_hide_secret():
     assert "sk-user-secret" not in request.model_dump_json()
 
 
+def test_byok_request_normalizes_pasted_key_whitespace():
+    request = BYOKRequest(
+        provider="openrouter",
+        api_key=" \n sk-pasted-session-secret\t ",
+        model="gemini-3.7-flash",
+    )
+
+    assert request.api_key.get_secret_value() == "sk-pasted-session-secret"
+
+
 def test_public_funded_route_requires_authenticated_verified_user():
     router = _StubRouter()
     with pytest.raises(LLMAccessError) as anonymous:

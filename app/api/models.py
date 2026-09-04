@@ -182,10 +182,10 @@ class BYOKRequest(_StrictModel):
     @field_validator("api_key")
     @classmethod
     def _api_key_is_nonempty(cls, value: SecretStr) -> SecretStr:
-        secret = value.get_secret_value()
-        if not secret.strip() or len(secret) > 4096:
+        secret = value.get_secret_value().strip()
+        if not secret or len(secret) > 4096:
             raise ValueError("API key must contain between 1 and 4096 characters")
-        return value
+        return SecretStr(secret)
 
 
 class LLMRequestOptions(_StrictModel):
