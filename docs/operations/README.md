@@ -15,6 +15,9 @@ checksum in Cloud Shell.
 - [Source-security checkpoint](source-security-checkpoint-20260902.md) binds the
   current hardened source, CI, CodeQL, immutable image digest, provenance,
   Azure deployment, and live sanitized-log audit.
+- [Rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
+  records the tested and attested maintenance image queued after the pending
+  privacy deletion acceptance.
 - [Requirements traceability](requirements-traceability.md) distinguishes
   completed implementation evidence from external and hardware acceptance.
 - [Public and COMMA release checklist](release-checklist.md) is the final
