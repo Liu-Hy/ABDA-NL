@@ -28,6 +28,7 @@ from app.scenario.serialize import scenario_to_dict
 from app.services.accounts import IdentityError, upsert_verified_identity
 from app.services.llm_billing import reserve_llm_call, settle_llm_call, usage_event
 from app.services.mcp_tokens import (
+    MCPTokenError,
     authenticate_mcp_token,
     create_mcp_token,
     revoke_mcp_token,
@@ -37,6 +38,7 @@ from app.services.privacy_requests import (
     prepare_privacy_deletion,
 )
 from app.services.projects import (
+    ProjectNotFoundError,
     ShareLinkNotFoundError,
     create_project,
     create_share_link,
@@ -45,7 +47,7 @@ from app.services.projects import (
     update_project,
 )
 from app.services.rate_limits import consume_rate_limit
-from app.services.trials import activate_trial
+from app.services.trials import TrialUnavailableError, activate_trial
 
 
 pytestmark = pytest.mark.skipif(
@@ -151,6 +153,89 @@ def _assert_concurrent_identity_login_is_idempotent() -> None:
         ) == 1
 
 
+def _assert_privacy_suspension_closes_stale_mutations() -> None:
+    suffix = uuid4().hex
+    email = f"postgres-suspension-{suffix}@example.edu"
+    with get_session_factory()() as seed:
+        user = upsert_verified_identity(
+            seed,
+            issuer="https://identity.example.test",
+            subject=f"postgres-suspension-{suffix}",
+            email=email,
+            email_verified=True,
+        )
+        scenario = scenario_to_dict(load_bundled_scenario("fire_prevention"))
+        project = create_project(
+            seed,
+            user,
+            name="PostgreSQL suspension boundary",
+            description="Must become immutable after privacy preparation",
+            scenario=scenario,
+            source_scenario_id="fire_prevention",
+        )
+        _, share_token = create_share_link(seed, user, project.id)
+        user_id = user.id
+        project_id = project.id
+        project_version = project.version
+
+    stale_update = get_session_factory()()
+    stale_share = get_session_factory()()
+    stale_mcp = get_session_factory()()
+    stale_trial = get_session_factory()()
+    try:
+        update_user = stale_update.get(User, user_id)
+        share_user = stale_share.get(User, user_id)
+        mcp_user = stale_mcp.get(User, user_id)
+        trial_user = stale_trial.get(User, user_id)
+        assert all((update_user, share_user, mcp_user, trial_user))
+        for session in (stale_update, stale_share, stale_mcp, stale_trial):
+            session.commit()
+
+        with get_session_factory()() as operator:
+            prepared = prepare_privacy_deletion(
+                operator,
+                email,
+                request_reference="POSTGRES-SUSPENSION-001",
+            )
+            assert prepared.status == "deletion_pending"
+
+        with get_session_factory()() as reader:
+            with pytest.raises(ShareLinkNotFoundError):
+                resolve_share_link(reader, share_token)
+        with pytest.raises(ProjectNotFoundError):
+            update_project(
+                stale_update,
+                update_user,
+                project_id,
+                expected_version=project_version,
+                name="Must not persist",
+            )
+        with pytest.raises(ProjectNotFoundError):
+            create_share_link(stale_share, share_user, project_id)
+        with pytest.raises(MCPTokenError):
+            create_mcp_token(
+                stale_mcp,
+                mcp_user,
+                name="Must not exist",
+                pepper=os.environ["ABDA_MCP_TOKEN_PEPPER"],
+            )
+        with pytest.raises(TrialUnavailableError):
+            activate_trial(stale_trial, trial_user)
+    finally:
+        stale_update.close()
+        stale_share.close()
+        stale_mcp.close()
+        stale_trial.close()
+
+    with get_session_factory()() as operator:
+        receipt = delete_privacy_account(
+            operator,
+            email,
+            request_reference="POSTGRES-SUSPENSION-001",
+        )
+        assert receipt.deleted_project_count == 1
+
+
 def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
     import app.services.rate_limits as rate_limits_module
 
@@ -169,6 +254,7 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
     try:
         initialize_database()
         _assert_concurrent_identity_login_is_idempotent()
+        _assert_privacy_suspension_closes_stale_mutations()
         with get_session_factory()() as session:
             user = upsert_verified_identity(
                 session,

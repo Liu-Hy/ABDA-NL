@@ -54,6 +54,18 @@ def _locked_program(session: Session) -> TrialProgram | None:
 
 
 def _activate_trial(session: Session, user: User) -> TrialBalance:
+    locked_user = session.scalar(
+        select(User)
+        .where(User.id == user.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if (
+        locked_user is None
+        or locked_user.status != "active"
+        or not locked_user.email_verified
+    ):
+        raise TrialUnavailableError("a verified active account is required")
     program = _locked_program(session)
     if program is None:
         raise TrialUnavailableError("the trial program is not configured")

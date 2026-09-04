@@ -172,6 +172,15 @@ or permanent deletion requests are completed within 30 days. The notices
 describe this research service and do not substitute for a general University
 of Illinois policy or legal review.
 
+Account suspension is serialized with project mutations, share creation, MCP
+credential creation, and trial activation through the locked user row. Each
+mutation refreshes the row instead of trusting an identity already cached by
+the request session. Share resolution also requires an active project owner.
+These checks prevent a request that authenticated just before suspension from
+creating durable state or restoring public bearer access after suspension
+commits. The deletion hold remains necessary for model requests that were
+already in flight.
+
 Rate-limit counters stop affecting requests when their fixed window ends. An
 indexed deletion removes expired rows during application startup and at most
 once per process each hour when later rate-limited traffic arrives. The cleanup

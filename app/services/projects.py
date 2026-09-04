@@ -102,6 +102,19 @@ def get_project(session: Session, owner: User, project_id: str) -> Project:
     return project
 
 
+def _lock_active_owner(session: Session, owner_id: str) -> User:
+    """Serialize project mutations with account suspension and refresh status."""
+    owner = session.scalar(
+        select(User)
+        .where(User.id == owner_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if owner is None or owner.status != "active":
+        raise ProjectNotFoundError("account not found")
+    return owner
+
+
 def _create_project(
     session: Session,
     owner: User,
@@ -111,11 +124,7 @@ def _create_project(
     scenario: dict,
     source_scenario_id: str | None,
 ) -> Project:
-    locked_owner = session.scalar(
-        select(User).where(User.id == owner.id).with_for_update()
-    )
-    if locked_owner is None or locked_owner.status != "active":
-        raise ProjectNotFoundError("account not found")
+    _lock_active_owner(session, owner.id)
     active_count = int(
         session.scalar(
             select(func.count(Project.id)).where(
@@ -185,6 +194,7 @@ def update_project(
 ) -> Project:
     if expected_version < 1:
         raise ValueError("expected_version must be positive")
+    _lock_active_owner(session, owner.id)
     values: dict = {"version": expected_version + 1, "updated_at": utc_now()}
     if name is not None:
         values["name"] = _clean_name(name)
@@ -225,6 +235,7 @@ def update_project(
 def archive_project(
     session: Session, owner: User, project_id: str, *, expected_version: int
 ) -> None:
+    _lock_active_owner(session, owner.id)
     result = session.execute(
         update(Project)
         .where(
@@ -265,6 +276,7 @@ def _create_share_link(
     *,
     expires_at: datetime | None = None,
 ) -> tuple[ShareLink, str]:
+    _lock_active_owner(session, owner.id)
     project = get_project(session, owner, project_id)
     session.scalar(
         select(Project).where(Project.id == project.id).with_for_update()
@@ -375,8 +387,16 @@ def resolve_share_link(session: Session, token: str) -> Project:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         if expires_at <= now:
             raise ShareLinkNotFoundError("share link not found")
-    project = session.get(Project, link.project_id)
-    if project is None or project.archived_at is not None:
+    project = session.scalar(
+        select(Project)
+        .join(User, User.id == Project.owner_user_id)
+        .where(
+            Project.id == link.project_id,
+            Project.archived_at.is_(None),
+            User.status == "active",
+        )
+    )
+    if project is None:
         raise ShareLinkNotFoundError("share link not found")
     link.last_accessed_at = now
     session.commit()

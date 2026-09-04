@@ -137,6 +137,14 @@ Preparation is a separate mutation. It changes the local status to
 MCP credentials and share links. The command is a dry run unless `--execute`
 and the exact confirmation are both present.
 
+The cumulative release candidate also serializes project writes, new share
+links, MCP credential creation, and trial activation with this status change.
+It refreshes the locked account row rather than trusting a status cached at the
+start of a request. Share resolution independently requires an active owner.
+This closes the stale-session window in which a request that authenticated just
+before preparation could otherwise create durable state after preparation
+committed.
+
 ```bash
 ABDA_PRIVACY_REFERENCE='PRIV-20260828-001'
 abda-nl-privacy prepare-delete \

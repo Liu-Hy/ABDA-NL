@@ -38,6 +38,15 @@ from app.services.privacy_requests import (
     prepare_privacy_deletion,
     public_summary,
 )
+from app.services.mcp_tokens import MCPTokenError, create_mcp_token
+from app.services.projects import (
+    ProjectNotFoundError,
+    ShareLinkNotFoundError,
+    create_share_link,
+    resolve_share_link,
+    update_project,
+)
+from app.services.trials import TrialUnavailableError, activate_trial
 
 
 EMAIL = "privacy-researcher@example.edu"
@@ -273,6 +282,116 @@ def test_two_phase_deletion_revokes_access_and_preserves_anonymous_costs(
 
         with pytest.raises(PrivacyAccountNotFoundError):
             inspect_privacy_account(session, EMAIL)
+
+
+def test_suspension_blocks_new_share_from_a_stale_authenticated_session(
+    session_factory,
+):
+    user_id = _populate(session_factory)
+    requester = session_factory()
+    try:
+        user = requester.get(User, user_id)
+        project = requester.scalar(select(Project).where(Project.owner_user_id == user_id))
+        assert user is not None
+        assert project is not None
+        _, existing_token = create_share_link(requester, user, project.id)
+
+        with session_factory() as operator:
+            prepare_privacy_deletion(
+                operator,
+                EMAIL,
+                request_reference="PRIV-20260904-SHARE",
+            )
+
+        with session_factory() as reader:
+            with pytest.raises(ShareLinkNotFoundError):
+                resolve_share_link(reader, existing_token)
+        with pytest.raises(ProjectNotFoundError):
+            create_share_link(requester, user, project.id)
+    finally:
+        requester.close()
+
+
+def test_suspension_blocks_project_update_from_a_stale_authenticated_session(
+    session_factory,
+):
+    user_id = _populate(session_factory)
+    requester = session_factory()
+    try:
+        user = requester.get(User, user_id)
+        project = requester.scalar(select(Project).where(Project.owner_user_id == user_id))
+        assert user is not None
+        assert project is not None
+        requester.commit()
+
+        with session_factory() as operator:
+            prepare_privacy_deletion(
+                operator,
+                EMAIL,
+                request_reference="PRIV-20260904-PROJECT",
+            )
+
+        with pytest.raises(ProjectNotFoundError):
+            update_project(
+                requester,
+                user,
+                project.id,
+                expected_version=project.version,
+                name="Must not be saved after suspension",
+            )
+    finally:
+        requester.close()
+
+
+def test_suspension_blocks_mcp_token_from_a_stale_authenticated_session(
+    session_factory,
+):
+    user_id = _populate(session_factory)
+    requester = session_factory()
+    try:
+        user = requester.get(User, user_id)
+        assert user is not None
+        requester.commit()
+
+        with session_factory() as operator:
+            prepare_privacy_deletion(
+                operator,
+                EMAIL,
+                request_reference="PRIV-20260904-MCP",
+            )
+
+        with pytest.raises(MCPTokenError):
+            create_mcp_token(
+                requester,
+                user,
+                name="Must not be created after suspension",
+                pepper="privacy-test-mcp-pepper-32-characters",
+            )
+    finally:
+        requester.close()
+
+
+def test_suspension_blocks_trial_activation_from_a_stale_authenticated_session(
+    session_factory,
+):
+    user_id = _populate(session_factory)
+    requester = session_factory()
+    try:
+        user = requester.get(User, user_id)
+        assert user is not None
+        requester.commit()
+
+        with session_factory() as operator:
+            prepare_privacy_deletion(
+                operator,
+                EMAIL,
+                request_reference="PRIV-20260904-TRIAL",
+            )
+
+        with pytest.raises(TrialUnavailableError):
+            activate_trial(requester, user)
+    finally:
+        requester.close()
 
 
 def test_deletion_refuses_unsettled_model_reservations(session_factory):

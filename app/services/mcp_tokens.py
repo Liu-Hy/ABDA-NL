@@ -110,7 +110,10 @@ def create_mcp_token(
     now: datetime | None = None,
 ) -> tuple[MCPAccessToken, str]:
     locked_user = session.scalar(
-        select(User).where(User.id == user.id).with_for_update()
+        select(User)
+        .where(User.id == user.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if (
         locked_user is None
