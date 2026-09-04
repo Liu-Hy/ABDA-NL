@@ -683,7 +683,13 @@ def test_research_workspace_in_browser(live_browser_server):
             page.locator("#view-af-btn").focus()
             page.locator("#view-af-btn").press("Enter")
             expect(page.locator("#modal-af .modal-content")).to_be_visible()
-            expect(page.locator("#af-svg-scroll svg")).to_be_visible()
+            graph_scroll = page.locator("#af-svg-scroll")
+            expect(graph_scroll.locator("svg")).to_be_visible()
+            expect(graph_scroll).to_have_attribute("tabindex", "0")
+            expect(graph_scroll).to_have_attribute("role", "region")
+            expect(graph_scroll).to_have_attribute(
+                "aria-label", "Scrollable argument graph"
+            )
             _axe_report(page, "argument graph")
             page.keyboard.press("Escape")
             page.locator("#aspic-btn").focus()

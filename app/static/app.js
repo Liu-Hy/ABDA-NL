@@ -1972,7 +1972,7 @@ function renderAFView() {
         <span class="af-zoom-readout" id="af-zoom-readout">100%</span>
       </div>
     </div>
-    <div class="af-svg-scroll" id="af-svg-scroll">
+    <div class="af-svg-scroll" id="af-svg-scroll" tabindex="0" role="region" aria-label="Scrollable argument graph">
       <svg width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" data-base-w="${totalWidth}" data-base-h="${totalHeight}">
         <defs>
           <marker id="af-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
