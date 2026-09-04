@@ -2,7 +2,7 @@
 
 State: hardened image live; privacy deletion and post-privacy release Gates prepared
 
-Runbook revision: `rate-limit-retention-20260904.1`
+Runbook revision: `rate-limit-retention-20260904.2`
 
 Before running any remaining phase, confirm that the consolidated helper block
 below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. Stop and refresh this
@@ -48,7 +48,8 @@ The queued post-privacy maintenance identity is:
 
 Do not deploy the queued image before the disposable-account privacy deletion
 receipt. The current privacy Gate is intentionally bound to the hardened live
-image. The post-privacy helper below cannot run or bypass that Gate.
+image. The post-privacy helper has no privacy phase, and its deployment
+confirmation requires the operator to attest that deletion succeeded.
 
 Before running the final promotion, confirm production email capacity. The
 current Resend Free limit of 100 messages per day has no headroom for 100 new
@@ -271,16 +272,16 @@ complete block once:
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c2='270826c03a24e41bf1fe96cf48239b501368dc4c'
+c2='7b59ff28a696d598618103e15ab38bf26798015e'
 f2='deploy/azure/post-privacy-operator-gate.sh'
-s2='2cf022e56a14617de4e113a8431672c73ff75a04d1212370afd06324c11c7bef'
+s2='4eb447b805654c9c2e17ea5b96a589ba95eba3a99e53b26b893b4412fae999f7'
 q="$(mktemp /tmp/abda-post-privacy.XXXXXX)"
 curl -fsSL "$u/$c2/$f2" -o "$q"
 printf '%s  %s\n' "$s2" "$q" | sha256sum --check
 ```
 
-The final line must report `OK`. Keep the shell open, then verify every nested
-Gate before running one:
+The final line must report `OK`. Keep the shell open, then verify every phase
+wrapper before running one:
 
 ```bash
 bash "$q" verify
@@ -298,9 +299,11 @@ Deploy the exact attested maintenance image:
 bash "$q" deploy
 ```
 
-At its prompt, type `DEPLOY_ABDA_RATE_LIMIT_RETENTION_IMAGE` once and press
-Enter. The Gate changes only the web image and revision suffix. It verifies
-the new retention disclosure and preserves the existing managed-service and
+At its prompt, type
+`PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE` once and press Enter.
+Use that phrase only after both privacy deletion steps above succeeded. The
+Gate changes only the web image and revision suffix. It verifies the new
+retention disclosure and preserves the existing managed-service and
 shared-view boundaries. Required success ends with:
 
 ```text

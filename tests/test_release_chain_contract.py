@@ -144,10 +144,10 @@ def test_operator_runbook_pins_the_exact_current_helper():
     assert f"s='{helper_sha256}'" in runbook
 
     post_privacy_sha256 = hashlib.sha256(POST_PRIVACY_HELPER.read_bytes()).hexdigest()
-    assert "270826c03a24e41bf1fe96cf48239b501368dc4c" in runbook
+    assert "7b59ff28a696d598618103e15ab38bf26798015e" in runbook
     assert (
         post_privacy_sha256
-        == "2cf022e56a14617de4e113a8431672c73ff75a04d1212370afd06324c11c7bef"
+        == "4eb447b805654c9c2e17ea5b96a589ba95eba3a99e53b26b893b4412fae999f7"
     )
     assert f"s2='{post_privacy_sha256}'" in runbook
 
@@ -163,7 +163,7 @@ def test_operator_runbook_names_the_queued_retention_artifact():
     assert f"`{source}`" in runbook
     assert f"`sha256:{digest}`" in runbook
     assert f"`{revision}`" in runbook
-    assert "DEPLOY_ABDA_RATE_LIMIT_RETENTION_IMAGE" in runbook
+    assert "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE" in runbook
 
 
 def test_shareable_privacy_gate_receipt_has_no_email_derived_fingerprint():
