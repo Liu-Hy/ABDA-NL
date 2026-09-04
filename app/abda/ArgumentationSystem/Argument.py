@@ -46,11 +46,13 @@ class Argument(object):
             output_string += f"[{rule_id}]"
         left_side_string = []
         if self.BuildFromArguments:
+            arguments_by_conclusion = {}
+            for argument in self.BuildFromArguments:
+                arguments_by_conclusion.setdefault(argument.Conclusion, argument)
             for condition in rule.LeftSide:
-                for s in self.BuildFromArguments:
-                    if s.Conclusion == condition:
-                        left_side_string.append(f"({s.Flattened})")
-                        break
+                sub_argument = arguments_by_conclusion.get(condition)
+                if sub_argument is not None:
+                    left_side_string.append(f"({sub_argument.Flattened})")
         if left_side_string:
             if len(left_side_string) > 1:
                 output_string = "(" + ",".join(left_side_string) + ")" + output_string

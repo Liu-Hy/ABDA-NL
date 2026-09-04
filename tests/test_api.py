@@ -1497,6 +1497,32 @@ def test_post_state_rejects_unknown_scenario(client: TestClient):
     assert resp.json()["errors"][0]["code"] == "scenario_not_found"
 
 
+def test_post_state_reports_bounded_argument_complexity(
+    client: TestClient, monkeypatch
+):
+    import ArgumentationSystem.ArgumentBuilder as argument_builder
+
+    monkeypatch.setattr(argument_builder, "MAX_ARGUMENTS", 10)
+    resp = _post_ops(
+        client,
+        "popov_v_hayashi",
+        [{"op": "toggle-assumption", "id": "cs1_valid"}],
+    )
+    assert resp.status_code == 422
+    assert resp.json() == {
+        "errors": [
+            {
+                "code": "scenario_too_complex",
+                "path": "<root>",
+                "message": (
+                    "This scenario is too complex to analyze safely. Reduce the "
+                    "number of rules or alternative derivations."
+                ),
+            }
+        ]
+    }
+
+
 def test_post_state_empty_ops_equivalent_to_get_scenario(client: TestClient):
     g = client.get("/scenarios/medical_ppi").json()
     p = client.post(

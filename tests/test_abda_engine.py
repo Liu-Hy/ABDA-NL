@@ -9,11 +9,13 @@ from __future__ import annotations
 import pytest
 
 from app.abda_bridge import (
+    ArgumentComplexityError,
     ArgumentationGraph,
     build_arguments,
     build_attacks,
     init_engine,
 )
+import ArgumentationSystem.ArgumentBuilder as argument_builder
 from app.scenario.loader import scenario_from_dict, scenario_to_rule_collection
 
 
@@ -369,3 +371,157 @@ def test_rule_may_reappear_in_different_branches():
         getattr(s.TopRule, "_scenario_id", None) for s in joined.Sub
     }
     assert "r_d" in scenario_ids_in_sub
+
+
+def _branching_scenario(levels: int):
+    facts = {"seed": {"description": "seed"}}
+    propositions = {}
+    rules = {}
+    previous = "seed"
+    for level in range(1, levels + 1):
+        current = f"p{level}"
+        propositions[current] = {"description": current}
+        for branch in ("a", "b"):
+            rules[f"r{level}{branch}"] = {
+                "type": "defeasible",
+                "premises": [previous],
+                "conclusion": current,
+            }
+        previous = current
+    conclusions = {previous: propositions.pop(previous)}
+    return scenario_from_dict(
+        {
+            "title": f"branching-{levels}",
+            "facts": facts,
+            "propositions": propositions,
+            "conclusions": conclusions,
+            "rules": rules,
+        }
+    )
+
+
+def test_argument_limit_rejects_small_exponential_scenario():
+    """Fourteen valid rules must not expand past the service ceiling."""
+    scenario = _branching_scenario(7)
+    rc = scenario_to_rule_collection(scenario)
+    with pytest.raises(ArgumentComplexityError, match="250 arguments"):
+        build_arguments(rc.get_all_rules())
+
+
+def test_candidate_limit_counts_duplicate_cartesian_combinations(monkeypatch):
+    """Combinations count as work even when argument equality deduplicates them."""
+    monkeypatch.setattr(argument_builder, "MAX_CANDIDATE_COMBINATIONS", 20)
+    raw = {
+        "title": "duplicate-cartesian-work",
+        "facts": {
+            "a": {"description": "a"},
+            "b": {"description": "b"},
+        },
+        "propositions": {"p": {"description": "p"}},
+        "conclusions": {"q": {"description": "q"}},
+        "rules": {
+            "ra": {"type": "defeasible", "premises": ["a"], "conclusion": "p"},
+            "rb": {"type": "defeasible", "premises": ["b"], "conclusion": "p"},
+            "join": {
+                "type": "defeasible",
+                "premises": ["p", "p", "p", "p", "p"],
+                "conclusion": "q",
+            },
+        },
+    }
+    scenario = scenario_from_dict(raw)
+    rc = scenario_to_rule_collection(scenario)
+    with pytest.raises(ArgumentComplexityError, match="candidate-combination"):
+        build_arguments(rc.get_all_rules())
+
+
+def test_premise_matching_limit_bounds_rules_that_cannot_fire(monkeypatch):
+    monkeypatch.setattr(argument_builder, "MAX_PREMISE_MATCH_INSPECTIONS", 1)
+    raw = {
+        "title": "bounded-premise-search",
+        "facts": {
+            "a": {"description": "a"},
+            "b": {"description": "b"},
+        },
+        "conclusions": {"q": {"description": "q"}},
+        "rules": {
+            "derive": {
+                "type": "defeasible",
+                "premises": ["a"],
+                "conclusion": "q",
+            }
+        },
+    }
+    scenario = scenario_from_dict(raw)
+    rc = scenario_to_rule_collection(scenario)
+    with pytest.raises(ArgumentComplexityError, match="premise-matching"):
+        build_arguments(rc.get_all_rules())
+
+
+def test_argument_representation_limit_precedes_large_string_allocation(monkeypatch):
+    monkeypatch.setattr(argument_builder, "MAX_ARGUMENT_REPRESENTATION_CHARS", 10)
+    raw = {
+        "title": "bounded-representation",
+        "facts": {"seed": {"description": "seed"}},
+        "conclusions": {"result": {"description": "result"}},
+        "rules": {
+            "derive_result": {
+                "type": "defeasible",
+                "premises": ["seed"],
+                "conclusion": "result",
+            }
+        },
+    }
+    scenario = scenario_from_dict(raw)
+    rc = scenario_to_rule_collection(scenario)
+    with pytest.raises(ArgumentComplexityError, match="derivation size"):
+        build_arguments(rc.get_all_rules())
+
+
+def test_attack_inspection_limit_bounds_negative_search(monkeypatch):
+    monkeypatch.setattr(argument_builder, "MAX_ATTACK_INSPECTIONS", 1)
+    scenario = scenario_from_dict(
+        {
+            "title": "bounded-attack-search",
+            "facts": {
+                "a": {"description": "a"},
+                "b": {"description": "b"},
+            },
+            "conclusions": {"c": {"description": "c"}},
+            "rules": {},
+        }
+    )
+    rc = scenario_to_rule_collection(scenario)
+    arguments = build_arguments(rc.get_all_rules())
+    with pytest.raises(ArgumentComplexityError, match="attack-analysis"):
+        build_attacks(arguments)
+
+
+def test_attack_count_limit_bounds_dense_framework(monkeypatch):
+    monkeypatch.setattr(argument_builder, "MAX_ATTACKS", 1)
+    raw = {
+        "title": "bounded-attacks",
+        "facts": {
+            "positive_seed": {"description": "positive seed"},
+            "negative_seed": {"description": "negative seed"},
+        },
+        "propositions": {"p": {"description": "p"}},
+        "conclusions": {"result": {"description": "result"}},
+        "rules": {
+            "positive": {
+                "type": "strict",
+                "premises": ["positive_seed"],
+                "conclusion": "p",
+            },
+            "negative": {
+                "type": "strict",
+                "premises": ["negative_seed"],
+                "conclusion": "-p",
+            },
+        },
+    }
+    scenario = scenario_from_dict(raw)
+    rc = scenario_to_rule_collection(scenario)
+    arguments = build_arguments(rc.get_all_rules())
+    with pytest.raises(ArgumentComplexityError, match="1 attacks"):
+        build_attacks(arguments)

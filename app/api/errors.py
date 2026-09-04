@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.abda_bridge import ArgumentConstructionError
+from app.abda_bridge import ArgumentComplexityError, ArgumentConstructionError
 from app.api.models import ErrorDetail, ErrorResponse
 from app.core.safe_logging import exception_diagnostic
 from app.scenario.diff_ops import DiffOpError
@@ -59,6 +59,24 @@ async def _argument_construction_handler(
                 code="scenario_unbuildable",
                 path="<root>",
                 message=str(exc),
+            )
+        ],
+    )
+
+
+async def _argument_complexity_handler(
+    request: Request, exc: ArgumentComplexityError
+) -> JSONResponse:
+    return _response(
+        422,
+        [
+            ErrorDetail(
+                code="scenario_too_complex",
+                path="<root>",
+                message=(
+                    "This scenario is too complex to analyze safely. Reduce the "
+                    "number of rules or alternative derivations."
+                ),
             )
         ],
     )
@@ -139,6 +157,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ScenarioValidationError, _scenario_validation_handler)
     app.add_exception_handler(DiffOpError, _diff_op_handler)
+    app.add_exception_handler(ArgumentComplexityError, _argument_complexity_handler)
     app.add_exception_handler(ArgumentConstructionError, _argument_construction_handler)
     app.add_exception_handler(ScenarioNotFoundError, _scenario_not_found_handler)
     app.add_exception_handler(InvalidScenarioId, _invalid_scenario_id_handler)

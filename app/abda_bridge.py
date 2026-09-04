@@ -20,6 +20,7 @@ from KnowledgeBase.StrictRule import StrictRule  # noqa: E402
 from KnowledgeBase.DefeasibleRule import DefeasibleRule  # noqa: E402
 from ArgumentationSystem.Argument import Argument  # noqa: E402
 from ArgumentationSystem.ArgumentBuilder import (  # noqa: E402
+    ArgumentComplexityError,
     ArgumentConstructionError,
     build_arguments,
     build_attacks,
@@ -43,6 +44,7 @@ def init_engine() -> None:
 
 __all__ = [
     "Argument",
+    "ArgumentComplexityError",
     "ArgumentConstructionError",
     "ArgumentationGraph",
     "Attack",
