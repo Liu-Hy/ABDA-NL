@@ -79,3 +79,11 @@ WebKit at source `17ef6593de0bcb9fdc213915bda83e3cf38a03bd`. The matching
 [CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33858011673) also
 passed. This automated WebKit evidence reduces Safari-engine risk but does not
 replace the presentation-hardware Safari and screen-reader checks.
+
+Source `24abcf9576dc9033a902d27a8f9b6381fee85f4e` passed the complete
+[CI run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33860765344), including
+Chromium, Firefox, and Playwright WebKit, both Python versions, restricted-role
+PostgreSQL, dependency audits, packaging, and the production-container smoke.
+Its matching
+[CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33860765335) passed
+the enforced zero-result check.

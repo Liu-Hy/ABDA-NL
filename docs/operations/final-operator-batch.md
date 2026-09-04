@@ -34,8 +34,8 @@ Continue only after the Gate returns
 `LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED`:
 
 1. Delete that same blocked disposable identity in Auth0.
-2. Complete the Cloudflare dashboard changes in Section 4, but defer the old
-   `q` helper and its hostname check until a replacement helper is pinned.
+2. Complete the Cloudflare dashboard changes in Section 4, then run the
+   current helper's read-only `bash "$p" hostname` check.
 3. Confirm the Resend production sending capacity described in Section 5.
 4. Stop before Section 3 deployment, rollback, promotion, or final audit. Those
    phases need the replacement image and helper described above.
@@ -427,11 +427,14 @@ the proxied `@` and `www` placeholder records and one narrowly matched 301
 redirect rule. It must not match `demo`, `login`, or `auth`.
 
 After the two records and rule are saved, return to the same Cloud Shell and
-run this read-only check:
+run this read-only check with the current `p` helper:
 
 ```bash
-bash "$q" hostname
+bash "$p" hostname
 ```
+
+If that Cloud Shell session closed, repeat the preparation block under
+"Prepare one Cloud Shell session" and run `bash "$p" verify` first.
 
 It verifies root and `www` redirects, path and query preservation, direct demo
 readiness, Auth0 discovery, and the Resend DNS boundary. It makes no change and
