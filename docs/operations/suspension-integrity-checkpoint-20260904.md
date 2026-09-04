@@ -47,6 +47,11 @@ exact digest, and published GitHub build provenance.
 - OCI revision: `084817fcefdcbee36e223ff6932d6c344618e1c3`
 - OCI license: `MIT`
 
+The OCI license line records the immutable label already present on this image.
+It is not evidence that the label covers the imported engine. Do not declare
+this artifact's source release complete until the separate
+[source license review](source-license-review.md) is resolved.
+
 An independent anonymous registry request accepted the exact manifest and
 configuration. The configuration contains the expected source, revision, and
 license labels. An independent GitHub attestation verification accepted the

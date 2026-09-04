@@ -124,6 +124,11 @@ provenance.
 - OCI revision: `51702e175bd14d4cb54075808f839d173d561324`
 - OCI license: `MIT`
 
+The OCI license lines above record immutable image metadata. They do not prove
+that the label covers the imported engine. The separate
+[source license review](source-license-review.md) must be resolved before a
+public source or service release is declared complete.
+
 The GitHub attestation verifier accepted this newer digest against
 `Liu-Hy/ABDA-NL`. This image superseded the earlier candidate for Azure. The
 earlier record remains above as historical evidence and is not relabeled as
