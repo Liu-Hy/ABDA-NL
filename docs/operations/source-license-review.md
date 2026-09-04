@@ -19,6 +19,11 @@ before the cited import commit. These facts establish a provenance question.
 They do not establish whether the project already received a separate license
 or other permission outside Git history.
 
+The repository's MIT `LICENSE` predates the engine import. The import commit
+added the engine and bridge but did not add the upstream GPL license or a
+third-party notice. Git therefore contains no recorded exception that would
+make the existing top-level label sufficient by itself.
+
 The same upstream repository contains the 15 `Tests/RuleFiles` fixtures that
 the historical `tests/ConclusionWarrantedTests.py` references. Those fixtures
 were never committed to ABDA-NL. They must not be copied into this MIT-labeled
@@ -58,8 +63,21 @@ KnowledgeBase/DefeasibleRuleSet.py
 KnowledgeBase/RuleCollection.py
 ```
 
-The remaining matched paths have different current blobs and should still be
-treated as potentially modified upstream work until authorization is clear.
+The seven matched paths with later ABDA-NL changes are:
+
+```text
+ABDAShell.py
+ArgumentationSystem/Argument.py
+ArgumentationSystem/ArgumentBuilder.py
+ArgumentationSystem/ArgumentationGraph.py
+GraphVisualization/GraphConvert.py
+KnowledgeBase/DefeasibleRule.py
+KnowledgeBase/StrictRule.py
+```
+
+These paths should still be treated as modified upstream work until
+authorization is clear. Together, the two lists define the 21-file scope that
+must be covered by permission, compatible licensing, or replacement.
 
 ## Acceptable resolution paths
 
@@ -72,6 +90,10 @@ The project owners should choose one path after checking any prior agreements:
    compatible arrangement, with the required notices and corresponding source.
 3. Replace the imported engine with an independently authorized implementation,
    then rerun the complete semantic, browser, packaging, and deployment gates.
+   Replacement at the branch tip does not remove upstream objects from Git
+   history. An MIT-only distribution would also need a clean-history release or
+   separate permission, while the original history is preserved in a lawful
+   archive.
 
 Coauthor approval of ABDA-NL's MIT label does not by itself grant rights in
 third-party code. This document is an engineering provenance record, not legal
@@ -119,7 +141,8 @@ undecided cycle through the public interactive game. These tests use generated
 in-memory graphs and do not copy the absent upstream fixtures.
 
 The removed historical modules remain available in Git history for provenance
-review. Do not restore the upstream fixtures until their redistribution terms
+review. Their deletion from the branch tip is test hygiene, not a license
+remedy. Do not restore the upstream fixtures until their redistribution terms
 are resolved.
 
 ## Transient semantic compatibility check
