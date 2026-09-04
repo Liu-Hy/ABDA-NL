@@ -170,6 +170,11 @@ jobs:
               ]
           if len(license_files) != 1:
               raise SystemExit("wheel must contain exactly one top-level LICENSE copy")
+          with ZipFile(sys.argv[1]) as wheel:
+              packaged_license = wheel.read(license_files[0])
+          with open("LICENSE", "rb") as source:
+              if packaged_license != source.read():
+                  raise SystemExit("wheel LICENSE differs from the source LICENSE")
           PY
           python -m pip install --force-reinstall --no-deps \
             "$RUNNER_TEMP"/dist/abda_nl-*.whl
@@ -265,8 +270,9 @@ jobs:
             sleep 1
           done
           test "$ABDA_CI_READY" -eq 1
+          test -s LICENSE
           docker exec "$ABDA_CI_CONTAINER_ID" \
-            test -s /srv/abda/LICENSE
+            cat /srv/abda/LICENSE | cmp --silent LICENSE -
           curl --fail --silent --show-error \
             http://127.0.0.1:18000/health/live >/dev/null
           curl --fail --silent --show-error \

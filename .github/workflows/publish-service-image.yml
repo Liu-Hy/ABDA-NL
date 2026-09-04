@@ -152,8 +152,9 @@ jobs:
             sleep 1
           done
           test "$ABDA_IMAGE_READY" -eq 1
+          test -s LICENSE
           docker exec "$ABDA_IMAGE_CONTAINER_ID" \
-            test -s /srv/abda/LICENSE
+            cat /srv/abda/LICENSE | cmp --silent LICENSE -
           curl --fail --silent --show-error \
             http://127.0.0.1:18000/health/live >/dev/null
           curl --fail --silent --show-error \
