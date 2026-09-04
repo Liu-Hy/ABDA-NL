@@ -1,8 +1,32 @@
 # Final public-service operator batch
 
-State: hardened image live; privacy deletion and post-privacy release Gates prepared
+State: hardened image live; privacy preparation complete; permanent deletion next
 
-Runbook revision: `rate-limit-retention-20260904.2`
+Runbook revision: `rate-limit-retention-20260904.3`
+
+## Resume here after the completed privacy preparation
+
+The next live operator action is the permanent-deletion half of Section 2.
+The 15-minute hold has already elapsed. Keep the disposable Auth0 user blocked,
+load and verify the `p` helper exactly as documented below, then run only the
+privacy phase. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, followed by
+`DELETE_PRIVACY_ACCEPTANCE`. Do not recreate the disposable account, project,
+share, or MCP token, and do not repeat the preparation phase.
+
+Continue only after the Gate returns
+`LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED`:
+
+1. Delete that same blocked disposable identity in Auth0.
+2. Move to Section 3 and load the separate `q` helper.
+3. Run its verify, deploy, and audit phases in that order.
+4. Complete the Cloudflare redirect and its hostname check in Section 4.
+5. Confirm Resend production sending capacity, then run rollback, promotion,
+   and the final audit in Section 5.
+
+The hardened-image deployment, its audit, BYOK, MCP, capacity, Chromium, and
+Firefox checks are already complete. Do not rerun them unless the relevant
+application code or configuration changes. The remaining presentation-hardware
+checks and recovery tabletop are batched in Section 6.
 
 Before running any remaining phase, confirm that the consolidated helper block
 below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. Stop and refresh this
