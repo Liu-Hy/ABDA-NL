@@ -89,6 +89,12 @@ proves that the local user and private records are gone. Success ends with:
 result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
 ```
 
+Gate revision 9 verifies that the exact successful preparation execution ended
+at least 900 seconds earlier before starting a deletion job. An early attempt
+reports the remaining seconds and exits before Azure creates a deletion
+execution. The operator can wait for that remainder and safely rerun the same
+Gate.
+
 Delete the still-blocked disposable user from Auth0 only after the second
 receipt succeeds. The gate never changes Azure configuration, secrets, DNS,
 Auth0, trial limits, or provider routing. Its shareable receipts omit both the

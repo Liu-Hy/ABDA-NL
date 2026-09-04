@@ -2,10 +2,10 @@
 
 State: hardened image deployed and audited; remaining manual release Gates prepared
 
-Runbook revision: `source-security-20260904.2`
+Runbook revision: `source-security-20260904.3`
 
 Before running any remaining phase, confirm that the consolidated helper block
-below uses commit `b8859959fd3063f1d3cc3f70c2d69c4a88ebf1e1`. Stop and refresh this
+below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. Stop and refresh this
 file from the personal repository's `development` branch if a saved copy uses
 an older commit.
 
@@ -53,9 +53,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='b8859959fd3063f1d3cc3f70c2d69c4a88ebf1e1'
+c='9fb7386c271355f5adb07b4e8457368d1db44ad8'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='334b9d58346bea9bdf8ee17b0df53a53d19e0f33f9c6f15de9ed47a0a2c0765a'
+s='dc75d1295906cdeae9d10dcc4494441e3d12247481fbc8d725a1746ebb4253b6'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
@@ -230,6 +230,12 @@ command again. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, then
 ```text
 result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
 ```
+
+Before it creates a deletion execution, the current Gate finds the exact
+successful preparation execution and measures 900 seconds from that
+execution's end time. If the hold has not elapsed, it reports the remaining
+seconds and exits without creating a failed deletion execution. Wait for the
+reported interval and rerun the same command.
 
 Only after this second receipt, return to the same Auth0 user and select
 **Delete User** from the details page or actions menu. Confirm deletion. The
