@@ -16,10 +16,10 @@ def test_rate_limit_retention_promotion_is_pinned_and_narrow():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "e008067e3dc9c96862cf4f75228bdf0250848665",
-        "b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29",
-        "abda-nl-stg-web--restore-e008067",
-        "abda-nl-stg-web--public-100-e008067",
+        "050ce2cda65838b4c875079239e91f5161a4bbbe",
+        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
+        "abda-nl-stg-web--restore-050ce2c",
+        "abda-nl-stg-web--public-100-050ce2c",
         "712f0206fc330249e15d0d59793ad9a6e5c317a6fc752b6f2dccfa384c2bb04d",
         "830302fc1bf30bf0f00c457fdfe8bc190b3562fe",
     ):
@@ -49,8 +49,8 @@ def test_rate_limit_retention_promotion_sets_exact_shared_gate_values():
         text=True,
     )
     assert result.stdout.splitlines() == [
-        "e008067e3dc9c96862cf4f75228bdf0250848665",
-        "b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29",
-        "abda-nl-stg-web--restore-e008067",
-        "abda-nl-stg-web--public-100-e008067",
+        "050ce2cda65838b4c875079239e91f5161a4bbbe",
+        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
+        "abda-nl-stg-web--restore-050ce2c",
+        "abda-nl-stg-web--public-100-050ce2c",
     ]

@@ -16,11 +16,11 @@ def test_rate_limit_retention_image_gate_is_pinned_and_narrow():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "e008067e3dc9c96862cf4f75228bdf0250848665",
+        "050ce2cda65838b4c875079239e91f5161a4bbbe",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29",
+        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
         "abda-nl-stg-web--harden-51702e1",
-        "abda-nl-stg-web--retain-e008067",
+        "abda-nl-stg-web--account-050ce2c",
         "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE",
         "RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED",
         "1bfebc7b9d8a76bf01332205260778aa1e9bd409377f1a8bb50e211d63c9379f",
@@ -46,6 +46,11 @@ def test_rate_limit_retention_check_preserves_prior_managed_boundaries():
         "triggered by subsequent traffic."
     ) in source
     assert "Last updated September 4, 2026" in source
+    assert (
+        "If a provider request may have started but the service receives no reliable "
+        "billing result"
+    ) in source
+    assert "conservative_provider_billing_disclosure: verified" in source
 
 
 def test_rate_limit_retention_wrapper_sets_exact_shared_gate_values():
@@ -69,10 +74,10 @@ def test_rate_limit_retention_wrapper_sets_exact_shared_gate_values():
         text=True,
     )
     assert result.stdout.splitlines() == [
-        "e008067e3dc9c96862cf4f75228bdf0250848665",
+        "050ce2cda65838b4c875079239e91f5161a4bbbe",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29",
+        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
         "abda-nl-stg-web--harden-51702e1",
-        "abda-nl-stg-web--retain-e008067",
+        "abda-nl-stg-web--account-050ce2c",
         "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE",
     ]

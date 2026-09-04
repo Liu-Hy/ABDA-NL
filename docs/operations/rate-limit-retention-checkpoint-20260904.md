@@ -39,7 +39,9 @@ An independent GitHub attestation check accepted the SLSA provenance subject
 `ghcr.io/liu-hy/abda-nl` at the exact digest above.
 
 The earlier `db216b8` image remains immutable historical evidence but was never
-deployed. This dated-notice image supersedes it as the only queued target.
+deployed. This dated-notice image was subsequently superseded before deployment
+by the [provider accounting integrity checkpoint](accounting-integrity-checkpoint-20260904.md),
+which includes the same retention work.
 
 ## Deployment boundary
 

@@ -16,8 +16,11 @@ checksum in Cloud Shell.
   current hardened source, CI, CodeQL, immutable image digest, provenance,
   Azure deployment, and live sanitized-log audit.
 - [Rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
-  records the tested and attested maintenance image queued after the pending
-  privacy deletion acceptance.
+  records the original tested and attested retention image, now preserved as
+  historical evidence.
+- [Provider accounting integrity checkpoint](accounting-integrity-checkpoint-20260904.md)
+  records the cumulative retention and hard-cap accounting image queued after
+  the pending privacy deletion acceptance.
 - [Requirements traceability](requirements-traceability.md) distinguishes
   completed implementation evidence from external and hardware acceptance.
 - [Public and COMMA release checklist](release-checklist.md) is the final

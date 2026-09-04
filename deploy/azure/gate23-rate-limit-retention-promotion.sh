@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Promote the restored rate-limit retention image from the ten-user pilot to
+# Promote the restored cumulative accounting image from the ten-user pilot to
 # the reviewed 100-user caps and bounded OpenRouter outage fallback.
 
 set -Eeuo pipefail
@@ -32,12 +32,12 @@ if [[ "$ABDA_RETENTION_PROMOTION_SHARED_GATE_TEMPORARY" == 'true' ]]; then
   rm -f -- "$ABDA_RETENTION_PROMOTION_SHARED_GATE"
 fi
 
-ABDA_PROMOTION_SCRIPT_REVISION='retention-2'
-ABDA_PROMOTION_APPLICATION_SOURCE_COMMIT='e008067e3dc9c96862cf4f75228bdf0250848665'
-ABDA_PROMOTION_IMAGE_SHA256='b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29'
-ABDA_PROMOTION_OLD_REVISION='abda-nl-stg-web--restore-e008067'
-ABDA_PROMOTION_TARGET_SUFFIX='public-100-e008067'
-ABDA_PROMOTION_TARGET_REVISION='abda-nl-stg-web--public-100-e008067'
+ABDA_PROMOTION_SCRIPT_REVISION='accounting-3'
+ABDA_PROMOTION_APPLICATION_SOURCE_COMMIT='050ce2cda65838b4c875079239e91f5161a4bbbe'
+ABDA_PROMOTION_IMAGE_SHA256='2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d'
+ABDA_PROMOTION_OLD_REVISION='abda-nl-stg-web--restore-050ce2c'
+ABDA_PROMOTION_TARGET_SUFFIX='public-100-050ce2c'
+ABDA_PROMOTION_TARGET_REVISION='abda-nl-stg-web--public-100-050ce2c'
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   abda_promotion_main "$@"

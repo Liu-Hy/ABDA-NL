@@ -148,11 +148,12 @@ image provenance, the exact image-only Azure deployment, and the subsequent
 release and sanitized-log audit.
 
 The queued
-[rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
-binds the periodic cleanup change to complete CI, real restricted-role
-PostgreSQL coverage, CodeQL, an immutable image digest, and GitHub provenance.
-It remains undeployed until the privacy deletion acceptance finishes against
-the current hardened image.
+[provider accounting integrity checkpoint](accounting-integrity-checkpoint-20260904.md)
+binds the periodic cleanup and provider-boundary hard-cap safeguards to complete
+CI, real restricted-role PostgreSQL coverage, browser checks, CodeQL, an
+immutable image digest, and GitHub provenance. It supersedes the undeployed
+retention-only image and remains undeployed until privacy deletion finishes
+against the current hardened image.
 
 ## Release-only evidence still required
 
@@ -161,7 +162,7 @@ collected in [the final operator batch](final-operator-batch.md):
 
 1. Permanent deletion of the prepared isolated staging account, followed by
    deletion of its blocked Auth0 identity.
-2. Image-only deployment and read-only audit of the queued retention image.
+2. Image-only deployment and read-only audit of the queued cumulative image.
 3. Deployment and read-only verification of the prepared root-domain redirect.
 4. The final-image rollback and restoration, public budget promotion, and
    promoted-state release audit.

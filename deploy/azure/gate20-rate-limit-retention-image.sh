@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 
-# Deploy the rate-limit retention cleanup as one image-only Container App
-# update. The shared gate proves that every application setting and secret
-# reference remains unchanged and reruns the existing public acceptance checks.
+# Deploy the cumulative retention and provider-accounting hardening as one
+# image-only Container App update. The shared gate proves that every application
+# setting and secret reference remains unchanged and reruns the public checks.
 
 set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_MCP_IMAGE_SCRIPT_REVISION='2'
-ABDA_MCP_IMAGE_SOURCE_COMMIT='e008067e3dc9c96862cf4f75228bdf0250848665'
+ABDA_MCP_IMAGE_SCRIPT_REVISION='3'
+ABDA_MCP_IMAGE_SOURCE_COMMIT='050ce2cda65838b4c875079239e91f5161a4bbbe'
 ABDA_MCP_IMAGE_OLD_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
-ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29'
+ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d'
 ABDA_MCP_IMAGE_OLD_REVISION='abda-nl-stg-web--harden-51702e1'
-ABDA_MCP_IMAGE_TARGET_SUFFIX='retain-e008067'
-ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--retain-e008067'
-ABDA_MCP_IMAGE_GATE_TITLE='rate-limit retention image'
+ABDA_MCP_IMAGE_TARGET_SUFFIX='account-050ce2c'
+ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--account-050ce2c'
+ABDA_MCP_IMAGE_GATE_TITLE='cumulative accounting-integrity image'
 ABDA_MCP_IMAGE_CONFIRMATION='PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE'
 ABDA_MCP_IMAGE_RESULT='RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED'
 ABDA_MCP_IMAGE_POST_ACTION_ONE='No separate browser check is required for this maintenance change.'
-ABDA_MCP_IMAGE_POST_ACTION_TWO='Continue only with the pinned read-only retention image audit.'
+ABDA_MCP_IMAGE_POST_ACTION_TWO='Continue only with the pinned read-only cumulative image audit.'
 
 ABDA_RETENTION_GATE_DIRECTORY="$(
   cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd
@@ -69,6 +69,12 @@ abda_mcp_image_validate_static_fix() {
     abda_mcp_image_fail 'the deployed rate-limit retention disclosure is missing'
   grep -Fq 'Last updated September 4, 2026' "$prefix-privacy.html" || \
     abda_mcp_image_fail 'the deployed privacy notice date is stale'
+  grep -Fq \
+    'If a provider request may have started but the service receives no reliable billing result' \
+    "$prefix-terms.html" || \
+    abda_mcp_image_fail 'the conservative provider-billing disclosure is missing'
+  grep -Fq 'Last updated September 4, 2026' "$prefix-terms.html" || \
+    abda_mcp_image_fail 'the deployed terms date is stale'
 
   local save_status=''
   save_status="$(curl --silent --show-error \
@@ -94,6 +100,8 @@ PY
   printf 'managed_filesystem_save: rejected_without_mutation\n'
   printf 'rate_limit_retention_disclosure: verified\n'
   printf 'privacy_notice_date: verified\n'
+  printf 'conservative_provider_billing_disclosure: verified\n'
+  printf 'terms_notice_date: verified\n'
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

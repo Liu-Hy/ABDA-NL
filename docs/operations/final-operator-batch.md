@@ -2,7 +2,7 @@
 
 State: hardened image live; privacy preparation complete; permanent deletion next
 
-Runbook revision: `rate-limit-retention-20260904.5`
+Runbook revision: `accounting-integrity-20260904.1`
 
 ## Resume here after the completed privacy preparation
 
@@ -35,15 +35,15 @@ an older commit.
 
 The managed-boundary image already passed live OpenRouter BYOK acceptance. The
 current hardened service passed fresh public Chromium and Firefox accessibility
-and bounded capacity checks on 2026-09-04 CDT. The subsequent
-runtime changes remove private or model-derived identifiers from operational
-logs, reduce evaluator route-list output, and prevent unexpected exception
-messages or tracebacks from entering logs. Safe diagnostics retain only the
-exception class and internal code location. These changes do not alter
-authentication, BYOK key handling, projects, sharing, MCP, routing, budgets,
-database schema, or browser code. CodeQL reports zero findings for the new
-source, and the image workflow rebuilt, smoke-tested, and attested its exact
-digest.
+and bounded capacity checks on 2026-09-04 CDT. Subsequent runtime changes remove
+private or model-derived identifiers from operational logs, reduce evaluator
+route-list output, and prevent unexpected exception messages or tracebacks from
+entering logs. The cumulative queued image also disables hidden Anthropic SDK
+retries and conservatively settles provider attempts whose billing outcome
+cannot be proven. It does not alter authentication, BYOK key storage, projects,
+sharing, MCP scopes, budget limits, database schema, or browser interactions.
+CodeQL reports zero findings for the new source, and the image workflow rebuilt,
+smoke-tested, and attested its exact digest.
 
 This runbook collects the remaining cloud and account work into one operator
 batch. The hardened-image deployment and live audit, Azure alert deployment,
@@ -61,13 +61,13 @@ The hardened release identity is:
 - target pilot revision: `abda-nl-stg-web--harden-51702e1`
 - public origin: `https://demo.abda-nl.org`
 
-The queued post-privacy maintenance identity is:
+The queued post-privacy cumulative identity is:
 
-- application source commit: `e008067e3dc9c96862cf4f75228bdf0250848665`
-- source tag: `service-image-staging-rate-limit-retention-notice-20260904-063308`
-- image digest: `sha256:b20cfe100f94d22e5734badaf5ec4e52e3445b72fcdc1879339f7b905109eb29`
-- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45178541`
-- target pilot revision: `abda-nl-stg-web--retain-e008067`
+- application source commit: `050ce2cda65838b4c875079239e91f5161a4bbbe`
+- source tag: `service-image-staging-accounting-integrity-20260904-072417`
+- image digest: `sha256:2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d`
+- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45187780`
+- target pilot revision: `abda-nl-stg-web--account-050ce2c`
 - public origin: `https://demo.abda-nl.org`
 
 Do not deploy the queued image before the disposable-account privacy deletion
@@ -287,7 +287,7 @@ data. Keep the existing disposable state and blocked Auth0 user. Load the
 current helper above and run the first phase. Do not recreate the project,
 share, token, or account.
 
-## 3. Deploy and audit the retention maintenance image
+## 3. Deploy and audit the cumulative maintenance image
 
 Proceed only after the privacy Gate returned
 `LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED` and the disposable Auth0 identity
@@ -317,7 +317,7 @@ Required success ends with:
 result: ALL_POST_PRIVACY_OPERATOR_GATES_VERIFIED
 ```
 
-Deploy the exact attested maintenance image:
+Deploy the exact attested cumulative image:
 
 ```bash
 bash "$q" deploy
@@ -327,8 +327,9 @@ At its prompt, type
 `PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE` once and press Enter.
 Use that phrase only after both privacy deletion steps above succeeded. The
 Gate changes only the web image and revision suffix. It verifies the new
-retention disclosure and preserves the existing managed-service and
-shared-view boundaries. Required success ends with:
+retention and conservative provider-billing disclosures, and preserves the
+existing managed-service and shared-view boundaries. Required success ends
+with:
 
 ```text
 result: RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED
@@ -346,11 +347,11 @@ Required success ends with:
 result: RATE_LIMIT_RETENTION_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 ```
 
-Do not repeat BYOK, MCP, or a funded model call for this maintenance image.
-The image-only Gate proves those application contracts unchanged. After the
-deployment receipt is available, Codex can run the automated public browser
-and bounded deterministic capacity checks from Delta without another manual
-browser action.
+Do not repeat MCP or OpenRouter BYOK acceptance for this image. Those paths and
+their trust boundaries are unchanged. Provider-accounting behavior is covered
+by focused failure tests and the full CI matrix. After the deployment receipt
+is available, Codex can run the automated public browser and bounded
+deterministic capacity checks from Delta without another manual browser action.
 
 If Cloud Shell closes, repeat only the block that creates `q`, run
 `bash "$q" verify`, then resume the required phase. Every mutating Gate detects
@@ -380,7 +381,7 @@ result: PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED
 
 ## 5. Rehearse rollback, promote, and run the final audit
 
-Proceed only after the retention-image deployment and audit, prior BYOK and
+Proceed only after the cumulative-image deployment and audit, prior BYOK and
 MCP acceptance, privacy deletion, and hostname receipts above are present.
 Before starting this section, confirm the transactional-email plan that backs
 the Auth0 Resend provider:
