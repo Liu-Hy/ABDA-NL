@@ -2,7 +2,7 @@
 
 State: hardened image live; privacy preparation complete; permanent deletion next
 
-Runbook revision: `rate-limit-retention-20260904.4`
+Runbook revision: `rate-limit-retention-20260904.5`
 
 ## Resume here after the completed privacy preparation
 
@@ -296,9 +296,9 @@ complete block once:
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c2='7b59ff28a696d598618103e15ab38bf26798015e'
+c2='03f868bca597855fdd4860c725205032a25af0c8'
 f2='deploy/azure/post-privacy-operator-gate.sh'
-s2='4eb447b805654c9c2e17ea5b96a589ba95eba3a99e53b26b893b4412fae999f7'
+s2='4d6f43ea35d80ca1a3ddd0fdb6cf6d3429d767e850caeabbfcac6c5d12fdd313'
 q="$(mktemp /tmp/abda-post-privacy.XXXXXX)"
 curl -fsSL "$u/$c2/$f2" -o "$q"
 printf '%s  %s\n' "$s2" "$q" | sha256sum --check
