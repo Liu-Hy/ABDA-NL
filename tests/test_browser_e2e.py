@@ -801,6 +801,70 @@ def test_switching_scenarios_discards_an_in_flight_chat_response(
             browser.close()
 
 
+def test_editing_the_current_scenario_discards_an_in_flight_chat_response(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("edited-chat-context@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#trial-activate-btn").click()
+            expect(page.locator("#trial-balance-label")).to_contain_text("$5.00")
+            page.keyboard.press("Escape")
+
+            page.evaluate(
+                """() => {
+                    window.__resolveEditedContextChat = null;
+                    apiPostChat = () => new Promise(resolve => {
+                      window.__resolveEditedContextChat = resolve;
+                    });
+                    window.__editedContextChatRequest = sendChatMessage(
+                      'Question about the state before an edit',
+                    );
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveEditedContextChat !== null")
+
+            page.evaluate(
+                """async () => {
+                    const assumptionId = Object.keys(state.bundle.scenario.assumptions)[0];
+                    if (!assumptionId) throw new Error('test scenario needs an assumption');
+                    await applyOps([{op: 'toggle-assumption', id: assumptionId}]);
+                }"""
+            )
+            assert page.evaluate("state.diff_ops.length") == 1
+
+            page.evaluate(
+                """async () => {
+                    window.__resolveEditedContextChat({
+                      billing_source: 'cloudbank',
+                      cost_microusd: 1,
+                      message: 'Answer computed from the state before the edit',
+                      model: 'test-model',
+                      latency_ms: 1,
+                    });
+                    await window.__editedContextChatRequest;
+                }"""
+            )
+
+            assert "Answer computed from the state before the edit" not in page.locator(
+                "body"
+            ).inner_text()
+            expect(page.locator("#chat-messages")).to_contain_text(
+                "The scenario changed before this answer arrived"
+            )
+            assert page.evaluate("state.chatPending") is False
+        finally:
+            browser.close()
+
+
 def test_reopening_the_editor_discards_an_older_proposal_response(
     live_browser_server,
 ):
@@ -866,6 +930,77 @@ def test_reopening_the_editor_discards_an_older_proposal_response(
             expect(page.locator("#edit-preview")).to_have_text("")
             expect(page.locator('[data-edit-action="propose"]')).to_be_visible()
             assert "Old private proposal" not in page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+
+def test_editing_the_scenario_discards_an_in_flight_proposal_response(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("edited-proposal-context@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#trial-activate-btn").click()
+            expect(page.locator("#trial-balance-label")).to_contain_text("$5.00")
+            page.keyboard.press("Escape")
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    window.__resolveEditedContextProposal = null;
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/propose') {
+                        return new Promise(resolve => {
+                          window.__resolveEditedContextProposal = () => resolve({
+                            ok: true,
+                            status: 200,
+                            json: async () => ({
+                              op: {
+                                op: 'add-fact',
+                                id: 'old_context_fact',
+                                fact: {description: 'Proposal from the old state'},
+                              },
+                              billing_source: 'cloudbank',
+                              latency_ms: 1,
+                              proposer_attempts: 1,
+                              review_issues: [],
+                            }),
+                          });
+                        });
+                      }
+                      return original(path, options);
+                    };
+                }"""
+            )
+            page.locator('[data-edit-task="add-fact"]').first.click()
+            page.locator("#edit-instruction").fill("Create a proposal")
+            page.locator('[data-edit-action="propose"]').click()
+            page.wait_for_function("() => window.__resolveEditedContextProposal !== null")
+
+            page.evaluate(
+                """async () => {
+                    const assumptionId = Object.keys(state.bundle.scenario.assumptions)[0];
+                    if (!assumptionId) throw new Error('test scenario needs an assumption');
+                    await applyOps([{op: 'toggle-assumption', id: assumptionId}]);
+                    window.__resolveEditedContextProposal();
+                    await new Promise(resolve => window.setTimeout(resolve, 0));
+                }"""
+            )
+
+            assert page.evaluate("editState.lastProposal") is None
+            expect(page.locator("#edit-preview")).to_have_text("")
+            expect(page.locator("#edit-status")).to_contain_text(
+                "The scenario changed before this proposal arrived"
+            )
+            assert "Proposal from the old state" not in page.locator("body").inner_text()
         finally:
             browser.close()
 

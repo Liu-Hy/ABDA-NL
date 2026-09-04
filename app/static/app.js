@@ -1430,6 +1430,35 @@ function revealChatForNarrowLayout() {
   });
 }
 
+function captureModelViewContext() {
+  return {
+    bundle: state.bundle,
+    diffOps: state.diff_ops,
+    scenarioId: state.scenario_id,
+    viewKind: state.viewKind,
+    activeProject: state.activeProject,
+    sharedProject: state.sharedProject,
+  };
+}
+
+function modelViewContextIsCurrent(context) {
+  return (
+    state.bundle === context.bundle
+    && state.diff_ops === context.diffOps
+    && state.scenario_id === context.scenarioId
+    && state.viewKind === context.viewKind
+    && state.activeProject === context.activeProject
+    && state.sharedProject === context.sharedProject
+  );
+}
+
+function appendChangedContextNotice(conversation) {
+  conversation.push({
+    role: 'assistant',
+    content: 'The scenario changed before this answer arrived. Ask again to use the current state.',
+  });
+}
+
 async function sendChatMessage(prefilledText) {
   if (state.chatPending) return;
   const accessIssue = llmAccessIssue();
@@ -1449,6 +1478,8 @@ async function sendChatMessage(prefilledText) {
   if (input) input.value = '';
 
   const conversation = state.chatMessages;
+  const requestContext = captureModelViewContext();
+  const requestUsesFundedAccess = state.llmAccess.mode !== 'byok';
   conversation.push({ role: 'user', content: text });
   state.chatPending = true;
   renderChat();
@@ -1462,7 +1493,14 @@ async function sendChatMessage(prefilledText) {
 
   try {
     const resp = await apiPostChat(state.scenario_id, state.diff_ops, messages);
+    if (resp.billing_source !== 'byok' && state.authSession.authenticated) {
+      refreshTrialBalanceQuietly();
+    }
     if (state.chatMessages !== conversation) return;
+    if (!modelViewContextIsCurrent(requestContext)) {
+      appendChangedContextNotice(conversation);
+      return;
+    }
     const source = resp.billing_source === 'byok' ? 'Own key' : 'Funded';
     const cost = resp.cost_microusd > 0 ? `, ${formatUSD(resp.cost_microusd)}` : '';
     conversation.push({
@@ -1470,11 +1508,15 @@ async function sendChatMessage(prefilledText) {
       content: resp.message,
       meta: `${source}, ${resp.model}${cost}, ${resp.latency_ms} ms`,
     });
-    if (state.llmAccess.mode === 'funded' && state.authSession.authenticated) {
+  } catch (e) {
+    if (requestUsesFundedAccess && state.authSession.authenticated) {
       refreshTrialBalanceQuietly();
     }
-  } catch (e) {
     if (state.chatMessages !== conversation) return;
+    if (!modelViewContextIsCurrent(requestContext)) {
+      appendChangedContextNotice(conversation);
+      return;
+    }
     conversation.push({
       role: 'assistant',
       content: `_Chat error: ${e.message}_`,
@@ -2498,6 +2540,8 @@ async function sendPropose() {
   }
 
   const requestGeneration = ++editRequestGeneration;
+  const requestContext = captureModelViewContext();
+  const requestUsesFundedAccess = state.llmAccess.mode !== 'byok';
   editState.inFlight = true;
   editState.lastProposal = null;
   _setEditStatus('loading', 'Proposing…');
@@ -2524,7 +2568,22 @@ async function sendPropose() {
       body: JSON.stringify(payload),
     });
     const body = await r.json().catch(() => ({}));
+    const responseUsesFundedAccess = body.billing_source
+      ? body.billing_source !== 'byok'
+      : requestUsesFundedAccess;
+    if (responseUsesFundedAccess && state.authSession.authenticated) {
+      refreshTrialBalanceQuietly();
+    }
     if (requestGeneration !== editRequestGeneration) return;
+    if (!modelViewContextIsCurrent(requestContext)) {
+      editState.lastProposal = null;
+      document.getElementById('edit-preview').innerHTML = '';
+      _setEditStatus(
+        'error',
+        'The scenario changed before this proposal arrived. Request a new proposal for the current state.',
+      );
+      return;
+    }
     if (!r.ok) {
       _renderEditError(r.status, body);
       return;
@@ -2532,11 +2591,20 @@ async function sendPropose() {
     editState.lastProposal = body;
     _renderProposal(body);
     _setEditStatus('ok', `Proposed in ${body.latency_ms} ms${body.proposer_attempts > 1 ? ` (${body.proposer_attempts} attempts)` : ''}.`);
-    if (state.llmAccess.mode === 'funded' && state.authSession.authenticated) {
+  } catch (e) {
+    if (requestUsesFundedAccess && state.authSession.authenticated) {
       refreshTrialBalanceQuietly();
     }
-  } catch (e) {
     if (requestGeneration !== editRequestGeneration) return;
+    if (!modelViewContextIsCurrent(requestContext)) {
+      editState.lastProposal = null;
+      document.getElementById('edit-preview').innerHTML = '';
+      _setEditStatus(
+        'error',
+        'The scenario changed before this proposal arrived. Request a new proposal for the current state.',
+      );
+      return;
+    }
     _setEditStatus('error', `Network error: ${e.message}`);
   } finally {
     if (requestGeneration === editRequestGeneration) {
