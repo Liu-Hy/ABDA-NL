@@ -46,7 +46,7 @@
     <p>The service uses a signed, secure session cookie after login. It does not use advertising cookies. Managed hosting, identity, database, and model services may create security, billing, and availability logs. Application request logs use normalized route names and do not record query strings.</p>
 
     <h2>Retention and deletion</h2>
-    <p>Account and project records remain available while the service is operating unless you request deletion. Deleting a project in the interface archives it. Application and managed container logs are retained for up to 30 days. Database backups are retained for 7 days, so deleted material may remain in a backup until that backup expires. Short-lived rate-limit records expire automatically.</p>
+    <p>Account and project records remain available while the service is operating unless you request deletion. Deleting a project in the interface archives it. Application and managed container logs are retained for up to 30 days. Database backups are retained for 7 days, so deleted material may remain in a backup until that backup expires. Short-lived rate-limit counters stop applying when their window ends. Expired records are removed at application startup or by an hourly cleanup triggered by subsequent traffic.</p>
     <p>To request access, correction, or permanent deletion, email <a href="mailto:privacy@abda-nl.org">privacy@abda-nl.org</a>. Do not include an API key, share link, MCP token, or other secret. After verifying the request, the project team will complete it within 30 days. General service questions can be sent to <a href="mailto:support@abda-nl.org">support@abda-nl.org</a>.</p>
 
     <h2>Changes to this notice</h2>

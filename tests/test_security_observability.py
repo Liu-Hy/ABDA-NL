@@ -24,7 +24,11 @@ from app.services.projects import (
     create_project,
     create_share_link,
 )
-from app.services.rate_limits import consume_rate_limit, delete_expired_rate_limits
+from app.services.rate_limits import (
+    consume_rate_limit,
+    delete_expired_rate_limits,
+    delete_expired_rate_limits_if_due,
+)
 
 
 @pytest.fixture(scope="module")
@@ -237,6 +241,83 @@ def test_rate_limit_cap_is_exact_under_concurrency(rate_limit_factory):
     with ThreadPoolExecutor(max_workers=8) as executor:
         allowed = list(executor.map(consume, range(20)))
     assert sum(allowed) == 5
+
+
+def test_due_rate_limit_cleanup_deletes_only_expired_rows(
+    rate_limit_factory, monkeypatch
+):
+    import app.services.rate_limits as rate_limits_module
+
+    now = datetime(2026, 8, 17, 14, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(
+        rate_limits_module, "_next_rate_limit_cleanup_monotonic", 0.0
+    )
+    with rate_limit_factory() as session:
+        session.add_all(
+            [
+                RateLimitBucket(
+                    key="expired",
+                    scope="cleanup",
+                    request_count=1,
+                    window_started_at=now - timedelta(minutes=2),
+                    expires_at=now - timedelta(minutes=1),
+                ),
+                RateLimitBucket(
+                    key="active",
+                    scope="cleanup",
+                    request_count=1,
+                    window_started_at=now,
+                    expires_at=now + timedelta(minutes=1),
+                ),
+            ]
+        )
+        session.commit()
+
+        assert delete_expired_rate_limits_if_due(
+            session, now=now, monotonic_now=100.0
+        ) == 1
+        assert delete_expired_rate_limits_if_due(
+            session, now=now, monotonic_now=101.0
+        ) is None
+        assert session.scalars(select(RateLimitBucket.key)).all() == ["active"]
+
+
+def test_rate_limit_cleanup_failure_does_not_fail_accounting_or_log_secrets(
+    rate_limit_factory, monkeypatch, caplog
+):
+    import app.services.rate_limits as rate_limits_module
+
+    def fail_cleanup(*_args, **_kwargs):
+        raise RuntimeError("private-account@example.edu bearer-private-value")
+
+    monkeypatch.setattr(
+        rate_limits_module, "_next_rate_limit_cleanup_monotonic", 0.0
+    )
+    monkeypatch.setattr(
+        rate_limits_module, "delete_expired_rate_limits", fail_cleanup
+    )
+    monkeypatch.setattr(rate_limits_module.time, "monotonic", lambda: 100.0)
+    now = datetime(2026, 8, 17, 15, 0, tzinfo=timezone.utc)
+    with caplog.at_level("ERROR", logger="app.services.rate_limits"):
+        with rate_limit_factory() as session:
+            result = consume_rate_limit(
+                session,
+                scope="cleanup_failure",
+                subject="user:private-user-id",
+                limit=2,
+                window_seconds=60,
+                secret="cleanup-failure-rate-limit-secret-32-characters",
+                now=now,
+            )
+            bucket = session.scalar(select(RateLimitBucket))
+
+    assert result.allowed is True
+    assert bucket is not None
+    assert bucket.request_count == 1
+    assert "rate_limit_cleanup_failed exception=RuntimeError" in caplog.text
+    assert "private-account@example.edu" not in caplog.text
+    assert "bearer-private-value" not in caplog.text
+    assert rate_limits_module._next_rate_limit_cleanup_monotonic == 400.0
 
 
 def test_project_and_share_record_caps_are_enforced(

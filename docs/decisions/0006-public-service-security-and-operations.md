@@ -172,6 +172,14 @@ or permanent deletion requests are completed within 30 days. The notices
 describe this research service and do not substitute for a general University
 of Illinois policy or legal review.
 
+Rate-limit counters stop affecting requests when their fixed window ends. An
+indexed deletion removes expired rows during application startup and at most
+once per process each hour when later rate-limited traffic arrives. The cleanup
+uses a nonblocking process lock, retries after five minutes on failure, and
+cannot turn a successfully recorded request into a failed request. Multiple
+replicas may each issue the bounded deletion, which is safe and avoids a
+separate scheduler for this low-cost service.
+
 ## Availability tradeoff
 
 The initial service uses a low-cost burstable PostgreSQL instance without zone

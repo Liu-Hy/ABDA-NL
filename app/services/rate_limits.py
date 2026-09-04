@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import math
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -13,10 +15,18 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from app.core.safe_logging import exception_diagnostic
 from app.db.models import RateLimitBucket
 
 
+log = logging.getLogger(__name__)
 _SQLITE_RATE_LIMIT_LOCK = threading.RLock()
+_RATE_LIMIT_CLEANUP_LOCK = threading.Lock()
+_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS = 60 * 60
+_RATE_LIMIT_CLEANUP_RETRY_SECONDS = 5 * 60
+_next_rate_limit_cleanup_monotonic = (
+    time.monotonic() + _RATE_LIMIT_CLEANUP_INTERVAL_SECONDS
+)
 
 
 @dataclass(frozen=True)
@@ -125,7 +135,7 @@ def consume_rate_limit(
     """Consume one slot without storing the raw account or network identifier."""
     if session.get_bind().dialect.name == "sqlite":
         with _SQLITE_RATE_LIMIT_LOCK:
-            return _consume(
+            result = _consume(
                 session,
                 scope=scope,
                 subject=subject,
@@ -134,7 +144,9 @@ def consume_rate_limit(
                 secret=secret,
                 now=now,
             )
-    return _consume(
+            delete_expired_rate_limits_if_due(session, now=now)
+            return result
+    result = _consume(
         session,
         scope=scope,
         subject=subject,
@@ -143,14 +155,65 @@ def consume_rate_limit(
         secret=secret,
         now=now,
     )
+    delete_expired_rate_limits_if_due(session, now=now)
+    return result
 
 
 def delete_expired_rate_limits(
     session: Session, *, now: datetime | None = None
 ) -> int:
-    """Delete counters from completed windows during application startup."""
+    """Delete counters from completed windows."""
     result = session.execute(
         delete(RateLimitBucket).where(RateLimitBucket.expires_at <= _utc(now))
     )
     session.commit()
     return int(result.rowcount or 0)
+
+
+def delete_expired_rate_limits_if_due(
+    session: Session,
+    *,
+    now: datetime | None = None,
+    monotonic_now: float | None = None,
+) -> int | None:
+    """Best-effort hourly cleanup after traffic, with a bounded failure retry."""
+    global _next_rate_limit_cleanup_monotonic
+
+    observed = time.monotonic() if monotonic_now is None else monotonic_now
+    if observed < _next_rate_limit_cleanup_monotonic:
+        return None
+    if not _RATE_LIMIT_CLEANUP_LOCK.acquire(blocking=False):
+        return None
+    try:
+        if observed < _next_rate_limit_cleanup_monotonic:
+            return None
+        _next_rate_limit_cleanup_monotonic = (
+            observed + _RATE_LIMIT_CLEANUP_INTERVAL_SECONDS
+        )
+        try:
+            deleted = delete_expired_rate_limits(session, now=now)
+        except Exception as exc:
+            _next_rate_limit_cleanup_monotonic = (
+                observed + _RATE_LIMIT_CLEANUP_RETRY_SECONDS
+            )
+            try:
+                session.rollback()
+            except Exception as rollback_exc:
+                rollback_diagnostic = exception_diagnostic(rollback_exc)
+                log.error(
+                    "rate_limit_cleanup_rollback_failed exception=%s location=%s",
+                    rollback_diagnostic.kind,
+                    rollback_diagnostic.location,
+                )
+            diagnostic = exception_diagnostic(exc)
+            log.error(
+                "rate_limit_cleanup_failed exception=%s location=%s",
+                diagnostic.kind,
+                diagnostic.location,
+            )
+            return None
+        if deleted:
+            log.info("rate_limit_cleanup_complete deleted=%d", deleted)
+        return deleted
+    finally:
+        _RATE_LIMIT_CLEANUP_LOCK.release()
