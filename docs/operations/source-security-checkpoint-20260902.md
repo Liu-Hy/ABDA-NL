@@ -156,10 +156,20 @@ The release checker passed without calling a model, displaying a protected
 secret, printing raw log messages, or changing Azure configuration. The final
 receipt was `RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED`.
 
+On 2026-09-04 CDT, Gate 11 revision 8 completed the preparation half of the
+disposable-account privacy acceptance through the one-time job execution
+`abda-nl-stg-migrate-7tlx9gq`. The execution reported `Succeeded`; the wrapper
+proved that the saved migration-job and web-application configurations did not
+change. It entered no email in the terminal, called no model provider, verified
+and removed the private export, suspended the account, and revoked its share
+and MCP access. The content-free result was
+`PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES`. Permanent deletion remains
+pending until the required hold has elapsed.
+
 ## Remaining release boundary
 
-The hardened image deployment and its first live audit are complete. The
-remaining release sequence is the disposable-account privacy acceptance,
+The hardened image deployment, its first live audit, and privacy preparation
+are complete. The remaining release sequence is privacy deletion,
 friendly apex and `www` redirects, compatible rollback and restoration,
 production-cap promotion after email-capacity confirmation, and the final
 promoted-state audit. These phases are pinned in

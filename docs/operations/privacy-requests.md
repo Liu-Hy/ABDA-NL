@@ -1,7 +1,8 @@
 # Privacy request operations
 
-Status: implemented in the source-security candidate. Live operation against
-an isolated disposable account remains an acceptance gate.
+Status: implemented in the source-security candidate. Live preparation against
+an isolated disposable account passed on 2026-09-04 CDT. The 15-minute hold and
+permanent-deletion phase remain.
 
 This runbook supports verified access exports and permanent deletion requests.
 The operator tool is `abda-nl-privacy`. It never accepts an account email on the
@@ -73,6 +74,11 @@ active share and MCP access was revoked. A successful first run ends with:
 ```text
 result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES
 ```
+
+The live first phase succeeded in execution
+`abda-nl-stg-migrate-7tlx9gq`. Its wrapper verified a `Succeeded` execution,
+unchanged job configuration, unchanged application configuration, no terminal
+email input, and no model-provider call.
 
 Keep the Auth0 user blocked and wait at least 15 minutes. Rerun the same pinned
 gate. It recognizes the prepared state, refuses unsettled reservations, runs a

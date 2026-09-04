@@ -173,6 +173,12 @@ change Azure, and it does not discard the saved baseline.
 
 ## 2. Prepare and delete one disposable privacy account
 
+Status: preparation completed on 2026-09-04 CDT through job execution
+`abda-nl-stg-migrate-7tlx9gq`. The execution succeeded, the saved job and web
+application configurations remained unchanged, and the receipt reported no
+terminal email input or model-provider call. Keep the disposable Auth0 user
+blocked and continue with the deletion phase only after the 15-minute hold.
+
 Use a fresh private browser window and a separate reachable email address or
 inbox-supported plus alias. Auth0 must treat it as a new user. Do not use the
 normal funded account.
@@ -195,7 +201,7 @@ Prepare the disposable state:
    disposable user, and choose **Block User** from its details or actions.
    Confirm the block. Keep the user blocked through both Gate runs.
 
-Run the first privacy phase:
+For a new acceptance account, run the first privacy phase:
 
 ```bash
 bash "$p" privacy

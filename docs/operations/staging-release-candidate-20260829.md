@@ -157,8 +157,9 @@ Gate 11 is a two-run disposable-account privacy acceptance. It validates a
 mode-600 export without printing or retaining it, suspends the account, proves
 share and MCP revocation, enforces a 15-minute wait, and then permanently
 deletes local private data after a second confirmation. It is pinned to the
-current unthrottled-revocation image and safely retries only a confirmed
-preconnection Azure exec 404. Gate 12 is the final
+current source-security image and uses an execution-only override of the
+manual migration job instead of the unavailable interactive WebSocket. The
+saved job configuration remains unchanged. Gate 12 is the final
 three-setting promotion from the ten-user pilot to 100 users and from disabled
 to outage-only OpenRouter fallback while retaining independent $500 hard caps.
 Both gates are prepared and covered by focused tests. The read-only Gate 13
