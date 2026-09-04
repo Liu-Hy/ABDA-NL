@@ -214,6 +214,9 @@ application image or database design.
 - Every release records the Git commit, immutable image digest, image
   attestation, migration result, public-origin checks, and live identity
   acceptance.
+- Both container stages use the same reviewed Python base image pinned by OCI
+  index digest. A base security refresh is an explicit source change that must
+  rebuild and retest the complete image.
 - Making the GitHub container package public is a deliberate one-time action.
   The package contains only material already built from the public repository,
   and no secret is included in the Docker context or image layers.

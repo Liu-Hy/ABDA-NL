@@ -41,6 +41,8 @@ Record:
       that the web role cannot create or alter database objects or roles.
 - [ ] The production container builds and its basic-mode smoke test passes as a
       non-root user.
+- [ ] Both container stages use the same reviewed Python base image digest,
+      and that digest has been refreshed for the release candidate.
 - [ ] The image workflow uses the full Git commit tag, never `latest`, and
       refuses to replace an existing commit image.
 - [ ] The exact pushed digest passes the registry smoke test and has a valid

@@ -270,6 +270,14 @@ def test_service_image_workflow_prevents_mutable_or_unverified_deployments():
     assert "cat /srv/abda/LICENSE | cmp --silent LICENSE -" in workflow
     assert "ABDA_IMAGE_SOURCE=${{ github.server_url }}/${{ github.repository }}" in workflow
 
+    base_images = re.findall(
+        r"^FROM (python:3\.13-slim-bookworm@sha256:[0-9a-f]{64}) AS \w+$",
+        dockerfile,
+        flags=re.MULTILINE,
+    )
+    assert len(base_images) == 2
+    assert len(set(base_images)) == 1
+
 
 def test_continuous_integration_verifies_the_container_license_file():
     workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
