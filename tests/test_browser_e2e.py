@@ -1278,6 +1278,75 @@ def test_slower_mcp_refresh_cannot_restore_a_revoked_credential(
             browser.close()
 
 
+def test_trial_activation_wins_over_an_older_workspace_refresh(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    window.__resolveOldTrial = null;
+                    window.fetch = (path, options = {}) => {
+                      if (
+                        path === '/api/trial'
+                        && !options.method
+                        && window.__resolveOldTrial === null
+                      ) {
+                        return new Promise(resolve => {
+                          window.__resolveOldTrial = () => resolve(new Response(
+                            JSON.stringify({
+                              enabled: true,
+                              active: false,
+                              granted_microusd: 0,
+                              spent_microusd: 0,
+                              reserved_microusd: 0,
+                              available_microusd: 0,
+                            }),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      if (path === '/api/trial/activate' && options.method === 'POST') {
+                        return Promise.resolve(new Response(
+                          JSON.stringify({
+                            enabled: true,
+                            active: true,
+                            granted_microusd: 5000000,
+                            spent_microusd: 0,
+                            reserved_microusd: 0,
+                            available_microusd: 5000000,
+                          }),
+                          {status: 200, headers: {'Content-Type': 'application/json'}},
+                        ));
+                      }
+                      return original(path, options);
+                    };
+                }"""
+            )
+            page.locator("#dev-login-email").fill("trial-race@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.wait_for_function("() => window.__resolveOldTrial !== null")
+
+            page.locator("#trial-activate-btn").click()
+            expect(page.locator("#trial-balance-label")).to_contain_text("$5.00")
+            page.evaluate("() => window.__resolveOldTrial()")
+            page.wait_for_timeout(0)
+
+            assert page.evaluate("state.trial.active") is True
+            expect(page.locator("#trial-balance-label")).to_contain_text("$5.00")
+            expect(page.locator("#trial-balance")).to_be_visible()
+        finally:
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

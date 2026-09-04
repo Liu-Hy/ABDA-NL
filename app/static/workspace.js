@@ -3,6 +3,7 @@
 let globalStatusTimer = null;
 const modalOpeners = new Map();
 let externalLoginRefreshPending = false;
+let trialRefreshGeneration = 0;
 let projectRefreshGeneration = 0;
 let mcpTokenRefreshGeneration = 0;
 
@@ -314,13 +315,16 @@ async function refreshAuthenticatedWorkspace(options = {}) {
     renderAccountUI();
     return;
   }
+  const trialGeneration = ++trialRefreshGeneration;
   const projectGeneration = ++projectRefreshGeneration;
   try {
     const [trial, projects] = await Promise.all([
       apiRequest('/api/trial'),
       apiRequest('/api/projects'),
     ]);
-    state.trial = trial;
+    if (trialGeneration === trialRefreshGeneration) {
+      state.trial = trial;
+    }
     if (projectGeneration === projectRefreshGeneration) {
       state.projects = projects.projects || [];
     }
@@ -361,14 +365,19 @@ function renderTrialUI() {
 
 async function activateTrial() {
   const button = byId('trial-activate-btn');
+  trialRefreshGeneration += 1;
   button.disabled = true;
   setWorkspaceStatus('trial-status', 'Activating trial credit...', 'info');
   try {
-    state.trial = await apiRequest('/api/trial/activate', { method: 'POST' });
+    const activated = await apiRequest('/api/trial/activate', { method: 'POST' });
+    trialRefreshGeneration += 1;
+    state.trial = activated;
     renderTrialUI();
     renderAccessSummary();
     setWorkspaceStatus('trial-status', `${formatUSD(state.trial.granted_microusd)} of trial credit is active.`, 'success');
   } catch (error) {
+    trialRefreshGeneration += 1;
+    refreshTrialBalanceQuietly();
     setWorkspaceStatus('trial-status', error.message, 'error');
   } finally {
     button.disabled = false;
@@ -377,8 +386,11 @@ async function activateTrial() {
 
 async function refreshTrialBalanceQuietly() {
   if (!state.authSession.authenticated) return;
+  const requestGeneration = ++trialRefreshGeneration;
   try {
-    state.trial = await apiRequest('/api/trial');
+    const trial = await apiRequest('/api/trial');
+    if (requestGeneration !== trialRefreshGeneration) return;
+    state.trial = trial;
     renderTrialUI();
     renderAccessSummary();
   } catch (_error) {
