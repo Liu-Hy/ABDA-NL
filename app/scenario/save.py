@@ -1,15 +1,15 @@
 """Save a diff-applied scenario to examples/<id>/.
 
-Writes to a temp directory first, verifies the result loads and
-builds cleanly, then swaps into place. On failure the temp is
-removed and the existing target is left untouched. The swap is not
-fully atomic; on catastrophic failure, look for
-`examples/.tmp_save_<id>/`.
+Writes to a temporary directory first, verifies the result loads and builds
+cleanly, then installs it with a recoverable directory exchange. Saves are
+serialized within one server process. A later save restores the previous target
+if the process stopped during an overwrite exchange.
 """
 from __future__ import annotations
 
 import re
 import shutil
+import threading
 from pathlib import Path
 
 import yaml
@@ -23,6 +23,7 @@ from app.scenario.serialize import scenario_to_dict
 # directory names can be longer than scenario-internal ids, which are kept
 # compact for labels on rules/facts/conclusions.
 ID_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_SAVE_LOCK = threading.RLock()
 
 # scenario.yaml is always replaced by the diff-applied version; the copy
 # exclusion for expected_labels.yaml is conditional on whether the save is
@@ -47,7 +48,70 @@ class SaveVerificationFailed(SaveError):
     """Post-write rebuild failed; the just-written scenario is inconsistent."""
 
 
-def save_scenario(
+def _internal_directory(path: Path, label: str) -> None:
+    if path.is_symlink() or not path.is_dir():
+        raise SaveVerificationFailed(f"refusing to replace an unexpected {label} path")
+
+
+def _recover_interrupted_swap(
+    *,
+    target_dir: Path,
+    temp_dir: Path,
+    backup_dir: Path,
+) -> None:
+    if backup_dir.exists() or backup_dir.is_symlink():
+        _internal_directory(backup_dir, "save backup")
+        if target_dir.exists() or target_dir.is_symlink():
+            _internal_directory(target_dir, "scenario target")
+            shutil.rmtree(backup_dir)
+        else:
+            backup_dir.rename(target_dir)
+    if temp_dir.exists() or temp_dir.is_symlink():
+        _internal_directory(temp_dir, "save temporary")
+        shutil.rmtree(temp_dir)
+
+
+def _install_verified_directory(
+    *,
+    target_dir: Path,
+    temp_dir: Path,
+    backup_dir: Path,
+) -> None:
+    if not target_dir.exists():
+        try:
+            temp_dir.rename(target_dir)
+        except OSError as exc:
+            raise SaveVerificationFailed(
+                "the verified scenario could not be installed"
+            ) from exc
+        return
+
+    _internal_directory(target_dir, "scenario target")
+    try:
+        target_dir.rename(backup_dir)
+    except OSError as exc:
+        raise SaveVerificationFailed(
+            "the existing scenario could not be prepared for a safe overwrite"
+        ) from exc
+    try:
+        temp_dir.rename(target_dir)
+    except BaseException as install_error:
+        try:
+            backup_dir.rename(target_dir)
+        except BaseException as restore_error:
+            raise SaveVerificationFailed(
+                "verified scenario installation failed and the previous scenario "
+                f"must be recovered from {backup_dir.name}"
+            ) from restore_error
+        if isinstance(install_error, Exception):
+            raise SaveVerificationFailed(
+                "verified scenario installation failed; the original scenario was restored"
+            ) from install_error
+        raise
+    shutil.rmtree(backup_dir, ignore_errors=True)
+
+
+def _save_scenario_locked(
     *,
     effective: Scenario,
     title: str,
@@ -79,15 +143,19 @@ def save_scenario(
         raise InvalidScenarioId("title must be non-empty")
 
     target_dir = examples_root / save_as_id
+    temp_dir = examples_root / f".tmp_save_{save_as_id}"
+    backup_dir = examples_root / f".backup_save_{save_as_id}"
+    _recover_interrupted_swap(
+        target_dir=target_dir,
+        temp_dir=temp_dir,
+        backup_dir=backup_dir,
+    )
     is_source_overwrite = baseline_dir.resolve() == target_dir.resolve()
     if target_dir.exists() and not overwrite:
         raise ScenarioIdCollision(
             f"scenario id {save_as_id!r} already exists"
         )
 
-    temp_dir = examples_root / f".tmp_save_{save_as_id}"
-    if temp_dir.exists():
-        shutil.rmtree(temp_dir)
     temp_dir.mkdir(parents=True)
 
     # Overwriting the source scenario preserves expected_labels.yaml;
@@ -138,13 +206,38 @@ def save_scenario(
                 f"saved scenario failed post-write verification: {exc}"
             ) from exc
 
-        # 4. Swap temp into place.
-        if target_dir.exists():
-            shutil.rmtree(target_dir)
-        temp_dir.rename(target_dir)
+        # 4. Install the verified directory. An overwrite first moves the
+        #    previous target to a private backup and restores it if installing
+        #    the replacement fails.
+        _install_verified_directory(
+            target_dir=target_dir,
+            temp_dir=temp_dir,
+            backup_dir=backup_dir,
+        )
         return target_dir
 
-    except Exception:
+    except BaseException:
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         raise
+
+
+def save_scenario(
+    *,
+    effective: Scenario,
+    title: str,
+    save_as_id: str,
+    baseline_dir: Path,
+    examples_root: Path,
+    overwrite: bool = False,
+) -> Path:
+    """Safely serialize one local scenario save within this server process."""
+    with _SAVE_LOCK:
+        return _save_scenario_locked(
+            effective=effective,
+            title=title,
+            save_as_id=save_as_id,
+            baseline_dir=baseline_dir,
+            examples_root=examples_root,
+            overwrite=overwrite,
+        )

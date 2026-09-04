@@ -206,6 +206,7 @@ def test_collision_with_overwrite_replaces(baseline_dir, examples_root):
     )
     saved = yaml.safe_load((target / "scenario.yaml").read_text())
     assert saved["title"] == "Second"
+    assert not (examples_root / ".backup_save_popov_over").exists()
 
 
 # --- overwrite-source path ---
@@ -292,3 +293,62 @@ def test_verification_failure_rolls_back(monkeypatch, baseline_dir, examples_roo
     assert (pre_existing / "scenario.yaml").read_text() == "sentinel: true\n"
     # No stray temp dir.
     assert not (examples_root / ".tmp_save_popov_verify").exists()
+
+
+def test_overwrite_install_failure_restores_existing_target(
+    monkeypatch, baseline_dir, examples_root
+):
+    effective = _load_effective(baseline_dir)
+    target = examples_root / "popov_atomic"
+    target.mkdir()
+    sentinel = target / "scenario.yaml"
+    sentinel.write_text("sentinel: true\n")
+    original_rename = Path.rename
+
+    def fail_verified_install(path: Path, destination: Path):
+        if path.name == ".tmp_save_popov_atomic" and destination == target:
+            raise OSError("simulated verified-directory install failure")
+        return original_rename(path, destination)
+
+    monkeypatch.setattr(Path, "rename", fail_verified_install)
+
+    with pytest.raises(SaveVerificationFailed, match="original scenario was restored"):
+        save_scenario(
+            effective=effective,
+            title="Replacement",
+            save_as_id="popov_atomic",
+            baseline_dir=baseline_dir,
+            examples_root=examples_root,
+            overwrite=True,
+        )
+
+    assert sentinel.read_text() == "sentinel: true\n"
+    assert not (examples_root / ".tmp_save_popov_atomic").exists()
+    assert not (examples_root / ".backup_save_popov_atomic").exists()
+
+
+def test_interrupted_overwrite_restores_backup_before_next_save(
+    baseline_dir, examples_root
+):
+    effective = _load_effective(baseline_dir)
+    target = examples_root / "popov_interrupted"
+    backup = examples_root / ".backup_save_popov_interrupted"
+    stale_temp = examples_root / ".tmp_save_popov_interrupted"
+    backup.mkdir()
+    (backup / "scenario.yaml").write_text("sentinel: true\n")
+    stale_temp.mkdir()
+    (stale_temp / "partial").write_text("incomplete")
+
+    with pytest.raises(ScenarioIdCollision):
+        save_scenario(
+            effective=effective,
+            title="Retry without overwrite",
+            save_as_id="popov_interrupted",
+            baseline_dir=baseline_dir,
+            examples_root=examples_root,
+            overwrite=False,
+        )
+
+    assert (target / "scenario.yaml").read_text() == "sentinel: true\n"
+    assert not backup.exists()
+    assert not stale_temp.exists()

@@ -55,6 +55,11 @@ recipients mutation authority.
 
 - The legacy filesystem save remains a local development API only. The public
   interface saves private database projects.
+- Local filesystem saves build and verify a temporary directory before
+  installation. Same-process saves are serialized. An overwrite retains the
+  previous scenario as a private backup until the verified replacement is
+  installed, restores it after an ordinary installation failure, and repairs
+  an interrupted exchange before the next save.
 - Project model calls require the bundled source corpus to remain available.
 - A project version conflict requires the user to reopen the project before
   saving again.
