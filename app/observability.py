@@ -7,6 +7,17 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 
+_STANDARD_HTTP_METHODS = frozenset(
+    {"CONNECT", "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "TRACE"}
+)
+
+
+def normalize_http_method(method: str) -> str:
+    """Return one bounded label for a client-controlled HTTP method."""
+    candidate = method.upper()
+    return candidate if candidate in _STANDARD_HTTP_METHODS else "OTHER"
+
+
 @dataclass
 class _Metric:
     count: int = 0
@@ -27,7 +38,7 @@ class RequestMetrics:
 
     def finish(self, method: str, route: str, status_code: int, started_at: float) -> None:
         duration = max(0.0, time.monotonic() - started_at)
-        key = (method.upper(), route, int(status_code))
+        key = (normalize_http_method(method), route, int(status_code))
         with self._lock:
             self._in_flight = max(0, self._in_flight - 1)
             metric = self._requests[key]

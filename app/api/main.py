@@ -78,7 +78,7 @@ from app.db.models import (
 )
 from app.db.session import get_db, get_engine
 from app.llm.client import close_llm_client
-from app.observability import REQUEST_METRICS
+from app.observability import REQUEST_METRICS, normalize_http_method
 
 
 def _read_llm_flag() -> bool:
@@ -316,13 +316,14 @@ async def _request_context(request: Request, call_next):
     # Unknown paths are attacker-controlled. Keep them out of logs and metric
     # labels so one request cannot introduce sensitive or unbounded values.
     route = getattr(request.scope.get("route"), "path", "<unmatched>")
+    method = normalize_http_method(request.method)
     duration_ms = int(max(0.0, time.monotonic() - started_at) * 1000)
-    REQUEST_METRICS.finish(request.method, route, status_code, started_at)
+    REQUEST_METRICS.finish(method, route, status_code, started_at)
     if request.url.path != "/internal/metrics":
         log.info(
             "request_complete request_id=%s method=%s route=%s status=%d duration_ms=%d",
             request.state.request_id,
-            request.method,
+            method,
             route,
             status_code,
             duration_ms,

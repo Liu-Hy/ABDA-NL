@@ -164,6 +164,22 @@ def test_internal_metrics_are_low_cardinality_and_include_budget_totals(
     assert 'route="<unmatched>"' in body
 
 
+def test_nonstandard_http_method_is_normalized_in_metrics_and_logs(
+    client: TestClient,
+    caplog,
+):
+    attacker_method = "PRIVATE-METHOD-MARKER"
+    with caplog.at_level("INFO", logger="app.api.main"):
+        response = client.request(attacker_method, "/health/live")
+
+    assert response.status_code == 405
+    metrics = client.get("/internal/metrics").text
+    assert 'method="OTHER"' in metrics
+    assert attacker_method not in metrics
+    assert attacker_method not in caplog.text
+    assert "method=OTHER" in caplog.text
+
+
 def test_http_rate_limit_returns_retry_contract(client: TestClient):
     limited = replace(
         get_settings(),
