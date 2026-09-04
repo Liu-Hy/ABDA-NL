@@ -405,6 +405,11 @@ disabled to enabled. It preserves the independent $500 OpenRouter hard cap.
 Each mutating Gate displays its exact confirmation phrase before making a
 change.
 
+At the rollback prompt, type `RUN_ABDA_ROLLBACK_REHEARSAL` once. At the
+promotion prompt, type `PROMOTE_ABDA_PUBLIC_BUDGETS` once, but only after the
+transactional-email capacity check above is complete. The final audit has no
+mutation confirmation because it is read-only.
+
 Required final receipts are:
 
 ```text
