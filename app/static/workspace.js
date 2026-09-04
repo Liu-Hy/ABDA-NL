@@ -749,7 +749,7 @@ async function createProjectFromCurrentView(event) {
     state.baseline = project.scenario;
     state.bundle = { scenario: project.scenario, af: project.af };
     state.diff_ops = [];
-    state.chatMessages = [];
+    resetChatConversation();
     indexBundle();
     populateScenarioSelect();
     renderAll();

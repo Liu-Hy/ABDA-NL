@@ -729,6 +729,131 @@ def test_logout_discards_an_in_flight_private_workspace_refresh(
             browser.close()
 
 
+def test_switching_scenarios_discards_an_in_flight_chat_response(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-chat@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#trial-activate-btn").click()
+            expect(page.locator("#trial-balance-label")).to_contain_text("$5.00")
+            page.keyboard.press("Escape")
+
+            page.evaluate(
+                """() => {
+                    window.__resolveStaleChat = null;
+                    apiPostChat = () => new Promise(resolve => {
+                      window.__resolveStaleChat = resolve;
+                    });
+                    window.__staleChatRequest = sendChatMessage(
+                      'Question that belongs only to the old scenario',
+                    );
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveStaleChat !== null")
+            expect(page.get_by_text("Question that belongs only to the old scenario")).to_be_attached()
+
+            page.locator("#scenario-select").select_option("fire_prevention")
+            expect(page.locator("#scenario-name")).to_have_text("Prescribed Burn")
+
+            page.evaluate(
+                """async () => {
+                    window.__resolveStaleChat({
+                      billing_source: 'cloudbank',
+                      cost_microusd: 1,
+                      message: 'Private answer from the old scenario',
+                      model: 'test-model',
+                      latency_ms: 1,
+                    });
+                    await window.__staleChatRequest;
+                }"""
+            )
+
+            expect(page.locator("#scenario-name")).to_have_text("Prescribed Burn")
+            assert page.evaluate("state.chatMessages.length") == 0
+            assert page.evaluate("state.chatPending") is False
+            assert "Private answer from the old scenario" not in page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+
+def test_reopening_the_editor_discards_an_older_proposal_response(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-proposal@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#trial-activate-btn").click()
+            expect(page.locator("#trial-balance-label")).to_contain_text("$5.00")
+            page.keyboard.press("Escape")
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    window.__resolveStaleProposal = null;
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/propose') {
+                        return new Promise(resolve => {
+                          window.__resolveStaleProposal = () => resolve({
+                            ok: true,
+                            status: 200,
+                            json: async () => ({
+                              op: {
+                                op: 'add-fact',
+                                id: 'old_private_fact',
+                                fact: {description: 'Old private proposal'},
+                              },
+                              latency_ms: 1,
+                              proposer_attempts: 1,
+                              review_issues: [],
+                            }),
+                          });
+                        });
+                      }
+                      return original(path, options);
+                    };
+                }"""
+            )
+            page.locator('[data-edit-task="add-fact"]').first.click()
+            page.locator("#edit-instruction").fill("Create an old proposal")
+            page.locator('[data-edit-action="propose"]').click()
+            page.wait_for_function("() => window.__resolveStaleProposal !== null")
+
+            page.keyboard.press("Escape")
+            page.locator('[data-edit-task="add-assumption"]').first.click()
+            expect(page.locator("#edit-modal-title")).to_have_text("Add Assumption")
+            page.evaluate(
+                """async () => {
+                    window.__resolveStaleProposal();
+                    await new Promise(resolve => window.setTimeout(resolve, 0));
+                }"""
+            )
+
+            assert page.evaluate("editState.task") == "add-assumption"
+            assert page.evaluate("editState.lastProposal") is None
+            expect(page.locator("#edit-preview")).to_have_text("")
+            expect(page.locator('[data-edit-action="propose"]')).to_be_visible()
+            assert "Old private proposal" not in page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

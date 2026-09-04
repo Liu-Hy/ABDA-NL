@@ -365,7 +365,7 @@ async function loadProject(projectId) {
     state.baseline = project.scenario;
     state.bundle = { scenario: project.scenario, af: project.af };
     state.diff_ops = [];
-    state.chatMessages = [];
+    resetChatConversation();
     resetViewFilters();
     indexBundle();
     populateScenarioSelect();
@@ -390,7 +390,7 @@ async function loadSharedProject(token) {
   state.baseline = project.scenario;
   state.bundle = { scenario: project.scenario, af: project.af };
   state.diff_ops = [];
-  state.chatMessages = [];
+  resetChatConversation();
   resetViewFilters();
   indexBundle();
   populateScenarioSelect();
@@ -422,7 +422,7 @@ async function loadScenario(id) {
   // (tab selection, search query). Without this a user coming from the
   // Modified tab lands on an empty view for a pristine scenario and
   // thinks the UI is broken.
-  state.chatMessages = [];
+  resetChatConversation();
   resetViewFilters();
 
   try {
@@ -444,7 +444,7 @@ async function resetToBaseline() {
   if (!state.scenario_id) return;
   const ctrl = beginRequest();
   state.diff_ops = [];
-  state.chatMessages = [];
+  resetChatConversation();
   try {
     const bundle = await apiPostState(state.scenario_id, [], ctrl.signal);
     if (!isCurrent(ctrl)) return;
@@ -1260,6 +1260,11 @@ function filterKB(q) {
 
 /* ── Chat ─────────────────────────────────────────────── */
 
+function resetChatConversation() {
+  state.chatMessages = [];
+  state.chatPending = false;
+}
+
 async function apiPostChat(scenario_id, diff_ops, messages, signal) {
   const project = state.activeProject;
   const path = project ? `/api/projects/${encodeURIComponent(project.id)}/chat` : '/chat';
@@ -1391,22 +1396,24 @@ async function sendChatMessage(prefilledText) {
   if (!text) return;
   if (input) input.value = '';
 
-  state.chatMessages.push({ role: 'user', content: text });
+  const conversation = state.chatMessages;
+  conversation.push({ role: 'user', content: text });
   state.chatPending = true;
   renderChat();
   if (typeof prefilledText === 'string') revealChatForNarrowLayout();
 
   // Trim history to the last CHAT_TURN_CAP messages before POSTing. The
   // backend enforces its own cap; this just keeps the wire small.
-  const messages = state.chatMessages
+  const messages = conversation
     .slice(-CHAT_TURN_CAP)
     .map(message => ({ role: message.role, content: message.content }));
 
   try {
     const resp = await apiPostChat(state.scenario_id, state.diff_ops, messages);
+    if (state.chatMessages !== conversation) return;
     const source = resp.billing_source === 'byok' ? 'Own key' : 'Funded';
     const cost = resp.cost_microusd > 0 ? `, ${formatUSD(resp.cost_microusd)}` : '';
-    state.chatMessages.push({
+    conversation.push({
       role: 'assistant',
       content: resp.message,
       meta: `${source}, ${resp.model}${cost}, ${resp.latency_ms} ms`,
@@ -1415,13 +1422,16 @@ async function sendChatMessage(prefilledText) {
       refreshTrialBalanceQuietly();
     }
   } catch (e) {
-    state.chatMessages.push({
+    if (state.chatMessages !== conversation) return;
+    conversation.push({
       role: 'assistant',
       content: `_Chat error: ${e.message}_`,
     });
   } finally {
-    state.chatPending = false;
-    renderChat();
+    if (state.chatMessages === conversation) {
+      state.chatPending = false;
+      renderChat();
+    }
   }
 }
 
@@ -2354,6 +2364,7 @@ const editState = {
   lastProposal: null,      // most recent {op, review_issues, ...} from /propose
   inFlight: false,
 };
+let editRequestGeneration = 0;
 
 function openEditModal(task, existingId = null) {
   if (state.readOnly) {
@@ -2366,6 +2377,7 @@ function openEditModal(task, existingId = null) {
     showGlobalStatus(accessIssue.message, 'info');
     return;
   }
+  editRequestGeneration += 1;
   editState.task = task;
   editState.existingId = existingId;
   editState.lastProposal = null;
@@ -2416,6 +2428,7 @@ function openEditModal(task, existingId = null) {
 }
 
 function closeEditModal() {
+  editRequestGeneration += 1;
   editState.task = null;
   editState.existingId = null;
   editState.lastProposal = null;
@@ -2432,6 +2445,7 @@ async function sendPropose() {
     return;
   }
 
+  const requestGeneration = ++editRequestGeneration;
   editState.inFlight = true;
   editState.lastProposal = null;
   _setEditStatus('loading', 'Proposing…');
@@ -2458,6 +2472,7 @@ async function sendPropose() {
       body: JSON.stringify(payload),
     });
     const body = await r.json().catch(() => ({}));
+    if (requestGeneration !== editRequestGeneration) return;
     if (!r.ok) {
       _renderEditError(r.status, body);
       return;
@@ -2469,10 +2484,13 @@ async function sendPropose() {
       refreshTrialBalanceQuietly();
     }
   } catch (e) {
+    if (requestGeneration !== editRequestGeneration) return;
     _setEditStatus('error', `Network error: ${e.message}`);
   } finally {
-    editState.inFlight = false;
-    _renderEditFooter();
+    if (requestGeneration === editRequestGeneration) {
+      editState.inFlight = false;
+      _renderEditFooter();
+    }
   }
 }
 
