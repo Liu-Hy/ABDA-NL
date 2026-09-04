@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 from datetime import timedelta
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -284,6 +285,11 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
     assert "no deletion execution was created" in source
     assert "account_fingerprint:" not in runner
     assert "\N{EN DASH}" not in source and "\N{EM DASH}" not in source
+
+
+def test_pending_live_preparation_runner_signature_is_preserved():
+    runner_sha256 = hashlib.sha256(_runner_source().encode()).hexdigest()
+    assert runner_sha256 == "41dae6e04d0ae1af2214aeb1cc2b44cb3cabd1cf2f161854d52322af906bcd4f"
 
 
 def test_app_and_job_preflights_are_narrow(tmp_path: Path):
