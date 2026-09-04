@@ -9,8 +9,9 @@ below uses commit `b8859959fd3063f1d3cc3f70c2d69c4a88ebf1e1`. Stop and refresh t
 file from the personal repository's `development` branch if a saved copy uses
 an older commit.
 
-The managed-boundary image already passed capacity, public Chromium and
-Firefox accessibility, and live OpenRouter BYOK acceptance. The subsequent
+The managed-boundary image already passed live OpenRouter BYOK acceptance. The
+current hardened service passed fresh public Chromium and Firefox accessibility
+and bounded capacity checks on 2026-09-04 CDT. The subsequent
 runtime changes remove private or model-derived identifiers from operational
 logs, reduce evaluator route-list output, and prevent unexpected exception
 messages or tracebacks from entering logs. Safe diagnostics retain only the
@@ -23,8 +24,9 @@ digest.
 This runbook collects the remaining cloud and account work into one operator
 batch. The hardened-image deployment and live audit, Azure alert deployment,
 alert-email delivery, BYOK browser Gate, bounded capacity smoke, and automated
-Chromium and Firefox accessibility Gate are already complete. Do not rerun
-them unless their corresponding code or configuration changes.
+Chromium and Firefox accessibility Gate are already complete. The last two
+were rerun against the unchanged hardened service after privacy preparation.
+Do not rerun them unless their corresponding code or configuration changes.
 
 The hardened release identity is:
 

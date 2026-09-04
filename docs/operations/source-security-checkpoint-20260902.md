@@ -166,6 +166,15 @@ and MCP access. The content-free result was
 `PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES`. Permanent deletion remains
 pending until the required hold has elapsed.
 
+Immediately after that wrapper had reverified the exact hardened image and
+unchanged application configuration, read-only public browser Gate 13 passed
+again on 2026-09-04 CDT. Chromium and Firefox each completed six WCAG A and AA
+scans, three viewport checks, and three keyboard checks with zero console or
+page errors. A separate bounded capacity smoke then completed 123 deterministic
+requests at concurrency 20 with zero HTTP failures or response mismatches.
+Readiness p95 was 848 ms, scenario p95 was 276 ms, and state p95 was 614 ms.
+Neither check authenticated, called a model provider, or changed Azure.
+
 ## Remaining release boundary
 
 The hardened image deployment, its first live audit, and privacy preparation
@@ -174,5 +183,6 @@ friendly apex and `www` redirects, compatible rollback and restoration,
 production-cap promotion after email-capacity confirmation, and the final
 promoted-state audit. These phases are pinned in
 [the final operator batch](final-operator-batch.md). Earlier live BYOK and
-browser evidence remains applicable because the deployment Gate proved the
-application contract unchanged, but it is not relabeled as a new browser run.
+MCP evidence remains applicable because the deployment Gate proved the
+application contract unchanged. Browser accessibility and deterministic
+capacity have also been rerun directly against the hardened public service.

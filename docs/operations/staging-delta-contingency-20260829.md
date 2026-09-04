@@ -63,6 +63,13 @@ the replacement process started. The tracked `.demo.json` remained unchanged.
 At the same checkpoint, the managed public readiness endpoint also returned
 `{"status":"ready"}`. No model provider was called.
 
+On 2026-09-04 CDT, another read-only check confirmed the same tracked launcher
+contract. `demo doctor` and `demo status` identified the expected repository,
+pinned node, loopback port, and running process. Both loopback health endpoints
+returned their exact success payloads, and `/config` reported the public model
+catalog without exposing a credential. The process was not restarted or
+reconfigured.
+
 ## Boundary not yet claimed
 
 This server-side check does not prove the laptop path. Before the conference,
