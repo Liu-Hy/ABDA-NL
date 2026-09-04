@@ -15,6 +15,12 @@ or `www`, while `https://demo.abda-nl.org/health/ready` returned HTTP 200.
 The missing apex response is therefore a DNS and redirect configuration gap,
 not an application outage.
 
+A read-only recheck on 2026-09-04 produced the same missing-apex result. The
+existing `demo` and `login` CNAME records still resolved to their Azure and
+Auth0 targets. The Resend DKIM, SPF, feedback MX, and authentication-subdomain
+DMARC records also remained present. Only the two redirect aliases and rule
+below remain to be configured.
+
 ## Cloudflare dashboard steps
 
 First create the two alias-only DNS records under **DNS**, then **Records**:
