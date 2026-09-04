@@ -96,8 +96,9 @@ Record:
 - [ ] Two accounts cannot read, modify, copy, or share one another's private
       project without an explicit share token.
 - [ ] Account suspension wins against stale authenticated mutations: project
-      writes, new share links, MCP credential creation, and trial activation
-      are rejected, and existing share links no longer resolve.
+      writes, new share links, MCP credential creation, trial activation, and
+      funded-credit reservation are rejected, and existing share links no
+      longer resolve.
 - [ ] Trial activation is idempotent for one account and atomic near the final
       grant.
 - [ ] Browser sign-out clears both the ABDA session and the hosted Auth0

@@ -72,6 +72,17 @@ remain unpublished while the separate source license review determines which
 license label and notices can accurately cover the imported engine. The old
 digest and attestation above remain immutable historical evidence.
 
+Later source commit `333f730af91df6e61ff49781f1931b75e10251cb` closes one
+additional stale-session path before any replacement image is published. A
+funded-credit reservation now locks the existing trial grant and then refreshes
+and locks its durable user row before creating new liability. This matches the
+privacy-deletion order of trial grant before user, so it does not invert the
+row-lock order. An inactive or unverified account is rejected before provider
+dispatch. Focused SQLite tests first reproduced the missing check, then passed
+after the fix. The restricted-role PostgreSQL 16 acceptance now exercises the
+same stale reservation path in CI. This paragraph is source evidence only, not
+a deployment or image record.
+
 For a replacement image, the post-deployment funded smoke and read-only audit
 cover the managed provider and complete public release contract. The exact
 historical image already passed the
