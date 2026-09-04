@@ -1,6 +1,7 @@
 """Public request boundaries, shared rate limits, and safe telemetry."""
 from __future__ import annotations
 
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -12,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
 
 from app.api.abuse import _client_subject
+from app.api import main as main_module
 from app.api.main import app
 from app.core.config import Settings
 from app.core.config import get_settings
@@ -31,6 +33,7 @@ from app.services.rate_limits import (
     delete_expired_rate_limits,
     delete_expired_rate_limits_if_due,
 )
+from app.observability import RequestMetrics
 
 
 @pytest.fixture(scope="module")
@@ -80,6 +83,22 @@ def _network_request(*, forwarded_for: str | None = None) -> Request:
             "server": ("127.0.0.1", 8000),
         }
     )
+
+
+def test_cancelled_request_releases_in_flight_metric(monkeypatch):
+    metrics = RequestMetrics()
+    monkeypatch.setattr(main_module, "REQUEST_METRICS", metrics)
+    request = _network_request()
+
+    async def cancel_request(_request):
+        raise asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(main_module._request_context(request, cancel_request))
+
+    rendered = metrics.render()
+    assert "abda_http_requests_in_flight 0" in rendered
+    assert 'method="GET"' not in rendered
 
 
 def test_direct_proxy_mode_ignores_forwarded_client_header():

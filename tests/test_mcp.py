@@ -368,6 +368,16 @@ def test_mcp_read_tools_share_one_authenticated_rate_limit(
         anonymous_requests_per_minute=4,
     )
     monkeypatch.setattr(mcp_module, "get_settings", lambda: settings)
+    consume_rate_limit = mcp_module.consume_rate_limit
+
+    def consume_in_one_window(*args, **kwargs):
+        return consume_rate_limit(
+            *args,
+            **kwargs,
+            now=datetime(2026, 8, 17, 12, 0, 5, tzinfo=timezone.utc),
+        )
+
+    monkeypatch.setattr(mcp_module, "consume_rate_limit", consume_in_one_window)
 
     assert _call_tool(client, token, "list_examples")["isError"] is False
     assert (

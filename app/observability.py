@@ -34,6 +34,11 @@ class RequestMetrics:
             metric.count += 1
             metric.duration_seconds += duration
 
+    def abandon(self) -> None:
+        """Release a request that stopped before producing a response."""
+        with self._lock:
+            self._in_flight = max(0, self._in_flight - 1)
+
     @staticmethod
     def _escape(value: str) -> str:
         return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')

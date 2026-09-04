@@ -284,6 +284,11 @@ async def _request_context(request: Request, call_next):
                 }
             },
         )
+    except BaseException:
+        # Cancellation and process-level interruptions must not leave the
+        # in-flight gauge elevated. They are deliberately re-raised.
+        REQUEST_METRICS.abandon()
+        raise
     status_code = response.status_code
     response.headers["X-Request-ID"] = request.state.request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
