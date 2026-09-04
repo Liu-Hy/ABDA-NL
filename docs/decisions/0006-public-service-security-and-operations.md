@@ -239,8 +239,9 @@ application image or database design.
   rebuild and retest the complete image.
 - Production images omit pip from both the runtime interpreter and copied
   virtual environment. CI scans the complete built image with a checksum-pinned
-  Trivy binary, blocks any secret finding and every high or critical finding
-  for which the distributor reports a fixed version. An exact reviewed
+  Trivy binary, blocks every Dockerfile misconfiguration, any secret finding,
+  and every high or critical finding for which the distributor reports a fixed
+  version. An exact reviewed
   baseline covers only currently unfixed findings in the pinned base image, so
   a newly reported high or critical finding also blocks CI until it is fixed or
   explicitly reviewed. CI retains a complete vulnerability report and

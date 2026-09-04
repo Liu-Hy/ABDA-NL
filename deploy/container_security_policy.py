@@ -36,6 +36,7 @@ class ScanSummary:
     stale_baseline_entries: int
     actionable_high_critical: tuple[Vulnerability, ...]
     secret_findings: int
+    misconfiguration_failures: int
 
     @property
     def passed(self) -> bool:
@@ -43,18 +44,19 @@ class ScanSummary:
             not self.actionable_high_critical
             and not self.unreviewed_unfixed_high_critical
             and self.secret_findings == 0
+            and self.misconfiguration_failures == 0
         )
 
 
-def _load_report(path: Path) -> dict[str, Any]:
+def _load_report(path: Path, *, artifact_type: str) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ReportError(f"cannot read a valid JSON report: {path}") from exc
     if not isinstance(value, dict):
         raise ReportError(f"report root must be an object: {path}")
-    if value.get("ArtifactType") != "container_image":
-        raise ReportError(f"report is not for a container image: {path}")
+    if value.get("ArtifactType") != artifact_type:
+        raise ReportError(f"report has unexpected artifact type: {path}")
     results = value.get("Results")
     if not isinstance(results, list) or not results:
         raise ReportError(f"report has no scanner results: {path}")
@@ -120,10 +122,15 @@ def _load_unfixed_baseline(path: Path) -> frozenset[FindingKey]:
 def evaluate_reports(
     vulnerability_report: dict[str, Any],
     secret_report: dict[str, Any],
+    misconfiguration_report: dict[str, Any],
     accepted_unfixed: frozenset[FindingKey],
 ) -> ScanSummary:
     vulnerabilities = _result_items(vulnerability_report, "Vulnerabilities")
     secrets = _result_items(secret_report, "Secrets")
+    misconfigurations = _result_items(
+        misconfiguration_report,
+        "Misconfigurations",
+    )
     high_critical = 0
     reviewed_unfixed_high_critical = 0
     unreviewed_unfixed: list[Vulnerability] = []
@@ -170,6 +177,10 @@ def evaluate_reports(
         stale_baseline_entries=len(accepted_unfixed - observed_unfixed),
         actionable_high_critical=tuple(sorted(actionable, key=finding_sort_key)),
         secret_findings=len(secrets),
+        misconfiguration_failures=sum(
+            str(item.get("Status") or "").upper() == "FAIL"
+            for item in misconfigurations
+        ),
     )
 
 
@@ -185,6 +196,7 @@ def render_summary(summary: ScanSummary) -> str:
         f"stale_baseline_entries: {summary.stale_baseline_entries}",
         f"actionable_high_critical: {len(summary.actionable_high_critical)}",
         f"secret_findings: {summary.secret_findings}",
+        f"misconfiguration_failures: {summary.misconfiguration_failures}",
     ]
     for finding in summary.unreviewed_unfixed_high_critical[:20]:
         lines.append(
@@ -213,16 +225,28 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("vulnerability_report", type=Path)
     parser.add_argument("--secret-report", required=True, type=Path)
+    parser.add_argument("--misconfiguration-report", required=True, type=Path)
     parser.add_argument("--unfixed-baseline", required=True, type=Path)
     args = parser.parse_args()
 
     try:
-        vulnerability_report = _load_report(args.vulnerability_report)
-        secret_report = _load_report(args.secret_report)
+        vulnerability_report = _load_report(
+            args.vulnerability_report,
+            artifact_type="container_image",
+        )
+        secret_report = _load_report(
+            args.secret_report,
+            artifact_type="container_image",
+        )
+        misconfiguration_report = _load_report(
+            args.misconfiguration_report,
+            artifact_type="filesystem",
+        )
         accepted_unfixed = _load_unfixed_baseline(args.unfixed_baseline)
         summary = evaluate_reports(
             vulnerability_report,
             secret_report,
+            misconfiguration_report,
             accepted_unfixed,
         )
     except ReportError as exc:

@@ -42,10 +42,11 @@ Record:
 - [ ] The production container builds and its basic-mode smoke test passes as a
       non-root user.
 - [ ] The checksum-pinned container scanner reports no embedded secrets and no
-      high or critical vulnerability with an available fixed version. Review
-      every remaining unfixed high or critical base-image finding against the
-      exact checked-in baseline. Any new finding blocks CI. Retain the complete
-      vulnerability report and CycloneDX SBOM from CI.
+      Dockerfile misconfiguration, and no high or critical vulnerability with
+      an available fixed version. Review every remaining unfixed high or
+      critical base-image finding against the exact checked-in baseline. Any
+      new finding blocks CI. Retain the complete vulnerability report,
+      configuration report, and CycloneDX SBOM from CI.
 - [ ] Both container stages use the same reviewed Python base image digest,
       and that digest has been refreshed for the release candidate.
 - [ ] The image workflow uses the full Git commit tag, never `latest`, and

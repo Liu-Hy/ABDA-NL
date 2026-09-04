@@ -307,6 +307,7 @@ def test_container_images_remove_installers_and_ci_enforces_scan_policy():
         assert "**/pip/_vendor/bom.cdx.json" in workflow
         assert "deploy/container_security_policy.py" in workflow
         assert "--scanners secret" in workflow
+        assert '"$RUNNER_TEMP/trivy" config --quiet' in workflow
         assert "--format cyclonedx" in workflow
         assert "container-security-" in workflow
         assert workflow.count('importlib.util.find_spec("pip") is None') == 2

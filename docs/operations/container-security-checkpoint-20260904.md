@@ -28,12 +28,13 @@ Each workflow:
 1. scans the complete built image for vulnerabilities;
 2. scans separately for embedded secrets without retaining a raw secret
    report;
-3. generates a CycloneDX SBOM as a workflow artifact;
-4. blocks every high or critical vulnerability with a reported fixed version;
-5. blocks every new, unfixed high or critical finding that is absent from the
+3. scans the Dockerfile and blocks any reported configuration failure;
+4. generates a CycloneDX SBOM as a workflow artifact;
+5. blocks every high or critical vulnerability with a reported fixed version;
+6. blocks every new, unfixed high or critical finding that is absent from the
    exact reviewed base-image baseline; and
-6. verifies at runtime that the application virtual environment cannot import
-   pip.
+7. verifies at runtime that neither the system interpreter nor the application
+   virtual environment can import pip.
 
 The explicit exclusion `**/pip/_vendor/bom.cdx.json` removes only pip's own
 vendored component manifest from vulnerability discovery. Direct inspection

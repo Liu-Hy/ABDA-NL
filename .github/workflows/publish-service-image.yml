@@ -199,6 +199,10 @@ jobs:
             --format json \
             --output "$RUNNER_TEMP/container-secrets.json" \
             "$ABDA_IMAGE_URI"
+          "$RUNNER_TEMP/trivy" config --quiet \
+            --format json \
+            --output "$ABDA_CI_SECURITY_DIR/dockerfile-misconfigurations.json" \
+            Dockerfile
           "$RUNNER_TEMP/trivy" image --quiet --timeout 5m \
             --scanners vuln \
             --skip-files '**/pip/_vendor/bom.cdx.json' \
@@ -210,6 +214,8 @@ jobs:
           python deploy/container_security_policy.py \
             "$ABDA_CI_SECURITY_DIR/vulnerabilities.json" \
             --secret-report "$RUNNER_TEMP/container-secrets.json" \
+            --misconfiguration-report \
+              "$ABDA_CI_SECURITY_DIR/dockerfile-misconfigurations.json" \
             --unfixed-baseline deploy/container_vulnerability_baseline.json | \
             tee "$ABDA_CI_SECURITY_DIR/policy-summary.txt"
           ABDA_CI_POLICY_EXIT=${PIPESTATUS[0]}

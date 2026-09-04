@@ -39,6 +39,21 @@ def _baseline(*entries: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _misconfiguration_report(*items: dict[str, str]) -> dict[str, object]:
+    return {
+        "SchemaVersion": 2,
+        "ArtifactName": "Dockerfile",
+        "ArtifactType": "filesystem",
+        "Results": [
+            {
+                "Target": "Dockerfile",
+                "Class": "config",
+                "Misconfigurations": list(items),
+            }
+        ],
+    }
+
+
 def test_policy_allows_unfixed_high_findings_but_blocks_fixed_high_findings():
     safe = _report(
         vulnerabilities=[
@@ -63,7 +78,12 @@ def test_policy_allows_unfixed_high_findings_but_blocks_fixed_high_findings():
     accepted_unfixed = frozenset(
         {("CRITICAL", "CVE-UNFIXED", "base-package", "1")}
     )
-    safe_summary = evaluate_reports(safe, secrets, accepted_unfixed)
+    safe_summary = evaluate_reports(
+        safe,
+        secrets,
+        _misconfiguration_report(),
+        accepted_unfixed,
+    )
 
     assert safe_summary.passed
     assert safe_summary.high_critical_vulnerabilities == 1
@@ -83,7 +103,12 @@ def test_policy_allows_unfixed_high_findings_but_blocks_fixed_high_findings():
         ]
     )
 
-    unsafe_summary = evaluate_reports(unsafe, secrets, accepted_unfixed)
+    unsafe_summary = evaluate_reports(
+        unsafe,
+        secrets,
+        _misconfiguration_report(),
+        accepted_unfixed,
+    )
 
     assert not unsafe_summary.passed
     assert unsafe_summary.actionable_high_critical[0].identifier == "CVE-FIXED"
@@ -102,7 +127,12 @@ def test_policy_blocks_an_unreviewed_unfixed_high_finding():
         ]
     )
 
-    summary = evaluate_reports(vulnerabilities, _report(secrets=[]), frozenset())
+    summary = evaluate_reports(
+        vulnerabilities,
+        _report(secrets=[]),
+        _misconfiguration_report(),
+        frozenset(),
+    )
 
     assert not summary.passed
     assert summary.unreviewed_unfixed_high_critical[0].identifier == "CVE-NEW"
@@ -112,6 +142,7 @@ def test_policy_blocks_secrets_without_printing_secret_material(tmp_path: Path):
     vulnerability_path = tmp_path / "vulnerabilities.json"
     secret_path = tmp_path / "secrets.json"
     baseline_path = tmp_path / "baseline.json"
+    misconfiguration_path = tmp_path / "misconfigurations.json"
     vulnerability_path.write_text(json.dumps(_report(vulnerabilities=[])), encoding="utf-8")
     secret_path.write_text(
         json.dumps(
@@ -127,6 +158,10 @@ def test_policy_blocks_secrets_without_printing_secret_material(tmp_path: Path):
         encoding="utf-8",
     )
     baseline_path.write_text(json.dumps(_baseline()), encoding="utf-8")
+    misconfiguration_path.write_text(
+        json.dumps(_misconfiguration_report()),
+        encoding="utf-8",
+    )
 
     result = subprocess.run(
         [
@@ -135,6 +170,8 @@ def test_policy_blocks_secrets_without_printing_secret_material(tmp_path: Path):
             str(vulnerability_path),
             "--secret-report",
             str(secret_path),
+            "--misconfiguration-report",
+            str(misconfiguration_path),
             "--unfixed-baseline",
             str(baseline_path),
         ],
@@ -153,12 +190,17 @@ def test_policy_rejects_a_non_container_report(tmp_path: Path):
     vulnerability_path = tmp_path / "vulnerabilities.json"
     secret_path = tmp_path / "secrets.json"
     baseline_path = tmp_path / "baseline.json"
+    misconfiguration_path = tmp_path / "misconfigurations.json"
     vulnerability_path.write_text(
         json.dumps({"ArtifactType": "filesystem", "Results": [{}]}),
         encoding="utf-8",
     )
     secret_path.write_text(json.dumps(_report(secrets=[])), encoding="utf-8")
     baseline_path.write_text(json.dumps(_baseline()), encoding="utf-8")
+    misconfiguration_path.write_text(
+        json.dumps(_misconfiguration_report()),
+        encoding="utf-8",
+    )
 
     result = subprocess.run(
         [
@@ -167,6 +209,8 @@ def test_policy_rejects_a_non_container_report(tmp_path: Path):
             str(vulnerability_path),
             "--secret-report",
             str(secret_path),
+            "--misconfiguration-report",
+            str(misconfiguration_path),
             "--unfixed-baseline",
             str(baseline_path),
         ],
@@ -176,5 +220,23 @@ def test_policy_rejects_a_non_container_report(tmp_path: Path):
     )
 
     assert result.returncode == 2
-    assert "report is not for a container image" in result.stdout
+    assert "report has unexpected artifact type" in result.stdout
     assert "CONTAINER_SECURITY_POLICY_FAILED" in result.stdout
+
+
+def test_policy_blocks_a_dockerfile_misconfiguration():
+    summary = evaluate_reports(
+        _report(vulnerabilities=[]),
+        _report(secrets=[]),
+        _misconfiguration_report(
+            {
+                "ID": "DS999",
+                "Status": "FAIL",
+                "Severity": "LOW",
+            }
+        ),
+        frozenset(),
+    )
+
+    assert not summary.passed
+    assert summary.misconfiguration_failures == 1
