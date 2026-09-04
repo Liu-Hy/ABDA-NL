@@ -50,6 +50,10 @@ tmp/
 *.log
 artifacts/
 
+# Unpublished project inputs kept outside repository history
+Requirements.docx
+camera-ready.pdf
+
 # Local application state
 .abda/
 *.db
