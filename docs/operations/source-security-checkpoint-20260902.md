@@ -1,12 +1,10 @@
 # Development source security checkpoint, 2026-09-02
 
-State: source scan clean and superseding immutable image verified; Azure
-deployment pending
+State: source scan clean, immutable image deployed, and live audit verified
 
-This checkpoint records source-level security evidence without treating it as
-evidence for the older image that Azure currently serves. The public service
-continues to run `abda-nl-stg-web--secure-b873112` until a later, explicit
-image-only deployment.
+This checkpoint records both source-level security evidence and the later live
+acceptance of that exact image. The public service now runs
+`abda-nl-stg-web--harden-51702e1`, built from source commit `51702e1`.
 
 ## Static analysis
 
@@ -127,17 +125,44 @@ provenance.
 - OCI license: `MIT`
 
 The GitHub attestation verifier accepted this newer digest against
-`Liu-Hy/ABDA-NL`. This image supersedes the earlier candidate for the pending
-Azure deployment. The earlier record remains above as historical evidence and
-is not relabeled as evidence for the newer source.
+`Liu-Hy/ABDA-NL`. This image superseded the earlier candidate for Azure. The
+earlier record remains above as historical evidence and is not relabeled as
+evidence for the newer source.
 
-## Deployment boundary
+## Azure deployment and live audit
 
-This checkpoint does not change Azure, DNS, Auth0, Resend, trial limits,
-OpenRouter settings, the database, or the currently deployed image. Azure
-continues to serve source `b873112` until Gate 19 performs its explicit
-image-only transition to source `51702e1`. Gate 19 and the following read-only
-audit are pinned in
+On 2026-09-04 UTC, source-security Gate revision 2 deployed the exact attested
+digest above. Azure single revision mode kept the prior healthy revision
+serving until `abda-nl-stg-web--harden-51702e1` was provisioned with one ready
+replica and reported healthy. The Gate proved that the transition changed only
+the web image and revision suffix. It did not rerun a migration or change a
+secret, trial limit, provider-routing setting, scaling rule, probe, database,
+DNS record, certificate, or Auth0 setting. Public HTTPS acceptance passed and
+the managed filesystem save boundary remained rejected without mutation.
+
+The immediately following read-only Gate 9 revision 7 bound its checks to the
+same source commit, image digest, and Azure revision. It verified HTTPS,
+security headers, policy pages, protected metrics, the five-connection
+database pool, trial and OpenRouter accounting, and 30-day Log Analytics
+retention. Its 48-hour count-only query observed 28,898 records, including 36
+from the new revision and 24 current-revision request records. It found zero
+query-string markers, email-like values, bearer-like values, share fragments,
+OIDC codes, provider-key-like values, or private identifier field names.
+
+At the audit instant, one trial account had been allocated 5,000,000 microUSD,
+with 307,716 microUSD settled against the funded ledger. The isolated outage
+drill remained recorded at 149 microUSD on the OpenRouter emergency ledger.
+The release checker passed without calling a model, displaying a protected
+secret, printing raw log messages, or changing Azure configuration. The final
+receipt was `RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED`.
+
+## Remaining release boundary
+
+The hardened image deployment and its first live audit are complete. The
+remaining release sequence is the disposable-account privacy acceptance,
+friendly apex and `www` redirects, compatible rollback and restoration,
+production-cap promotion after email-capacity confirmation, and the final
+promoted-state audit. These phases are pinned in
 [the final operator batch](final-operator-batch.md). Earlier live BYOK and
-browser evidence remains applicable to unchanged behavior, but it is not
-relabeled as execution evidence from the new image.
+browser evidence remains applicable because the deployment Gate proved the
+application contract unchanged, but it is not relabeled as a new browser run.

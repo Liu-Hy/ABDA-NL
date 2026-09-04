@@ -13,7 +13,8 @@ checksum in Cloud Shell.
   current download block, exact confirmations, resume behavior, and ordered
   release Gates.
 - [Source-security checkpoint](source-security-checkpoint-20260902.md) binds the
-  current candidate source, CI, CodeQL, immutable image digest, and provenance.
+  current hardened source, CI, CodeQL, immutable image digest, provenance,
+  Azure deployment, and live sanitized-log audit.
 - [Requirements traceability](requirements-traceability.md) distinguishes
   completed implementation evidence from external and hardware acceptance.
 - [Public and COMMA release checklist](release-checklist.md) is the final

@@ -1,8 +1,8 @@
 # Final public-service operator batch
 
-State: hardened image and remaining manual release Gates prepared
+State: hardened image deployed and audited; remaining manual release Gates prepared
 
-Runbook revision: `source-security-20260902.3`
+Runbook revision: `source-security-20260904.1`
 
 Before running any remaining phase, confirm that the consolidated helper block
 below uses commit `f87eb6cff299c72ef75c16990d1defb10466cbdc`. Stop and refresh this
@@ -21,10 +21,10 @@ source, and the image workflow rebuilt, smoke-tested, and attested its exact
 digest.
 
 This runbook collects the remaining cloud and account work into one operator
-batch. The Azure alert deployment, alert-email delivery, BYOK browser Gate,
-bounded capacity smoke, and automated Chromium and Firefox accessibility Gate
-are already complete. Do not rerun them unless their corresponding code or
-configuration changes.
+batch. The hardened-image deployment and live audit, Azure alert deployment,
+alert-email delivery, BYOK browser Gate, bounded capacity smoke, and automated
+Chromium and Firefox accessibility Gate are already complete. Do not rerun
+them unless their corresponding code or configuration changes.
 
 The hardened release identity is:
 
@@ -80,6 +80,15 @@ result: ALL_CONSOLIDATED_OPERATOR_GATES_VERIFIED
 ```
 
 ## 0. Deploy and audit the hardened image
+
+Status: completed on 2026-09-04 UTC. The deployed source is `51702e1`, the
+image digest is `sha256:a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc`,
+and the healthy Azure revision is `abda-nl-stg-web--harden-51702e1`. The
+deployment returned `SOURCE_SECURITY_IMAGE_DEPLOYED_AUDIT_REQUIRED`, and the
+immediate read-only audit returned
+`RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED`. Do not rerun either command unless
+the image or relevant configuration changes. The commands remain below as a
+recovery and audit reference.
 
 Deploy the exact attested image:
 
