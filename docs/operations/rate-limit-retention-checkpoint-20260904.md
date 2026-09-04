@@ -46,6 +46,10 @@ replace only the web image and revision suffix. It does not rerun migrations
 or change secrets, Auth0, DNS, certificates, trial limits, provider routing,
 scaling, probes, or database resources.
 
+The Gate uses one confirmation phrase that explicitly records the completed
+privacy-deletion prerequisite. It cancels without changing Azure if the exact
+phrase is absent.
+
 The Gate requires the exact new privacy disclosure, rechecks the prior shared
 view fix, and proves that the managed filesystem save endpoint remains rejected
 without mutation. A separate read-only audit must bind the resulting Azure

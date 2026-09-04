@@ -21,7 +21,7 @@ def test_rate_limit_retention_image_gate_is_pinned_and_narrow():
         "614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2",
         "abda-nl-stg-web--harden-51702e1",
         "abda-nl-stg-web--retain-db216b8",
-        "DEPLOY_ABDA_RATE_LIMIT_RETENTION_IMAGE",
+        "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE",
         "RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED",
         "1bfebc7b9d8a76bf01332205260778aa1e9bd409377f1a8bb50e211d63c9379f",
         "1eb9fd852a306de9ab00d6412491426bb0cd78c9",
@@ -73,5 +73,5 @@ def test_rate_limit_retention_wrapper_sets_exact_shared_gate_values():
         "614cd03d6f87b46e056d6dd736c060b8b652ae024334f9f0bb4eb50d750deac2",
         "abda-nl-stg-web--harden-51702e1",
         "abda-nl-stg-web--retain-db216b8",
-        "DEPLOY_ABDA_RATE_LIMIT_RETENTION_IMAGE",
+        "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE",
     ]
