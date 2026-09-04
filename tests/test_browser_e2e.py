@@ -501,6 +501,77 @@ def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
             browser.close()
 
 
+def test_mobile_item_question_reveals_chat(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    response = {
+        "message": "This is a route-mocked mobile explanation.",
+        "model": "browser-test-model",
+        "billing_source": "trial",
+        "cost_microusd": 0,
+        "latency_ms": 1,
+    }
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        context = browser.new_context(
+            viewport={"width": 390, "height": 844},
+            reduced_motion="reduce",
+        )
+        page = context.new_page()
+        page.route(
+            "**/chat",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(response),
+            ),
+        )
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.evaluate(
+                """() => {
+                    state.authSession = {
+                      authenticated: true,
+                      auth_mode: 'dev',
+                      user: {email: 'mobile-browser@example.edu'},
+                    };
+                    state.trial = {
+                      active: true,
+                      available_microusd: 5000000,
+                    };
+                    state.llmAccess.mode = 'funded';
+                }"""
+            )
+            question = page.locator(".rule-info[data-desc]").first
+            expect(question).to_be_visible()
+            question.click()
+            expect(page.locator("#chat-messages")).to_contain_text(
+                "This is a route-mocked mobile explanation."
+            )
+            geometry = page.evaluate(
+                """() => {
+                    const panel = document.getElementById('right-panel')
+                      .getBoundingClientRect();
+                    const input = document.getElementById('chat-input')
+                      .getBoundingClientRect();
+                    return {
+                      panelTop: panel.top,
+                      panelBottom: panel.bottom,
+                      inputTop: input.top,
+                      inputBottom: input.bottom,
+                      viewportHeight: window.innerHeight,
+                    };
+                }"""
+            )
+            assert 0 <= geometry["panelTop"] < geometry["viewportHeight"]
+            assert geometry["panelBottom"] > 0
+            assert 0 <= geometry["inputTop"]
+            assert geometry["inputBottom"] <= geometry["viewportHeight"]
+        finally:
+            context.close()
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

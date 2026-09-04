@@ -1362,6 +1362,17 @@ function renderChat() {
   renderChatAccess();
 }
 
+function revealChatForNarrowLayout() {
+  if (!window.matchMedia('(max-width: 780px)').matches) return;
+  const panel = document.getElementById('right-panel');
+  if (!panel) return;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  panel.scrollIntoView({
+    behavior: reducedMotion ? 'auto' : 'smooth',
+    block: 'start',
+  });
+}
+
 async function sendChatMessage(prefilledText) {
   if (state.chatPending) return;
   const accessIssue = llmAccessIssue();
@@ -1383,6 +1394,7 @@ async function sendChatMessage(prefilledText) {
   state.chatMessages.push({ role: 'user', content: text });
   state.chatPending = true;
   renderChat();
+  if (typeof prefilledText === 'string') revealChatForNarrowLayout();
 
   // Trim history to the last CHAT_TURN_CAP messages before POSTing. The
   // backend enforces its own cap; this just keeps the wire small.
