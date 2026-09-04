@@ -1347,6 +1347,98 @@ def test_trial_activation_wins_over_an_older_workspace_refresh(
             browser.close()
 
 
+def test_failed_rapid_edit_restores_the_last_rendered_operation_set(
+    live_browser_server,
+):
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.evaluate(
+                """() => {
+                    const renderedBundle = state.bundle;
+                    let callCount = 0;
+                    window.__resolveFirstEdit = null;
+                    window.__renderedBundle = renderedBundle;
+                    apiPostState = () => {
+                      callCount += 1;
+                      if (callCount === 1) {
+                        return new Promise(resolve => {
+                          window.__resolveFirstEdit = () => resolve(renderedBundle);
+                        });
+                      }
+                      return Promise.reject(new Error('newer computation failed'));
+                    };
+                    window.__firstEdit = applyOps([{op: 'first-pending-edit'}]);
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveFirstEdit !== null")
+            page.evaluate(
+                """async () => {
+                    await applyOps([{op: 'second-failing-edit'}]);
+                    window.__resolveFirstEdit();
+                    await window.__firstEdit;
+                }"""
+            )
+
+            assert page.evaluate("state.bundle === window.__renderedBundle") is True
+            assert page.evaluate("state.diff_ops.length") == 0
+        finally:
+            browser.close()
+
+
+def test_failed_example_load_keeps_the_existing_private_project(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.evaluate(
+                """() => {
+                    const scenario = structuredClone(state.bundle.scenario);
+                    scenario.title = 'Private project before failure';
+                    window.__projectBeforeFailedLoad = {
+                      id: 'project-before-failure',
+                      name: 'Project before failure',
+                      description: '',
+                      source_scenario_id: state.scenario_id,
+                      scenario,
+                      af: structuredClone(state.bundle.af),
+                      version: 1,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    };
+                    setViewContext('project', window.__projectBeforeFailedLoad);
+                    state.baseline = scenario;
+                    state.diff_ops = [];
+                    setBundle({scenario, af: structuredClone(state.bundle.af)});
+                    renderAll();
+                    apiPostState = () => Promise.reject(
+                      new Error('example computation failed'),
+                    );
+                }"""
+            )
+
+            page.evaluate("() => loadScenario('fire_prevention')")
+
+            assert page.evaluate("state.viewKind") == "project"
+            assert page.evaluate("state.activeProject.id") == "project-before-failure"
+            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#scenario-name")).to_have_text("Project before failure")
+            expect(page.locator("#scenario-name")).to_have_attribute(
+                "title", "Scenario: Private project before failure"
+            )
+        finally:
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

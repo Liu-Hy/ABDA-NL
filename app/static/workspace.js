@@ -795,8 +795,8 @@ async function createProjectFromCurrentView(event) {
     setViewContext('project', project);
     state.scenario_id = project.source_scenario_id;
     state.baseline = project.scenario;
-    state.bundle = { scenario: project.scenario, af: project.af };
     state.diff_ops = [];
+    setBundle({ scenario: project.scenario, af: project.af });
     resetChatConversation();
     indexBundle();
     populateScenarioSelect();
@@ -836,8 +836,8 @@ async function saveProjectChanges() {
     }
     state.activeProject = updated;
     state.baseline = updated.scenario;
-    state.bundle = { scenario: updated.scenario, af: updated.af };
     state.diff_ops = [];
+    setBundle({ scenario: updated.scenario, af: updated.af });
     indexBundle();
     populateScenarioSelect();
     renderAll();

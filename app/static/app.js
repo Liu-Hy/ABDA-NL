@@ -12,6 +12,7 @@ const state = {
   baseline: null,       // scenario object at baseline (zero ops)
   bundle: null,         // current {scenario, af} from the server
   diff_ops: [],         // ops appended since baseline
+  renderedDiffOps: [],  // ops represented by the currently rendered bundle
   config: null,
   authSession: { authenticated: false, auth_mode: 'disabled', user: null },
   trial: null,
@@ -104,8 +105,12 @@ async function apiGetConfig() {
   return await apiRequest('/config');
 }
 
-async function apiPostState(scenario_id, diff_ops, signal) {
-  const project = state.activeProject;
+async function apiPostState(
+  scenario_id,
+  diff_ops,
+  signal,
+  project = state.activeProject,
+) {
   const path = project ? `/api/projects/${encodeURIComponent(project.id)}/state` : '/state';
   const payload = project
     ? { expected_version: project.version, diff_ops }
@@ -368,8 +373,8 @@ async function loadProject(projectId) {
     setViewContext('project', project);
     state.scenario_id = project.source_scenario_id;
     state.baseline = project.scenario;
-    state.bundle = { scenario: project.scenario, af: project.af };
     state.diff_ops = [];
+    setBundle({ scenario: project.scenario, af: project.af });
     resetChatConversation();
     resetViewFilters();
     indexBundle();
@@ -397,8 +402,8 @@ async function loadSharedProject(token) {
   setViewContext('shared', project);
   state.scenario_id = null;
   state.baseline = project.scenario;
-  state.bundle = { scenario: project.scenario, af: project.af };
   state.diff_ops = [];
+  setBundle({ scenario: project.scenario, af: project.af });
   resetChatConversation();
   resetViewFilters();
   indexBundle();
@@ -424,19 +429,18 @@ function resetViewFilters() {
 
 async function loadScenario(id) {
   const ctrl = beginRequest();
-  setViewContext('example');
-  state.scenario_id = id;
-  state.diff_ops = [];
-  // Reset UI-local state that is only meaningful for the prior scenario
-  // (tab selection, search query). Without this a user coming from the
-  // Modified tab lands on an empty view for a pristine scenario and
-  // thinks the UI is broken.
-  resetChatConversation();
-  resetViewFilters();
-
   try {
-    const bundle = await apiPostState(id, [], ctrl.signal);
+    const bundle = await apiPostState(id, [], ctrl.signal, null);
     if (!isCurrent(ctrl)) return;  // superseded by a newer request
+    setViewContext('example');
+    state.scenario_id = id;
+    state.diff_ops = [];
+    // Reset UI-local state that is only meaningful for the prior scenario
+    // (tab selection, search query). Without this a user coming from the
+    // Modified tab lands on an empty view for a pristine scenario and
+    // thinks the UI is broken.
+    resetChatConversation();
+    resetViewFilters();
     state.baseline = bundle.scenario;
     setBundle(bundle);
     indexBundle();
@@ -445,6 +449,11 @@ async function loadScenario(id) {
     renderAll();
   } catch (e) {
     if (isAbortError(e) || !isCurrent(ctrl)) return;
+    populateScenarioSelect();
+    const selector = document.getElementById('scenario-select');
+    if (state.viewKind === 'project') selector.value = '__current_project__';
+    else if (state.viewKind === 'shared') selector.value = '__shared_project__';
+    else selector.value = state.scenario_id;
     showGlobalError(`Failed to load scenario ${id}: ${e.message}`);
   }
 }
@@ -452,17 +461,19 @@ async function loadScenario(id) {
 async function resetToBaseline() {
   if (!state.scenario_id) return;
   const ctrl = beginRequest();
-  state.diff_ops = [];
-  resetChatConversation();
+  state.diff_ops = state.renderedDiffOps.slice();
   try {
     const bundle = await apiPostState(state.scenario_id, [], ctrl.signal);
     if (!isCurrent(ctrl)) return;
+    state.diff_ops = [];
+    resetChatConversation();
     setBundle(bundle, { pulseLabels: true });
     indexBundle();
     renderAll();
   } catch (e) {
     if (isAbortError(e) || !isCurrent(ctrl)) return;
     showGlobalError(`Reset failed: ${e.message}`);
+    renderAll();
   }
 }
 
@@ -480,7 +491,6 @@ async function applyOps(ops) {
     return;
   }
   const ctrl = beginRequest();
-  const prevOps = state.diff_ops.slice();
   state.diff_ops = [...state.diff_ops, ...ops];
   try {
     const bundle = await apiPostState(state.scenario_id, state.diff_ops, ctrl.signal);
@@ -490,7 +500,7 @@ async function applyOps(ops) {
     renderAll();
   } catch (e) {
     if (isAbortError(e) || !isCurrent(ctrl)) return;
-    state.diff_ops = prevOps;
+    state.diff_ops = state.renderedDiffOps.slice();
     showGlobalError(e.message);
     renderAll();
   }
@@ -601,6 +611,7 @@ function setBundle(bundle, options = {}) {
     state.labelPulseIds = new Set();
   }
   state.bundle = bundle;
+  state.renderedDiffOps = state.diff_ops.slice();
 }
 
 function computeChangedLabelIds(before, after) {
