@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -162,6 +163,40 @@ def test_operations_index_names_one_current_sequence_and_has_valid_doc_links():
     assert relative_links
     for relative_link in relative_links:
         assert (index_path.parent / relative_link).is_file(), relative_link
+
+
+def test_foundry_inventory_instructions_are_copyable_and_read_only():
+    promotion = (ROOT / "docs" / "operations" / "model-promotion.md").read_text(
+        encoding="utf-8"
+    )
+    section = promotion.split(
+        "### Read the actual Azure deployment inventory", maxsplit=1
+    )[1]
+    block = re.search(r"```bash\n(.*?)\n```", section, flags=re.DOTALL)
+
+    assert block is not None
+    shell = block.group(1)
+    syntax = subprocess.run(
+        ["bash", "-n"],
+        input=shell,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert syntax.returncode == 0, syntax.stderr
+    assert "azure_identity: verified" in shell
+    assert "AZURE_ANTHROPIC_ENDPOINT" in shell
+    assert "az cognitiveservices account deployment list" in shell
+    assert "FOUNDRY_DEPLOYMENT_INVENTORY_LISTED_READ_ONLY" in shell
+    for forbidden in (
+        " deployment create",
+        " deployment delete",
+        " deployment update",
+        " api-key",
+        " x-api-key",
+        " curl ",
+    ):
+        assert forbidden not in shell
 
 
 def test_azure_deploys_only_the_public_digest_pinned_ghcr_image():

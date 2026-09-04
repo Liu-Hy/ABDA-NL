@@ -92,6 +92,83 @@ operator evidence directory because they contain full model responses.
 
 ## Candidate probe
 
+### Read the actual Azure deployment inventory
+
+Do not infer a deployment name from the Foundry catalog or a model ID. The
+following Cloud Shell block is read-only. It verifies the ABDA-NL subscription,
+reads the non-secret Foundry endpoint already configured on the web app, finds
+the matching Cognitive Services account, and lists that account's deployed
+models. It does not read an API key, deploy a model, change quota, or call a
+model.
+
+```bash
+set -euo pipefail
+ABDA_EXPECTED_SUBSCRIPTION='00e62f6e-2174-40b2-b428-8ebfd7c2ac54'
+ABDA_EXPECTED_TENANT='040f05eb-33ab-462f-af54-fb4bedb055ae'
+ABDA_EXPECTED_USER='hliu2@cloudbank.org'
+ABDA_RESOURCE_GROUP='abda-nl-staging'
+ABDA_APP_NAME='abda-nl-stg-web'
+
+ABDA_ACTIVE_SUBSCRIPTION="$(az account show --query id --output tsv)"
+ABDA_ACTIVE_TENANT="$(az account show --query tenantId --output tsv)"
+ABDA_ACTIVE_USER="$(
+  az account show --query user.name --output tsv | tr '[:upper:]' '[:lower:]'
+)"
+if [[ "$ABDA_ACTIVE_SUBSCRIPTION" != "$ABDA_EXPECTED_SUBSCRIPTION" || \
+      "$ABDA_ACTIVE_TENANT" != "$ABDA_EXPECTED_TENANT" || \
+      "$ABDA_ACTIVE_USER" != "$ABDA_EXPECTED_USER" ]]; then
+  printf '%s\n' \
+    'STOP: Azure Cloud Shell is using a different subscription, tenant, or user.' >&2
+  exit 1
+fi
+printf '%s\n' 'azure_identity: verified'
+
+ABDA_FOUNDRY_ENDPOINT="$(
+  az containerapp show \
+    --resource-group "$ABDA_RESOURCE_GROUP" \
+    --name "$ABDA_APP_NAME" \
+    --query "properties.template.containers[0].env[?name=='AZURE_ANTHROPIC_ENDPOINT'].value | [0]" \
+    --output tsv
+)"
+ABDA_FOUNDRY_HOST="${ABDA_FOUNDRY_ENDPOINT#https://}"
+ABDA_FOUNDRY_HOST="${ABDA_FOUNDRY_HOST%%/*}"
+case "$ABDA_FOUNDRY_HOST" in
+  *.services.ai.azure.com) ;;
+  *) printf '%s\n' 'STOP: the configured Foundry endpoint is not recognized.' >&2; exit 1 ;;
+esac
+ABDA_FOUNDRY_ACCOUNT="${ABDA_FOUNDRY_HOST%%.*}"
+ABDA_FOUNDRY_RESOURCE_GROUP="$(
+  az cognitiveservices account list \
+    --query "[?name=='$ABDA_FOUNDRY_ACCOUNT'].resourceGroup | [0]" \
+    --output tsv
+)"
+if [[ -z "$ABDA_FOUNDRY_RESOURCE_GROUP" || \
+      "$ABDA_FOUNDRY_RESOURCE_GROUP" == 'None' ]]; then
+  printf '%s\n' \
+    'result: FOUNDRY_ACCOUNT_NOT_VISIBLE_IN_THIS_SUBSCRIPTION' \
+    'No Azure resource was changed. Stop and send this result to Codex.'
+  exit 0
+fi
+
+az cognitiveservices account deployment list \
+  --resource-group "$ABDA_FOUNDRY_RESOURCE_GROUP" \
+  --name "$ABDA_FOUNDRY_ACCOUNT" \
+  --query "[].{deployment:name,model:properties.model.name,version:properties.model.version,format:properties.model.format,state:properties.provisioningState}" \
+  --output table
+printf '%s\n' 'result: FOUNDRY_DEPLOYMENT_INVENTORY_LISTED_READ_ONLY'
+```
+
+The final table contains deployment names and model metadata, not credentials.
+Send only that table and the final `result` line to Codex. If the account is not
+visible, the script reports that boundary without trying a data-plane request.
+The `az cognitiveservices account deployment list` command is documented in the
+[Azure CLI deployment reference](https://learn.microsoft.com/en-us/cli/azure/cognitiveservices/account/deployment?view=azure-cli-latest#az-cognitiveservices-account-deployment-list).
+
+If a desired model is absent, open the matching Foundry resource and use
+**Deployments**, then **Deploy model**. Keep the deployment name identical to
+the model ID unless there is a concrete reason not to. Do not create or change
+a deployment merely to complete this inventory step.
+
 1. Create the Foundry deployment in the same CloudBank project or obtain its
    exact endpoint, deployment name, and authentication method.
 2. Put the deployment name in the matching gitignored `.env` variable listed in
