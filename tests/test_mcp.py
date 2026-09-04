@@ -1,6 +1,7 @@
 """Credential invariants and authenticated MCP protocol integration tests."""
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 import app.api.account_routes as account_routes
 import app.mcp.server as mcp_module
 from app.api.main import app
+from app.core.config import get_settings
 from app.db.models import Base, MCPAccessToken, User
 from app.db.session import get_session_factory
 from app.services.mcp_tokens import (
@@ -339,6 +341,58 @@ def test_mcp_wire_authentication_discovery_and_read_tools(client: TestClient):
     assert loaded["version"] == 1
     assert loaded["af_summary"]["labels_by_proposition"]
     assert "af" not in loaded
+
+
+def test_mcp_read_tools_share_one_authenticated_rate_limit(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    _login(client, "mcp-rate-limited-reader@example.edu")
+    project = client.post(
+        "/api/projects",
+        json={
+            "name": "Rate-limited reader project",
+            "source_scenario_id": "fire_prevention",
+            "diff_ops": [],
+        },
+    ).json()
+    token = _create_token(
+        client,
+        name="Rate-limited reads",
+        scopes=["projects:read"],
+    )["token"]
+
+    settings = replace(
+        get_settings(),
+        abuse_protection_enabled=True,
+        anonymous_requests_per_minute=4,
+    )
+    monkeypatch.setattr(mcp_module, "get_settings", lambda: settings)
+
+    assert _call_tool(client, token, "list_examples")["isError"] is False
+    assert (
+        _call_tool(
+            client,
+            token,
+            "get_example",
+            {"scenario_id": "fire_prevention"},
+        )["isError"]
+        is False
+    )
+    assert _call_tool(client, token, "list_projects")["isError"] is False
+    assert (
+        _call_tool(
+            client,
+            token,
+            "get_project",
+            {"project_id": project["id"]},
+        )["isError"]
+        is False
+    )
+
+    rejected = _call_tool(client, token, "list_examples")
+    assert rejected["isError"] is True
+    assert "Too many requests" in rejected["content"][0]["text"]
 
 
 def test_mcp_scopes_optimistic_writes_and_cross_user_isolation(client: TestClient):

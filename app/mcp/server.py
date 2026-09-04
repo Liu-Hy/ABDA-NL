@@ -186,6 +186,16 @@ def _limit_mcp(session: Session, user: User, scope: str, limit: int) -> None:
         )
 
 
+def _limit_mcp_read(session: Session, user: User) -> None:
+    """Apply one shared per-account ceiling to deterministic MCP reads."""
+    _limit_mcp(
+        session,
+        user,
+        "mcp_read",
+        get_settings().anonymous_requests_per_minute,
+    )
+
+
 @contextmanager
 def _tool_boundary(operation: str) -> Iterator[None]:
     try:
@@ -382,24 +392,26 @@ def _mcp_tool(*, annotations: ToolAnnotations):
 def list_examples() -> dict[str, Any]:
     """List immutable bundled examples. Requires projects:read."""
     with _tool_boundary("list_examples"):
-        _access_token(MCP_SCOPE_PROJECTS_READ)
-        examples = []
-        for child in sorted(EXAMPLES_ROOT.iterdir(), key=lambda path: path.name):
-            if not child.is_dir() or not (child / "scenario.yaml").is_file():
-                continue
-            try:
-                scenario = load_bundled_scenario(child.name)
-            except Exception:
-                log.warning("Skipping invalid MCP example scenario_id=%s", child.name)
-                continue
-            examples.append(
-                {
-                    "id": child.name,
-                    "title": scenario.title,
-                    "description": scenario.description,
-                }
-            )
-        return {"examples": examples}
+        with get_session_factory()() as session:
+            user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
+            _limit_mcp_read(session, user)
+            examples = []
+            for child in sorted(EXAMPLES_ROOT.iterdir(), key=lambda path: path.name):
+                if not child.is_dir() or not (child / "scenario.yaml").is_file():
+                    continue
+                try:
+                    scenario = load_bundled_scenario(child.name)
+                except Exception:
+                    log.warning("Skipping invalid MCP example scenario_id=%s", child.name)
+                    continue
+                examples.append(
+                    {
+                        "id": child.name,
+                        "title": scenario.title,
+                        "description": scenario.description,
+                    }
+                )
+            return {"examples": examples}
 
 
 @_mcp_tool(annotations=READ_ONLY)
@@ -409,15 +421,17 @@ def get_example(
 ) -> dict[str, Any]:
     """Read one bundled example and its grounded outcomes. Requires projects:read."""
     with _tool_boundary("get_example"):
-        _access_token(MCP_SCOPE_PROJECTS_READ)
-        scenario = load_bundled_scenario(scenario_id)
-        return {
-            "id": scenario_id,
-            **_state_payload(
-                scenario,
-                include_argument_graph=include_argument_graph,
-            ),
-        }
+        with get_session_factory()() as session:
+            user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
+            _limit_mcp_read(session, user)
+            scenario = load_bundled_scenario(scenario_id)
+            return {
+                "id": scenario_id,
+                **_state_payload(
+                    scenario,
+                    include_argument_graph=include_argument_graph,
+                ),
+            }
 
 
 @_mcp_tool(annotations=READ_ONLY)
@@ -426,6 +440,7 @@ def list_projects() -> dict[str, Any]:
     with _tool_boundary("list_projects"):
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
+            _limit_mcp_read(session, user)
             projects = list_project_records(session, user)
             return {"projects": [_project_summary(project) for project in projects]}
 
@@ -439,6 +454,7 @@ def get_project(
     with _tool_boundary("get_project"):
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
+            _limit_mcp_read(session, user)
             project = get_project_record(session, user, project_id)
             return _project_payload(
                 project,
