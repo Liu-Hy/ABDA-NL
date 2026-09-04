@@ -39,6 +39,25 @@ def _default_database_url() -> str:
     return f"sqlite+pysqlite:///{database_path}"
 
 
+def _safe_https_url(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        parsed = urlsplit(value)
+        parsed_port = parsed.port
+    except ValueError:
+        return False
+    return bool(
+        parsed.scheme == "https"
+        and parsed.hostname
+        and (parsed_port is None or parsed_port > 0)
+        and parsed.username is None
+        and parsed.password is None
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
 @dataclass(frozen=True)
 class Settings:
     environment: str
@@ -111,7 +130,7 @@ class Settings:
         if public_hostname:
             default_trusted_hosts.append(public_hostname)
         configured_trusted_hosts = tuple(
-            item.strip()
+            item.strip().lower()
             for item in (os.getenv("ABDA_TRUSTED_HOSTS") or "").split(",")
             if item.strip()
         )
@@ -307,13 +326,26 @@ class Settings:
                 raise RuntimeError(
                     "ABDA_PUBLIC_BASE_URL must be an HTTPS origin without a path"
                 )
-            if not self.oidc_metadata_url or urlsplit(self.oidc_metadata_url).scheme != "https":
+            if any("*" in host for host in self.trusted_hosts):
                 raise RuntimeError(
-                    "staging and production require an HTTPS OIDC metadata URL"
+                    "staging and production require exact trusted hostnames"
                 )
-            if not self.oidc_issuer or urlsplit(self.oidc_issuer).scheme != "https":
+            if public_url.hostname not in self.trusted_hosts:
                 raise RuntimeError(
-                    "staging and production require an HTTPS OIDC issuer"
+                    "ABDA_TRUSTED_HOSTS must include the public hostname"
+                )
+            if not _safe_https_url(self.oidc_metadata_url):
+                raise RuntimeError(
+                    "staging and production require a safe HTTPS OIDC metadata URL"
+                )
+            if not _safe_https_url(self.oidc_issuer):
+                raise RuntimeError(
+                    "staging and production require a safe HTTPS OIDC issuer"
+                )
+            oidc_scopes = set(self.oidc_scope.split())
+            if not {"openid", "email"}.issubset(oidc_scopes):
+                raise RuntimeError(
+                    "staging and production require openid and email OIDC scopes"
                 )
             if self.database_url.startswith("sqlite"):
                 raise RuntimeError("staging and production require PostgreSQL")
@@ -327,8 +359,6 @@ class Settings:
                 raise RuntimeError(
                     "staging and production require ABDA_METRICS_TOKEN with at least 32 characters"
                 )
-            if "*" in self.trusted_hosts:
-                raise RuntimeError("staging and production cannot trust every Host header")
 
 
 @lru_cache(maxsize=1)

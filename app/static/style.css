@@ -49,7 +49,7 @@ body.modal-open { overflow: hidden; }
 }
 .skip-link:focus { transform: translateY(0); }
 
-:where(button, a, input, select, textarea):focus-visible {
+:where(button, a, input, select, textarea, [role="separator"]):focus-visible {
   outline: 3px solid #0b70c9;
   outline-offset: 2px;
 }
@@ -495,6 +495,14 @@ body.llm-disabled .left-panel { width: 100%; }
 }
 .v-resize-handle:hover, .v-resize-handle.dragging {
   background: var(--accent);
+}
+.v-resize-handle:focus-visible, .h-resize-handle:focus-visible {
+  background: var(--accent);
+}
+.conclusions-list:focus-visible, .facts-list:focus-visible,
+.kb-content:focus-visible, .chat-messages:focus-visible {
+  outline: 3px solid #0b70c9;
+  outline-offset: -3px;
 }
 /* Horizontal bar (row-resize) — between stacked panels */
 .h-resize-handle {

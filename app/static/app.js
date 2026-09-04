@@ -405,9 +405,9 @@ function resetViewFilters() {
   state.searchQuery = '';
   const searchInput = document.getElementById('kb-search-input');
   if (searchInput) searchInput.value = '';
-  document.querySelectorAll('.concl-filter').forEach(button => button.classList.toggle('active', button.dataset.filter === 'key'));
-  document.querySelectorAll('.facts-filter').forEach(button => button.classList.toggle('active', button.dataset.filter === 'facts'));
-  document.querySelectorAll('.kb-tab').forEach(button => button.classList.toggle('active', button.dataset.tab === 'all'));
+  syncToggleButtons('.concl-filter', 'filter', 'key');
+  syncToggleButtons('.facts-filter', 'filter', 'facts');
+  syncToggleButtons('.kb-tab', 'tab', 'all');
 }
 
 
@@ -772,9 +772,7 @@ function renderConclusions() {
 
 function switchConclusionFilter(f) {
   state.conclusionFilter = f;
-  document.querySelectorAll('.concl-filter').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.filter === f);
-  });
+  syncToggleButtons('.concl-filter', 'filter', f);
   renderConclusions();
 }
 
@@ -938,9 +936,7 @@ function renderFactLikeCard(id, entry, kind) {
 
 function switchFactsFilter(f) {
   state.factsFilter = f;
-  document.querySelectorAll('.facts-filter').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.filter === f);
-  });
+  syncToggleButtons('.facts-filter', 'filter', f);
   renderFacts();
 }
 
@@ -1252,9 +1248,7 @@ function renderLiteral(lit) {
 
 function switchKBTab(tab) {
   state.kbTab = tab;
-  document.querySelectorAll('.kb-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tab);
-  });
+  syncToggleButtons('.kb-tab', 'tab', tab);
   renderKB();
 }
 
@@ -1464,6 +1458,14 @@ function escapeAttr(s) {
   return escapeHtml(s);
 }
 
+function syncToggleButtons(selector, dataKey, activeValue) {
+  document.querySelectorAll(selector).forEach(button => {
+    const active = button.dataset[dataKey] === activeValue;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
 
 /* ── Resize handles ──────────────────────────────────────── */
 
@@ -1474,11 +1476,44 @@ function initResize() {
   setupRowResizeFromBottom('h-resize-chat', 'chat-input-area', 'right-panel', 10, 50);
 }
 
+function setupKeyboardResize(handle, getPct, setPct, minPct, maxPct, orientation, inverted = false) {
+  const initialValue = Number(handle.getAttribute('aria-valuenow'));
+  let currentPct = Number.isFinite(initialValue) ? initialValue : minPct;
+  const updateValue = (measuredPct = getPct()) => {
+    if (!Number.isFinite(measuredPct)) return;
+    const pct = Math.min(maxPct, Math.max(minPct, measuredPct));
+    currentPct = pct;
+    handle.setAttribute('aria-valuenow', String(Math.round(pct)));
+  };
+  handle.addEventListener('keydown', event => {
+    const decreaseKey = orientation === 'vertical' ? 'ArrowLeft' : 'ArrowUp';
+    const increaseKey = orientation === 'vertical' ? 'ArrowRight' : 'ArrowDown';
+    let next = currentPct;
+    const step = event.shiftKey ? 10 : 5;
+    if (event.key === 'Home') next = minPct;
+    else if (event.key === 'End') next = maxPct;
+    else if (event.key === decreaseKey) next += inverted ? step : -step;
+    else if (event.key === increaseKey) next += inverted ? -step : step;
+    else return;
+    event.preventDefault();
+    next = Math.min(maxPct, Math.max(minPct, next));
+    setPct(next);
+    updateValue(next);
+  });
+  updateValue();
+  window.addEventListener('resize', () => updateValue());
+  return updateValue;
+}
+
 function setupColResize(handleId, panelId, minPct, maxPct) {
   const handle = document.getElementById(handleId);
   const panel = document.getElementById(panelId);
   if (!handle || !panel) return;
   let dragging = false;
+  const container = panel.parentElement;
+  const getPct = () => (panel.getBoundingClientRect().width / container.getBoundingClientRect().width) * 100;
+  const setPct = pct => { panel.style.width = pct + '%'; };
+  const updateValue = setupKeyboardResize(handle, getPct, setPct, minPct, maxPct, 'vertical');
   handle.addEventListener('mousedown', e => {
     dragging = true;
     handle.classList.add('dragging');
@@ -1488,10 +1523,12 @@ function setupColResize(handleId, panelId, minPct, maxPct) {
   });
   document.addEventListener('mousemove', e => {
     if (!dragging) return;
-    const container = panel.parentElement;
     const rect = container.getBoundingClientRect();
     const pct = ((e.clientX - rect.left) / rect.width) * 100;
-    if (pct >= minPct && pct <= maxPct) panel.style.width = pct + '%';
+    if (pct >= minPct && pct <= maxPct) {
+      setPct(pct);
+      updateValue(pct);
+    }
   });
   document.addEventListener('mouseup', () => {
     if (dragging) {
@@ -1509,6 +1546,12 @@ function setupColResizeInner(handleId, panelId, containerId, minPct, maxPct) {
   const container = document.getElementById(containerId);
   if (!handle || !panel || !container) return;
   let dragging = false;
+  const getPct = () => (panel.getBoundingClientRect().width / container.getBoundingClientRect().width) * 100;
+  const setPct = pct => {
+    panel.style.flex = 'none';
+    panel.style.width = pct + '%';
+  };
+  const updateValue = setupKeyboardResize(handle, getPct, setPct, minPct, maxPct, 'vertical');
   handle.addEventListener('mousedown', e => {
     dragging = true;
     handle.classList.add('dragging');
@@ -1521,8 +1564,8 @@ function setupColResizeInner(handleId, panelId, containerId, minPct, maxPct) {
     const rect = container.getBoundingClientRect();
     const pct = ((e.clientX - rect.left) / rect.width) * 100;
     if (pct >= minPct && pct <= maxPct) {
-      panel.style.flex = 'none';
-      panel.style.width = pct + '%';
+      setPct(pct);
+      updateValue(pct);
     }
   });
   document.addEventListener('mouseup', () => {
@@ -1541,6 +1584,12 @@ function setupRowResize(handleId, panelId, containerId, minPct, maxPct) {
   const container = document.getElementById(containerId);
   if (!handle || !panel || !container) return;
   let dragging = false;
+  const getPct = () => (panel.getBoundingClientRect().height / container.getBoundingClientRect().height) * 100;
+  const setPct = pct => {
+    panel.style.height = pct + '%';
+    panel.style.flexShrink = '0';
+  };
+  const updateValue = setupKeyboardResize(handle, getPct, setPct, minPct, maxPct, 'horizontal');
   handle.addEventListener('mousedown', e => {
     dragging = true;
     handle.classList.add('dragging');
@@ -1553,8 +1602,8 @@ function setupRowResize(handleId, panelId, containerId, minPct, maxPct) {
     const rect = container.getBoundingClientRect();
     const pct = ((e.clientY - rect.top) / rect.height) * 100;
     if (pct >= minPct && pct <= maxPct) {
-      panel.style.height = pct + '%';
-      panel.style.flexShrink = '0';
+      setPct(pct);
+      updateValue(pct);
     }
   });
   document.addEventListener('mouseup', () => {
@@ -1573,6 +1622,12 @@ function setupRowResizeFromBottom(handleId, panelId, containerId, minPct, maxPct
   const container = document.getElementById(containerId);
   if (!handle || !panel || !container) return;
   let dragging = false;
+  const getPct = () => (panel.getBoundingClientRect().height / container.getBoundingClientRect().height) * 100;
+  const setPct = pct => {
+    panel.style.flex = 'none';
+    panel.style.height = pct + '%';
+  };
+  const updateValue = setupKeyboardResize(handle, getPct, setPct, minPct, maxPct, 'horizontal', true);
   handle.addEventListener('mousedown', e => {
     dragging = true;
     handle.classList.add('dragging');
@@ -1585,8 +1640,8 @@ function setupRowResizeFromBottom(handleId, panelId, containerId, minPct, maxPct
     const rect = container.getBoundingClientRect();
     const pct = ((rect.bottom - e.clientY) / rect.height) * 100;
     if (pct >= minPct && pct <= maxPct) {
-      panel.style.flex = 'none';
-      panel.style.height = pct + '%';
+      setPct(pct);
+      updateValue(pct);
     }
   });
   document.addEventListener('mouseup', () => {

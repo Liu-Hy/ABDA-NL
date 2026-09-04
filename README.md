@@ -129,6 +129,8 @@ motion, narrow-screen reflow, and screen-reader status announcements. The
 argumentation panels and all workspace panels pass the repository's automated
 WCAG A and AA browser scan. Automated checks complement, but do not replace,
 manual keyboard and assistive-technology review before a public release.
+Filter buttons expose their selected state, and each layout divider can be
+focused and adjusted with the arrow keys, Home, End, or Shift plus an arrow key.
 
 ## Codex and Claude Code through MCP
 

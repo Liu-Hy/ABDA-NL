@@ -19,6 +19,7 @@ class _HTMLInventory(HTMLParser):
         self.scripts: list[str] = []
         self.stylesheets: list[str] = []
         self.attributes_by_id: dict[str, dict[str, str | None]] = {}
+        self.attributes_by_class: dict[str, list[dict[str, str | None]]] = {}
 
     def handle_starttag(self, tag: str, attrs) -> None:
         values = dict(attrs)
@@ -26,6 +27,8 @@ class _HTMLInventory(HTMLParser):
         if element_id:
             self.ids.append(element_id)
             self.attributes_by_id[element_id] = values
+        for class_name in (values.get("class") or "").split():
+            self.attributes_by_class.setdefault(class_name, []).append(values)
         if tag == "label" and values.get("for"):
             self.label_targets.append(values["for"])
         if tag == "script" and values.get("src"):
@@ -68,6 +71,72 @@ def test_workspace_exposes_accessible_core_controls():
     facts = inventory.attributes_by_id["facts-list"]
     assert facts["tabindex"] == "0"
     assert facts["aria-label"]
+    for element_id in ("conclusions-list", "kb-content", "chat-messages"):
+        attributes = inventory.attributes_by_id[element_id]
+        assert attributes["tabindex"] == "0"
+        assert attributes["aria-label"]
+    for element_id, title_id in (
+        ("conclusions-panel", "conclusions-title"),
+        ("facts-panel", "facts-title"),
+        ("rules-section", "rules-title"),
+    ):
+        attributes = inventory.attributes_by_id[element_id]
+        assert attributes["role"] == "region"
+        assert attributes["aria-labelledby"] == title_id
+        assert title_id in inventory.ids
+    for element_id in ("context-indicator", "modified-indicator"):
+        attributes = inventory.attributes_by_id[element_id]
+        assert attributes["role"] == "status"
+        assert attributes["aria-live"] == "polite"
+
+
+def test_explorer_filters_and_resize_handles_expose_accessible_state():
+    inventory = _inventory()
+    search = inventory.attributes_by_id["kb-search-input"]
+    assert "kb-search-input" in inventory.label_targets
+    assert search["type"] == "text"
+
+    expected_handles = {
+        "resize-handle": ("vertical", "left-panel right-panel", "30", "85"),
+        "v-resize-top": (
+            "vertical",
+            "conclusions-panel facts-panel",
+            "25",
+            "75",
+        ),
+        "h-resize-left": (
+            "horizontal",
+            "top-section rules-section",
+            "15",
+            "75",
+        ),
+        "h-resize-chat": (
+            "horizontal",
+            "chat-messages chat-input-area",
+            "10",
+            "50",
+        ),
+    }
+    for element_id, (orientation, controls, minimum, maximum) in expected_handles.items():
+        attributes = inventory.attributes_by_id[element_id]
+        assert attributes["role"] == "separator"
+        assert attributes["tabindex"] == "0"
+        assert attributes["aria-label"]
+        assert attributes["aria-controls"] == controls
+        assert attributes["aria-orientation"] == orientation
+        assert attributes["aria-valuemin"] == minimum
+        assert attributes["aria-valuemax"] == maximum
+        assert attributes["aria-valuenow"] is not None
+
+    for class_name in ("concl-filter", "facts-filter", "kb-tab"):
+        controls = inventory.attributes_by_class[class_name]
+        assert controls
+        assert all(attributes["type"] == "button" for attributes in controls)
+        assert all(attributes["aria-controls"] for attributes in controls)
+        assert all(
+            attributes["aria-pressed"] in {"true", "false"}
+            for attributes in controls
+        )
 
 
 def test_byok_key_has_no_browser_persistence_code():

@@ -19,8 +19,8 @@
       </span>
       <span class="sep">&gt;</span>
       <span class="scenario-name" id="scenario-name">Loading...</span>
-      <span class="context-indicator" id="context-indicator">Example</span>
-      <span class="modified-indicator" id="modified-indicator" hidden></span>
+      <span class="context-indicator" id="context-indicator" role="status" aria-live="polite">Example</span>
+      <span class="modified-indicator" id="modified-indicator" role="status" aria-live="polite" hidden></span>
     </div>
     <div class="topbar-right">
       <label class="visually-hidden" for="scenario-select">Choose an example scenario</label>
@@ -50,33 +50,33 @@
 
       <!-- Top Section: Conclusions + Facts side by side -->
       <div class="top-section" id="top-section">
-        <div class="conclusions-panel" id="conclusions-panel">
+        <div class="conclusions-panel" id="conclusions-panel" role="region" aria-labelledby="conclusions-title">
           <div class="panel-header conclusions-header-row">
-            <span class="conclusions-title">
+            <span class="conclusions-title" id="conclusions-title">
               Conclusions
               <button class="btn btn-small btn-view-af" id="view-af-btn" title="View the argumentation framework as a graph">View Graph</button>
             </span>
-            <div class="concl-filters">
-              <button class="concl-filter active" data-filter="key">Key</button>
-              <button class="concl-filter" data-filter="accepted">Accepted</button>
-              <button class="concl-filter" data-filter="rejected">Rejected</button>
-              <button class="concl-filter" data-filter="undecided">Undecided</button>
-              <button class="concl-filter" data-filter="absent">Absent</button>
-              <button class="concl-filter" data-filter="all">All</button>
+            <div class="concl-filters" role="group" aria-label="Filter conclusions">
+              <button type="button" class="concl-filter active" data-filter="key" aria-controls="conclusions-list" aria-pressed="true">Key</button>
+              <button type="button" class="concl-filter" data-filter="accepted" aria-controls="conclusions-list" aria-pressed="false">Accepted</button>
+              <button type="button" class="concl-filter" data-filter="rejected" aria-controls="conclusions-list" aria-pressed="false">Rejected</button>
+              <button type="button" class="concl-filter" data-filter="undecided" aria-controls="conclusions-list" aria-pressed="false">Undecided</button>
+              <button type="button" class="concl-filter" data-filter="absent" aria-controls="conclusions-list" aria-pressed="false">Absent</button>
+              <button type="button" class="concl-filter" data-filter="all" aria-controls="conclusions-list" aria-pressed="false">All</button>
             </div>
           </div>
-          <div class="conclusions-list" id="conclusions-list"></div>
+          <div class="conclusions-list" id="conclusions-list" tabindex="0" aria-label="Conclusions"></div>
         </div>
-        <div class="v-resize-handle" id="v-resize-top" title="Drag to resize"></div>
-        <div class="facts-panel" id="facts-panel">
+        <div class="v-resize-handle" id="v-resize-top" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize conclusions and facts panels" aria-controls="conclusions-panel facts-panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"></div>
+        <div class="facts-panel" id="facts-panel" role="region" aria-labelledby="facts-title">
           <div class="panel-header facts-header-row">
-            <span>Facts &amp; Assumptions</span>
+            <span id="facts-title">Facts &amp; Assumptions</span>
           </div>
-          <div class="facts-filter-bar">
-            <button class="facts-filter active" data-filter="facts">Facts</button>
-            <button class="facts-filter" data-filter="assumptions">Assumptions</button>
-            <button class="facts-filter" data-filter="modified">Modified</button>
-            <button class="facts-filter" data-filter="suspended">Suspended</button>
+          <div class="facts-filter-bar" role="group" aria-label="Filter facts and assumptions">
+            <button type="button" class="facts-filter active" data-filter="facts" aria-controls="facts-list" aria-pressed="true">Facts</button>
+            <button type="button" class="facts-filter" data-filter="assumptions" aria-controls="facts-list" aria-pressed="false">Assumptions</button>
+            <button type="button" class="facts-filter" data-filter="modified" aria-controls="facts-list" aria-pressed="false">Modified</button>
+            <button type="button" class="facts-filter" data-filter="suspended" aria-controls="facts-list" aria-pressed="false">Suspended</button>
             <div class="toolbar-spacer"></div>
             <button class="btn btn-small btn-primary llm-only" data-edit-task="add-fact" title="Add a new fact via natural-language instruction">+ Fact</button>
             <button class="btn btn-small btn-primary llm-only" data-edit-task="add-assumption" title="Add a new assumption via natural-language instruction">+ Assumption</button>
@@ -85,29 +85,30 @@
         </div>
       </div>
 
-      <div class="h-resize-handle" id="h-resize-left" title="Drag to resize"></div>
+      <div class="h-resize-handle" id="h-resize-left" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize evidence and rules panels" aria-controls="top-section rules-section" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="75" aria-valuenow="35"></div>
 
       <!-- Bottom Section: Rules -->
-      <div class="rules-section" id="rules-section">
-        <div class="panel-header">Rules</div>
+      <div class="rules-section" id="rules-section" role="region" aria-labelledby="rules-title">
+        <div class="panel-header" id="rules-title">Rules</div>
         <div class="rules-toolbar">
           <button class="btn btn-small btn-primary llm-only" data-edit-task="add-rule" title="Add a new rule via natural-language instruction">+ New Rule</button>
           <div class="kb-search">
+            <label class="visually-hidden" for="kb-search-input">Search rules</label>
             <input type="text" id="kb-search-input" placeholder="Search rules...">
           </div>
-          <div class="kb-tabs">
-            <button class="kb-tab active" data-tab="all">All Rules</button>
-            <button class="kb-tab" data-tab="conflicts" title="Show rebut and undercut conflicts; set preferences">Conflicts</button>
-            <button class="kb-tab" data-tab="modified">Modified</button>
-            <button class="kb-tab" data-tab="suspended">Suspended</button>
+          <div class="kb-tabs" role="group" aria-label="Filter rules">
+            <button type="button" class="kb-tab active" data-tab="all" aria-controls="kb-content" aria-pressed="true">All Rules</button>
+            <button type="button" class="kb-tab" data-tab="conflicts" aria-controls="kb-content" aria-pressed="false" title="Show rebut and undercut conflicts; set preferences">Conflicts</button>
+            <button type="button" class="kb-tab" data-tab="modified" aria-controls="kb-content" aria-pressed="false">Modified</button>
+            <button type="button" class="kb-tab" data-tab="suspended" aria-controls="kb-content" aria-pressed="false">Suspended</button>
           </div>
           <div class="toolbar-spacer"></div>
         </div>
-        <div class="kb-content" id="kb-content"></div>
+        <div class="kb-content" id="kb-content" tabindex="0" aria-label="Rules"></div>
       </div>
     </div>
 
-    <div class="v-resize-handle main-resize llm-only" id="resize-handle" title="Drag to resize"></div>
+    <div class="v-resize-handle main-resize llm-only" id="resize-handle" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize explorer and chat panels" aria-controls="left-panel right-panel" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="85" aria-valuenow="75"></div>
 
     <!-- Right Panel: Chat -->
     <section class="right-panel llm-only" id="right-panel" aria-labelledby="chat-panel-title">
@@ -116,8 +117,8 @@
         <button class="chat-access-button" id="chat-access-button" type="button">Balanced</button>
       </div>
       <div class="chat-access-note" id="chat-access-note" role="status"></div>
-      <div class="chat-messages" id="chat-messages" aria-live="polite"></div>
-      <div class="h-resize-handle" id="h-resize-chat" title="Drag to resize"></div>
+      <div class="chat-messages" id="chat-messages" tabindex="0" aria-label="Conversation" aria-live="polite"></div>
+      <div class="h-resize-handle" id="h-resize-chat" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize chat history and message composer" aria-controls="chat-messages chat-input-area" aria-orientation="horizontal" aria-valuemin="10" aria-valuemax="50" aria-valuenow="20"></div>
       <div class="chat-input-area" id="chat-input-area">
         <label class="visually-hidden" for="chat-input">Ask about the current scenario</label>
         <textarea id="chat-input" rows="4" placeholder="Ask about the case, a rule, or a conclusion..."></textarea>

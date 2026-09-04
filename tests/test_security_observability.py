@@ -397,6 +397,19 @@ def test_production_defaults_use_host_cookie_and_exact_trusted_host(monkeypatch)
     assert settings.database_pool_timeout_seconds == 10
 
 
+def test_production_normalizes_explicit_trusted_hostnames(monkeypatch):
+    _production_environment(monkeypatch)
+    monkeypatch.setenv(
+        "ABDA_TRUSTED_HOSTS",
+        "GENERATED.EXAMPLE.ORG, DEMO.ABDA-NL.ORG",
+    )
+    settings = Settings.from_environment()
+    assert settings.trusted_hosts == (
+        "generated.example.org",
+        "demo.abda-nl.org",
+    )
+
+
 @pytest.mark.parametrize(
     ("name", "value", "message"),
     [
@@ -404,6 +417,24 @@ def test_production_defaults_use_host_cookie_and_exact_trusted_host(monkeypatch)
         ("ABDA_SESSION_COOKIE", "abda_session", "__Host-"),
         ("ABDA_ABUSE_PROTECTION_ENABLED", "0", "abuse protection"),
         ("ABDA_PUBLIC_BASE_URL", "https://example.org/path", "HTTPS origin"),
+        ("ABDA_TRUSTED_HOSTS", "*.abda-nl.org", "exact trusted hostnames"),
+        ("ABDA_TRUSTED_HOSTS", "generated.example.org", "public hostname"),
+        (
+            "ABDA_OIDC_METADATA_URL",
+            "https://user:secret@login.example/.well-known/openid-configuration",
+            "safe HTTPS OIDC metadata URL",
+        ),
+        (
+            "ABDA_OIDC_METADATA_URL",
+            "https://login.example/.well-known/openid-configuration?tenant=abda",
+            "safe HTTPS OIDC metadata URL",
+        ),
+        (
+            "ABDA_OIDC_ISSUER",
+            "https://login.example/#unexpected",
+            "safe HTTPS OIDC issuer",
+        ),
+        ("ABDA_OIDC_SCOPE", "openid profile", "openid and email"),
         ("ABDA_PROXY_MODE", "trust-everything", "ABDA_PROXY_MODE"),
     ],
 )

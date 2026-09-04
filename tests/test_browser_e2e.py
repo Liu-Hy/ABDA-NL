@@ -530,6 +530,65 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(page.locator("#kb-content .rule-card").first).to_be_visible()
             _axe_report(page, "initial explorer")
 
+            conclusion_key = page.locator('.concl-filter[data-filter="key"]')
+            conclusion_accepted = page.locator(
+                '.concl-filter[data-filter="accepted"]'
+            )
+            expect(conclusion_key).to_have_attribute("aria-pressed", "true")
+            conclusion_accepted.click()
+            expect(conclusion_key).to_have_attribute("aria-pressed", "false")
+            expect(conclusion_accepted).to_have_attribute("aria-pressed", "true")
+            conclusion_key.click()
+
+            facts_button = page.locator('.facts-filter[data-filter="facts"]')
+            assumptions_button = page.locator(
+                '.facts-filter[data-filter="assumptions"]'
+            )
+            assumptions_button.click()
+            expect(facts_button).to_have_attribute("aria-pressed", "false")
+            expect(assumptions_button).to_have_attribute("aria-pressed", "true")
+            facts_button.click()
+
+            all_rules_button = page.locator('.kb-tab[data-tab="all"]')
+            conflicts_button = page.locator('.kb-tab[data-tab="conflicts"]')
+            conflicts_button.click()
+            expect(all_rules_button).to_have_attribute("aria-pressed", "false")
+            expect(conflicts_button).to_have_attribute("aria-pressed", "true")
+            all_rules_button.click()
+            expect(page.get_by_label("Search rules", exact=True)).to_be_visible()
+
+            explorer_separator = page.get_by_role(
+                "separator", name="Resize explorer and chat panels"
+            )
+            before_resize = int(explorer_separator.get_attribute("aria-valuenow"))
+            explorer_separator.focus()
+            explorer_separator.press("ArrowLeft")
+            expect(explorer_separator).to_have_attribute(
+                "aria-valuenow", str(before_resize - 5)
+            )
+            explorer_separator.press("ArrowRight")
+            expect(explorer_separator).to_have_attribute(
+                "aria-valuenow", str(before_resize)
+            )
+            for label, grow_key, shrink_key in (
+                ("Resize conclusions and facts panels", "ArrowRight", "ArrowLeft"),
+                ("Resize evidence and rules panels", "ArrowDown", "ArrowUp"),
+                (
+                    "Resize chat history and message composer",
+                    "ArrowUp",
+                    "ArrowDown",
+                ),
+            ):
+                handle = page.get_by_role("separator", name=label)
+                expect(handle).to_have_attribute("tabindex", "0")
+                expect(handle).to_have_attribute("aria-valuenow", re.compile(r"^\d+$"))
+                before = int(handle.get_attribute("aria-valuenow"))
+                handle.focus()
+                handle.press(grow_key)
+                expect(handle).to_have_attribute("aria-valuenow", str(before + 5))
+                handle.press(shrink_key)
+                expect(handle).to_have_attribute("aria-valuenow", str(before))
+
             explain_button = page.locator(
                 ".conclusion-card:has(.status-accepted) button[data-explain-id]"
             ).first

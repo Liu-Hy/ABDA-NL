@@ -61,6 +61,14 @@ recipients mutation authority.
 - Automated accessibility scans are retained as regression evidence, while
   manual keyboard and screen-reader checks remain part of release readiness.
 
+The explorer's conclusion, evidence, and rule filters expose named button
+groups and programmatic pressed state instead of communicating selection by
+color alone. Search and scrollable content regions have explicit accessible
+names. Each layout divider is a focusable ARIA separator that supports arrow
+keys, Home, End, and a larger Shift plus arrow step while retaining pointer
+dragging. Current project context and unsaved-change state use polite status
+announcements.
+
 On 2026-09-04, the first WebKit CI run exposed a serious Axe
 `scrollable-region-focusable` violation in the argument graph. The graph
 viewport is now a labeled keyboard-focusable region with a visible focus
