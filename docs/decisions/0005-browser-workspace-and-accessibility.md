@@ -98,3 +98,16 @@ container, Chromium, Firefox, Playwright WebKit, and the full history secret
 scan. The matching
 [CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33862091557) passed
 the enforced zero-result check.
+
+Source `87ab9f42a15b2888837594c2b274622da4a27d40` closes three narrow-screen
+reachability gaps. Compact view and raw ASPIC controls remain available on
+phones, the ASPIC dialog uses nearly the full mobile viewport, and selecting an
+item question reveals the stacked chat panel without moving a user who submits
+from the chat composer. The scroll honors reduced-motion preferences. Its
+complete [CI run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33865106997)
+passed the browser journey in Chromium, Firefox, and Playwright WebKit, both
+Python versions, restricted-role PostgreSQL, dependency audits, packaging, the
+production container, and the full-history secret scan. The matching
+[CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33865107005) passed
+the enforced zero-result check, and GitHub reported no open code-scanning or
+secret-scanning alerts.
