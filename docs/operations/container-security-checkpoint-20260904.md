@@ -99,6 +99,19 @@ artifact on 2026-09-18, so the durable source record contains the policy,
 baseline, scanner identity, counts, run URL, artifact identity, and archive
 digest.
 
+The follow-up Dockerfile configuration-scan change is source commit
+`64f994034b9b449523d2499b969562f8ff9156da`. Its complete matrix passed in
+[CI run 33883850256](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33883850256),
+and [CodeQL run 33883850232](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33883850232)
+also passed. The retained container-security artifact is
+`container-security-ci-64f994034b9b449523d2499b969562f8ff9156da`, artifact
+ID `9941067604`, with archive digest
+`sha256:fe6c5456287d3e76e5c00ac1abe49503b187dea070c6a20e4525fa47aa22cdc6`.
+It reproduced the vulnerability and SBOM counts above, reported 27 successful
+Dockerfile checks with zero failures or exceptions, and retained no raw secret
+report. After those runs, the repository again reported zero open CodeQL,
+Dependabot, and secret-scanning alerts.
+
 ## Remaining release gate
 
 This checkpoint strengthens source and artifact verification, but it does not
