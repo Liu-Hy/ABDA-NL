@@ -16,14 +16,14 @@ def test_rate_limit_retention_rollback_is_pinned_and_narrow():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "050ce2cda65838b4c875079239e91f5161a4bbbe",
-        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
+        "e09fb727da2c34f78f97f28f8591f2b5cc33eeb1",
+        "0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49",
         "51702e175bd14d4cb54075808f839d173d561324",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "abda-nl-stg-web--account-050ce2c",
+        "abda-nl-stg-web--integrity-e09fb72",
         "abda-nl-stg-web--rollback-51702e1",
-        "abda-nl-stg-web--restore-050ce2c",
-        "COMPATIBLE_RETENTION_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED",
+        "abda-nl-stg-web--restore-e09fb72",
+        "COMPATIBLE_SERVICE_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED",
         "a1a41ff17038894a255c4175b06c44422b6887e09f47c36f5b66a91845039273",
         "830302fc1bf30bf0f00c457fdfe8bc190b3562fe",
     ):
@@ -73,11 +73,11 @@ def test_rate_limit_retention_rollback_sets_exact_shared_gate_values():
         text=True,
     )
     assert result.stdout.splitlines() == [
-        "050ce2cda65838b4c875079239e91f5161a4bbbe",
-        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
+        "e09fb727da2c34f78f97f28f8591f2b5cc33eeb1",
+        "0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49",
         "51702e175bd14d4cb54075808f839d173d561324",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "abda-nl-stg-web--account-050ce2c",
+        "abda-nl-stg-web--integrity-e09fb72",
         "abda-nl-stg-web--rollback-51702e1",
-        "abda-nl-stg-web--restore-050ce2c",
+        "abda-nl-stg-web--restore-e09fb72",
     ]

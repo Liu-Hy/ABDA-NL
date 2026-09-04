@@ -163,7 +163,7 @@ def test_operator_runbook_names_the_queued_retention_artifact():
     assert f"`{source}`" in runbook
     assert f"`sha256:{digest}`" in runbook
     assert f"`{revision}`" in runbook
-    assert "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE" in runbook
+    assert "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE" in runbook
 
 
 def test_shareable_privacy_gate_receipt_has_no_email_derived_fingerprint():

@@ -2,7 +2,7 @@
 
 State: hardened image live; privacy preparation complete; permanent deletion next
 
-Runbook revision: `accounting-integrity-20260904.1`
+Runbook revision: `provider-lifecycle-20260904.1`
 
 ## Resume here after the completed privacy preparation
 
@@ -18,7 +18,8 @@ Continue only after the Gate returns
 
 1. Delete that same blocked disposable identity in Auth0.
 2. Move to Section 3 and load the separate `q` helper.
-3. Run its verify, deploy, and audit phases in that order.
+3. Run its verify and deploy phases, complete one short funded browser request,
+   then run its audit phase.
 4. Complete the Cloudflare redirect and its hostname check in Section 4.
 5. Confirm Resend production sending capacity, then run rollback, promotion,
    and the final audit in Section 5.
@@ -40,10 +41,13 @@ private or model-derived identifiers from operational logs, reduce evaluator
 route-list output, and prevent unexpected exception messages or tracebacks from
 entering logs. The cumulative queued image also disables hidden Anthropic SDK
 retries and conservatively settles provider attempts whose billing outcome
-cannot be proven. It does not alter authentication, BYOK key storage, projects,
-sharing, MCP scopes, budget limits, database schema, or browser interactions.
-CodeQL reports zero findings for the new source, and the image workflow rebuilt,
-smoke-tested, and attested its exact digest.
+cannot be proven. It rejects empty or malformed billed responses while retaining
+their usage evidence, distinguishes a Gemini content-policy rejection from an
+outage, and deterministically closes provider network clients after API, MCP,
+evaluation, and outage-drill calls. It does not alter authentication, BYOK key
+storage, projects, sharing, MCP scopes, budget limits, database schema, or
+browser interactions. CodeQL reports zero findings for the new source, and the
+image workflow rebuilt, smoke-tested, and attested its exact digest.
 
 This runbook collects the remaining cloud and account work into one operator
 batch. The hardened-image deployment and live audit, Azure alert deployment,
@@ -63,11 +67,11 @@ The hardened release identity is:
 
 The queued post-privacy cumulative identity is:
 
-- application source commit: `050ce2cda65838b4c875079239e91f5161a4bbbe`
-- source tag: `service-image-staging-accounting-integrity-20260904-072417`
-- image digest: `sha256:2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d`
-- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45187780`
-- target pilot revision: `abda-nl-stg-web--account-050ce2c`
+- application source commit: `e09fb727da2c34f78f97f28f8591f2b5cc33eeb1`
+- source tag: `service-image-staging-provider-lifecycle-20260904-075321`
+- image digest: `sha256:0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49`
+- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45192912`
+- target pilot revision: `abda-nl-stg-web--integrity-e09fb72`
 - public origin: `https://demo.abda-nl.org`
 
 Do not deploy the queued image before the disposable-account privacy deletion
@@ -324,7 +328,7 @@ bash "$q" deploy
 ```
 
 At its prompt, type
-`PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE` once and press Enter.
+`PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE` once and press Enter.
 Use that phrase only after both privacy deletion steps above succeeded. The
 Gate changes only the web image and revision suffix. It verifies the new
 retention and conservative provider-billing disclosures, and preserves the
@@ -332,8 +336,15 @@ existing managed-service and shared-view boundaries. Required success ends
 with:
 
 ```text
-result: RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED
+result: SERVICE_INTEGRITY_IMAGE_DEPLOYED_AUDIT_REQUIRED
 ```
+
+Before the audit, sign in with the existing funded pilot account. Keep
+**Funded model trial** and **Balanced** selected, ask one short question, and
+confirm that a useful answer appears and the displayed balance decreases. Do
+not activate another account, use BYOK, or repeat the call. This single request
+checks the real managed-provider path whose response validation and connection
+lifetime changed in the cumulative image.
 
 Then run the read-only audit:
 
@@ -344,14 +355,15 @@ bash "$q" audit
 Required success ends with:
 
 ```text
-result: RATE_LIMIT_RETENTION_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
+result: SERVICE_INTEGRITY_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 ```
 
 Do not repeat MCP or OpenRouter BYOK acceptance for this image. Those paths and
-their trust boundaries are unchanged. Provider-accounting behavior is covered
-by focused failure tests and the full CI matrix. After the deployment receipt
-is available, Codex can run the automated public browser and bounded
-deterministic capacity checks from Delta without another manual browser action.
+their trust boundaries are unchanged. Provider-accounting and client-lifetime
+behavior is covered by focused failure tests, the full CI matrix, and the one
+funded smoke above. After the deployment receipt is available, Codex can run
+the automated public browser and bounded deterministic capacity checks from
+Delta without another manual browser action.
 
 If Cloud Shell closes, repeat only the block that creates `q`, run
 `bash "$q" verify`, then resume the required phase. Every mutating Gate detects

@@ -19,6 +19,7 @@ checksum in Cloud Shell.
   records the original tested and attested retention image, now preserved as
   historical evidence.
 - [Provider accounting integrity checkpoint](accounting-integrity-checkpoint-20260904.md)
+- [Provider lifecycle checkpoint](provider-lifecycle-checkpoint-20260904.md)
   records the cumulative retention and hard-cap accounting image queued after
   the pending privacy deletion acceptance.
 - [Requirements traceability](requirements-traceability.md) distinguishes

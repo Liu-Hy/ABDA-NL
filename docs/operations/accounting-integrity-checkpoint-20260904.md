@@ -44,6 +44,10 @@ the exact digest, and published GitHub build provenance.
 An independent GitHub attestation check accepted the SLSA provenance subject
 `ghcr.io/liu-hy/abda-nl` at the exact digest above.
 
+This image was subsequently superseded before deployment by the
+[provider lifecycle checkpoint](provider-lifecycle-checkpoint-20260904.md),
+which retains all accounting and retention work from this checkpoint.
+
 ## Deployment boundary
 
 This image is not yet deployed. The prepared disposable-account privacy Gate is
@@ -61,4 +65,3 @@ Gate 22 rehearses a compatible rollback to the prior hardened image and restores
 this image automatically. Gate 23 then promotes the restored image from the
 ten-user pilot to the reviewed 100-user limits and enables the independently
 capped outage fallback.
-

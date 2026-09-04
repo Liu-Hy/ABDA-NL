@@ -16,13 +16,13 @@ def test_rate_limit_retention_image_gate_is_pinned_and_narrow():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "050ce2cda65838b4c875079239e91f5161a4bbbe",
+        "e09fb727da2c34f78f97f28f8591f2b5cc33eeb1",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
+        "0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49",
         "abda-nl-stg-web--harden-51702e1",
-        "abda-nl-stg-web--account-050ce2c",
-        "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE",
-        "RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED",
+        "abda-nl-stg-web--integrity-e09fb72",
+        "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE",
+        "SERVICE_INTEGRITY_IMAGE_DEPLOYED_AUDIT_REQUIRED",
         "1bfebc7b9d8a76bf01332205260778aa1e9bd409377f1a8bb50e211d63c9379f",
         "1eb9fd852a306de9ab00d6412491426bb0cd78c9",
     ):
@@ -74,10 +74,10 @@ def test_rate_limit_retention_wrapper_sets_exact_shared_gate_values():
         text=True,
     )
     assert result.stdout.splitlines() == [
-        "050ce2cda65838b4c875079239e91f5161a4bbbe",
+        "e09fb727da2c34f78f97f28f8591f2b5cc33eeb1",
         "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc",
-        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
+        "0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49",
         "abda-nl-stg-web--harden-51702e1",
-        "abda-nl-stg-web--account-050ce2c",
-        "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE",
+        "abda-nl-stg-web--integrity-e09fb72",
+        "PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE",
     ]

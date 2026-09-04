@@ -41,12 +41,12 @@ def test_rate_limit_retention_audit_is_pinned_and_read_only():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "050ce2cda65838b4c875079239e91f5161a4bbbe",
-        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
+        "e09fb727da2c34f78f97f28f8591f2b5cc33eeb1",
+        "0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49",
         "59db2e3f304fcd8dfc7fadad87c25d68dbe45b0e17440b9a7277467e24bf7857",
         "830302fc1bf30bf0f00c457fdfe8bc190b3562fe",
         "gate9-observability-audit.sh",
-        "RATE_LIMIT_RETENTION_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
+        "SERVICE_INTEGRITY_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
         "FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
     ):
         assert expected in source
@@ -57,23 +57,23 @@ def test_rate_limit_retention_audit_is_pinned_and_read_only():
 
 def test_rate_limit_retention_pilot_audit_settings_are_exact():
     assert _settings("--pilot") == [
-        "050ce2cda65838b4c875079239e91f5161a4bbbe",
-        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
-        "accounting-pilot",
-        "abda-nl-stg-web--account-050ce2c",
+        "e09fb727da2c34f78f97f28f8591f2b5cc33eeb1",
+        "0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49",
+        "integrity-pilot",
+        "abda-nl-stg-web--integrity-e09fb72",
         "10",
         "50000000",
         "false",
-        "RATE_LIMIT_RETENTION_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
+        "SERVICE_INTEGRITY_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED",
     ]
 
 
 def test_rate_limit_retention_public_audit_settings_are_exact():
     assert _settings("--public") == [
-        "050ce2cda65838b4c875079239e91f5161a4bbbe",
-        "2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d",
-        "accounting-public",
-        "abda-nl-stg-web--public-100-050ce2c",
+        "e09fb727da2c34f78f97f28f8591f2b5cc33eeb1",
+        "0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49",
+        "integrity-public",
+        "abda-nl-stg-web--public-100-e09fb72",
         "100",
         "500000000",
         "true",

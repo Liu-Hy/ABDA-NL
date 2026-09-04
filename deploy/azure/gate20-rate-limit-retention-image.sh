@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 
-# Deploy the cumulative retention and provider-accounting hardening as one
-# image-only Container App update. The shared gate proves that every application
-# setting and secret reference remains unchanged and reruns the public checks.
+# Deploy the cumulative service-integrity hardening as one image-only Container
+# App update. The shared gate proves that every application setting and secret
+# reference remains unchanged and reruns the public checks.
 
 set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_MCP_IMAGE_SCRIPT_REVISION='3'
-ABDA_MCP_IMAGE_SOURCE_COMMIT='050ce2cda65838b4c875079239e91f5161a4bbbe'
+ABDA_MCP_IMAGE_SCRIPT_REVISION='4'
+ABDA_MCP_IMAGE_SOURCE_COMMIT='e09fb727da2c34f78f97f28f8591f2b5cc33eeb1'
 ABDA_MCP_IMAGE_OLD_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
-ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d'
+ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49'
 ABDA_MCP_IMAGE_OLD_REVISION='abda-nl-stg-web--harden-51702e1'
-ABDA_MCP_IMAGE_TARGET_SUFFIX='account-050ce2c'
-ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--account-050ce2c'
-ABDA_MCP_IMAGE_GATE_TITLE='cumulative accounting-integrity image'
-ABDA_MCP_IMAGE_CONFIRMATION='PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_RETENTION_IMAGE'
-ABDA_MCP_IMAGE_RESULT='RATE_LIMIT_RETENTION_IMAGE_DEPLOYED_AUDIT_REQUIRED'
-ABDA_MCP_IMAGE_POST_ACTION_ONE='No separate browser check is required for this maintenance change.'
-ABDA_MCP_IMAGE_POST_ACTION_TWO='Continue only with the pinned read-only cumulative image audit.'
+ABDA_MCP_IMAGE_TARGET_SUFFIX='integrity-e09fb72'
+ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--integrity-e09fb72'
+ABDA_MCP_IMAGE_GATE_TITLE='cumulative service-integrity image'
+ABDA_MCP_IMAGE_CONFIRMATION='PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE'
+ABDA_MCP_IMAGE_RESULT='SERVICE_INTEGRITY_IMAGE_DEPLOYED_AUDIT_REQUIRED'
+ABDA_MCP_IMAGE_POST_ACTION_ONE='Run one short funded browser request, then continue with the pinned audit.'
+ABDA_MCP_IMAGE_POST_ACTION_TWO='Keep public OpenRouter failover disabled until the later promotion.'
 
 ABDA_RETENTION_GATE_DIRECTORY="$(
   cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd

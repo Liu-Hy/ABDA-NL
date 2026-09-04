@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Run the existing read-only release and observability audit against the exact
-# cumulative accounting-integrity image. The pilot mode follows Gate 20. The
+# cumulative service-integrity image. The pilot mode follows Gate 20. The
 # public mode follows the bounded promotion of the same immutable image.
 
 set -Eeuo pipefail
@@ -33,9 +33,9 @@ if [[ "$ABDA_RETENTION_AUDIT_SHARED_GATE_TEMPORARY" == 'true' ]]; then
   rm -f -- "$ABDA_RETENTION_AUDIT_SHARED_GATE"
 fi
 
-ABDA_AUDIT_SCRIPT_REVISION='accounting-3'
-ABDA_AUDIT_SOURCE_COMMIT='050ce2cda65838b4c875079239e91f5161a4bbbe'
-ABDA_AUDIT_IMAGE_SHA256='2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d'
+ABDA_AUDIT_SCRIPT_REVISION='integrity-4'
+ABDA_AUDIT_SOURCE_COMMIT='e09fb727da2c34f78f97f28f8591f2b5cc33eeb1'
+ABDA_AUDIT_IMAGE_SHA256='0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49'
 
 abda_audit_set_constants() {
   local release_stage="${1:---pilot}"
@@ -53,16 +53,16 @@ abda_audit_set_constants() {
   ABDA_OPENROUTER_BUDGET_MICROUSD='500000000'
   case "$release_stage" in
     --pilot)
-      ABDA_AUDIT_RELEASE_STAGE='accounting-pilot'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--account-050ce2c'
+      ABDA_AUDIT_RELEASE_STAGE='integrity-pilot'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--integrity-e09fb72'
       ABDA_TRIAL_MAX_USERS='10'
       ABDA_TRIAL_BUDGET_MICROUSD='50000000'
       ABDA_OPENROUTER_ENABLED='false'
-      ABDA_AUDIT_RESULT='RATE_LIMIT_RETENTION_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED'
+      ABDA_AUDIT_RESULT='SERVICE_INTEGRITY_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED'
       ;;
     --public)
-      ABDA_AUDIT_RELEASE_STAGE='accounting-public'
-      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-050ce2c'
+      ABDA_AUDIT_RELEASE_STAGE='integrity-public'
+      ABDA_AUDIT_REVISION='abda-nl-stg-web--public-100-e09fb72'
       ABDA_TRIAL_MAX_USERS='100'
       ABDA_TRIAL_BUDGET_MICROUSD='500000000'
       ABDA_OPENROUTER_ENABLED='true'

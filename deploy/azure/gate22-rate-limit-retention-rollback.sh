@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Rehearse a schema-compatible rollback from the cumulative accounting image to
-# the prior hardened image, then restore the cumulative image automatically.
+# Rehearse a schema-compatible rollback from the cumulative service-integrity
+# image to the prior hardened image, then restore the cumulative image.
 
 set -Eeuo pipefail
 set +x
@@ -32,16 +32,16 @@ if [[ "$ABDA_RETENTION_ROLLBACK_SHARED_GATE_TEMPORARY" == 'true' ]]; then
   rm -f -- "$ABDA_RETENTION_ROLLBACK_SHARED_GATE"
 fi
 
-ABDA_ROLLBACK_SCRIPT_REVISION='accounting-3'
-ABDA_CURRENT_SOURCE_COMMIT='050ce2cda65838b4c875079239e91f5161a4bbbe'
-ABDA_CURRENT_IMAGE_SHA256='2ff479555d21a5ea44506e6d74a080551ddfc0fa4f5122cf7cc96f1e26afb50d'
+ABDA_ROLLBACK_SCRIPT_REVISION='integrity-4'
+ABDA_CURRENT_SOURCE_COMMIT='e09fb727da2c34f78f97f28f8591f2b5cc33eeb1'
+ABDA_CURRENT_IMAGE_SHA256='0a33ffa9dac2e5bf6a69855140698c086bced30c12c780318759c5a375307d49'
 ABDA_ROLLBACK_SOURCE_COMMIT='51702e175bd14d4cb54075808f839d173d561324'
 ABDA_ROLLBACK_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
-ABDA_CURRENT_REVISION='abda-nl-stg-web--account-050ce2c'
+ABDA_CURRENT_REVISION='abda-nl-stg-web--integrity-e09fb72'
 ABDA_ROLLBACK_SUFFIX='rollback-51702e1'
 ABDA_ROLLBACK_REVISION='abda-nl-stg-web--rollback-51702e1'
-ABDA_RESTORE_SUFFIX='restore-050ce2c'
-ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-050ce2c'
+ABDA_RESTORE_SUFFIX='restore-e09fb72'
+ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-e09fb72'
 
 ABDA_RETENTION_ROLLBACK_PUBLIC_FUNCTION="$(
   declare -f abda_rollback_public_acceptance
@@ -92,7 +92,7 @@ abda_rollback_print_status() {
   printf 'privacy_notice_date: verified\n'
   printf 'conservative_provider_billing_disclosure: verified\n'
   printf 'terms_notice_date: verified\n'
-  printf 'result: COMPATIBLE_RETENTION_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED\n'
+  printf 'result: COMPATIBLE_SERVICE_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED\n'
   printf '%s\n' \
     'The current cumulative image is healthy again. Continue with the bounded public promotion only after its external prerequisites are complete.'
 }
