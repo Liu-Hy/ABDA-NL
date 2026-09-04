@@ -326,6 +326,40 @@ def test_private_project_lifecycle_and_optimistic_versioning(client: TestClient)
     assert client.get(f"/api/projects/{project_id}").status_code == 404
 
 
+def test_project_detail_and_working_state_share_one_compute_limit(
+    client: TestClient,
+):
+    _login(client, "project-read-limit@example.edu")
+    created = client.post(
+        "/api/projects",
+        json={
+            "name": "Bounded project reads",
+            "source_scenario_id": "fire_prevention",
+            "diff_ops": [],
+        },
+    ).json()
+    limited = replace(
+        get_settings(),
+        abuse_protection_enabled=True,
+        anonymous_requests_per_minute=2,
+    )
+    app.dependency_overrides[get_settings] = lambda: limited
+    try:
+        detail = client.get(f"/api/projects/{created['id']}")
+        working = client.post(
+            f"/api/projects/{created['id']}/state",
+            json={"expected_version": created["version"], "diff_ops": []},
+        )
+        rejected = client.get(f"/api/projects/{created['id']}")
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert detail.status_code == 200
+    assert working.status_code == 200
+    assert rejected.status_code == 429
+    assert rejected.json()["detail"]["code"] == "rate_limit_exceeded"
+
+
 def test_reopened_project_uses_saved_state_as_its_working_baseline(client: TestClient):
     _login(client, "project-context@example.edu")
     created = client.post(

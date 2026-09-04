@@ -114,6 +114,12 @@ rejected import or edit from leaving a project whose argumentation framework
 cannot be rebuilt when the owner reopens it. The shared project service applies
 the invariant to browser and MCP writes alike.
 
+Authenticated browser project detail reads and working-state computations share
+the same per-account `state_compute` bucket. Reopening a saved project therefore
+cannot bypass the database-backed computation limit applied to explicit state
+requests. Public share resolution has its own stricter network-subject bucket,
+and deterministic MCP reads use their own shared per-account read bucket.
+
 Private projects are always selected with the authenticated internal user ID.
 Optimistic versions prevent silent overwrites. Read-only shares use revocable
 bearer tokens in URL fragments, so normal HTTP access logs do not receive the

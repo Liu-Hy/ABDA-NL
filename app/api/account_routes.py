@@ -477,10 +477,20 @@ def post_project_import(
 @router.get("/api/projects/{project_id}", response_model=ProjectDetailResponse)
 def get_project_route(
     project_id: str,
+    request: Request,
     response: Response,
     user: User = Depends(require_verified_user),
     session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> ProjectDetailResponse:
+    enforce_rate_limit(
+        request,
+        session,
+        settings,
+        scope="state_compute",
+        limit=settings.anonymous_requests_per_minute,
+        user_id=user.id,
+    )
     try:
         project = get_project(session, user, project_id)
     except ProjectNotFoundError as exc:
