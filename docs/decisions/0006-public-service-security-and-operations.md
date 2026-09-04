@@ -100,6 +100,14 @@ Delta runs ignore forwarded client headers. These controls bound ordinary abuse
 but are not a replacement for Azure platform denial-of-service protection or a
 future WAF if traffic grows.
 
+State computation also has deterministic per-request ceilings for premise
+matching, candidate combinations, argument count and representation size,
+attack inspection, and attack count. These limits protect a worker from one
+compact but combinatorially expanding scenario, which request-rate limits alone
+cannot do. A scenario that crosses a ceiling receives the stable HTTP 422 code
+`scenario_too_complex` and can be simplified without affecting its saved
+baseline.
+
 Private projects are always selected with the authenticated internal user ID.
 Optimistic versions prevent silent overwrites. Read-only shares use revocable
 bearer tokens in URL fragments, so normal HTTP access logs do not receive the

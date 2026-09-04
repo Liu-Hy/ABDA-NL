@@ -158,6 +158,9 @@ Record:
 - [ ] The bounded public capacity smoke completes 40 readiness, 40 bundled
       scenario, and 40 deterministic state requests at concurrency 20 with no
       HTTP failure, response drift, or post-burst readiness loss.
+- [ ] Every bundled scenario remains below the deterministic computation
+      budgets, and a compact exponential regression receives HTTP 422
+      `scenario_too_complex` without worker saturation.
 - [ ] OIDC callback codes and share fragments are absent from logs.
 - [ ] A previous compatible image has a documented rollback command.
 - [ ] At least two team members have reviewed the

@@ -34,6 +34,9 @@ checksum in Cloud Shell.
 - [Deterministic engine validation](deterministic-engine-validation-20260904.md)
   records historical scenario compatibility and exact parity for all six
   deployed baseline payloads.
+- [Deterministic computation budget](deterministic-computation-budget-20260904.md)
+  records the source-level bound on combinatorial reasoning work and its
+  unchanged bundled outputs. It is not yet a live deployment record.
 
 If a Gate stops, preserve its visible sanitized output and exit code. Do not
 issue an improvised Azure update or repeat a paid provider call. Resume only
