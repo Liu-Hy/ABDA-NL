@@ -3,7 +3,7 @@
 State: hardened image live; privacy preparation complete; permanent deletion
 next; post-privacy image superseded before deployment
 
-Runbook revision: `suspension-integrity-20260904.2`
+Runbook revision: `privacy-preflight-recovery-20260904.3`
 
 This runbook covers the remaining live service operations. It does not resolve
 the separate source-redistribution question recorded in
@@ -30,6 +30,11 @@ privacy phase. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, followed by
 `DELETE_PRIVACY_ACCEPTANCE`. Do not recreate the disposable account, project,
 share, or MCP token, and do not repeat the preparation phase.
 
+The first revision 9 deletion attempt stopped before starting a deletion
+execution because its historical-template preflight found no exact match.
+Revision 10 replaces that brittle check with a read-only database-state
+preflight. The prior attempt changed no account or Azure state.
+
 Continue only after the Gate returns
 `LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED`:
 
@@ -46,7 +51,7 @@ application code or configuration changes. The remaining presentation-hardware
 checks and recovery tabletop are batched in Section 6.
 
 Before running the remaining privacy phase, confirm that the `p` helper block
-below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. After privacy deletion,
+below uses commit `4d62e92c443480d1a72530d3dcc4022a0e5adbfd`. After privacy deletion,
 use only the separate `q` helper pinned in Section 3. Stop and refresh this file
 from the personal repository's `development` branch if a saved copy uses older
 values.
@@ -115,9 +120,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='9fb7386c271355f5adb07b4e8457368d1db44ad8'
+c='4d62e92c443480d1a72530d3dcc4022a0e5adbfd'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='dc75d1295906cdeae9d10dcc4494441e3d12247481fbc8d725a1746ebb4253b6'
+s='41e992c4e5a1d98ec1c48975ab61ea66750af4281051b7f0810adc142879eb7c'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
@@ -132,12 +137,12 @@ and repeat only the preparation block above to recreate its temporary `p`
 value, then resume the required phase.
 
 There are intentionally two different immutable commits in this handoff. The
-download block above uses `9fb7386c271355f5adb07b4e8457368d1db44ad8`,
+download block above uses `4d62e92c443480d1a72530d3dcc4022a0e5adbfd`,
 which pins the helper file itself. When that helper runs, it must print:
 
 ```text
-ABDA-NL consolidated operator helper revision: 13
-Pinned gate source commit: 830302fc1bf30bf0f00c457fdfe8bc190b3562fe
+ABDA-NL consolidated operator helper revision: 14
+Pinned gate source commit: 335611df6bc4b749f491320c9713cc259773ca92
 ```
 
 The second commit pins the complete child-Gate bundle. Seeing it does not mean
@@ -305,11 +310,13 @@ again. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, then
 result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
 ```
 
-Before it creates a deletion execution, the current Gate finds the exact
-successful preparation execution and measures 900 seconds from that
-execution's end time. If the hold has not elapsed, it reports the remaining
-seconds and exits without creating a failed deletion execution. Wait for the
-reported interval and rerun the same command.
+Before it creates a deletion execution, the current Gate runs a read-only
+execution that checks the durable account state and measures 900 seconds from
+the account's preparation timestamp. It also verifies that bearer access is
+revoked, model reservations are settled, and trial credit was never activated.
+Only a successful preflight can start the permanent deletion execution. A
+failed read-only preflight can be retried after the reported interval without
+repeating preparation or weakening the mutating execution boundary.
 
 Only after this second receipt, return to the same Auth0 user and select
 **Delete User** from the details page or actions menu. Confirm deletion. The

@@ -96,27 +96,32 @@ proves that the local user and private records are gone. Success ends with:
 result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
 ```
 
-Gate revision 9 verifies that the exact successful preparation execution ended
-at least 900 seconds earlier before starting a deletion job. An early attempt
-reports the remaining seconds and exits before Azure creates a deletion
-execution. The operator can wait for that remainder and safely rerun the same
-Gate.
+An initial revision 9 deletion attempt stopped before creating a deletion
+execution because Azure's historical list response did not yield an exactly
+matching full preparation template. Revision 10 no longer treats that response
+shape as the hold authority. It first runs a read-only execution that checks
+the durable account status, preparation timestamp, revoked bearer access,
+settled reservations, and absence of trial usage. The permanent deletion
+execution starts only after that preflight succeeds, and it repeats the same
+checks before mutation. A failed read-only preflight can be retried safely.
 
 Delete the still-blocked disposable user from Auth0 only after the second
 receipt succeeds. The gate never changes Azure configuration, secrets, DNS,
 Auth0, trial limits, or provider routing. Its shareable receipts omit both the
 email address and its derived account fingerprint.
 
-The Gate avoids the Azure Container Apps interactive WebSocket. It starts a
-one-time template override on the existing manual migration job, using the
-approved application image and the job's restricted application-password
-secret. The override runs the privacy code instead of the migration command
-for that execution only. It does not change the saved job configuration, and
-the Gate compares the before and after configuration to prove that boundary.
-It resumes an exact active or successful matching execution after a shell
-interruption, refuses an unrelated active execution, and never automatically
-repeats a failed matching execution. The database status remains the authority
-between the preparation and deletion runs.
+The Gate avoids the Azure Container Apps interactive WebSocket. It starts an
+execution-only template override on the existing manual migration job, using
+the approved application image and the job's restricted application-password
+secret. Deletion uses one read-only preflight execution followed by the
+mutating execution. These overrides run privacy code instead of the migration
+command for those executions only. They do not change the saved job
+configuration, and the Gate compares the before and after configuration to
+prove that boundary. It hydrates list results through the execution detail API
+before matching exact templates, resumes an exact active or successful
+execution after a shell interruption, refuses an unrelated active execution,
+and never automatically repeats a failed mutating execution. The database
+status remains the authority between the preparation and deletion runs.
 
 ## Produce an access export
 
