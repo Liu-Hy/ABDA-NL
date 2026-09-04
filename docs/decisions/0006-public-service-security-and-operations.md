@@ -237,6 +237,16 @@ application image or database design.
 - Both container stages use the same reviewed Python base image pinned by OCI
   index digest. A base security refresh is an explicit source change that must
   rebuild and retest the complete image.
+- Production images omit pip from both the runtime interpreter and copied
+  virtual environment. CI scans the complete built image with a checksum-pinned
+  Trivy binary, blocks any secret finding and every high or critical finding
+  for which the distributor reports a fixed version. An exact reviewed
+  baseline covers only currently unfixed findings in the pinned base image, so
+  a newly reported high or critical finding also blocks CI until it is fixed or
+  explicitly reviewed. CI retains a complete vulnerability report and
+  CycloneDX SBOM. The SBOM is a workflow artifact, not an OCI index attachment,
+  so Azure receives the same single-platform image manifest that passed the
+  runtime smoke test.
 - Making the GitHub container package public is a deliberate one-time action.
   The package contains only material already built from the public repository,
   and no secret is included in the Docker context or image layers.

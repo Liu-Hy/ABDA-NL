@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import re
 import subprocess
 
@@ -285,6 +286,49 @@ def test_continuous_integration_verifies_the_container_license_file():
     assert '.dist-info/licenses/LICENSE")' in workflow
     assert "wheel LICENSE differs from the source LICENSE" in workflow
     assert "cat /srv/abda/LICENSE | cmp --silent LICENSE -" in workflow
+
+
+def test_container_images_remove_installers_and_ci_enforces_scan_policy():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    continuous_integration = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+    image_workflow = (WORKFLOWS / "publish-service-image.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "/opt/venv/bin/python -m pip uninstall --yes pip" in dockerfile
+    assert "RUN python -m pip uninstall --yes pip" in dockerfile
+    for workflow in (continuous_integration, image_workflow):
+        assert "ABDA_CI_TRIVY_VERSION: 0.74.0" in workflow
+        assert (
+            "ABDA_CI_TRIVY_SHA256: "
+            "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
+            in workflow
+        )
+        assert "**/pip/_vendor/bom.cdx.json" in workflow
+        assert "deploy/container_security_policy.py" in workflow
+        assert "--scanners secret" in workflow
+        assert "--format cyclonedx" in workflow
+        assert "container-security-" in workflow
+    assert '"abda-nl-ci:${GITHUB_SHA}"' in continuous_integration
+    assert 'ABDA_IMAGE_URI="${ABDA_IMAGE_NAME}@${ABDA_IMAGE_DIGEST}"' in image_workflow
+    assert '"$ABDA_IMAGE_URI"' in image_workflow
+    assert "sbom: false" in image_workflow
+
+    base_images = re.findall(
+        r"^FROM (python:3\.13-slim-bookworm@sha256:[0-9a-f]{64}) AS \w+$",
+        dockerfile,
+        flags=re.MULTILINE,
+    )
+    assert len(base_images) == 2
+    assert len(set(base_images)) == 1
+    baseline = json.loads(
+        (ROOT / "deploy" / "container_vulnerability_baseline.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert baseline["schema_version"] == 1
+    assert baseline["base_image"] == base_images[0]
+    assert baseline["accepted_unfixed_high_critical"]
 
 
 def test_service_image_workflow_enforces_the_source_license_gate():

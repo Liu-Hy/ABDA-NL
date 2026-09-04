@@ -11,7 +11,8 @@ RUN python -m venv /opt/venv
 COPY requirements.runtime.lock ./
 RUN /opt/venv/bin/python -m pip install \
       --require-hashes \
-      --requirement requirements.runtime.lock
+      --requirement requirements.runtime.lock \
+    && /opt/venv/bin/python -m pip uninstall --yes pip
 
 FROM python:3.13-slim-bookworm@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e AS runtime
 
@@ -25,7 +26,8 @@ LABEL org.opencontainers.image.source="${ABDA_IMAGE_SOURCE}" \
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN groupadd --system --gid 10001 abda \
+RUN python -m pip uninstall --yes pip \
+    && groupadd --system --gid 10001 abda \
     && useradd --system --uid 10001 --gid abda --create-home abda
 
 WORKDIR /srv/abda

@@ -16,6 +16,9 @@ jobs:
   verify-publish-and-attest:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      ABDA_CI_TRIVY_VERSION: 0.74.0
+      ABDA_CI_TRIVY_SHA256: 2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a
     permissions:
       artifact-metadata: write
       attestations: write
@@ -155,6 +158,9 @@ jobs:
           test -s LICENSE
           docker exec "$ABDA_IMAGE_CONTAINER_ID" \
             cat /srv/abda/LICENSE | cmp --silent LICENSE -
+          docker exec "$ABDA_IMAGE_CONTAINER_ID" \
+            /opt/venv/bin/python -c \
+            'import importlib.util; assert importlib.util.find_spec("pip") is None'
           curl --fail --silent --show-error \
             http://127.0.0.1:18000/health/live >/dev/null
           curl --fail --silent --show-error \
@@ -163,6 +169,64 @@ jobs:
             http://127.0.0.1:18000/privacy.html >/dev/null
           curl --fail --silent --show-error \
             http://127.0.0.1:18000/terms.html >/dev/null
+      - name: Scan the exact pushed digest and generate its SBOM
+        env:
+          ABDA_IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          set -Eeuo pipefail
+          ABDA_IMAGE_URI="${ABDA_IMAGE_NAME}@${ABDA_IMAGE_DIGEST}"
+          ABDA_CI_SECURITY_DIR="artifacts/container-security"
+          mkdir -p "$ABDA_CI_SECURITY_DIR"
+          curl --fail --silent --show-error --location \
+            "https://github.com/aquasecurity/trivy/releases/download/v${ABDA_CI_TRIVY_VERSION}/trivy_${ABDA_CI_TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "$RUNNER_TEMP/trivy.tar.gz"
+          echo "${ABDA_CI_TRIVY_SHA256}  $RUNNER_TEMP/trivy.tar.gz" | \
+            sha256sum --check
+          tar -xzf "$RUNNER_TEMP/trivy.tar.gz" -C "$RUNNER_TEMP" trivy
+          chmod 0755 "$RUNNER_TEMP/trivy"
+
+          "$RUNNER_TEMP/trivy" image --quiet --timeout 5m \
+            --scanners vuln \
+            --skip-files '**/pip/_vendor/bom.cdx.json' \
+            --format json \
+            --output "$ABDA_CI_SECURITY_DIR/vulnerabilities.json" \
+            "$ABDA_IMAGE_URI"
+          "$RUNNER_TEMP/trivy" image --quiet --timeout 5m \
+            --scanners secret \
+            --format json \
+            --output "$RUNNER_TEMP/container-secrets.json" \
+            "$ABDA_IMAGE_URI"
+          "$RUNNER_TEMP/trivy" image --quiet --timeout 5m \
+            --scanners vuln \
+            --skip-files '**/pip/_vendor/bom.cdx.json' \
+            --format cyclonedx \
+            --output "$ABDA_CI_SECURITY_DIR/sbom.cdx.json" \
+            "$ABDA_IMAGE_URI"
+
+          set +e
+          python deploy/container_security_policy.py \
+            "$ABDA_CI_SECURITY_DIR/vulnerabilities.json" \
+            --secret-report "$RUNNER_TEMP/container-secrets.json" \
+            --unfixed-baseline deploy/container_vulnerability_baseline.json | \
+            tee "$ABDA_CI_SECURITY_DIR/policy-summary.txt"
+          ABDA_CI_POLICY_EXIT=${PIPESTATUS[0]}
+          set -e
+          {
+            echo '## Container security policy'
+            echo
+            echo '```text'
+            cat "$ABDA_CI_SECURITY_DIR/policy-summary.txt"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          exit "$ABDA_CI_POLICY_EXIT"
+      - name: Preserve release container security evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: container-security-release-${{ steps.source.outputs.commit }}
+          path: artifacts/container-security
+          if-no-files-found: warn
+          retention-days: 14
       - name: Attest the pushed image
         id: attest
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
