@@ -65,6 +65,7 @@ def _activate_trial(session: Session, user: User) -> TrialBalance:
         or locked_user.status != "active"
         or not locked_user.email_verified
     ):
+        session.rollback()
         raise TrialUnavailableError("a verified active account is required")
     program = _locked_program(session)
     if program is None:

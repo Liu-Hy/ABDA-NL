@@ -111,6 +111,7 @@ def _lock_active_owner(session: Session, owner_id: str) -> User:
         .execution_options(populate_existing=True)
     )
     if owner is None or owner.status != "active":
+        session.rollback()
         raise ProjectNotFoundError("account not found")
     return owner
 

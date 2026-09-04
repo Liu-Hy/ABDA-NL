@@ -120,6 +120,7 @@ def create_mcp_token(
         or locked_user.status != "active"
         or not locked_user.email_verified
     ):
+        session.rollback()
         raise MCPTokenError("a verified active account is required")
     if not 1 <= expires_in_days <= MCP_TOKEN_MAX_DAYS:
         raise MCPTokenError(
