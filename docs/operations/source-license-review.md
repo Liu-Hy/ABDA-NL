@@ -95,3 +95,17 @@ in-memory graphs and do not copy the absent upstream fixtures.
 The removed historical modules remain available in Git history for provenance
 review. Do not restore the upstream fixtures until their redistribution terms
 are resolved.
+
+## Transient semantic compatibility check
+
+On 2026-09-04, a disposable directory under `/tmp` combined the unmodified
+historical ABDA-NL test modules from commit `e6a3062` with only the missing
+`Tests/RuleFiles` directory from the fixed upstream commit `6e7a45c`. The test
+process exercised the current engine and reported 20 passing tests in 1.15
+seconds. No upstream fixture was added to the ABDA-NL worktree or commit. The
+exact identities and result are preserved in the
+[deterministic engine validation record](deterministic-engine-validation-20260904.md).
+
+This result provides useful compatibility evidence for the deterministic
+engine. It does not resolve the redistribution question or authorize copying
+the upstream fixtures into ABDA-NL.
