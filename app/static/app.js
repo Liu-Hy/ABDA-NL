@@ -26,6 +26,7 @@ const state = {
   viewKind: 'example',  // 'example' | 'project' | 'shared'
   sharedProject: null,
   readOnly: false,
+  projectSavePending: false,
   llmAccess: {
     mode: 'funded',
     profile: null,
@@ -166,6 +167,18 @@ function isCurrent(ctrl) {
 }
 function isAbortError(e) {
   return e && (e.name === 'AbortError' || e.code === 20);
+}
+function finishRequest(ctrl) {
+  if (ctrl === currentRequest) currentRequest = null;
+}
+function hasPendingStateRequest() {
+  return currentRequest !== null;
+}
+function blockStateMutationDuringSave() {
+  if (!state.projectSavePending) return false;
+  showGlobalStatus('Wait for the current project save to finish before making another change.', 'info');
+  renderAll();
+  return true;
 }
 
 
@@ -386,30 +399,36 @@ async function loadProject(projectId) {
   } catch (error) {
     if (isAbortError(error) || !isCurrent(ctrl)) return;
     setWorkspaceStatus('projects-status', error.message, 'error');
+  } finally {
+    finishRequest(ctrl);
   }
 }
 
 async function loadSharedProject(token) {
   if (!token || token.length > 256) throw new Error('This shared project link is invalid.');
   const ctrl = beginRequest();
-  const project = await apiRequest('/api/shares/resolve', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token }),
-    signal: ctrl.signal,
-  });
-  if (!isCurrent(ctrl)) return;
-  setViewContext('shared', project);
-  state.scenario_id = null;
-  state.baseline = project.scenario;
-  state.diff_ops = [];
-  setBundle({ scenario: project.scenario, af: project.af });
-  resetChatConversation();
-  resetViewFilters();
-  indexBundle();
-  populateScenarioSelect();
-  renderAll();
-  showGlobalStatus(`Viewing shared project "${project.name}" in read-only mode.`, 'info');
+  try {
+    const project = await apiRequest('/api/shares/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+      signal: ctrl.signal,
+    });
+    if (!isCurrent(ctrl)) return;
+    setViewContext('shared', project);
+    state.scenario_id = null;
+    state.baseline = project.scenario;
+    state.diff_ops = [];
+    setBundle({ scenario: project.scenario, af: project.af });
+    resetChatConversation();
+    resetViewFilters();
+    indexBundle();
+    populateScenarioSelect();
+    renderAll();
+    showGlobalStatus(`Viewing shared project "${project.name}" in read-only mode.`, 'info');
+  } finally {
+    finishRequest(ctrl);
+  }
 }
 
 function resetViewFilters() {
@@ -455,11 +474,14 @@ async function loadScenario(id) {
     else if (state.viewKind === 'shared') selector.value = '__shared_project__';
     else selector.value = state.scenario_id;
     showGlobalError(`Failed to load scenario ${id}: ${e.message}`);
+  } finally {
+    finishRequest(ctrl);
   }
 }
 
 async function resetToBaseline() {
   if (!state.scenario_id) return;
+  if (blockStateMutationDuringSave()) return;
   const ctrl = beginRequest();
   state.diff_ops = state.renderedDiffOps.slice();
   try {
@@ -474,6 +496,8 @@ async function resetToBaseline() {
     if (isAbortError(e) || !isCurrent(ctrl)) return;
     showGlobalError(`Reset failed: ${e.message}`);
     renderAll();
+  } finally {
+    finishRequest(ctrl);
   }
 }
 
@@ -490,6 +514,7 @@ async function applyOps(ops) {
     showGlobalStatus('Shared projects are read-only. Open an example or private project to make changes.', 'info');
     return;
   }
+  if (blockStateMutationDuringSave()) return;
   const ctrl = beginRequest();
   state.diff_ops = [...state.diff_ops, ...ops];
   try {
@@ -503,6 +528,8 @@ async function applyOps(ops) {
     state.diff_ops = state.renderedDiffOps.slice();
     showGlobalError(e.message);
     renderAll();
+  } finally {
+    finishRequest(ctrl);
   }
 }
 
@@ -524,29 +551,34 @@ async function previewAndConfirmToggle(op, meta) {
     showGlobalStatus('Shared projects are read-only.', 'info');
     return;
   }
+  if (blockStateMutationDuringSave()) return;
   const ctrl = beginRequest();
-  const prospectiveOps = [...state.diff_ops, op];
-  let projected;
   try {
-    projected = await apiPostState(state.scenario_id, prospectiveOps, ctrl.signal);
-  } catch (e) {
-    if (isAbortError(e) || !isCurrent(ctrl)) return;
-    renderFacts();
-    renderKB();
-    showGlobalError(`Preview failed: ${e.message}`);
-    return;
+    const prospectiveOps = [...state.diff_ops, op];
+    let projected;
+    try {
+      projected = await apiPostState(state.scenario_id, prospectiveOps, ctrl.signal);
+    } catch (e) {
+      if (isAbortError(e) || !isCurrent(ctrl)) return;
+      renderFacts();
+      renderKB();
+      showGlobalError(`Preview failed: ${e.message}`);
+      return;
+    }
+    if (!isCurrent(ctrl)) return;
+
+    const before = state.bundle.af.labels_by_proposition || {};
+    const after = projected.af.labels_by_proposition || {};
+    const diffs = computeLabelDiffs(before, after, projected.scenario);
+
+    pendingSuspendImpact = { prospectiveOps, projected };
+    document.getElementById('suspend-impact-title').textContent = meta.title;
+    document.getElementById('suspend-impact-summary').innerHTML = meta.summary;
+    document.getElementById('suspend-impact-list').innerHTML = renderImpactDiffs(diffs);
+    openModal('modal-suspend-impact', '#suspend-impact-apply-btn');
+  } finally {
+    finishRequest(ctrl);
   }
-  if (!isCurrent(ctrl)) return;
-
-  const before = state.bundle.af.labels_by_proposition || {};
-  const after = projected.af.labels_by_proposition || {};
-  const diffs = computeLabelDiffs(before, after, projected.scenario);
-
-  pendingSuspendImpact = { prospectiveOps, projected };
-  document.getElementById('suspend-impact-title').textContent = meta.title;
-  document.getElementById('suspend-impact-summary').innerHTML = meta.summary;
-  document.getElementById('suspend-impact-list').innerHTML = renderImpactDiffs(diffs);
-  openModal('modal-suspend-impact', '#suspend-impact-apply-btn');
 }
 
 // Returns an array of { id, description, before, after } for every

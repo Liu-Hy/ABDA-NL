@@ -1003,6 +1003,86 @@ def test_project_change_discards_an_in_flight_share_secret(live_browser_server):
             browser.close()
 
 
+def test_slower_share_refresh_cannot_restore_a_revoked_link(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-share-list@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#workspace-tab-projects").click()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    const project = {
+                      id: 'share-list-project',
+                      name: 'Share list project',
+                      description: '',
+                      source_scenario_id: state.scenario_id,
+                      scenario: structuredClone(state.bundle.scenario),
+                      af: structuredClone(state.bundle.af),
+                      version: 1,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    };
+                    setViewContext('project', project);
+                    state.diff_ops = [];
+                    setBundle({scenario: project.scenario, af: project.af});
+                    renderProjectsUI();
+                    let shareListRequest = 0;
+                    window.__resolveOldShareList = null;
+                    window.fetch = (path, options = {}) => {
+                      if (
+                        path === '/api/projects/share-list-project/shares'
+                        && !options.method
+                      ) {
+                        shareListRequest += 1;
+                        if (shareListRequest === 1) {
+                          return new Promise(resolve => {
+                            window.__resolveOldShareList = () => resolve(new Response(
+                              JSON.stringify({share_links: [{
+                                id: 'already-revoked-share',
+                                created_at: new Date().toISOString(),
+                                expires_at: null,
+                                revoked_at: null,
+                                active: true,
+                              }]}),
+                              {status: 200, headers: {'Content-Type': 'application/json'}},
+                            ));
+                          });
+                        }
+                        return Promise.resolve(new Response(
+                          JSON.stringify({share_links: []}),
+                          {status: 200, headers: {'Content-Type': 'application/json'}},
+                        ));
+                      }
+                      return original(path, options);
+                    };
+                    window.__oldShareListRequest = refreshProjectShares();
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveOldShareList !== null")
+            page.evaluate("() => refreshProjectShares()")
+            expect(page.locator("#current-project-card")).not_to_contain_text("Revoke")
+
+            page.evaluate(
+                """async () => {
+                    window.__resolveOldShareList();
+                    await window.__oldShareListRequest;
+                }"""
+            )
+
+            expect(page.locator("#current-project-card")).not_to_contain_text("Revoke")
+        finally:
+            browser.close()
+
+
 def test_project_change_cannot_be_replaced_by_an_older_save_response(
     live_browser_server,
 ):
@@ -1071,6 +1151,150 @@ def test_project_change_cannot_be_replaced_by_an_older_save_response(
 
             assert page.evaluate("state.activeProject.id") == "save-b"
             expect(page.locator("#scenario-name")).to_have_text("Save B")
+        finally:
+            browser.close()
+
+
+def test_project_edit_is_blocked_while_its_save_is_in_flight(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("save-in-flight@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    const project = {
+                      id: 'save-in-flight',
+                      name: 'Save in flight',
+                      description: '',
+                      source_scenario_id: state.scenario_id,
+                      scenario: structuredClone(state.bundle.scenario),
+                      af: structuredClone(state.bundle.af),
+                      version: 1,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    };
+                    setViewContext('project', project);
+                    state.diff_ops = [{op: 'existing-rendered-change'}];
+                    setBundle({scenario: project.scenario, af: project.af});
+                    renderAll();
+                    window.__stateCallsDuringSave = 0;
+                    window.__resolvePendingSave = null;
+                    apiPostState = () => {
+                      window.__stateCallsDuringSave += 1;
+                      return Promise.resolve(structuredClone(state.bundle));
+                    };
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/api/projects/save-in-flight' && options.method === 'PUT') {
+                        return new Promise(resolve => {
+                          const updated = structuredClone(project);
+                          updated.version = 2;
+                          window.__resolvePendingSave = () => resolve(new Response(
+                            JSON.stringify(updated),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      return original(path, options);
+                    };
+                    window.__pendingProjectSave = saveProjectChanges();
+                }"""
+            )
+            page.wait_for_function("() => window.__resolvePendingSave !== null")
+
+            page.evaluate("() => applyOps([{op: 'edit-during-save'}])")
+
+            assert page.evaluate("window.__stateCallsDuringSave") == 0
+            assert page.evaluate("state.diff_ops.length") == 1
+            expect(page.locator("#global-status")).to_contain_text(
+                "Wait for the current project save"
+            )
+
+            page.evaluate(
+                """async () => {
+                    window.__resolvePendingSave();
+                    await window.__pendingProjectSave;
+                }"""
+            )
+            assert page.evaluate("state.activeProject.version") == 2
+            assert page.evaluate("state.diff_ops.length") == 0
+        finally:
+            browser.close()
+
+
+def test_project_save_waits_for_an_in_flight_state_computation(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("compute-before-save@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    const project = {
+                      id: 'compute-before-save',
+                      name: 'Compute before save',
+                      description: '',
+                      source_scenario_id: state.scenario_id,
+                      scenario: structuredClone(state.bundle.scenario),
+                      af: structuredClone(state.bundle.af),
+                      version: 1,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    };
+                    setViewContext('project', project);
+                    state.diff_ops = [{op: 'existing-rendered-change'}];
+                    setBundle({scenario: project.scenario, af: project.af});
+                    renderAll();
+                    window.__projectSaveCalls = 0;
+                    window.__resolvePendingComputation = null;
+                    apiPostState = () => new Promise(resolve => {
+                      window.__resolvePendingComputation = () => resolve(
+                        structuredClone(state.bundle),
+                      );
+                    });
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/api/projects/compute-before-save' && options.method === 'PUT') {
+                        window.__projectSaveCalls += 1;
+                      }
+                      return original(path, options);
+                    };
+                    window.__pendingComputation = applyOps([
+                      {op: 'new-computation-before-save'},
+                    ]);
+                }"""
+            )
+            page.wait_for_function("() => window.__resolvePendingComputation !== null")
+
+            page.evaluate("() => saveProjectChanges()")
+
+            assert page.evaluate("window.__projectSaveCalls") == 0
+            expect(page.locator("#global-status")).to_contain_text(
+                "Wait for the current change"
+            )
+
+            page.evaluate(
+                """async () => {
+                    window.__resolvePendingComputation();
+                    await window.__pendingComputation;
+                }"""
+            )
+            assert page.evaluate("hasPendingStateRequest()") is False
         finally:
             browser.close()
 

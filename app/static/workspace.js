@@ -6,6 +6,7 @@ let externalLoginRefreshPending = false;
 let trialRefreshGeneration = 0;
 let projectRefreshGeneration = 0;
 let mcpTokenRefreshGeneration = 0;
+const projectShareRefreshGenerations = new Map();
 
 window.addEventListener('pageshow', event => {
   if (event.persisted) window.location.reload();
@@ -690,7 +691,7 @@ function currentProjectHTML() {
         <p>Version ${project.version}${unsaved ? `, ${unsaved} unsaved ${unsaved === 1 ? 'change' : 'changes'}` : ', all changes saved'}</p>
       </div>
       <div class="project-card-actions">
-        <button class="btn btn-primary" type="button" data-project-action="save-current" ${unsaved ? '' : 'disabled'}>Save changes</button>
+        <button class="btn btn-primary" type="button" data-project-action="save-current" ${unsaved && !state.projectSavePending ? '' : 'disabled'}>${state.projectSavePending ? 'Saving...' : 'Save changes'}</button>
         <button class="btn" type="button" data-project-action="share-create">Create share link</button>
         <button class="btn" type="button" data-project-action="share-refresh">Manage links</button>
       </div>
@@ -814,12 +815,22 @@ async function createProjectFromCurrentView(event) {
 async function saveProjectChanges() {
   const project = state.activeProject;
   if (!project) return null;
+  if (state.projectSavePending) {
+    showGlobalStatus('Wait for the current project save to finish.', 'info');
+    return null;
+  }
+  if (hasPendingStateRequest()) {
+    showGlobalStatus('Wait for the current change to finish before saving the project.', 'info');
+    return null;
+  }
   if (state.diff_ops.length === 0) {
     showGlobalStatus('This project already contains the current state.', 'info');
     return project;
   }
   const saveButton = byId('save-btn');
+  state.projectSavePending = true;
   saveButton.disabled = true;
+  renderProjectsUI();
   try {
     const updated = await apiRequest(`/api/projects/${encodeURIComponent(project.id)}`, {
       method: 'PUT',
@@ -855,7 +866,9 @@ async function saveProjectChanges() {
     }
     return null;
   } finally {
+    state.projectSavePending = false;
     saveButton.disabled = false;
+    renderProjectsUI();
   }
 }
 
@@ -927,14 +940,23 @@ async function createProjectShare() {
 async function refreshProjectShares(options = {}) {
   const project = options.project || state.activeProject;
   if (!project) return;
+  const requestGeneration = (projectShareRefreshGenerations.get(project.id) || 0) + 1;
+  projectShareRefreshGenerations.set(project.id, requestGeneration);
   try {
     const body = await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/shares`);
-    if (state.activeProject !== project) return;
+    if (
+      state.activeProject !== project
+      || projectShareRefreshGenerations.get(project.id) !== requestGeneration
+    ) return;
     state.activeShares = body.share_links || [];
     state.sharesLoadedFor = project.id;
     renderProjectsUI();
     if (!options.quiet) setWorkspaceStatus('projects-status', 'Share-link status refreshed.', 'success');
   } catch (error) {
+    if (
+      state.activeProject !== project
+      || projectShareRefreshGenerations.get(project.id) !== requestGeneration
+    ) return;
     setWorkspaceStatus('projects-status', error.message, 'error');
   }
 }
