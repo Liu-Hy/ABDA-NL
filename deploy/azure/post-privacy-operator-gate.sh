@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_POST_PRIVACY_SCRIPT_REVISION='1'
-ABDA_POST_PRIVACY_SOURCE_COMMIT='0dc641b3e772e7118664d5a0588903b94c288d25'
+ABDA_POST_PRIVACY_SCRIPT_REVISION='2'
+ABDA_POST_PRIVACY_SOURCE_COMMIT='7cc17be94cc5e63c1a02ee77fafe97dde19f6f6c'
 ABDA_POST_PRIVACY_ROOT=''
 
 abda_post_privacy_cleanup() {
@@ -46,7 +46,7 @@ abda_post_privacy_gate_metadata() {
     deploy)
       printf '%s\n' \
         'deploy/azure/gate20-rate-limit-retention-image.sh' \
-        'fc1ea0426123044b14764afea11604ba9a9ce9d82d41ae2ffa7a743c22078cc4' \
+        'f7f064f665563d7d4e1d517173bf85fd20e20aece5dd789364654d5f44b62a0c' \
         'bash' \
         'Changes only the existing web image and revision suffix.'
       ;;

@@ -16,9 +16,9 @@ def test_post_privacy_helper_is_pinned_and_ordered():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "0dc641b3e772e7118664d5a0588903b94c288d25",
+        "7cc17be94cc5e63c1a02ee77fafe97dde19f6f6c",
         "gate20-rate-limit-retention-image.sh",
-        "fc1ea0426123044b14764afea11604ba9a9ce9d82d41ae2ffa7a743c22078cc4",
+        "f7f064f665563d7d4e1d517173bf85fd20e20aece5dd789364654d5f44b62a0c",
         "gate21-rate-limit-retention-audit.sh",
         "fd46ad2db4aadf392833a1eec563842d1519439253461785b1e5b02c0d7b9746",
         "gate22-rate-limit-retention-rollback.sh",
