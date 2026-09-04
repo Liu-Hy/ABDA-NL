@@ -2,10 +2,10 @@
 
 State: hardened image deployed and audited; remaining manual release Gates prepared
 
-Runbook revision: `source-security-20260904.1`
+Runbook revision: `source-security-20260904.2`
 
 Before running any remaining phase, confirm that the consolidated helper block
-below uses commit `f87eb6cff299c72ef75c16990d1defb10466cbdc`. Stop and refresh this
+below uses commit `b8859959fd3063f1d3cc3f70c2d69c4a88ebf1e1`. Stop and refresh this
 file from the personal repository's `development` branch if a saved copy uses
 an older commit.
 
@@ -51,9 +51,9 @@ its checksum before saving its temporary path in `p`.
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c='f87eb6cff299c72ef75c16990d1defb10466cbdc'
+c='b8859959fd3063f1d3cc3f70c2d69c4a88ebf1e1'
 f='deploy/azure/consolidated-operator-gate.sh'
-s='2bc61624d6949259402b8f3a2317b36783abd2605aeb30a1bd407a93bd294bc1'
+s='334b9d58346bea9bdf8ee17b0df53a53d19e0f33f9c6f15de9ed47a0a2c0765a'
 p="$(mktemp /tmp/abda-operator.XXXXXX)"
 curl -fsSL "$u/$c/$f" -o "$p"
 printf '%s  %s\n' "$s" "$p" | sha256sum --check
@@ -201,9 +201,14 @@ Run the first privacy phase:
 bash "$p" privacy
 ```
 
-Enter `RUN_ABDA_PRIVACY_ACCEPTANCE` at the wrapper confirmation. Enter the
-disposable email only at the hidden prompt. Inside the privacy runner, enter
-`PREPARE_PRIVACY_ACCEPTANCE`. Success ends with:
+Enter `RUN_ABDA_PRIVACY_ACCEPTANCE` at the wrapper confirmation, then enter
+`PREPARE_PRIVACY_ACCEPTANCE` at the phase prompt. The gate locates exactly one
+account by the disposable project and credential names, so it does not ask for
+or store the email address in Cloud Shell or the Azure execution template. It
+starts one short execution-only override of the existing manual migration job.
+The override uses the restricted application database password, does not run
+the migration command, and does not change the job's saved configuration.
+Success ends with:
 
 ```text
 result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES
@@ -211,8 +216,8 @@ result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES
 
 Keep the Auth0 user blocked and wait at least 15 minutes. The Cloudflare work
 in the next section can be completed during this wait. Then run the same
-command again. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, the same hidden email, and
-finally `DELETE_PRIVACY_ACCEPTANCE`. The required second receipt is:
+command again. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, then
+`DELETE_PRIVACY_ACCEPTANCE`. The required second receipt is:
 
 ```text
 result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED
@@ -223,6 +228,12 @@ Only after this second receipt, return to the same Auth0 user and select
 private project is removed by the privacy Gate, so there is no separate
 browser Archive action. The shareable Gate receipts omit both the email address
 and its derived account fingerprint.
+
+If an older privacy gate failed with `Handshake status 404 Not Found` before
+the email prompt, it did not reach the runner and did not change application
+data. Keep the existing disposable state and blocked Auth0 user. Load the
+current helper above and run the first phase. Do not recreate the project,
+share, token, or account.
 
 ## 3. Add the friendly root-domain redirect
 

@@ -60,9 +60,12 @@ Prepare one disposable verified-email account as follows:
 4. Sign out, then block this exact user in Auth0. Keep it blocked throughout
    both gate runs.
 
-The first run asks for the account address through a hidden prompt. It checks
-that the account has never received funded credit, exercises `inspect`, writes
-an access export to a new mode-600 file inside the container, validates the
+The staging gate locates exactly one account by the exact project and MCP
+credential name `Privacy acceptance disposable`. It refuses zero or multiple
+matches. It therefore does not ask for the email address or place it in the
+shell, execution template, or shared receipt. The first run checks that the
+account has never received funded credit, exercises `inspect`, writes an access
+export to a new mode-600 file inside the isolated execution, validates the
 export without printing it, and removes the file. After the exact preparation
 confirmation, it changes the account to `deletion_pending` and proves that all
 active share and MCP access was revoked. A successful first run ends with:
@@ -85,12 +88,16 @@ receipt succeeds. The gate never changes Azure configuration, secrets, DNS,
 Auth0, trial limits, or provider routing. Its shareable receipts omit both the
 email address and its derived account fingerprint.
 
-The Gate refreshes the ready replica before each execution. It retries only an
-Azure exec failure that explicitly reports a preconnection HTTP 404 and has
-not printed a privacy phase or result marker. A runner validation failure or
-any output that could follow a mutation is never retried automatically. The
-database status remains the authority between the preparation and deletion
-runs.
+The Gate avoids the Azure Container Apps interactive WebSocket. It starts a
+one-time template override on the existing manual migration job, using the
+approved application image and the job's restricted application-password
+secret. The override runs the privacy code instead of the migration command
+for that execution only. It does not change the saved job configuration, and
+the Gate compares the before and after configuration to prove that boundary.
+It resumes an exact active or successful matching execution after a shell
+interruption, refuses an unrelated active execution, and never automatically
+repeats a failed matching execution. The database status remains the authority
+between the preparation and deletion runs.
 
 ## Produce an access export
 

@@ -92,8 +92,8 @@ def test_operator_runbook_pins_the_exact_current_helper():
     ).read_text(encoding="utf-8")
     helper_sha256 = hashlib.sha256(OPERATOR_HELPER.read_bytes()).hexdigest()
 
-    assert "f87eb6cff299c72ef75c16990d1defb10466cbdc" in runbook
-    assert helper_sha256 == "2bc61624d6949259402b8f3a2317b36783abd2605aeb30a1bd407a93bd294bc1"
+    assert "b8859959fd3063f1d3cc3f70c2d69c4a88ebf1e1" in runbook
+    assert helper_sha256 == "334b9d58346bea9bdf8ee17b0df53a53d19e0f33f9c6f15de9ed47a0a2c0765a"
     assert f"s='{helper_sha256}'" in runbook
 
 
