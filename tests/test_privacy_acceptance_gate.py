@@ -228,12 +228,20 @@ def _write_template(path: Path, action: str = "prepare") -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _execution(name: str, status: str, template: dict) -> dict:
+def _execution(
+    name: str,
+    status: str,
+    template: dict,
+    *,
+    start_time: str = "2026-09-04T01:00:00Z",
+    end_time: str | None = "2026-09-04T01:00:30Z",
+) -> dict:
     return {
         "name": name,
         "properties": {
             "status": status,
-            "startTime": "2026-09-04T01:00:00Z",
+            "startTime": start_time,
+            "endTime": end_time,
             "template": template,
         },
     }
@@ -273,6 +281,7 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
     assert 'os.environ.pop("ABDA_DATABASE_APP_PASSWORD"' in runner
     assert "shutil.rmtree(export_root" in runner
     assert "age < 900" in runner
+    assert "no deletion execution was created" in source
     assert "account_fingerprint:" not in runner
     assert "\N{EN DASH}" not in source and "\N{EM DASH}" not in source
 
@@ -348,6 +357,79 @@ def test_execution_template_and_resume_classifier(tmp_path: Path):
     result = _run_function("abda_privacy_classify_executions", executions, template_path)
     assert result.returncode != 0
     assert "another migration job execution is active" in result.stderr
+
+
+def test_delete_preflight_requires_a_completed_prepare_hold(tmp_path: Path):
+    prepare_template_path = tmp_path / "prepare-execution.yaml"
+    prepare_template = _write_template(prepare_template_path, "prepare")
+    executions = tmp_path / "executions.json"
+
+    executions.write_text("[]", encoding="utf-8")
+    result = _run_function(
+        "abda_privacy_require_prepare_hold",
+        executions,
+        prepare_template_path,
+        "2026-09-04T01:20:00Z",
+    )
+    assert result.returncode != 0
+    assert "no successful matching privacy preparation" in result.stderr
+
+    executions.write_text(
+        json.dumps(
+            [
+                _execution(
+                    "abda-nl-stg-migrate-prepared",
+                    "Succeeded",
+                    prepare_template,
+                    end_time="2026-09-04T01:10:00Z",
+                )
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _run_function(
+        "abda_privacy_require_prepare_hold",
+        executions,
+        prepare_template_path,
+        "2026-09-04T01:24:59Z",
+    )
+    assert result.returncode != 0
+    assert "wait 1 more seconds" in result.stderr
+    assert "no deletion execution was created" in result.stderr
+
+    result = _run_function(
+        "abda_privacy_require_prepare_hold",
+        executions,
+        prepare_template_path,
+        "2026-09-04T01:25:00Z",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "prepare_hold_seconds: 900" in result.stdout
+    assert "delete_preflight: passed" in result.stdout
+
+    delete_template = json.loads(json.dumps(prepare_template))
+    delete_template["containers"][0]["args"][-2] = "delete"
+    executions.write_text(
+        json.dumps(
+            [
+                _execution(
+                    "abda-nl-stg-migrate-wrong-action",
+                    "Succeeded",
+                    delete_template,
+                    end_time="2026-09-04T01:00:00Z",
+                )
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = _run_function(
+        "abda_privacy_require_prepare_hold",
+        executions,
+        prepare_template_path,
+        "2026-09-04T01:25:00Z",
+    )
+    assert result.returncode != 0
+    assert "no successful matching privacy preparation" in result.stderr
 
 
 def test_embedded_runner_prepares_resumes_and_deletes(tmp_path: Path):

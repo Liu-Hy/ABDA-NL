@@ -7,7 +7,7 @@
 # application configuration. It never changes Auth0, DNS, secrets, trial
 # settings, or provider routing.
 
-ABDA_PRIVACY_SCRIPT_REVISION='8'
+ABDA_PRIVACY_SCRIPT_REVISION='9'
 ABDA_PRIVACY_APPLICATION_SOURCE_COMMIT='51702e175bd14d4cb54075808f839d173d561324'
 ABDA_PRIVACY_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
 ABDA_PRIVACY_EXPECTED_REVISION='abda-nl-stg-web--harden-51702e1'
@@ -347,6 +347,101 @@ else:
 PY
 }
 
+abda_privacy_require_prepare_hold() {
+  local executions_path=$1
+  local prepare_template_path=$2
+  local now=${3:-}
+  python3 - "$executions_path" "$prepare_template_path" "$now" <<'PY'
+from datetime import datetime, timezone
+import json
+import math
+import sys
+
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    executions = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    expected_template = json.load(handle)
+now_text = sys.argv[3]
+
+if not isinstance(executions, list):
+    raise SystemExit("STOP: Azure returned an invalid job execution list")
+
+
+def signature(template):
+    containers = (template or {}).get("containers") or []
+    init_containers = (template or {}).get("initContainers") or []
+    if len(containers) != 1 or init_containers:
+        return None
+    container = containers[0]
+    environment = sorted(
+        (
+            str(item.get("name") or ""),
+            str(item.get("value") or ""),
+            str(item.get("secretRef") or ""),
+        )
+        for item in container.get("env") or []
+    )
+    resources = container.get("resources") or {}
+    try:
+        cpu = float(resources.get("cpu"))
+    except (TypeError, ValueError):
+        return None
+    return {
+        "name": container.get("name"),
+        "image": container.get("image"),
+        "command": container.get("command") or [],
+        "args": container.get("args") or [],
+        "env": environment,
+        "cpu": cpu,
+        "memory": str(resources.get("memory") or "").replace(" ", ""),
+    }
+
+
+def timestamp(value):
+    text = str(value or "")
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise SystemExit("STOP: the preparation execution end time is invalid") from exc
+    if parsed.tzinfo is None:
+        raise SystemExit("STOP: the preparation execution end time has no timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+expected = signature(expected_template)
+if expected is None:
+    raise SystemExit("STOP: the generated preparation template is invalid")
+matches = []
+for execution in executions:
+    properties = execution.get("properties") or execution
+    if (
+        str(properties.get("status") or "") == "Succeeded"
+        and signature(properties.get("template") or {}) == expected
+    ):
+        matches.append(timestamp(properties.get("endTime")))
+if not matches:
+    raise SystemExit("STOP: no successful matching privacy preparation execution was found")
+
+completed_at = max(matches)
+now = timestamp(now_text) if now_text else datetime.now(timezone.utc)
+elapsed = math.floor((now - completed_at).total_seconds())
+if elapsed < 0:
+    raise SystemExit("STOP: the preparation execution end time is in the future")
+minimum_hold_seconds = 900
+if elapsed < minimum_hold_seconds:
+    remaining = minimum_hold_seconds - elapsed
+    raise SystemExit(
+        f"STOP: wait {remaining} more seconds before starting permanent deletion; "
+        "no deletion execution was created"
+    )
+print(f"prepare_hold_seconds: {elapsed}")
+print("delete_preflight: passed")
+PY
+}
+
 abda_privacy_runner_source() {
   cat <<'PY'
 from __future__ import annotations
@@ -648,6 +743,14 @@ abda_privacy_run_job() {
   ABDA_PRIVACY_EXECUTION_NAME=${classification#*|}
   ABDA_PRIVACY_EXECUTION_RESUMED='false'
 
+  if [[ "$action" == 'delete' && "$execution_phase" == 'new' ]]; then
+    local prepare_template_path="$ABDA_PRIVACY_ROOT/privacy-prepare-execution.yaml"
+    abda_privacy_write_job_template \
+      "$prepare_template_path" "$runner_payload" prepare
+    abda_privacy_require_prepare_hold \
+      "$ABDA_PRIVACY_ROOT/executions-before.json" "$prepare_template_path"
+  fi
+
   case "$execution_phase" in
     new)
       az containerapp job start \
@@ -796,7 +899,8 @@ PY
   printf '\n[4/6] Awaiting the disposable-account confirmation...\n'
   printf '%s\n' \
     'Before continuing, the exact disposable Auth0 user must be blocked.' \
-    'The account must contain the exact disposable project, active share, and MCP token.' \
+    'On the first run, it must contain the exact disposable project, active share, and MCP token.' \
+    'On the second run, keep the prepared account and Auth0 user unchanged.' \
     'It must never have activated trial credit or called a model.' \
     'Type RUN_ABDA_PRIVACY_ACCEPTANCE to continue, or press Enter to cancel.'
   local confirmation=''
