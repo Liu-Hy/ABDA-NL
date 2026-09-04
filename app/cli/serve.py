@@ -124,7 +124,11 @@ def _choose_port(host: str, requested: int | None) -> int:
 
 def _browser_host(host: str) -> str:
     # Non-loopback binding requires a separate explicit CLI opt-in.
-    return "127.0.0.1" if host in {"0.0.0.0", "::"} else host  # noqa: S104
+    if host in {"0.0.0.0", "::"}:  # noqa: S104
+        return "127.0.0.1"
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
 
 
 def _open_browser_when_ready(base_url: str, timeout_seconds: float = 30.0) -> None:

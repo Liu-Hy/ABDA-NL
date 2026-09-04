@@ -39,6 +39,10 @@ def test_browser_host_maps_wildcard_to_loopback():
     assert _browser_host("127.0.0.1") == "127.0.0.1"
 
 
+def test_browser_host_brackets_ipv6_loopback_for_urls():
+    assert _browser_host("::1") == "[::1]"
+
+
 def test_auto_mode_detects_anthropic_key(monkeypatch):
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
     monkeypatch.setenv("ABDA_CLAUDE_PROVIDER", "anthropic")
