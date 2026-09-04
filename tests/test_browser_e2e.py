@@ -749,6 +749,37 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(graph_scroll).to_have_attribute(
                 "aria-label", "Scrollable argument graph"
             )
+            expect(graph_scroll).to_have_attribute(
+                "aria-describedby", "af-graph-summary"
+            )
+            expect(page.locator("#af-graph-summary")).to_contain_text(
+                "For a text explanation"
+            )
+            graph_svg = graph_scroll.locator("svg")
+            expect(graph_svg).to_have_attribute("role", "img")
+            expect(graph_svg.locator("title")).to_have_text("ABDA-NL argument graph")
+            scope_control = page.locator(".af-scope-control")
+            expect(scope_control).to_have_attribute("role", "group")
+            key_scope = page.locator('[data-af-scope="key"]')
+            all_scope = page.locator('[data-af-scope="all"]')
+            expect(key_scope).to_have_attribute("aria-pressed", "true")
+            expect(all_scope).to_have_attribute("aria-pressed", "false")
+            all_scope.click()
+            expect(page.locator('[data-af-scope="key"]')).to_have_attribute(
+                "aria-pressed", "false"
+            )
+            expect(page.locator('[data-af-scope="all"]')).to_have_attribute(
+                "aria-pressed", "true"
+            )
+            expect(page.locator(".af-zoom-controls")).to_have_attribute(
+                "role", "group"
+            )
+            expect(page.locator('[data-af-zoom="out"]')).to_have_attribute(
+                "aria-label", "Zoom out"
+            )
+            expect(page.locator("#af-zoom-readout")).to_have_attribute(
+                "aria-live", "polite"
+            )
             graph_scroll.focus()
             expect(graph_scroll).to_be_focused()
             _axe_report(page, "argument graph")

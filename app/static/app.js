@@ -1891,6 +1891,10 @@ function renderAFView() {
   minX -= BBOX_PAD; minY -= BBOX_PAD; maxX += BBOX_PAD; maxY += BBOX_PAD;
   const totalWidth = maxX - minX;
   const totalHeight = maxY - minY;
+  const graphSummary = (
+    `Argument graph with ${groups.size} argument groups and ${edgeMap.size} directed attacks. `
+    + 'For a text explanation, close this dialog and use an Explain button.'
+  );
 
   // --- Rendering ------------------------------------------------------------
   const fillFor = (label) => ({
@@ -2013,22 +2017,24 @@ function renderAFView() {
 
   body.innerHTML = `
     ${legend}
+    <p class="visually-hidden" id="af-graph-summary">${escapeHtml(graphSummary)}</p>
     <div class="af-toolbar">
-      <div class="af-scope-control">
+      <div class="af-scope-control" role="group" aria-label="Argument graph scope">
         <span class="af-control-label">Scope:</span>
-        <button class="af-scope-btn ${afScope==='key' ? 'active' : ''}" data-af-scope="key" title="Only show arguments relevant to the key conclusions">Key conclusions</button>
-        <button class="af-scope-btn ${afScope==='all' ? 'active' : ''}" data-af-scope="all" title="Show every argument in the AF">All conclusions</button>
+        <button type="button" class="af-scope-btn ${afScope==='key' ? 'active' : ''}" data-af-scope="key" aria-controls="af-svg-scroll" aria-pressed="${afScope==='key' ? 'true' : 'false'}" title="Only show arguments relevant to the key conclusions">Key conclusions</button>
+        <button type="button" class="af-scope-btn ${afScope==='all' ? 'active' : ''}" data-af-scope="all" aria-controls="af-svg-scroll" aria-pressed="${afScope==='all' ? 'true' : 'false'}" title="Show every argument in the AF">All conclusions</button>
       </div>
-      <div class="af-zoom-controls">
-        <button class="btn btn-small" data-af-zoom="out" title="Zoom out">−</button>
-        <button class="btn btn-small" data-af-zoom="reset" title="Reset to 100%">100%</button>
-        <button class="btn btn-small" data-af-zoom="in" title="Zoom in">+</button>
-        <button class="btn btn-small" data-af-zoom="fit" title="Fit to window">Fit</button>
-        <span class="af-zoom-readout" id="af-zoom-readout">100%</span>
+      <div class="af-zoom-controls" role="group" aria-label="Argument graph zoom">
+        <button type="button" class="btn btn-small" data-af-zoom="out" aria-controls="af-svg-scroll" aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" class="btn btn-small" data-af-zoom="reset" aria-controls="af-svg-scroll" aria-label="Reset zoom to 100 percent" title="Reset to 100%">100%</button>
+        <button type="button" class="btn btn-small" data-af-zoom="in" aria-controls="af-svg-scroll" aria-label="Zoom in" title="Zoom in">+</button>
+        <button type="button" class="btn btn-small" data-af-zoom="fit" aria-controls="af-svg-scroll" aria-label="Fit graph to window" title="Fit to window">Fit</button>
+        <span class="af-zoom-readout" id="af-zoom-readout" role="status" aria-live="polite" aria-atomic="true">100%</span>
       </div>
     </div>
-    <div class="af-svg-scroll" id="af-svg-scroll" tabindex="0" role="region" aria-label="Scrollable argument graph">
-      <svg width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" data-base-w="${totalWidth}" data-base-h="${totalHeight}">
+    <div class="af-svg-scroll" id="af-svg-scroll" tabindex="0" role="region" aria-label="Scrollable argument graph" aria-describedby="af-graph-summary">
+      <svg width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" data-base-w="${totalWidth}" data-base-h="${totalHeight}" role="img" aria-labelledby="af-svg-title" aria-describedby="af-graph-summary">
+        <title id="af-svg-title">ABDA-NL argument graph</title>
         <defs>
           <marker id="af-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a6a78"/>
