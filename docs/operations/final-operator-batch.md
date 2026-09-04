@@ -2,7 +2,7 @@
 
 State: hardened image deployed and audited; remaining manual release Gates prepared
 
-Runbook revision: `source-security-20260904.3`
+Runbook revision: `source-security-20260904.4`
 
 Before running any remaining phase, confirm that the consolidated helper block
 below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. Stop and refresh this
@@ -284,18 +284,27 @@ the Auth0 Resend provider:
 3. For a 100-user public launch, use **Transactional Pro**, 50,000 emails per
    month for $20 per month. It has no daily email limit. Do not select a
    marketing plan, Scale, a dedicated IP, or an additional-domain add-on for
-   ABDA-NL. Transactional overages are also unnecessary for this launch size.
-4. Confirm that Billing shows the paid transactional plan. Do not copy payment
-   details into an operator receipt. The existing domain, API key, Auth0
-   provider configuration, and verified delivery evidence remain unchanged.
+   ABDA-NL. Keep **Transactional Overages** disabled because they are
+   unnecessary for this launch size.
+4. Confirm that Billing shows the paid transactional plan and that overages are
+   disabled. Do not copy payment details into an operator receipt. The existing
+   domain, API key, Auth0 provider configuration, and verified delivery evidence
+   remain unchanged.
 
 The [Resend pricing page](https://resend.com/pricing?product=transactional)
 currently lists Free at 100 emails per day and Transactional Pro at $20 per
 month with no daily limit. The
 [Resend billing guide](https://resend.com/docs/dashboard/settings/billing)
-documents the **Settings**, **Billing** path. If the account remains on Free,
-do not run the 100-user promotion. Keep the ten-user pilot and stagger access
-until sender capacity is increased.
+documents the **Settings**, **Billing** path, and the
+[Resend overage announcement](https://resend.com/changelog/pay-as-you-go-pricing)
+documents its separate opt-in toggle. If the account remains on Free, do not
+run the 100-user promotion. Keep the ten-user pilot and stagger access until
+sender capacity is increased.
+
+The operator has accepted the current OpenRouter key for the initial public
+fallback. The application enforces its independent $500 ledger cap. Rotating to
+a dedicated provider key with a matching lifetime limit remains recommended
+defense in depth after the deadline, but is not a prerequisite for this Gate.
 
 Run these commands in order:
 

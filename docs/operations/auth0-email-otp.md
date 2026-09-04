@@ -145,11 +145,13 @@ daily allowance without leaving room for retries or returning users.
 The ten-user pilot can remain on Free. Before promoting the service to 100
 funded users, the recommended operational choice is Resend Transactional Pro,
 currently listed at $20 per month for 50,000 messages with no daily limit. The
-operator should still monitor the Usage and Logs pages during a conference
-surge. If a paid sender is not approved, keep the funded program at the
-ten-user pilot and stagger invitations instead of advertising immediate
-100-user registration. Do not replace the production sender with Auth0's
-built-in test sender.
+operator should keep Transactional Overages disabled, then monitor the Usage
+and Logs pages during a conference surge. This leaves a fixed monthly plan and
+a 50,000-message service ceiling instead of allowing automatic overage charges.
+If a paid sender is not approved, keep the funded program at the ten-user pilot
+and stagger invitations instead of advertising immediate 100-user
+registration. Do not replace the production sender with Auth0's built-in test
+sender.
 
 Auth0 Free itself has ample identity capacity for this release. Its current
 plan includes Passwordless, one custom domain, and up to 25,000 monthly active

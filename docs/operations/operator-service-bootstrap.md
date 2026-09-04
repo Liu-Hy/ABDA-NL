@@ -167,17 +167,24 @@ credentials for staging. Confirm only that the required names are present and
 that the file mode is `600`. Never copy their values into this repository or a
 chat transcript.
 
-The current OpenRouter key may be used for staging while
-`ABDA_DEPLOY_OPENROUTER_FAILOVER_ENABLED` remains `false`. Before enabling
-public outage fallback, create a dedicated ABDA-NL inference key with a $500
-lifetime spending limit and no automatic reset. Store it in the password
-manager and replace only the Azure deployment secret. A dedicated key avoids
-letting unrelated personal use consume the service reserve or letting the
-service affect another project.
+The operator has accepted using the current OpenRouter key for staging and the
+initial public outage fallback.
+`ABDA_DEPLOY_OPENROUTER_FAILOVER_ENABLED` remains `false` until the controlled
+outage and final promotion Gates pass. The application ledger remains the hard
+$500 service boundary even when the current provider key has a different
+account-level limit.
 
-The application ledger independently caps OpenRouter fallback at $500. The
-provider key limit is defense in depth. Raising either boundary above $500
-requires the documented acknowledgement, and neither may exceed $1,000.
+After the deadline, create a dedicated ABDA-NL inference key with a $500
+lifetime spending limit and no automatic reset. Store it in the password
+manager and replace only the Azure deployment secret through a separately
+reviewed secret rotation. A dedicated key avoids letting unrelated personal use
+consume the service reserve or letting the service affect another project. Key
+rotation is recommended defense in depth, but it is not a blocker for the
+operator-approved initial release.
+
+The application ledger independently caps OpenRouter fallback at $500. Raising
+that application boundary above $500 requires the documented acknowledgement,
+and the application refuses a limit above $1,000.
 Per-request routing also requires Zero Data Retention and denies provider data
 collection, so an account-wide privacy change is not necessary for staging.
 
