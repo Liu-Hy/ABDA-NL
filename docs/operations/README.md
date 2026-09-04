@@ -37,6 +37,9 @@ checksum in Cloud Shell.
 - [Deterministic computation budget](deterministic-computation-budget-20260904.md)
   records the source-level bound on combinatorial reasoning work and its
   unchanged bundled outputs. It is not yet a live deployment record.
+- [MCP read abuse boundary](mcp-read-abuse-boundary-20260904.md) records the
+  shared per-account request ceiling for deterministic MCP read tools. It is
+  source-level evidence pending the license-gated cumulative deployment.
 
 If a Gate stops, preserve its visible sanitized output and exit code. Do not
 issue an improvised Azure update or repeat a paid provider call. Resume only

@@ -124,6 +124,9 @@ Record:
 - [ ] MCP writes require the observed project version.
 - [ ] An MCP proposal never applies itself.
 - [ ] Revoked, expired, cross-user, and malformed MCP tokens are rejected.
+- [ ] All four deterministic MCP read tools share one database-backed
+      per-account rate limit across web replicas, while credential revocation
+      remains available without that limit.
 
 ## Public platform gates
 
