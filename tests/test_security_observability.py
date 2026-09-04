@@ -417,6 +417,9 @@ def test_production_normalizes_explicit_trusted_hostnames(monkeypatch):
         ("ABDA_SESSION_COOKIE", "abda_session", "__Host-"),
         ("ABDA_ABUSE_PROTECTION_ENABLED", "0", "abuse protection"),
         ("ABDA_PUBLIC_BASE_URL", "https://example.org/path", "HTTPS origin"),
+        ("ABDA_PUBLIC_BASE_URL", "https://example.org:0", "HTTPS origin"),
+        ("ABDA_PUBLIC_BASE_URL", "https://example.org:70000", "HTTPS origin"),
+        ("ABDA_PUBLIC_BASE_URL", "https://[invalid", "HTTPS origin"),
         ("ABDA_TRUSTED_HOSTS", "*.abda-nl.org", "exact trusted hostnames"),
         ("ABDA_TRUSTED_HOSTS", "generated.example.org", "public hostname"),
         (

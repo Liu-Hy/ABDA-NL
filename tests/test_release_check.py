@@ -210,6 +210,9 @@ def test_public_release_check_rejects_missing_security_header():
         "http://demo.abda-nl.org",
         "https://demo.abda-nl.org/path",
         "https://user@example.edu",
+        "https://demo.abda-nl.org:0",
+        "https://demo.abda-nl.org:70000",
+        "https://[invalid",
     ],
 )
 def test_public_release_check_rejects_non_origin_urls(origin: str):

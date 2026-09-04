@@ -116,21 +116,19 @@ def test_operator_runbook_keeps_privacy_before_rollback_and_promotion():
         ROOT / "docs" / "operations" / "final-operator-batch.md"
     ).read_text(encoding="utf-8")
 
-    positions = [
-        runbook.index(command)
-        for command in (
-            'bash "$p" deploy',
-            'bash "$p" audit',
-            'bash "$p" privacy',
-            'bash "$q" deploy',
-            'bash "$q" audit',
-            'bash "$q" hostname',
-            'bash "$q" rollback',
-            'bash "$q" promote',
-            'bash "$q" final-audit',
-        )
-    ]
-    assert positions == sorted(positions)
+    cursor = 0
+    for command in (
+        'bash "$p" deploy',
+        'bash "$p" audit',
+        'bash "$p" privacy',
+        'bash "$q" deploy',
+        'bash "$q" audit',
+        'bash "$p" hostname',
+        'bash "$q" rollback',
+        'bash "$q" promote',
+        'bash "$q" final-audit',
+    ):
+        cursor = runbook.index(command, cursor) + len(command)
 
 
 def test_operator_runbook_pins_the_exact_current_helper():

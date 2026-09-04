@@ -67,10 +67,15 @@ _DATABASE_POOL_CAPACITY = 5
 
 def _normalize_origin(raw_origin: str) -> str:
     value = raw_origin.strip().rstrip("/")
-    parsed = urlsplit(value)
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError as exc:
+        raise ReleaseCheckError("the public origin must be a valid HTTPS origin") from exc
     if (
         parsed.scheme != "https"
         or not parsed.hostname
+        or port == 0
         or parsed.username is not None
         or parsed.password is not None
         or parsed.path not in {"", "/"}

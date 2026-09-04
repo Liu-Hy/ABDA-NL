@@ -58,6 +58,12 @@ def _safe_https_url(value: str | None) -> bool:
     )
 
 
+def _safe_https_origin(value: str | None) -> bool:
+    if not _safe_https_url(value):
+        return False
+    return urlsplit(value or "").path in {"", "/"}
+
+
 @dataclass(frozen=True)
 class Settings:
     environment: str
@@ -125,7 +131,12 @@ class Settings:
             raise RuntimeError("ABDA_AUTH_MODE must be disabled, dev, or oidc")
 
         public_base_url = (os.getenv("ABDA_PUBLIC_BASE_URL") or "").strip().rstrip("/") or None
-        public_hostname = urlsplit(public_base_url).hostname if public_base_url else None
+        try:
+            public_hostname = (
+                urlsplit(public_base_url).hostname if public_base_url else None
+            )
+        except ValueError:
+            public_hostname = None
         default_trusted_hosts = ["127.0.0.1", "localhost", "[::1]", "testserver"]
         if public_hostname:
             default_trusted_hosts.append(public_hostname)
@@ -313,19 +324,11 @@ class Settings:
                 )
             if not self.public_base_url:
                 raise RuntimeError("staging and production require an HTTPS public base URL")
-            public_url = urlsplit(self.public_base_url)
-            if (
-                public_url.scheme != "https"
-                or not public_url.hostname
-                or public_url.username is not None
-                or public_url.password is not None
-                or public_url.query
-                or public_url.fragment
-                or public_url.path not in {"", "/"}
-            ):
+            if not _safe_https_origin(self.public_base_url):
                 raise RuntimeError(
                     "ABDA_PUBLIC_BASE_URL must be an HTTPS origin without a path"
                 )
+            public_url = urlsplit(self.public_base_url)
             if any("*" in host for host in self.trusted_hosts):
                 raise RuntimeError(
                     "staging and production require exact trusted hostnames"
