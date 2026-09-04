@@ -248,8 +248,9 @@ app.include_router(account_router)
 app.mount("/mcp", mcp_http_app, name="mcp")
 
 
-# Static assets get `Cache-Control: no-cache, must-revalidate` so the
-# browser revalidates on each load (unchanged files still return 304).
+# The application shell can hold private client-rendered state, so it must not
+# be retained in the browser's document cache. Other static assets revalidate
+# on each load, and unchanged files can still return 304.
 _STATIC_SUFFIXES = (".html", ".js", ".css", ".map", ".ico", ".svg", ".png")
 
 
@@ -258,6 +259,10 @@ def _is_static_path(path: str) -> bool:
         path == "/"
         or path.endswith(_STATIC_SUFFIXES)
     )
+
+
+def _is_application_shell(path: str) -> bool:
+    return path in {"/", "/index.html"}
 
 
 @app.middleware("http")
@@ -309,7 +314,9 @@ async def _request_context(request: Request, call_next):
         csp += "; upgrade-insecure-requests"
         response.headers["Strict-Transport-Security"] = "max-age=31536000"
     response.headers["Content-Security-Policy"] = csp
-    if _is_static_path(request.url.path):
+    if _is_application_shell(request.url.path):
+        response.headers["Cache-Control"] = "no-store"
+    elif _is_static_path(request.url.path):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     elif request.url.path != "/health/live":
         response.headers.setdefault("Cache-Control", "no-store")

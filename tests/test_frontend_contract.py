@@ -183,6 +183,12 @@ def test_logout_uses_same_origin_fetch_before_clean_navigation():
     assert "window.location.assign(result.logout_url)" in handler
 
 
+def test_back_forward_cache_restore_reloads_the_browser_shell():
+    source = (STATIC_ROOT / "workspace.js").read_text(encoding="utf-8")
+    assert "window.addEventListener('pageshow', event => {" in source
+    assert "if (event.persisted) window.location.reload();" in source
+
+
 def test_public_policy_pages_are_linked_and_script_free():
     index = (STATIC_ROOT / "index.html").read_text(encoding="utf-8")
     for name, heading in (

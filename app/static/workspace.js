@@ -7,6 +7,10 @@ let trialRefreshGeneration = 0;
 let projectRefreshGeneration = 0;
 let mcpTokenRefreshGeneration = 0;
 
+window.addEventListener('pageshow', event => {
+  if (event.persisted) window.location.reload();
+});
+
 function byId(id) {
   return document.getElementById(id);
 }

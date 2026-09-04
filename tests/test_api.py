@@ -64,11 +64,11 @@ def _assert_config(response, *, llm_enabled: bool):
 # --- static-asset cache headers ---
 
 
-def test_static_index_sets_no_cache(client: TestClient):
-    resp = client.get("/")
-    # StaticFiles with html=True resolves "/" to index.html.
+@pytest.mark.parametrize("path", ["/", "/index.html"])
+def test_application_shell_is_not_stored(client: TestClient, path: str):
+    resp = client.get(path)
     assert resp.status_code == 200
-    assert resp.headers.get("cache-control") == "no-cache, must-revalidate"
+    assert resp.headers.get("cache-control") == "no-store"
 
 
 def test_static_js_sets_no_cache(client: TestClient):
