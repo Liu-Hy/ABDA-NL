@@ -277,6 +277,168 @@ def test_oidc_logout_uses_fetch_origin_under_no_referrer_policy(
             browser.close()
 
 
+def test_argument_game_resolves_all_defenses_and_detects_a_cycle(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    def load_game(page, *, arguments, attacks, labels, root, conclusion):
+        page.evaluate(
+            """payload => {
+                const rules = {};
+                const descriptions = {};
+                for (const argument of payload.arguments) {
+                    rules[argument.top_rule] = {
+                        type: 'defeasible',
+                        premises: [],
+                        conclusion: argument.conclusion,
+                    };
+                    descriptions[argument.conclusion] = argument.conclusion_nl;
+                }
+                state.bundle = {
+                    scenario: {
+                        title: 'Browser game semantic acceptance',
+                        description: '',
+                        facts: {},
+                        assumptions: {},
+                        propositions: {},
+                        conclusions: {
+                            [payload.conclusion]: {
+                                description: descriptions[payload.conclusion],
+                            },
+                        },
+                        rules,
+                    },
+                    af: {
+                        arguments: payload.arguments,
+                        attacks: payload.attacks,
+                        labels_by_proposition: payload.labels,
+                    },
+                };
+                state.descMap = descriptions;
+                state.negDescMap = {};
+                state.ruleIds = new Set(Object.keys(rules));
+                openExplainModal(payload.conclusion);
+                startGameWithRoot(payload.root);
+            }""",
+            {
+                "arguments": arguments,
+                "attacks": attacks,
+                "labels": labels,
+                "root": root,
+                "conclusion": conclusion,
+            },
+        )
+
+    def argument(identifier, conclusion, label):
+        return {
+            "id": identifier,
+            "top_rule": f"rule_{identifier}",
+            "conclusion": conclusion,
+            "conclusion_nl": conclusion.replace("_", " "),
+            "label": label,
+            "sub_arguments": [],
+        }
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+
+            load_game(
+                page,
+                arguments=[
+                    argument("root", "claim", "in"),
+                    argument("counter_one", "counter_one", "out"),
+                    argument("counter_two", "counter_two", "out"),
+                    argument("defense_one", "defense_one", "in"),
+                    argument("defense_two", "defense_two", "in"),
+                ],
+                attacks=[
+                    {"from": "counter_one", "to": "root", "type": "rebut"},
+                    {"from": "counter_two", "to": "root", "type": "rebut"},
+                    {
+                        "from": "defense_one",
+                        "to": "counter_one",
+                        "type": "rebut",
+                    },
+                    {
+                        "from": "defense_two",
+                        "to": "counter_two",
+                        "type": "rebut",
+                    },
+                ],
+                labels={
+                    "claim": "accepted",
+                    "counter_one": "rejected",
+                    "counter_two": "rejected",
+                    "defense_one": "accepted",
+                    "defense_two": "accepted",
+                },
+                root="root",
+                conclusion="claim",
+            )
+
+            page.locator('[data-move="cb"][data-arg="counter_one"]').click()
+            page.locator('[data-move="htb"][data-arg="defense_one"]').click()
+            page.locator('[data-resolve="uncontested"]').click()
+            assert page.evaluate("gameNodes[gameRootId].resolution") is None
+            expect(
+                page.locator('[data-move="cb"][data-arg="counter_two"]')
+            ).to_be_visible()
+
+            page.locator('[data-move="cb"][data-arg="counter_two"]').click()
+            page.locator('[data-move="htb"][data-arg="defense_two"]').click()
+            page.locator('[data-resolve="uncontested"]').click()
+            assert page.evaluate("gameNodes[gameRootId].resolution") == "conceded"
+            expect(
+                page.locator(
+                    "#gnode-gn1 > .game-node-inner > .game-node-status "
+                    "> .badge-accepted"
+                )
+            ).to_be_visible()
+
+            load_game(
+                page,
+                arguments=[
+                    argument("cycle_root", "cycle_claim", "undec"),
+                    argument("cycle_counter", "cycle_counter", "undec"),
+                ],
+                attacks=[
+                    {
+                        "from": "cycle_counter",
+                        "to": "cycle_root",
+                        "type": "rebut",
+                    },
+                    {
+                        "from": "cycle_root",
+                        "to": "cycle_counter",
+                        "type": "rebut",
+                    },
+                ],
+                labels={
+                    "cycle_claim": "undecided",
+                    "cycle_counter": "undecided",
+                },
+                root="cycle_root",
+                conclusion="cycle_claim",
+            )
+
+            page.locator('[data-move="cb"][data-arg="cycle_counter"]').click()
+            page.locator('[data-cycle-htb="cycle_root"]').click()
+            assert page.evaluate("gameNodes[gameRootId].resolution") == "undecided"
+            expect(
+                page.locator(
+                    "#gnode-gn1 > .game-node-inner > .game-node-status "
+                    "> .badge-undecided"
+                )
+            ).to_be_visible()
+            expect(page.locator(".game-node-cycle")).to_be_visible()
+        finally:
+            browser.close()
+
+
 def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

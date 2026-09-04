@@ -73,10 +73,6 @@ target-version = "py310"
 line-length = 100
 exclude = [
   "app/abda",
-  "tests/ConclusionWarrantedTests.py",
-  "tests/GroundedDiscussionGameTests.py",
-  "tests/GroundedExtensionTests.py",
-  "tests/MinMaxNumberingTests.py"
 ]
 
 [tool.ruff.lint]

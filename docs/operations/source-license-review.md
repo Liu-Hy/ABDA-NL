@@ -78,20 +78,20 @@ third-party code. This document is an engineering provenance record, not legal
 advice. When uncertainty remains, consult the university's research software
 or legal support before release.
 
-## Test hygiene after the license decision
+## Test hygiene
 
-The default pytest suite currently collects the maintained `test_*.py` tests.
-The four historical CamelCase test modules are not collected by that rule.
-Three of them contain five self-contained passing tests. The fourth references
-the 15 absent upstream fixtures and fails before reaching an assertion when run
-directly.
+The four historical CamelCase test modules were not collected by the default
+pytest rule. Three contained five self-contained tests. The fourth referenced
+the 15 absent upstream fixtures and failed before reaching an assertion when
+run directly. The development branch retired those modules without rewriting
+their history.
 
-After the license path is settled, either:
+Maintained, newly authored tests now cover grounded-label fixed points,
+cycles, min-max numbering, and a complete Python discussion-game defense. The
+real-browser suite additionally covers a multi-challenge defense and an
+undecided cycle through the public interactive game. These tests use generated
+in-memory graphs and do not copy the absent upstream fixtures.
 
-- restore the fixtures under authorized terms and modernize all four modules,
-  or
-- retire the historical modules and retain equivalent independently authored
-  coverage in the maintained engine test suite.
-
-Do not describe the missing-fixture module as a passing test suite until one of
-these paths is complete.
+The removed historical modules remain available in Git history for provenance
+review. Do not restore the upstream fixtures until their redistribution terms
+are resolved.
