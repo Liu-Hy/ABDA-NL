@@ -971,14 +971,19 @@ body.llm-disabled .left-panel { width: 100%; }
 }
 
 @media (max-width: 520px) {
+  .topbar { position: static; }
   .scenario-name { max-width: 12rem; }
-  .compact-switch, #aspic-btn { display: none; }
   .topbar-right {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
     overflow: visible; gap: .35rem;
   }
   .topbar-right .scenario-select { grid-column: 1 / -1; width: 100%; max-width: none; }
   .topbar-right .btn { width: 100%; justify-content: center; }
+  .compact-switch {
+    width: 100%; min-height: 2rem; justify-content: center;
+    padding: .4rem .9rem; border: 1px solid var(--border);
+    border-radius: var(--radius); background: var(--surface);
+  }
   .service-links { grid-column: 1 / -1; justify-content: center; padding: .2rem 0; }
   .workspace-section-heading, .identity-card, .project-card-main, .credential-card-main {
     flex-direction: column; align-items: stretch;

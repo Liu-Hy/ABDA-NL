@@ -810,11 +810,16 @@ def test_research_workspace_in_browser(live_browser_server):
             page.set_viewport_size({"width": 390, "height": 844})
             _reload_ready_demo(page)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
+            expect(page.locator(".compact-switch")).to_be_visible()
+            expect(page.locator("#aspic-btn")).to_be_visible()
             overflow = page.evaluate(
                 "Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) "
                 "- window.innerWidth"
             )
             assert overflow <= 1
+            page.locator("#aspic-btn").click()
+            expect(page.locator("#aspic-pre")).not_to_have_text("")
+            page.keyboard.press("Escape")
             page.locator("#workspace-btn").click()
             expect(dialog).to_be_visible()
             _axe_report(page, "mobile workspace")
