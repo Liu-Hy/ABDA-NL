@@ -15,6 +15,9 @@ checksum in Cloud Shell.
 - [Source-security checkpoint](source-security-checkpoint-20260902.md) binds the
   current hardened source, CI, CodeQL, immutable image digest, provenance,
   Azure deployment, and live sanitized-log audit.
+- [Development source checkpoint](development-source-checkpoint-20260904.md)
+  records the newer locally verified development source, its unchanged stable
+  main ancestor, and the explicit license-gated deployment hold.
 - [Rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
   records the original tested and attested retention image, now preserved as
   historical evidence.
