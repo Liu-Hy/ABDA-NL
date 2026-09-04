@@ -149,7 +149,7 @@ function initWorkspaceUI() {
     radio.addEventListener('change', toggleAIFormMode);
   }
   byId('funded-profile-select')?.addEventListener('change', updateFundedProfileDescription);
-  byId('byok-provider-select')?.addEventListener('change', () => populateBYOKModels());
+  byId('byok-provider-select')?.addEventListener('change', handleBYOKProviderChange);
   byId('byok-reveal-btn')?.addEventListener('click', () => toggleSecretVisibility('byok-api-key', 'byok-reveal-btn'));
   byId('byok-clear-btn')?.addEventListener('click', clearBYOKKey);
 
@@ -294,8 +294,7 @@ async function handleLogout(event) {
   event.preventDefault();
   setWorkspaceStatus('account-status', 'Signing out...', 'info');
   const oidcLogout = state.authSession.auth_mode === 'oidc';
-  state.llmAccess.apiKey = '';
-  byId('byok-api-key').value = '';
+  resetBYOKKey();
   clearMCPSecretPanel();
   try {
     const result = await apiRequest('/api/auth/logout', { method: 'POST' });
@@ -465,6 +464,21 @@ function populateBYOKModels(preferred = null) {
   modelSelect.value = selected;
 }
 
+function handleBYOKProviderChange() {
+  const keyInput = byId('byok-api-key');
+  const hadKey = Boolean(state.llmAccess.apiKey || keyInput?.value);
+  resetBYOKKey();
+  populateBYOKModels();
+  if (hadKey) {
+    setWorkspaceStatus(
+      'ai-access-status',
+      'The provider changed, so the previous provider key was cleared.',
+      'info',
+    );
+  }
+  renderChatAccess();
+}
+
 function toggleAIFormMode() {
   const mode = document.querySelector('input[name="ai-mode"]:checked')?.value || 'funded';
   byId('funded-settings').hidden = mode !== 'funded';
@@ -577,9 +591,22 @@ function toggleSecretVisibility(inputId, buttonId) {
   button.setAttribute('aria-pressed', reveal ? 'true' : 'false');
 }
 
-function clearBYOKKey() {
+function resetBYOKKey() {
   state.llmAccess.apiKey = '';
-  byId('byok-api-key').value = '';
+  const input = byId('byok-api-key');
+  const revealButton = byId('byok-reveal-btn');
+  if (input) {
+    input.value = '';
+    input.type = 'password';
+  }
+  if (revealButton) {
+    revealButton.textContent = 'Show';
+    revealButton.setAttribute('aria-pressed', 'false');
+  }
+}
+
+function clearBYOKKey() {
+  resetBYOKKey();
   setWorkspaceStatus('ai-access-status', 'The in-memory provider key was cleared.', 'success');
   renderChatAccess();
 }

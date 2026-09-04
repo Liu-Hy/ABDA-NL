@@ -610,6 +610,56 @@ def test_mobile_item_question_reveals_chat(live_browser_server):
             browser.close()
 
 
+def test_switching_byok_provider_clears_the_previous_provider_key(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#ai-access-btn").click()
+            page.locator('input[name="ai-mode"][value="byok"]').check()
+
+            provider_select = page.locator("#byok-provider-select")
+            providers = provider_select.locator("option").evaluate_all(
+                "options => options.map(option => option.value)",
+            )
+            assert len(providers) >= 2
+            initial_provider = provider_select.input_value()
+            next_provider = next(
+                provider for provider in providers if provider != initial_provider
+            )
+
+            key_input = page.locator("#byok-api-key")
+            reveal_button = page.locator("#byok-reveal-btn")
+            key_input.fill("first-provider-only-secret")
+            reveal_button.click()
+            expect(key_input).to_have_attribute("type", "text")
+            page.locator("#ai-access-form button[type=submit]").click()
+            assert page.evaluate("state.llmAccess.apiKey") != ""
+
+            provider_select.select_option(next_provider)
+
+            expect(key_input).to_have_value("")
+            expect(key_input).to_have_attribute("type", "password")
+            expect(reveal_button).to_have_text("Show")
+            expect(reveal_button).to_have_attribute("aria-pressed", "false")
+            expect(page.locator("#ai-access-status")).to_contain_text(
+                "previous provider key was cleared"
+            )
+            assert page.evaluate("state.llmAccess.apiKey") == ""
+
+            page.locator("#ai-access-form button[type=submit]").click()
+            expect(page.locator("#ai-access-status")).to_contain_text(
+                "Paste a provider API key"
+            )
+        finally:
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 
