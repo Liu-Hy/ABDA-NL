@@ -108,6 +108,12 @@ cannot do. A scenario that crosses a ceiling receives the stable HTTP 422 code
 `scenario_too_complex` and can be simplified without affecting its saved
 baseline.
 
+Every scenario entering durable project storage must also pass that same state
+computation before its create or versioned update is committed. This keeps a
+rejected import or edit from leaving a project whose argumentation framework
+cannot be rebuilt when the owner reopens it. The shared project service applies
+the invariant to browser and MCP writes alike.
+
 Private projects are always selected with the authenticated internal user ID.
 Optimistic versions prevent silent overwrites. Read-only shares use revocable
 bearer tokens in URL fragments, so normal HTTP access logs do not receive the

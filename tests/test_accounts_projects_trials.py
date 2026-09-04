@@ -395,6 +395,67 @@ def test_project_corpus_cannot_escape_its_bundled_source(client: TestClient):
     assert "immutable source" in rejected.json()["detail"]["message"]
 
 
+def _too_complex_project_scenario() -> dict:
+    return {
+        "title": "Too many ground arguments",
+        "facts": {
+            f"fact_{index}": {"description": f"fact {index}"}
+            for index in range(251)
+        },
+        "conclusions": {},
+        "rules": {},
+    }
+
+
+def test_too_complex_project_import_does_not_persist(client: TestClient):
+    _login(client, "complex-import@example.edu")
+
+    rejected = client.post(
+        "/api/projects/import",
+        json={
+            "name": "Rejected complex import",
+            "scenario": _too_complex_project_scenario(),
+        },
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json()["errors"][0]["code"] == "scenario_too_complex"
+    assert client.get("/api/projects").json()["projects"] == []
+
+
+def test_too_complex_project_update_preserves_saved_version(client: TestClient):
+    _login(client, "complex-update@example.edu")
+    created = client.post(
+        "/api/projects/import",
+        json={
+            "name": "Safe custom project",
+            "scenario": {
+                "title": "Safe custom scenario",
+                "facts": {"fact": {"description": "a safe fact"}},
+                "conclusions": {},
+                "rules": {},
+            },
+        },
+    )
+    assert created.status_code == 201
+    project = created.json()
+
+    rejected = client.put(
+        f"/api/projects/{project['id']}",
+        json={
+            "expected_version": project["version"],
+            "scenario": _too_complex_project_scenario(),
+        },
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json()["errors"][0]["code"] == "scenario_too_complex"
+    reopened = client.get(f"/api/projects/{project['id']}")
+    assert reopened.status_code == 200
+    assert reopened.json()["version"] == project["version"]
+    assert reopened.json()["scenario"] == project["scenario"]
+
+
 def test_reopened_project_chat_and_propose_use_saved_state(
     client: TestClient, monkeypatch
 ):

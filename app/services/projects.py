@@ -14,6 +14,7 @@ from app.db.models import Project, ShareLink, User, utc_now
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.loader import scenario_from_dict
 from app.scenario.serialize import scenario_to_dict
+from app.scenario.state import compute_state_bundle
 
 
 class ProjectNotFoundError(LookupError):
@@ -61,7 +62,8 @@ def _clean_description(description: str) -> str:
 
 
 def _normalize_scenario(raw: dict, source_scenario_id: str | None) -> dict:
-    normalized = scenario_to_dict(scenario_from_dict(raw))
+    scenario = scenario_from_dict(raw)
+    normalized = scenario_to_dict(scenario)
     encoded_size = len(
         json.dumps(normalized, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     )
@@ -76,6 +78,10 @@ def _normalize_scenario(raw: dict, source_scenario_id: str | None) -> dict:
             raise ValueError("project corpus must match its immutable source example")
     elif project_corpus:
         raise ValueError("a project with corpus files must name a bundled source example")
+    # Project details always include the computed argumentation framework. Prove
+    # that this exact scenario can be analyzed before any create or update is
+    # committed, so a rejected request cannot leave an unreopenable project.
+    compute_state_bundle(scenario)
     return normalized
 
 
