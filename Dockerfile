@@ -30,7 +30,7 @@ RUN groupadd --system --gid 10001 abda \
 
 WORKDIR /srv/abda
 COPY --from=build /opt/venv /opt/venv
-COPY --chown=abda:abda alembic.ini pyproject.toml README.md ./
+COPY --chown=abda:abda alembic.ini pyproject.toml README.md LICENSE ./
 COPY --chown=abda:abda app ./app
 COPY --chown=abda:abda examples ./examples
 COPY --chown=abda:abda migrations ./migrations

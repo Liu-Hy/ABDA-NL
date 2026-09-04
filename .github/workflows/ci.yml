@@ -158,6 +158,19 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m build --no-isolation --wheel --outdir "$RUNNER_TEMP/dist"
+          python - "$RUNNER_TEMP"/dist/abda_nl-*.whl <<'PY'
+          import sys
+          from zipfile import ZipFile
+
+          with ZipFile(sys.argv[1]) as wheel:
+              license_files = [
+                  name
+                  for name in wheel.namelist()
+                  if name.endswith(".dist-info/licenses/LICENSE")
+              ]
+          if len(license_files) != 1:
+              raise SystemExit("wheel must contain exactly one top-level LICENSE copy")
+          PY
           python -m pip install --force-reinstall --no-deps \
             "$RUNNER_TEMP"/dist/abda_nl-*.whl
           abda-nl-release-check --help >/dev/null
@@ -252,6 +265,8 @@ jobs:
             sleep 1
           done
           test "$ABDA_CI_READY" -eq 1
+          docker exec "$ABDA_CI_CONTAINER_ID" \
+            test -s /srv/abda/LICENSE
           curl --fail --silent --show-error \
             http://127.0.0.1:18000/health/live >/dev/null
           curl --fail --silent --show-error \

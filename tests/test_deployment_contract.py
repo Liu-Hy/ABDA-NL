@@ -266,7 +266,16 @@ def test_service_image_workflow_prevents_mutable_or_unverified_deployments():
     assert ":latest" not in workflow
     assert "ARG ABDA_IMAGE_SOURCE=https://github.com/idaks/ABDA-NL" in dockerfile
     assert 'org.opencontainers.image.source="${ABDA_IMAGE_SOURCE}"' in dockerfile
+    assert "pyproject.toml README.md LICENSE ./" in dockerfile
+    assert "test -s /srv/abda/LICENSE" in workflow
     assert "ABDA_IMAGE_SOURCE=${{ github.server_url }}/${{ github.repository }}" in workflow
+
+
+def test_continuous_integration_verifies_the_container_license_file():
+    workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+
+    assert '.dist-info/licenses/LICENSE")' in workflow
+    assert "test -s /srv/abda/LICENSE" in workflow
 
 
 def test_service_image_workflow_enforces_the_source_license_gate():

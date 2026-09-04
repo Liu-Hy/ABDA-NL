@@ -86,6 +86,40 @@ These paths should still be treated as modified upstream work until
 authorization is clear. Together, the two lists define the 21-file scope that
 must be covered by permission, compatible licensing, or replacement.
 
+## Resolution change surface
+
+The eventual decision must be applied consistently. Do not clear the image
+publication gate by changing only this document. Review and update all of the
+following current-license surfaces in the same release change:
+
+- the top-level `LICENSE`
+- `pyproject.toml` package metadata
+- `CITATION.cff` software metadata
+- the OCI label in `Dockerfile`
+- the OCI label in `.github/workflows/publish-service-image.yml`
+- active Azure image and rollback Gates that verify an OCI license label
+- tests that enforce the selected package, container, and Gate contracts
+- an attribution or third-party notice that identifies the 21-file engine
+  scope, upstream repository, fixed upstream commit, modifications, and the
+  applicable permission or license
+
+Historical deployment records reproduce labels on immutable images that
+already exist. Keep those records accurate instead of rewriting their old
+labels. A new release record must identify the corrected source commit and
+image digest.
+
+Python wheels already include the top-level license through package metadata.
+The production Dockerfile now copies the same top-level `LICENSE` into
+`/srv/abda/LICENSE`, and both CI and the publication workflow verify that it is
+present. After the license decision, this keeps the wheel and container tied
+to the same reviewed top-level license file.
+
+The public upstream history shows one GitHub contributor, Sören Uebis, across
+all commits, including the engine code and the commit that added GPL-3.0. That
+is a useful contact lead, but it is not proof that one person owns every
+relevant right or can grant a relicensing exception. Any permission response
+must confirm the responder's authority and the exact covered files.
+
 ## Acceptable resolution paths
 
 The project owners should choose one path after checking any prior agreements:
