@@ -165,6 +165,17 @@ standard price. These checks did not change a selected route, request contract,
 or admission ceiling, so the previously completed ABDA quality gates remain the
 relevant behavioral evidence.
 
+A 2026-09-04 follow-up again found the selected Gemini model and its required
+tool and structured-output capabilities in OpenRouter's public model metadata.
+Google's official pricing page now makes the temporary price boundary explicit:
+$0.75/$3.75 through 2026-12-31, then $1.50/$7.50 starting 2027-01-01. The
+OpenRouter route already admits against the conservative $1.50/$7.50 ceiling,
+so the announced increase does not weaken the hard-cap calculation. Anthropic's
+official Sonnet 5 page continued to show $2/$10, and Microsoft continued to list
+Sonnet 5 as Hosted on Azure. The same-day project probes still returned 404 for
+all four guessed newer CloudBank deployment names. No selected route or catalog
+value changed.
+
 ## Consequences
 
 The UI and API can report the actual model, provider, route, billing source, and project-accounted cost for each completed operation. Provider-specific credentials remain server-side during funded calls.

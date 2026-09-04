@@ -73,6 +73,22 @@ boundary. No selected route, deployed model name, request contract, or public
 profile changed, and no new model evaluation was required for this metadata
 refresh.
 
+## Public route refresh on 2026-09-04
+
+A second content-free refresh confirmed that OpenRouter's public model metadata
+still exposes `google/gemini-3.7-flash` with the required tool and structured
+output support. Google's official pricing now states that Gemini 3.7 Flash costs
+$0.75 per million input tokens and $3.75 per million output tokens through
+2026-12-31, then $1.50 and $7.50 starting 2027-01-01. The route's existing
+$1.50/$7.50 admission ceilings already cover that announced increase.
+
+Anthropic's official Sonnet 5 page continued to list $2/$10, while Microsoft
+continued to list Sonnet 5 as Hosted on Azure. Neither fact proves a deployment
+exists in this CloudBank project. The same-day bounded data-plane probes for the
+four guessed candidate deployment names all returned 404. No selected route,
+request contract, price ceiling, or public profile changed, so no model call or
+repeat quality evaluation was warranted for this metadata refresh.
+
 ## Live route revalidation on 2026-08-28
 
 After the external service prerequisites were completed, both validated routes
