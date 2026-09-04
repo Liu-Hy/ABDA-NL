@@ -23,6 +23,18 @@ CloudBank project. Foundry routes by the deployment name supplied in the model
 field. The 404 results therefore block promotion until the CloudBank owner
 deploys and authorizes one of these models.
 
+The same four candidate deployment names were probed again on 2026-09-04
+through one isolated grounded-chat case per route. Every request returned HTTP
+404, every route recorded exactly one failed provider call, and all four
+reported zero metered cost. OpenRouter fallback was not allowed. The private
+report is
+`artifacts/evals/20260904-cloudbank-candidate-availability-refresh.json`, with
+SHA-256
+`55f2bb22869bef913ab0d183694a43ecb217f1b986f1c817ff123378001cac5d`.
+This refresh confirms only that those exact deployment names are still absent
+from the configured project. It cannot discover differently named deployments
+without Azure control-plane access.
+
 The validated primary remains `cloudbank-claude-sonnet-4-6`. It passed all 48
 cases on suite version 4, SHA-256
 `83345e9a6a6a13d0c3c25bac7810bd7042b48ecf6bd1ee6989a42f0773dce867`,
