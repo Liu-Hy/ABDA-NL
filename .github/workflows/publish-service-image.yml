@@ -161,6 +161,9 @@ jobs:
           docker exec "$ABDA_IMAGE_CONTAINER_ID" \
             /opt/venv/bin/python -c \
             'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          docker exec "$ABDA_IMAGE_CONTAINER_ID" \
+            python -c \
+            'import importlib.util; assert importlib.util.find_spec("pip") is None'
           curl --fail --silent --show-error \
             http://127.0.0.1:18000/health/live >/dev/null
           curl --fail --silent --show-error \

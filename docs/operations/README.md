@@ -16,8 +16,13 @@ checksum in Cloud Shell.
   current hardened source, CI, CodeQL, immutable image digest, provenance,
   Azure deployment, and live sanitized-log audit.
 - [Development source checkpoint](development-source-checkpoint-20260904.md)
-  records the newer locally verified development source, its unchanged stable
-  main ancestor, and the explicit license-gated deployment hold.
+  records the cumulative application source before the container-security
+  checkpoint, its unchanged stable main ancestor, and the explicit
+  license-gated deployment hold.
+- [Container security checkpoint](container-security-checkpoint-20260904.md)
+  records the current development container build, exact severe-vulnerability
+  baseline, independent secret scan, CycloneDX SBOM, CI evidence, and continued
+  license-gated deployment hold.
 - [Rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
   records the original tested and attested retention image, now preserved as
   historical evidence.

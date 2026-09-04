@@ -309,6 +309,7 @@ def test_container_images_remove_installers_and_ci_enforces_scan_policy():
         assert "--scanners secret" in workflow
         assert "--format cyclonedx" in workflow
         assert "container-security-" in workflow
+        assert workflow.count('importlib.util.find_spec("pip") is None') == 2
     assert '"abda-nl-ci:${GITHUB_SHA}"' in continuous_integration
     assert 'ABDA_IMAGE_URI="${ABDA_IMAGE_NAME}@${ABDA_IMAGE_DIGEST}"' in image_workflow
     assert '"$ABDA_IMAGE_URI"' in image_workflow
