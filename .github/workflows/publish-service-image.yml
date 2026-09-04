@@ -25,6 +25,15 @@ jobs:
     steps:
       - name: Check out the tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require a cleared engine source license gate
+        run: |
+          set -Eeuo pipefail
+          if ! grep --fixed-strings --line-regexp --quiet \
+            'Public image publication gate: cleared' \
+            docs/operations/source-license-review.md; then
+            echo 'Public image publication is blocked by the engine source license review.' >&2
+            exit 1
+          fi
       - name: Select the owner-scoped image repository
         id: registry
         shell: bash

@@ -267,3 +267,16 @@ def test_service_image_workflow_prevents_mutable_or_unverified_deployments():
     assert "ARG ABDA_IMAGE_SOURCE=https://github.com/idaks/ABDA-NL" in dockerfile
     assert 'org.opencontainers.image.source="${ABDA_IMAGE_SOURCE}"' in dockerfile
     assert "ABDA_IMAGE_SOURCE=${{ github.server_url }}/${{ github.repository }}" in workflow
+
+
+def test_service_image_workflow_enforces_the_source_license_gate():
+    workflow = (WORKFLOWS / "publish-service-image.yml").read_text(encoding="utf-8")
+    review = (ROOT / "docs" / "operations" / "source-license-review.md").read_text(
+        encoding="utf-8"
+    )
+
+    lines = set(review.splitlines())
+    cleared_gate = "Public image publication gate: cleared"
+    blocked_gate = "Public image publication gate: blocked"
+    assert cleared_gate in workflow
+    assert (cleared_gate in lines) != (blocked_gate in lines)

@@ -1,13 +1,25 @@
 # Final public-service operator batch
 
-State: hardened image live; privacy preparation complete; permanent deletion next
+State: hardened image live; privacy preparation complete; permanent deletion
+next; post-privacy image superseded before deployment
 
-Runbook revision: `suspension-integrity-20260904.1`
+Runbook revision: `suspension-integrity-20260904.2`
 
 This runbook covers the remaining live service operations. It does not resolve
 the separate source-redistribution question recorded in
 [the source license review](source-license-review.md). Resolve that gate before
 declaring a public source or service release complete.
+
+Do not run the Section 3 deployment or any Section 5 Azure command from this
+revision. The previously queued `084817f` image predates the WebKit keyboard
+scrolling correction at `17ef659`. Publishing its replacement would currently
+apply an unresolved `MIT` OCI label to the imported GPL engine. The old image
+and helper remain below as historical evidence, not as the current deployment
+target. Permanent privacy deletion, the Auth0 identity cleanup, the Cloudflare
+dashboard configuration, and the Resend capacity decision can proceed
+independently. A new attested image and newly pinned helper are required after
+the source license gate is resolved. The image workflow now enforces that hold
+before it builds or publishes a tagged artifact.
 
 ## Resume here after the completed privacy preparation
 
@@ -22,12 +34,11 @@ Continue only after the Gate returns
 `LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED`:
 
 1. Delete that same blocked disposable identity in Auth0.
-2. Move to Section 3 and load the separate `q` helper.
-3. Run its verify and deploy phases, complete one short funded browser request,
-   then run its audit phase.
-4. Complete the Cloudflare redirect and its hostname check in Section 4.
-5. Confirm Resend production sending capacity, then run rollback, promotion,
-   and the final audit in Section 5.
+2. Complete the Cloudflare dashboard changes in Section 4, but defer the old
+   `q` helper and its hostname check until a replacement helper is pinned.
+3. Confirm the Resend production sending capacity described in Section 5.
+4. Stop before Section 3 deployment, rollback, promotion, or final audit. Those
+   phases need the replacement image and helper described above.
 
 The hardened-image deployment, its audit, BYOK, MCP, capacity, Chromium, and
 Firefox checks are already complete. Do not rerun them unless the relevant
@@ -45,7 +56,7 @@ current hardened service passed fresh public Chromium and Firefox accessibility
 and bounded capacity checks on 2026-09-04 CDT. Subsequent runtime changes remove
 private or model-derived identifiers from operational logs, reduce evaluator
 route-list output, and prevent unexpected exception messages or tracebacks from
-entering logs. The cumulative queued image also disables hidden Anthropic SDK
+entering logs. The superseded cumulative image also disables hidden Anthropic SDK
 retries and conservatively settles provider attempts whose billing outcome
 cannot be proven. It rejects empty or malformed billed responses while retaining
 their usage evidence, distinguishes a Gemini content-policy rejection from an
@@ -74,7 +85,7 @@ The hardened release identity is:
 - target pilot revision: `abda-nl-stg-web--harden-51702e1`
 - public origin: `https://demo.abda-nl.org`
 
-The queued post-privacy cumulative identity is:
+The superseded, never-deployed post-privacy cumulative identity is:
 
 - application source commit: `084817fcefdcbee36e223ff6932d6c344618e1c3`
 - source tag: `service-image-staging-suspension-integrity-20260904-083939`
@@ -83,10 +94,10 @@ The queued post-privacy cumulative identity is:
 - target pilot revision: `abda-nl-stg-web--suspend-084817f`
 - public origin: `https://demo.abda-nl.org`
 
-Do not deploy the queued image before the disposable-account privacy deletion
-receipt. The current privacy Gate is intentionally bound to the hardened live
-image. The post-privacy helper has no privacy phase, and its deployment
-confirmation requires the operator to attest that deletion succeeded.
+Do not deploy this image. The current privacy Gate remains intentionally bound
+to the hardened live image, so its deletion phase is still valid. After that
+deletion, replace this image and repin every post-privacy Gate before resuming
+an Azure release mutation.
 
 Before running the final promotion, confirm production email capacity. The
 current Resend Free limit of 100 messages per day has no headroom for 100 new
@@ -313,6 +324,11 @@ current helper above and run the first phase. Do not recreate the project,
 share, token, or account.
 
 ## 3. Deploy and audit the cumulative service image
+
+Status: superseded before deployment. Do not run the commands in this section.
+They are retained only to identify the previously reviewed immutable chain. A
+replacement must include the WebKit keyboard correction and must use the
+license disposition chosen for the imported engine.
 
 Proceed only after the privacy Gate returned
 `LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED` and the disposable Auth0 identity

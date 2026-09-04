@@ -1,6 +1,7 @@
 # Rate-limit retention maintenance checkpoint, 2026-09-04
 
-State: built, tested, attested, and queued after privacy acceptance
+State: historical candidate, built, tested, and attested, then superseded
+before deployment
 
 This checkpoint closes one durable-service retention gap. Expired rate-limit
 rows already stopped affecting a request when their fixed window ended, but a
@@ -45,12 +46,9 @@ which includes the same retention work.
 
 ## Deployment boundary
 
-This image is not yet deployed. The existing disposable-account privacy Gate
-is bound to the current hardened image and must finish first. After permanent
-deletion succeeds and the disposable Auth0 identity is removed, Gate 20 may
-replace only the web image and revision suffix. It does not rerun migrations
-or change secrets, Auth0, DNS, certificates, trial limits, provider routing,
-scaling, probes, or database resources.
+This image was never deployed and must not be used as the current Gate 20
+target. It was superseded by the later accounting, provider lifecycle, and
+account-suspension candidates recorded in this directory.
 
 The Gate uses one confirmation phrase that explicitly records the completed
 privacy-deletion prerequisite. It cancels without changing Azure if the exact

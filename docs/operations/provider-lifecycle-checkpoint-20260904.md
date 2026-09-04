@@ -55,12 +55,9 @@ subject `ghcr.io/liu-hy/abda-nl` at the exact digest above.
 
 ## Deployment boundary
 
-This image is not yet deployed. The prepared disposable-account privacy Gate is
-bound to the current hardened image and must finish first. After permanent
-deletion succeeds and the disposable Auth0 identity is removed, Gate 20 may
-replace only the web image and revision suffix. It does not rerun migrations or
-change secrets, Auth0, DNS, certificates, trial limits, provider routing,
-scaling, probes, or database resources.
+This image was never deployed and must not be used as the current Gate 20
+target. It was superseded by the account-suspension candidate recorded in this
+directory.
 
 Because this checkpoint changes provider response handling and resource
 lifetime, the operator will make one short funded request after the image-only

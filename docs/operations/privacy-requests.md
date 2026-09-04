@@ -54,8 +54,10 @@ It stops if the deployed application changes.
 
 That pin is intentional. It keeps the already prepared account bound to the
 same live code through permanent deletion. The newer account-suspension image
-is queued only for the post-deletion deployment, so it cannot invalidate or
-silently repeat the prepared operation.
+was never deployed, so it cannot invalidate or silently repeat the prepared
+operation. It was superseded after WebKit exposed a keyboard focus defect. A
+correctly licensed replacement image must include that correction before the
+post-deletion deployment proceeds.
 
 Prepare one disposable verified-email account as follows:
 

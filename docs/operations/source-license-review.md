@@ -3,6 +3,13 @@
 Status: external authorization or a repository license decision is required
 before a public service release is declared complete.
 
+Public image publication gate: blocked
+
+The image workflow accepts only this exact line:
+`Public image publication gate: cleared`. Change it in the same reviewed commit
+that records the chosen license, permission scope, attribution, and notices. A
+tag cannot bypass this source gate.
+
 ## Why this is a release gate
 
 ABDA-NL currently identifies the repository as MIT licensed. A source review on

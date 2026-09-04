@@ -18,10 +18,13 @@ checksum in Cloud Shell.
 - [Rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
   records the original tested and attested retention image, now preserved as
   historical evidence.
+- [Account-suspension integrity checkpoint](suspension-integrity-checkpoint-20260904.md)
+  records the final pre-WebKit candidate. It is historical evidence and must
+  not be deployed as the current release target.
 - [Provider accounting integrity checkpoint](accounting-integrity-checkpoint-20260904.md)
 - [Provider lifecycle checkpoint](provider-lifecycle-checkpoint-20260904.md)
-  records the cumulative retention and hard-cap accounting image queued after
-  the pending privacy deletion acceptance.
+  records an intermediate cumulative retention and hard-cap accounting image
+  that was superseded before deployment.
 - [Requirements traceability](requirements-traceability.md) distinguishes
   completed implementation evidence from external and hardware acceptance.
 - [Public and COMMA release checklist](release-checklist.md) is the final
@@ -35,6 +38,11 @@ checksum in Cloud Shell.
 If a Gate stops, preserve its visible sanitized output and exit code. Do not
 issue an improvised Azure update or repeat a paid provider call. Resume only
 through the same pinned Gate or through a reviewed recovery instruction.
+
+OCI license fields in historical image records reproduce immutable artifact
+metadata. They are not proof that the label covers the imported engine. The
+[source license review](source-license-review.md) controls any new public image
+or final release declaration.
 
 ## Service runbooks
 

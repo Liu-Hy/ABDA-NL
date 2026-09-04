@@ -1,6 +1,7 @@
 # Provider accounting integrity checkpoint, 2026-09-04
 
-State: built, tested, attested, and queued after privacy acceptance
+State: historical candidate, built, tested, and attested, then superseded
+before deployment
 
 This checkpoint supersedes the earlier queued retention-only image. Source
 commit `050ce2cda65838b4c875079239e91f5161a4bbbe` includes that retention work and
@@ -50,12 +51,9 @@ which retains all accounting and retention work from this checkpoint.
 
 ## Deployment boundary
 
-This image is not yet deployed. The prepared disposable-account privacy Gate is
-bound to the current hardened image and must finish first. After permanent
-deletion succeeds and the disposable Auth0 identity is removed, Gate 20 may
-replace only the web image and revision suffix. It does not rerun migrations or
-change secrets, Auth0, DNS, certificates, trial limits, provider routing
-settings, scaling, probes, or database resources.
+This image was never deployed and must not be used as the current Gate 20
+target. It was superseded by the later provider lifecycle and
+account-suspension candidates recorded in this directory.
 
 Gate 20 requires the retention and conservative billing disclosures, rechecks
 the shared-view fix, and proves that the managed filesystem save endpoint

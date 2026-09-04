@@ -1,6 +1,7 @@
 # Account-suspension integrity checkpoint, 2026-09-04
 
-State: built, tested, attested, and queued after privacy acceptance
+State: historical candidate, built, tested, and attested, then superseded
+before deployment
 
 Source commit `084817fcefdcbee36e223ff6932d6c344618e1c3` retains the complete
 provider lifecycle, conservative accounting, and rate-limit retention work,
@@ -59,15 +60,21 @@ SLSA provenance subject `ghcr.io/liu-hy/abda-nl` at the exact image digest.
 
 ## Deployment boundary
 
-This image is not yet deployed. The prepared disposable-account privacy Gate
-is bound to the current hardened image and must finish first. After permanent
-deletion succeeds and the disposable Auth0 identity is removed, Gate 20 may
-replace only the web image and revision suffix. It does not rerun migrations or
-change secrets, Auth0, DNS, certificates, trial limits, provider routing,
-scaling, probes, or database resources.
+This image was never deployed. The prepared disposable-account privacy Gate is
+bound to the current hardened image and may finish there. A later WebKit Gate
+found that the argument graph lacked a Safari keyboard focus target. Source
+`17ef6593de0bcb9fdc213915bda83e3cf38a03bd` corrects that defect and passed the
+complete Chromium, Firefox, and WebKit CI matrix. Consequently, Gate 20 must
+not deploy this older image.
 
-The post-deployment funded smoke and read-only audit cover the managed provider
-and complete public release contract. The exact image already passed the
+A replacement image and Gate chain must include the WebKit correction. They
+remain unpublished while the separate source license review determines which
+license label and notices can accurately cover the imported engine. The old
+digest and attestation above remain immutable historical evidence.
+
+For a replacement image, the post-deployment funded smoke and read-only audit
+cover the managed provider and complete public release contract. The exact
+historical image already passed the
 stale-session boundary against PostgreSQL 16, so this internal serialization
 change does not require an additional disposable browser account. Gate 22
 rehearses a compatible rollback to the current hardened image and restores this

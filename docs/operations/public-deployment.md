@@ -505,28 +505,31 @@ Repeat every acceptance check against
 The live staging image is pinned in the
 [source-security checkpoint](source-security-checkpoint-20260902.md). Its
 disposable-account privacy acceptance must finish against that exact image.
-The subsequent image-only transition is recorded in the
-[provider lifecycle checkpoint](provider-lifecycle-checkpoint-20260904.md)
-and guarded by `deploy/azure/gate20-rate-limit-retention-image.sh`. It moves
-only from the live source-security image to the tested and attested cumulative
-retention, accounting, and provider-lifecycle image. The earlier
+The previously planned image-only transition is recorded in the
+[account-suspension checkpoint](suspension-integrity-checkpoint-20260904.md)
+and was guarded by `deploy/azure/gate20-rate-limit-retention-image.sh`. That
+candidate was superseded before deployment after WebKit exposed a keyboard
+focus defect. Do not run Gate 20 until a correctly licensed replacement image
+includes that correction and the complete Gate chain is repinned. The earlier
 [provider accounting checkpoint](accounting-integrity-checkpoint-20260904.md)
 and
 [retention checkpoint](rate-limit-retention-checkpoint-20260904.md) remain
 historical evidence for images that were never deployed. Do not reuse an older
 numbered Gate for a later release by editing values in Cloud Shell.
 
-After Gate 20 and its read-only Gate 21 audit, the applicable rollback rehearsal
-is `deploy/azure/gate22-rate-limit-retention-rollback.sh`. It recognizes the
+After a replacement deployment and its read-only audit, repin the applicable
+rollback rehearsal from `deploy/azure/gate22-rate-limit-retention-rollback.sh`.
+The current historical script recognizes the
 current, rollback, pending-restore, and restored states. One explicit
 confirmation authorizes both image-only transitions. If the shell is
 interrupted after the first transition, rerun the same immutable script instead
 of issuing a manual Azure update. The script accepts the prior hardened image
-before restoring the cumulative image and proves that settings, secrets,
+before restoring its pinned cumulative image and proves that settings, secrets,
 migrations, trial limits, and provider routing did not change.
 
 The final capacity change is guarded by
-`deploy/azure/gate23-rate-limit-retention-promotion.sh`. Run it only after the
+`deploy/azure/gate23-rate-limit-retention-promotion.sh`. Repin it for the
+replacement image, then run it only after the
 release audit, rollback rehearsal, MCP, BYOK, and disposable-account privacy
 acceptance are complete. It accepts only the restored cumulative image and the
 safely idle ten-user pilot. Its one Azure mutation changes exactly these
