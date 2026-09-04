@@ -156,8 +156,24 @@ def _wait_for_demo_ready(page) -> None:
 
 
 def _goto_ready_demo(page, url: str) -> None:
-    page.goto(url, wait_until="domcontentloaded")
-    _wait_for_demo_ready(page)
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    for attempt in range(2):
+        try:
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_for_demo_ready(page)
+            return
+        except PlaywrightTimeoutError:
+            if attempt > 0:
+                raise
+            # Firefox has twice timed out at a different late-suite navigation
+            # while the same server served every preceding test. Retry only
+            # after an independent readiness check proves this is a browser
+            # navigation stall rather than an application outage.
+            with urllib.request.urlopen(f"{url}/health/ready", timeout=2) as response:
+                if response.status != 200:
+                    raise
+            page.goto("about:blank", wait_until="commit", timeout=5_000)
 
 
 def _reload_ready_demo(page) -> None:
