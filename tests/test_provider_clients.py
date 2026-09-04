@@ -328,7 +328,151 @@ def test_openai_compatible_classifies_service_failures_for_retry(status):
         )
     assert caught.value.retryable is True
     assert caught.value.outage_candidate is True
+    assert caught.value.billing_uncertain is False
     assert "do not expose" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("error_type", "billing_uncertain"),
+    [
+        (httpx.ConnectTimeout, False),
+        (httpx.ConnectError, False),
+        (httpx.ReadTimeout, True),
+        (httpx.WriteError, True),
+    ],
+)
+def test_openai_compatible_distinguishes_predispatch_and_ambiguous_transport_failures(
+    error_type,
+    billing_uncertain,
+):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error_type("synthetic transport failure", request=request)
+
+    client = OpenAICompatibleClient(
+        model="openai/gpt-5.6-luna",
+        model_spec=load_model_catalog().models["gpt-5.6-luna"],
+        provider="openrouter",
+        billing_source="openrouter-emergency",
+        route="fallback",
+        base_url="https://openrouter.test/api/v1",
+        api_key="secret",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(LLMProviderError) as caught:
+        client.complete(
+            system="system",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=10,
+        )
+
+    assert caught.value.retryable is True
+    assert caught.value.outage_candidate is True
+    assert caught.value.billing_uncertain is billing_uncertain
+
+
+def test_openai_compatible_marks_invalid_success_response_as_billing_uncertain():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"not-json")
+
+    client = OpenAICompatibleClient(
+        model="openai/gpt-5.6-luna",
+        model_spec=load_model_catalog().models["gpt-5.6-luna"],
+        provider="openrouter",
+        billing_source="openrouter-emergency",
+        route="fallback",
+        base_url="https://openrouter.test/api/v1",
+        api_key="secret",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(LLMProviderError) as caught:
+        client.complete(
+            system="system",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=10,
+        )
+
+    assert caught.value.billing_uncertain is True
+
+
+def test_openrouter_tool_validation_failure_preserves_usage_and_cost():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"role": "assistant", "content": "not a tool"},
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 100,
+                    "completion_tokens": 10,
+                    "cost": 0.0002,
+                },
+            },
+        )
+
+    client = OpenAICompatibleClient(
+        model="google/gemini-3.7-flash",
+        model_spec=load_model_catalog().models["gemini-3.7-flash"],
+        provider="openrouter",
+        billing_source="openrouter-emergency",
+        route="fallback",
+        base_url="https://openrouter.test/api/v1",
+        api_key="secret",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(LLMProviderError) as caught:
+        client.tool_call(
+            system="system",
+            messages=[{"role": "user", "content": "hi"}],
+            tool={"name": "propose", "input_schema": {"type": "object"}},
+            max_tokens=10,
+        )
+
+    assert caught.value.usage["input_tokens"] == 100
+    assert caught.value.usage["output_tokens"] == 10
+    assert caught.value.provider_cost_microusd == 200
+    assert caught.value.billing_uncertain is False
+
+
+def test_openrouter_malformed_usage_is_a_conservative_validation_failure():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": "malformed"}],
+                "usage": "malformed",
+            },
+        )
+
+    client = OpenAICompatibleClient(
+        model="google/gemini-3.7-flash",
+        model_spec=load_model_catalog().models["gemini-3.7-flash"],
+        provider="openrouter",
+        billing_source="openrouter-emergency",
+        route="fallback",
+        base_url="https://openrouter.test/api/v1",
+        api_key="secret",
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(LLMProviderError) as caught:
+        client.tool_call(
+            system="system",
+            messages=[{"role": "user", "content": "hi"}],
+            tool={"name": "propose", "input_schema": {"type": "object"}},
+            max_tokens=10,
+        )
+
+    assert caught.value.usage == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+    }
+    assert caught.value.provider_cost_microusd is None
+    assert caught.value.billing_uncertain is True
 
 
 def test_openai_compatible_does_not_fail_over_on_authentication_error():

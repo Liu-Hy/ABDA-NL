@@ -4,7 +4,14 @@ from __future__ import annotations
 import logging
 import os
 
-from app.llm.client import ClaudeClient, LLMClient, LLMResponse, OllamaClient, ToolCallResponse
+from app.llm.client import (
+    ClaudeClient,
+    LLMClient,
+    LLMResponse,
+    LLMResponseValidationError,
+    OllamaClient,
+    ToolCallResponse,
+)
 from app.llm.prompts import load_prompt
 
 log = logging.getLogger(__name__)
@@ -65,6 +72,7 @@ __all__ = [
     "ClaudeClient",
     "LLMClient",
     "LLMResponse",
+    "LLMResponseValidationError",
     "OllamaClient",
     "ToolCallResponse",
     "load_prompt",

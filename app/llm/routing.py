@@ -31,6 +31,7 @@ from app.llm.providers import (
     LLMProviderError,
     OpenAICompatibleClient,
     OpenAIResponsesClient,
+    transport_billing_uncertainty,
 )
 from app.services.llm_billing import (
     CallReservation,
@@ -213,6 +214,13 @@ def _multiply_cost_microusd(cost_microusd: int, multiplier: Decimal) -> int:
     )
 
 
+def _has_positive_usage(usage: dict[str, int]) -> bool:
+    return any(
+        isinstance(value, int) and not isinstance(value, bool) and value > 0
+        for value in usage.values()
+    )
+
+
 def _openrouter_provider_preferences(
     pricing: TokenPricing | None = None,
 ) -> dict[str, Any]:
@@ -240,6 +248,7 @@ def _classified_error(exc: Exception, provider: str) -> LLMProviderError | None:
             provider=provider,
             retryable=True,
             outage_candidate=True,
+            billing_uncertain=transport_billing_uncertainty(exc) is not False,
         )
     status = getattr(exc, "status_code", None)
     if isinstance(status, int):
@@ -254,11 +263,15 @@ def _classified_error(exc: Exception, provider: str) -> LLMProviderError | None:
         )
     name = type(exc).__name__.lower()
     if "timeout" in name or "connection" in name:
+        uncertainty = transport_billing_uncertainty(exc)
         return LLMProviderError(
             f"{provider} could not be reached",
             provider=provider,
             retryable=True,
             outage_candidate=True,
+            billing_uncertain=(
+                uncertainty if uncertainty is not None else True
+            ),
         )
     return None
 
@@ -365,22 +378,33 @@ class MeteredClient:
                 kwargs["tool"] = tool
             response = call(**kwargs)
         except Exception as exc:
-            failed_usage = getattr(exc, "usage", {})
+            classified = _classified_error(exc, self.provider)
+            accounting_error = classified or exc
+            failed_usage = getattr(accounting_error, "usage", {})
             if not isinstance(failed_usage, dict):
                 failed_usage = {}
-            failed_provider_cost = getattr(exc, "provider_cost_microusd", None)
-            failed_cost = (
-                0
-                if self.use_provider_reported_cost and failed_provider_cost is None
-                else self._settled_cost_microusd(
+            failed_provider_cost = getattr(
+                accounting_error, "provider_cost_microusd", None
+            )
+            billing_uncertain = bool(
+                getattr(accounting_error, "billing_uncertain", False)
+            )
+            has_usage = _has_positive_usage(failed_usage)
+            if failed_provider_cost is not None or has_usage:
+                failed_cost = self._settled_cost_microusd(
                     failed_usage,
                     failed_provider_cost,
                 )
-            )
-            provider_error_type = getattr(exc, "error_type", None)
+            elif billing_uncertain:
+                failed_cost = reservation.amount_microusd
+            else:
+                failed_cost = 0
+            provider_error_type = getattr(accounting_error, "error_type", None)
             error_type = type(exc).__name__
             if provider_error_type:
                 error_type += f":{provider_error_type}"
+            if billing_uncertain:
+                error_type += ":billing_uncertain"
             event = usage_event(
                 request_id=self.context.request_id,
                 user_id=self.context.user_id,
@@ -423,9 +447,17 @@ class MeteredClient:
                     self.spend_cap.release(spend_reservation)
             raise
 
-        actual_cost = self._settled_cost_microusd(
-            response.usage,
-            response.provider_cost_microusd,
+        billing_uncertain = (
+            response.provider_cost_microusd is None
+            and not _has_positive_usage(response.usage)
+        )
+        actual_cost = (
+            reservation.amount_microusd
+            if billing_uncertain
+            else self._settled_cost_microusd(
+                response.usage,
+                response.provider_cost_microusd,
+            )
         )
         response.cost_microusd = actual_cost
         event = usage_event(
@@ -440,6 +472,7 @@ class MeteredClient:
             usage=response.usage,
             cost_microusd=actual_cost,
             latency_ms=response.latency_ms,
+            error_type="billing_uncertain" if billing_uncertain else None,
         )
         try:
             with self.session_factory() as session:
@@ -638,6 +671,7 @@ class LLMRouter:
                 provider="foundry",
                 billing_source=route.billing_source,
                 route=route.id,
+                sdk_max_retries=0,
             )
             return client, model_spec
         if route.provider == "azure-foundry":
@@ -790,6 +824,7 @@ class LLMRouter:
                 api_key=credential.api_key,
                 billing_source="byok",
                 route=f"byok:anthropic:{model_id}",
+                sdk_max_retries=0,
             )
         elif provider == "openai":
             raw = OpenAIResponsesClient(

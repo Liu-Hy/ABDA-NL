@@ -18,7 +18,7 @@ from app.db.models import User
 from app.db.models import LLMUsageEvent
 from app.db.session import get_session_factory
 from app.llm.catalog import load_model_catalog
-from app.llm.client import LLMResponse
+from app.llm.client import LLMResponse, LLMResponseValidationError
 from app.llm.providers import LLMProviderError
 from app.llm.routing import LLMRouteConfigurationError, LLMRouter
 from app.services.trials import InsufficientTrialCreditError
@@ -249,6 +249,17 @@ def test_http_error_mapping_never_exposes_provider_or_key_details():
     )
     assert trial.status_code == 402
     assert trial.detail["code"] == "trial_credit_required"
+
+    invalid_byok_response = llm_http_exception(
+        LLMResponseValidationError(
+            "response contained private provider details",
+            usage={"input_tokens": 10},
+        ),
+        byok=True,
+    )
+    assert invalid_byok_response.status_code == 503
+    assert invalid_byok_response.detail["code"] == "byok_provider_unavailable"
+    assert "private provider details" not in str(invalid_byok_response.detail)
 
 
 def test_public_chat_endpoint_enforces_access_before_client_creation(monkeypatch):

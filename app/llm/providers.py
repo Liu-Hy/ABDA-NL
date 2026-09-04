@@ -30,6 +30,7 @@ class LLMProviderError(RuntimeError):
         error_type: str | None = None,
         usage: dict[str, int] | None = None,
         provider_cost_microusd: int | None = None,
+        billing_uncertain: bool = False,
     ) -> None:
         super().__init__(message)
         self.provider = provider
@@ -39,6 +40,36 @@ class LLMProviderError(RuntimeError):
         self.error_type = error_type
         self.usage = dict(usage or {})
         self.provider_cost_microusd = provider_cost_microusd
+        self.billing_uncertain = billing_uncertain
+
+
+_NO_DISPATCH_TRANSPORT_ERRORS = (
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+    httpx.PoolTimeout,
+    httpx.ProxyError,
+    httpx.UnsupportedProtocol,
+)
+
+
+def transport_billing_uncertainty(exc: BaseException) -> bool | None:
+    """Classify whether a transport failure may follow provider dispatch.
+
+    ``False`` means the available exception chain identifies a pre-dispatch
+    connection or pool failure. ``True`` means the request may have reached the
+    provider. ``None`` means the chain contains no recognized HTTP transport
+    exception.
+    """
+    current: BaseException | None = exc
+    visited: set[int] = set()
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        if isinstance(current, _NO_DISPATCH_TRANSPORT_ERRORS):
+            return False
+        if isinstance(current, httpx.TransportError):
+            return True
+        current = current.__cause__ or current.__context__
+    return None
 
 
 def _flatten_system(system: str | list[dict[str, Any]]) -> str:
@@ -63,19 +94,30 @@ def _exclusive_input_tokens(
     return max(0, total - cache_read - cache_creation)
 
 
-def _usage_envelope(raw: dict[str, Any] | None) -> dict[str, int]:
-    usage = raw or {}
-    prompt_details = usage.get("prompt_tokens_details") or {}
-    total_input = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
-    cache_read = int(
+def _mapping(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _nonnegative_int(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
+def _usage_envelope(raw: Any) -> dict[str, int]:
+    usage = _mapping(raw)
+    prompt_details = _mapping(usage.get("prompt_tokens_details"))
+    total_input = _nonnegative_int(
+        usage.get("prompt_tokens") or usage.get("input_tokens")
+    )
+    cache_read = _nonnegative_int(
         prompt_details.get("cached_tokens")
         or usage.get("cache_read_input_tokens")
-        or 0
     )
-    cache_creation = int(
+    cache_creation = _nonnegative_int(
         prompt_details.get("cache_write_tokens")
         or usage.get("cache_creation_input_tokens")
-        or 0
     )
     return {
         "input_tokens": _exclusive_input_tokens(
@@ -83,17 +125,17 @@ def _usage_envelope(raw: dict[str, Any] | None) -> dict[str, int]:
             cache_read,
             cache_creation,
         ),
-        "output_tokens": int(
-            usage.get("completion_tokens") or usage.get("output_tokens") or 0
+        "output_tokens": _nonnegative_int(
+            usage.get("completion_tokens") or usage.get("output_tokens")
         ),
         "cache_read_input_tokens": cache_read,
         "cache_creation_input_tokens": cache_creation,
     }
 
 
-def _reported_cost_microusd(raw: dict[str, Any] | None) -> int | None:
+def _reported_cost_microusd(raw: Any) -> int | None:
     """Convert an OpenRouter usage cost in USD to whole microdollars."""
-    value = (raw or {}).get("cost")
+    value = _mapping(raw).get("cost")
     if value is None:
         return None
     try:
@@ -105,6 +147,15 @@ def _reported_cost_microusd(raw: dict[str, Any] | None) -> int | None:
         log.warning("llm_provider_invalid_reported_cost")
         return None
     return int((cost * Decimal("1000000")).to_integral_value(rounding=ROUND_CEILING))
+
+
+def _response_billing_fields(
+    data: dict[str, Any],
+) -> tuple[dict[str, int], int | None, bool]:
+    usage = _usage_envelope(data.get("usage"))
+    provider_cost = _reported_cost_microusd(data.get("usage"))
+    has_usage = any(value > 0 for value in usage.values())
+    return usage, provider_cost, provider_cost is None and not has_usage
 
 
 _RETRYABLE_ERROR_TYPES = {
@@ -239,6 +290,7 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=transport_billing_uncertainty(exc) is not False,
             ) from exc
         try:
             data = response.json()
@@ -252,6 +304,7 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=True,
             ) from exc
         if not isinstance(data, dict):
             if response.status_code >= 400:
@@ -261,6 +314,7 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=True,
             )
         provider_error = _provider_error_from_payload(
             data,
@@ -313,6 +367,7 @@ class OpenAICompatibleClient:
             raise provider_error
         choices = data.get("choices") or []
         if not choices or not isinstance(choices[0], dict):
+            usage, provider_cost, billing_uncertain = _response_billing_fields(data)
             raise LLMProviderError(
                 f"{provider} returned provider_unavailable",
                 provider=provider,
@@ -320,8 +375,9 @@ class OpenAICompatibleClient:
                 retryable=True,
                 outage_candidate=True,
                 error_type="provider_unavailable",
-                usage=_usage_envelope(data.get("usage")),
-                provider_cost_microusd=_reported_cost_microusd(data.get("usage")),
+                usage=usage,
+                provider_cost_microusd=provider_cost,
+                billing_uncertain=billing_uncertain,
             )
         choice_error = choices[0].get("error")
         if isinstance(choice_error, dict):
@@ -351,7 +407,7 @@ class OpenAICompatibleClient:
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
         choice = self._first_choice(data, self.provider)
-        message = choice.get("message") or {}
+        message = _mapping(choice.get("message"))
         usage = _usage_envelope(data.get("usage"))
         return LLMResponse(
             text=_text_content(message.get("content")),
@@ -399,16 +455,20 @@ class OpenAICompatibleClient:
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
         choice = self._first_choice(data, self.provider)
-        message = choice.get("message") or {}
+        message = _mapping(choice.get("message"))
         calls = message.get("tool_calls") or []
+        usage, provider_cost, billing_uncertain = _response_billing_fields(data)
         if not calls or not isinstance(calls[0], dict):
             raise LLMProviderError(
                 f"{self.provider} did not return the required tool call",
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                provider_cost_microusd=provider_cost,
+                billing_uncertain=billing_uncertain,
             )
-        function = calls[0].get("function") or {}
+        function = _mapping(calls[0].get("function"))
         returned_name = str(function.get("name") or "")
         if returned_name != tool_name:
             raise LLMProviderError(
@@ -416,6 +476,9 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                provider_cost_microusd=provider_cost,
+                billing_uncertain=billing_uncertain,
             )
         arguments = function.get("arguments")
         try:
@@ -426,6 +489,9 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                provider_cost_microusd=provider_cost,
+                billing_uncertain=billing_uncertain,
             ) from exc
         if not isinstance(tool_input, dict):
             raise LLMProviderError(
@@ -433,18 +499,21 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                provider_cost_microusd=provider_cost,
+                billing_uncertain=billing_uncertain,
             )
         return ToolCallResponse(
             tool_name=returned_name,
             tool_input=tool_input,
             stop_reason=str(choice.get("finish_reason") or "tool_calls"),
-            usage=_usage_envelope(data.get("usage")),
+            usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("model") or self.model),
             provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
-            provider_cost_microusd=_reported_cost_microusd(data.get("usage")),
+            provider_cost_microusd=provider_cost,
         )
 
 
@@ -471,6 +540,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=transport_billing_uncertainty(exc) is not False,
             ) from exc
         if response.status_code >= 400:
             status = response.status_code
@@ -497,6 +567,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=True,
             ) from exc
         if not isinstance(data, dict):
             raise LLMProviderError(
@@ -504,6 +575,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=True,
             )
         return data
 
@@ -534,18 +606,18 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
 
     @staticmethod
     def _responses_usage(data: dict[str, Any]) -> dict[str, int]:
-        usage = data.get("usage") or {}
-        details = usage.get("input_tokens_details") or {}
-        total_input = int(usage.get("input_tokens") or 0)
-        cache_read = int(details.get("cached_tokens") or 0)
-        cache_creation = int(details.get("cache_write_tokens") or 0)
+        usage = _mapping(data.get("usage"))
+        details = _mapping(usage.get("input_tokens_details"))
+        total_input = _nonnegative_int(usage.get("input_tokens"))
+        cache_read = _nonnegative_int(details.get("cached_tokens"))
+        cache_creation = _nonnegative_int(details.get("cache_write_tokens"))
         return {
             "input_tokens": _exclusive_input_tokens(
                 total_input,
                 cache_read,
                 cache_creation,
             ),
-            "output_tokens": int(usage.get("output_tokens") or 0),
+            "output_tokens": _nonnegative_int(usage.get("output_tokens")),
             "cache_read_input_tokens": cache_read,
             "cache_creation_input_tokens": cache_creation,
         }
@@ -554,7 +626,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
     def _responses_stop_reason(data: dict[str, Any]) -> str:
         status = str(data.get("status") or "completed")
         if status == "incomplete":
-            details = data.get("incomplete_details") or {}
+            details = _mapping(data.get("incomplete_details"))
             return str(details.get("reason") or status)
         return status
 
@@ -587,11 +659,14 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 ):
                     text_parts.append(content["text"])
         if not text_parts:
+            usage = self._responses_usage(data)
             raise LLMProviderError(
                 f"{self.provider} returned no text output",
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                billing_uncertain=not any(value > 0 for value in usage.values()),
             )
         return LLMResponse(
             text="".join(text_parts),
@@ -642,12 +717,16 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
             ),
             None,
         )
+        usage = self._responses_usage(data)
+        billing_uncertain = not any(value > 0 for value in usage.values())
         if not function_call or function_call.get("name") != tool_name:
             raise LLMProviderError(
                 f"{self.provider} did not return the required tool call",
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                billing_uncertain=billing_uncertain,
             )
         arguments = function_call.get("arguments")
         try:
@@ -658,6 +737,8 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                billing_uncertain=billing_uncertain,
             ) from exc
         if not isinstance(tool_input, dict):
             raise LLMProviderError(
@@ -665,12 +746,14 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                billing_uncertain=billing_uncertain,
             )
         return ToolCallResponse(
             tool_name=tool_name,
             tool_input=tool_input,
             stop_reason=self._responses_stop_reason(data),
-            usage=self._responses_usage(data),
+            usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("model") or self.model),
             provider=self.provider,
@@ -730,6 +813,7 @@ class GeminiClient:
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=transport_billing_uncertainty(exc) is not False,
             ) from exc
         if response.status_code >= 400:
             status = response.status_code
@@ -749,6 +833,7 @@ class GeminiClient:
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=True,
             ) from exc
         if not isinstance(data, dict):
             raise LLMProviderError(
@@ -756,6 +841,7 @@ class GeminiClient:
                 provider=self.provider,
                 retryable=True,
                 outage_candidate=True,
+                billing_uncertain=True,
             )
         return data
 
@@ -763,22 +849,25 @@ class GeminiClient:
     def _candidate(data: dict[str, Any]) -> dict[str, Any]:
         candidates = data.get("candidates") or []
         if not candidates or not isinstance(candidates[0], dict):
+            usage = GeminiClient._usage(data)
             raise LLMProviderError(
                 "Google Gemini returned no candidate",
                 provider="google",
                 retryable=True,
                 outage_candidate=True,
+                usage=usage,
+                billing_uncertain=not any(value > 0 for value in usage.values()),
             )
         return candidates[0]
 
     @staticmethod
     def _usage(data: dict[str, Any]) -> dict[str, int]:
-        usage = data.get("usageMetadata") or {}
-        total_input = int(usage.get("promptTokenCount") or 0)
-        cache_read = int(usage.get("cachedContentTokenCount") or 0)
+        usage = _mapping(data.get("usageMetadata"))
+        total_input = _nonnegative_int(usage.get("promptTokenCount"))
+        cache_read = _nonnegative_int(usage.get("cachedContentTokenCount"))
         return {
             "input_tokens": _exclusive_input_tokens(total_input, cache_read),
-            "output_tokens": int(usage.get("candidatesTokenCount") or 0),
+            "output_tokens": _nonnegative_int(usage.get("candidatesTokenCount")),
             "cache_read_input_tokens": cache_read,
             "cache_creation_input_tokens": 0,
         }
@@ -814,7 +903,7 @@ class GeminiClient:
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
         candidate = self._candidate(data)
-        parts = ((candidate.get("content") or {}).get("parts") or [])
+        parts = _mapping(candidate.get("content")).get("parts") or []
         text = "".join(
             str(part.get("text"))
             for part in parts
@@ -868,7 +957,8 @@ class GeminiClient:
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
         candidate = self._candidate(data)
-        parts = ((candidate.get("content") or {}).get("parts") or [])
+        parts = _mapping(candidate.get("content")).get("parts") or []
+        usage = self._usage(data)
         call = next(
             (
                 part.get("functionCall")
@@ -883,12 +973,14 @@ class GeminiClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                usage=usage,
+                billing_uncertain=not any(value > 0 for value in usage.values()),
             )
         return ToolCallResponse(
             tool_name=tool_name,
             tool_input=dict(call["args"]),
             stop_reason=str(candidate.get("finishReason") or "STOP"),
-            usage=self._usage(data),
+            usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("modelVersion") or self.model),
             provider=self.provider,

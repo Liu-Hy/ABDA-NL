@@ -14,7 +14,7 @@ from app.api.models import (
 )
 from app.core.config import Settings, get_settings
 from app.db.models import User
-from app.llm import LLMClient, resolve_backend
+from app.llm import LLMClient, LLMResponseValidationError, resolve_backend
 from app.llm.catalog import ModelCatalog, ProfileSpec, load_model_catalog
 from app.llm.client import resolve_claude_provider
 from app.llm.providers import LLMProviderError
@@ -51,6 +51,7 @@ HANDLED_LLM_ERRORS = (
     BYOKValidationError,
     LLMRouteConfigurationError,
     LLMProviderError,
+    LLMResponseValidationError,
     InsufficientTrialCreditError,
     TrialUnavailableError,
     UsageReservationError,
@@ -263,6 +264,15 @@ def llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
             status_code=response_status,
             detail={"code": code, "message": message},
             headers=response_headers,
+        )
+    if isinstance(exc, LLMResponseValidationError) and byok:
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "byok_provider_unavailable",
+                "message": "The selected provider returned an unusable response.",
+            },
+            headers={"Retry-After": "30"},
         )
     if isinstance(exc, (EmergencyBudgetExceededError, EmergencyBudgetUnavailableError)):
         code = "backup_provider_unavailable"

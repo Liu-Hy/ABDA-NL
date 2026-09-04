@@ -59,6 +59,11 @@ Record:
 - [ ] The OpenRouter ledger has no stale reservations and remains below its
       configured hard limit.
 - [ ] Any `expired_charged` reservation has an operator reconciliation note.
+- [ ] Metered Anthropic routes have SDK retries disabled, so each provider
+      attempt receives its own reservation and usage event.
+- [ ] A billed validation failure settles returned usage, while an
+      indeterminate post-dispatch failure or result without billing evidence
+      settles its full conservative reservation.
 - [ ] One forced qualifying primary outage reaches OpenRouter and settles both
       ledgers correctly in staging.
 - [ ] An authentication, deployment-name, or validator failure does not trigger

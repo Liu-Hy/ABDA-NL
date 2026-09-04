@@ -76,9 +76,9 @@ do not meet that combined contract.
 
 ## Accounting and safety controls
 
-Every physical provider attempt receives its own conservative reservation. This is required because one browser action can make several calls through proposer retries, semantic review, or chat grounding retries.
+Every physical provider attempt receives its own conservative reservation. This is required because one browser action can make several calls through proposer retries, semantic review, or chat grounding retries. Metered Anthropic routes disable the SDK's internal retry layer and use only the application's bounded retry wrapper, so every repeated network attempt receives a separate reservation and audit event.
 
-OpenRouter responses settle from the provider-reported `usage.cost`, rounded to microdollars, then apply a 1.055 multiplier for the documented credit-purchase fee. Responses that report a charged provider failure are also settled. Uncharged failures release their reservations. OpenRouter error objects returned inside an HTTP 200 response are treated as errors rather than successful empty completions.
+OpenRouter responses settle from the provider-reported `usage.cost`, rounded to microdollars, then apply a 1.055 multiplier for the documented credit-purchase fee. Responses that report a charged provider failure are also settled. A failed response that includes usage or provider cost settles that known amount, including a completed response that fails structured-output validation. A provider-declared uncharged error or a transport failure proven to occur before dispatch releases its reservation. An indeterminate read, write, successful-response parsing failure, or successful result without billing metadata settles the full conservative reservation immediately. Its audit event is marked `billing_uncertain`. OpenRouter error objects returned inside an HTTP 200 response are treated as errors rather than successful empty completions.
 
 A process or host loss can occur after provider dispatch but before usage is
 settled. On the next startup, an expired pending reservation is charged at its

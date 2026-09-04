@@ -66,6 +66,21 @@ class ToolCallResponse:
     provider_cost_microusd: int | None = None
 
 
+class LLMResponseValidationError(RuntimeError):
+    """A completed provider response that cannot satisfy the caller contract.
+
+    The response may still be billable, so the metering wrapper needs its token
+    usage even though no application response can be returned.
+    """
+
+    def __init__(self, message: str, *, usage: dict[str, int]) -> None:
+        super().__init__(message)
+        self.usage = dict(usage)
+        self.provider_cost_microusd: int | None = None
+        self.billing_uncertain = not any(value > 0 for value in self.usage.values())
+        self.error_type = "invalid_response"
+
+
 class LLMClient(Protocol):
     """Common interface. Callers pass pre-built system blocks +
     message list."""
@@ -205,6 +220,7 @@ class ClaudeClient:
         base_url: str | None = None,
         billing_source: str | None = None,
         route: str | None = None,
+        sdk_max_retries: int | None = None,
     ) -> None:
         # Lazy-import so non-LLM mode never pays the import cost.
         import anthropic
@@ -213,6 +229,13 @@ class ClaudeClient:
         self.provider = provider or resolve_claude_provider()
         if self.provider not in {"anthropic", "foundry"}:
             raise ValueError(f"unsupported Claude provider {self.provider!r}")
+        if sdk_max_retries is not None and sdk_max_retries < 0:
+            raise ValueError("sdk_max_retries cannot be negative")
+        retry_options = (
+            {"max_retries": sdk_max_retries}
+            if sdk_max_retries is not None
+            else {}
+        )
         if self.provider == "foundry":
             if not base_url:
                 configured_key, configured_token, configured_url = foundry_credentials()
@@ -229,10 +252,12 @@ class ClaudeClient:
                 api_key=api_key,
                 auth_token=auth_token if not api_key else None,
                 base_url=base_url,
+                **retry_options,
             )
         else:
             self._client = anthropic.Anthropic(
-                api_key=api_key or _configured_env("ANTHROPIC_API_KEY")
+                api_key=api_key or _configured_env("ANTHROPIC_API_KEY"),
+                **retry_options,
             )
         self.model = model or _resolve_model()
         self.billing_source = billing_source or (
@@ -324,6 +349,19 @@ class ClaudeClient:
             final = stream.get_final_message()
         latency_ms = int((time.monotonic() - start) * 1000)
 
+        usage = {
+            "input_tokens": final.usage.input_tokens,
+            "output_tokens": final.usage.output_tokens,
+            "cache_read_input_tokens": getattr(
+                final.usage, "cache_read_input_tokens", 0
+            )
+            or 0,
+            "cache_creation_input_tokens": getattr(
+                final.usage, "cache_creation_input_tokens", 0
+            )
+            or 0,
+        }
+
         # Grab the tool_use block. With tool_choice forced to a
         # specific tool, the API guarantees exactly one tool_use block
         # in `content`.
@@ -332,17 +370,11 @@ class ClaudeClient:
             None,
         )
         if tool_block is None:
-            raise RuntimeError(
+            raise LLMResponseValidationError(
                 f"expected tool_use block in response (tool={tool['name']!r}); "
-                f"got blocks: {[getattr(b, 'type', None) for b in final.content]}"
+                f"got blocks: {[getattr(b, 'type', None) for b in final.content]}",
+                usage=usage,
             )
-
-        usage = {
-            "input_tokens": final.usage.input_tokens,
-            "output_tokens": final.usage.output_tokens,
-            "cache_read_input_tokens": getattr(final.usage, "cache_read_input_tokens", 0) or 0,
-            "cache_creation_input_tokens": getattr(final.usage, "cache_creation_input_tokens", 0) or 0,
-        }
 
         log.info(
             "llm_tool model=%s tool=%s stop=%s input=%d cache_read=%d cache_write=%d output=%d latency_ms=%d",

@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
+import httpx
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -334,6 +335,20 @@ class _ProviderCostClient(_SuccessfulClient):
         return response
 
 
+class _NoBillingEvidenceClient(_SuccessfulClient):
+    def complete(self, **_kwargs):
+        return LLMResponse(
+            text="answer without usage metadata",
+            stop_reason="stop",
+            usage={},
+            latency_ms=25,
+            model=self.model,
+            provider=self.provider,
+            billing_source=self.billing_source,
+            route=self.route,
+        )
+
+
 class _ChargedFailingClient(_SuccessfulClient):
     def complete(self, **_kwargs):
         raise LLMProviderError(
@@ -357,6 +372,51 @@ class _UsageOnlyFailingClient(_SuccessfulClient):
             retryable=True,
             outage_candidate=True,
             usage={"input_tokens": 100, "output_tokens": 0},
+        )
+
+
+class _AmbiguousFailingClient(_SuccessfulClient):
+    def complete(self, **_kwargs):
+        raise LLMProviderError(
+            "response was lost after dispatch",
+            provider=self.provider,
+            retryable=True,
+            outage_candidate=True,
+            billing_uncertain=True,
+        )
+
+
+class _RawTransportFailingClient(_SuccessfulClient):
+    def __init__(self, error_type):
+        super().__init__()
+        self.error_type = error_type
+
+    def complete(self, **_kwargs):
+        request = httpx.Request("POST", "https://provider.invalid/v1/messages")
+        raise self.error_type("synthetic transport failure", request=request)
+
+
+class _RawTransportThenSuccessClient(_SuccessfulClient):
+    def complete(self, **kwargs):
+        del kwargs
+        self.calls += 1
+        if self.calls == 1:
+            request = httpx.Request(
+                "POST", "https://provider.invalid/v1/messages"
+            )
+            raise httpx.ReadTimeout(
+                "synthetic response timeout",
+                request=request,
+            )
+        return LLMResponse(
+            text="answer",
+            stop_reason="stop",
+            usage={"input_tokens": 100, "output_tokens": 50},
+            latency_ms=25,
+            model=self.model,
+            provider=self.provider,
+            billing_source=self.billing_source,
+            route=self.route,
         )
 
 
@@ -569,7 +629,9 @@ def test_metered_client_settles_a_provider_charged_failure(billing_factory):
         assert get_emergency_balance(session).spent_microusd == 106
 
 
-def test_metered_client_does_not_infer_openrouter_failure_cost(billing_factory):
+def test_metered_client_estimates_openrouter_failure_cost_from_reported_usage(
+    billing_factory,
+):
     model = load_model_catalog().models["deepseek-v4-flash"]
     client = MeteredClient(
         _UsageOnlyFailingClient(),
@@ -597,9 +659,237 @@ def test_metered_client_does_not_infer_openrouter_failure_cost(billing_factory):
                 LLMUsageEvent.request_id == "metered-unbilled-failure"
             )
         )
-        assert event.cost_microusd == 0
-        assert get_trial_balance(session, billing_factory.user_id).spent_microusd == 0
-        assert get_emergency_balance(session).spent_microusd == 0
+        assert event.cost_microusd == 10
+        assert get_trial_balance(session, billing_factory.user_id).spent_microusd == 10
+        assert get_emergency_balance(session).spent_microusd == 10
+
+
+def test_metered_client_charges_full_reservation_when_billing_is_uncertain(
+    billing_factory,
+):
+    model = load_model_catalog().models["deepseek-v4-flash"]
+    client = MeteredClient(
+        _AmbiguousFailingClient(),
+        model_spec=model,
+        use_provider_reported_cost=True,
+        billing_multiplier=Decimal("1.055"),
+        context=CallContext(
+            user_id=billing_factory.user_id,
+            request_id="metered-uncertain-failure",
+            request_kind="chat",
+            charge_trial=True,
+        ),
+        charge_emergency=True,
+        session_factory=billing_factory,
+    )
+    with pytest.raises(LLMProviderError):
+        client.complete(
+            system="system",
+            messages=[{"role": "user", "content": "question"}],
+            max_tokens=100,
+        )
+
+    with billing_factory() as session:
+        event = session.scalar(
+            select(LLMUsageEvent).where(
+                LLMUsageEvent.request_id == "metered-uncertain-failure"
+            )
+        )
+        trial_reservation = session.scalar(
+            select(UsageReservation).where(
+                UsageReservation.request_kind == "chat"
+            )
+        )
+        emergency_reservation = session.scalar(
+            select(EmergencyUsageReservation).where(
+                EmergencyUsageReservation.request_kind == "chat"
+            )
+        )
+        assert event.error_type == "LLMProviderError:billing_uncertain"
+        assert event.cost_microusd == trial_reservation.reserved_microusd
+        assert trial_reservation.actual_microusd == trial_reservation.reserved_microusd
+        assert emergency_reservation.actual_microusd == event.cost_microusd
+        assert get_trial_balance(
+            session, billing_factory.user_id
+        ).spent_microusd == event.cost_microusd
+        assert get_trial_balance(
+            session, billing_factory.user_id
+        ).reserved_microusd == 0
+        assert get_emergency_balance(session).spent_microusd == event.cost_microusd
+        assert get_emergency_balance(session).reserved_microusd == 0
+
+
+@pytest.mark.parametrize(
+    ("error_type", "expected_cost_kind"),
+    [
+        (httpx.ReadTimeout, "full_reservation"),
+        (httpx.ConnectError, "released"),
+    ],
+)
+def test_metered_client_classifies_raw_transport_before_retry_layer(
+    billing_factory,
+    error_type,
+    expected_cost_kind,
+):
+    model = load_model_catalog().models["deepseek-v4-flash"]
+    client = MeteredClient(
+        _RawTransportFailingClient(error_type),
+        model_spec=model,
+        context=CallContext(
+            user_id=billing_factory.user_id,
+            request_id=f"metered-{error_type.__name__}",
+            request_kind="chat",
+            charge_trial=True,
+        ),
+        charge_emergency=True,
+        session_factory=billing_factory,
+    )
+
+    with pytest.raises(error_type):
+        client.complete(
+            system="system",
+            messages=[{"role": "user", "content": "question"}],
+            max_tokens=100,
+        )
+
+    with billing_factory() as session:
+        event = session.scalar(
+            select(LLMUsageEvent).where(
+                LLMUsageEvent.request_id == f"metered-{error_type.__name__}"
+            )
+        )
+        trial_reservation = session.scalar(
+            select(UsageReservation).where(
+                UsageReservation.request_kind == "chat"
+            )
+        )
+        assert event.status == "failed"
+        assert get_trial_balance(
+            session, billing_factory.user_id
+        ).reserved_microusd == 0
+        assert get_emergency_balance(session).reserved_microusd == 0
+        if expected_cost_kind == "full_reservation":
+            assert event.error_type == "ReadTimeout:billing_uncertain"
+            assert event.cost_microusd == trial_reservation.reserved_microusd
+            assert trial_reservation.actual_microusd == event.cost_microusd
+        else:
+            assert event.error_type == "ConnectError"
+            assert event.cost_microusd == 0
+            assert trial_reservation.status == "released"
+
+
+def test_retrying_metered_client_reserves_each_physical_attempt(
+    billing_factory,
+    monkeypatch,
+):
+    monkeypatch.setattr("app.llm.routing.time.sleep", lambda _seconds: None)
+    model = load_model_catalog().models["deepseek-v4-flash"]
+    raw = _RawTransportThenSuccessClient()
+    metered = MeteredClient(
+        raw,
+        model_spec=model,
+        context=CallContext(
+            user_id=billing_factory.user_id,
+            request_id="metered-two-attempts",
+            request_kind="chat",
+            charge_trial=True,
+        ),
+        charge_emergency=True,
+        session_factory=billing_factory,
+    )
+    response = RetryingClient(metered, attempts=2).complete(
+        system="system",
+        messages=[{"role": "user", "content": "question"}],
+        max_tokens=100,
+    )
+
+    assert response.text == "answer"
+    assert raw.calls == 2
+    with billing_factory() as session:
+        events = list(
+            session.scalars(
+                select(LLMUsageEvent)
+                .where(LLMUsageEvent.request_id == "metered-two-attempts")
+                .order_by(LLMUsageEvent.created_at, LLMUsageEvent.id)
+            )
+        )
+        trial_reservations = list(
+            session.scalars(
+                select(UsageReservation).where(
+                    UsageReservation.request_kind == "chat"
+                )
+            )
+        )
+        emergency_reservations = list(
+            session.scalars(
+                select(EmergencyUsageReservation).where(
+                    EmergencyUsageReservation.request_kind == "chat"
+                )
+            )
+        )
+        assert [event.status for event in events] == ["failed", "succeeded"]
+        assert events[0].error_type == "ReadTimeout:billing_uncertain"
+        assert events[0].cost_microusd == trial_reservations[0].reserved_microusd
+        assert len(trial_reservations) == 2
+        assert len(emergency_reservations) == 2
+        assert all(item.status == "settled" for item in trial_reservations)
+        assert all(item.status == "settled" for item in emergency_reservations)
+        assert get_trial_balance(
+            session, billing_factory.user_id
+        ).reserved_microusd == 0
+        assert get_emergency_balance(session).reserved_microusd == 0
+
+
+def test_metered_client_conservatively_charges_success_without_billing_evidence(
+    billing_factory,
+):
+    model = load_model_catalog().models["deepseek-v4-flash"]
+    client = MeteredClient(
+        _NoBillingEvidenceClient(),
+        model_spec=model,
+        use_provider_reported_cost=True,
+        billing_multiplier=Decimal("1.055"),
+        context=CallContext(
+            user_id=billing_factory.user_id,
+            request_id="metered-uncertain-success",
+            request_kind="chat",
+            charge_trial=True,
+        ),
+        charge_emergency=True,
+        session_factory=billing_factory,
+    )
+
+    response = client.complete(
+        system="system",
+        messages=[{"role": "user", "content": "question"}],
+        max_tokens=100,
+    )
+
+    with billing_factory() as session:
+        event = session.scalar(
+            select(LLMUsageEvent).where(
+                LLMUsageEvent.request_id == "metered-uncertain-success"
+            )
+        )
+        trial_reservation = session.scalar(
+            select(UsageReservation).where(
+                UsageReservation.request_kind == "chat"
+            )
+        )
+        emergency_reservation = session.scalar(
+            select(EmergencyUsageReservation).where(
+                EmergencyUsageReservation.request_kind == "chat"
+            )
+        )
+        assert event.status == "succeeded"
+        assert event.error_type == "billing_uncertain"
+        assert response.cost_microusd == trial_reservation.reserved_microusd
+        assert trial_reservation.actual_microusd == response.cost_microusd
+        assert emergency_reservation.actual_microusd == response.cost_microusd
+        assert get_trial_balance(
+            session, billing_factory.user_id
+        ).spent_microusd == response.cost_microusd
+        assert get_emergency_balance(session).spent_microusd == response.cost_microusd
 
 
 def test_metered_client_releases_reservation_on_provider_failure(billing_factory):
@@ -796,6 +1086,47 @@ def test_byok_default_uses_provider_request_model(
             "data_collection": "deny",
             "zdr": True,
         }
+    if provider == "anthropic":
+        assert captured[0]["sdk_max_retries"] == 0
+
+
+def test_funded_anthropic_uses_only_the_metered_retry_layer(
+    monkeypatch,
+    billing_factory,
+):
+    from app.llm import routing as routing_module
+
+    captured: list[dict[str, object]] = []
+
+    class CapturedClaudeClient:
+        def __init__(self, **kwargs):
+            captured.append(kwargs)
+            self.model = kwargs["model"]
+            self.provider = "azure-foundry"
+            self.billing_source = kwargs["billing_source"]
+            self.route = kwargs["route"]
+
+    monkeypatch.setattr(routing_module, "ClaudeClient", CapturedClaudeClient)
+    settings = replace(
+        Settings.from_environment(),
+        openrouter_failover_enabled=False,
+    )
+    router = LLMRouter(
+        settings=settings,
+        session_factory=billing_factory,
+    )
+    router.funded(
+        "balanced",
+        context=CallContext(
+            user_id=billing_factory.user_id,
+            request_id="metered-anthropic-retry",
+            request_kind="chat",
+            charge_trial=True,
+        ),
+    )
+
+    assert len(captured) == 1
+    assert captured[0]["sdk_max_retries"] == 0
 
 
 def test_byok_nondefault_direct_model_keeps_catalog_id(
