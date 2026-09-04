@@ -147,19 +147,28 @@ dismissal, enforced zero-result SARIF check, clean dependency audits, immutable
 image provenance, the exact image-only Azure deployment, and the subsequent
 release and sanitized-log audit.
 
+The queued
+[rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
+binds the periodic cleanup change to complete CI, real restricted-role
+PostgreSQL coverage, CodeQL, an immutable image digest, and GitHub provenance.
+It remains undeployed until the privacy deletion acceptance finishes against
+the current hardened image.
+
 ## Release-only evidence still required
 
 The repository is not sufficient evidence for these remaining items. They are
 collected in [the final operator batch](final-operator-batch.md):
 
-1. Privacy-command operation against an isolated staging account.
-2. Deployment and read-only verification of the prepared root-domain redirect.
-3. The final-image rollback and restoration, public budget promotion, and
+1. Permanent deletion of the prepared isolated staging account, followed by
+   deletion of its blocked Auth0 identity.
+2. Image-only deployment and read-only audit of the queued retention image.
+3. Deployment and read-only verification of the prepared root-domain redirect.
+4. The final-image rollback and restoration, public budget promotion, and
    promoted-state release audit.
-4. The exact laptop `ssh delta-demo` browser path.
-5. Safari, screen-reader, presentation display, conference network, and two
+5. The exact laptop `ssh delta-demo` browser path.
+6. Safari, screen-reader, presentation display, conference network, and two
    complete rehearsal runs.
-6. A two-person, content-free PostgreSQL recovery tabletop. It does not create
+7. A two-person, content-free PostgreSQL recovery tabletop. It does not create
    a restored server or change Azure.
 
 These are explicit items in [the release checklist](release-checklist.md), not

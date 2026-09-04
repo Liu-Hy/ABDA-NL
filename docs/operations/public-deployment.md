@@ -502,27 +502,31 @@ Repeat every acceptance check against
 
 ## Updates and rollback
 
-The active staging image-only transition is pinned in the
-[source-security checkpoint](source-security-checkpoint-20260902.md) and
-guarded by `deploy/azure/gate19-source-security-image.sh`. It moves only from
-the recorded managed-boundary image to the attested source-security image. The
-older numbered image gates remain historical evidence. Do not reuse one for a
-later release by editing values in Cloud Shell.
+The live staging image is pinned in the
+[source-security checkpoint](source-security-checkpoint-20260902.md). Its
+disposable-account privacy acceptance must finish against that exact image.
+The subsequent image-only transition is recorded in the
+[rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
+and guarded by `deploy/azure/gate20-rate-limit-retention-image.sh`. It moves
+only from the live source-security image to the tested and attested retention
+image. Older numbered image gates remain historical evidence. Do not reuse one
+for a later release by editing values in Cloud Shell.
 
-The current staging rollback rehearsal is separately pinned in
-`deploy/azure/gate10-rollback-rehearsal.sh`. It recognizes the current,
-rollback, pending-restore, and restored states. One explicit confirmation
-authorizes both image-only transitions. If the shell is interrupted after the
-first transition, rerun the same immutable script instead of issuing a manual
-Azure update. The script accepts the rollback image before restoring the
-current image and proves that settings, secrets, migrations, trial limits, and
-provider routing did not change.
+After Gate 20 and its read-only Gate 21 audit, the applicable rollback rehearsal
+is `deploy/azure/gate22-rate-limit-retention-rollback.sh`. It recognizes the
+current, rollback, pending-restore, and restored states. One explicit
+confirmation authorizes both image-only transitions. If the shell is
+interrupted after the first transition, rerun the same immutable script instead
+of issuing a manual Azure update. The script accepts the prior hardened image
+before restoring the retention image and proves that settings, secrets,
+migrations, trial limits, and provider routing did not change.
 
-The final capacity change is separately guarded by
-`deploy/azure/gate12-public-budget-promotion.sh`. Run it only after the release
-audit, rollback rehearsal, MCP, BYOK, and disposable-account privacy acceptance
-are complete. It accepts only the restored source-security image and the safely
-idle ten-user pilot. Its one Azure mutation changes exactly these values:
+The final capacity change is guarded by
+`deploy/azure/gate23-rate-limit-retention-promotion.sh`. Run it only after the
+release audit, rollback rehearsal, MCP, BYOK, and disposable-account privacy
+acceptance are complete. It accepts only the restored retention image and the
+safely idle ten-user pilot. Its one Azure mutation changes exactly these
+values:
 
 - `ABDA_TRIAL_MAX_USERS` from 10 to 100
 - `ABDA_TRIAL_BUDGET_MICROUSD` from 50000000 to 500000000
