@@ -87,3 +87,14 @@ PostgreSQL, dependency audits, packaging, and the production-container smoke.
 Its matching
 [CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33860765335) passed
 the enforced zero-result check.
+
+Source `5819e8ffb291704e6ce299bda9136fff363aaddf` makes the argument graph
+itself more understandable without vision. It exposes the selected graph scope
+as pressed state, names every zoom control, announces zoom changes, and links
+the scroll region and SVG image to a concise text summary. Its complete
+[CI run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33862091560) passed both
+Python versions, restricted-role PostgreSQL, packaging, the production
+container, Chromium, Firefox, Playwright WebKit, and the full history secret
+scan. The matching
+[CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33862091557) passed
+the enforced zero-result check.
