@@ -22,10 +22,10 @@ The personal repository is standalone, not a GitHub fork. Both source branches
 retain the paper repository's complete commit ancestry. The paper documents
 remain untracked and were absent from both commits and the image context.
 
-Personal `main` requires a pull request and the seven GitHub Actions checks
-listed below. Required checks must be current with the base branch. Linear
-history and conversation resolution are required. Force pushes and deletion
-are disabled on `main` and `development`.
+At the time of this checkpoint, personal `main` required a pull request and the
+seven GitHub Actions checks listed below. Required checks had to be current
+with the base branch. Linear history and conversation resolution were
+required. Force pushes and deletion were disabled on `main` and `development`.
 
 The personal repository also has GitHub secret scanning, secret push
 protection, vulnerability alerts, and automated Dependabot security updates
@@ -59,6 +59,16 @@ passed at the same commit. Its seven jobs were:
 
 The later documentation-only checkpoint passed the same seven jobs in CI run
 [`33125598741`](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33125598741).
+
+## Protection refresh
+
+On 2026-09-04, the protection contract was refreshed after the browser matrix
+gained Playwright WebKit and the zero-finding CodeQL workflow. CodeQL now runs
+for pushes and pull requests targeting both `main` and `development`. The nine
+required checks for `main` are the original seven above, plus
+`browser-acceptance (webkit)` and `Analyze Python`. This prevents a future
+service promotion from omitting either Safari-engine regression coverage or
+the enforced CodeQL result.
 
 ## Immutable image verification
 

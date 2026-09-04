@@ -24,5 +24,5 @@ def test_codeql_workflow_is_python_only_pinned_and_least_privilege() -> None:
     assert "packages: write" not in text
     assert "id-token: write" not in text
     assert "pull-requests: write" not in text
-    assert "branches:\n      - development" in text
+    assert text.count("branches:\n      - main\n      - development") == 2
     assert "schedule:" not in text
