@@ -56,13 +56,13 @@
     "identifier": {
       "type": "string",
       "maxLength": 100,
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])"
     },
     "literal": {
       "description": "A proposition or rule-name reference, optionally negated with a leading '-'.",
       "type": "string",
       "maxLength": 101,
-      "pattern": "^-?[A-Za-z_][A-Za-z0-9_]*$"
+      "pattern": "^-?[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])"
     },
     "block": {
       "type": "integer",

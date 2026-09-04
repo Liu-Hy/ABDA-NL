@@ -482,8 +482,8 @@ def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
                       rule.category = probe;
                       rule.source = probe;
                     }
-                    if (state.bundle.af.arguments?.[0]) {
-                      state.bundle.af.arguments[0].conclusion_nl = probe;
+                    for (const argument of state.bundle.af.arguments || []) {
+                      argument.conclusion_nl = probe;
                     }
                     indexBundle();
                     renderAll();
@@ -494,6 +494,44 @@ def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
             expect(page.locator("#facts-list")).to_contain_text(content_probe)
             expect(page.locator("#kb-content")).to_contain_text(content_probe)
             assert page.locator('img[src="/content-probe"]').count() == 0
+            assert page.locator("[onerror], [onclick], [onload]").count() == 0
+
+            page.locator("#view-af-btn").click()
+            page.locator("#af-modal-body .af-node").first.hover()
+            expect(page.locator("#af-tooltip")).to_contain_text(content_probe)
+            assert page.locator('#af-modal-body img[src="/content-probe"]').count() == 0
+            page.keyboard.press("Escape")
+
+            page.locator("#conclusions-list .btn-explain:not([disabled])").first.click()
+            expect(page.locator("#modal-game")).to_contain_text(content_probe)
+            assert page.locator('#modal-game img[src="/content-probe"]').count() == 0
+            page.keyboard.press("Escape")
+
+            page.evaluate(
+                """probe => {
+                    _renderProposal({
+                      op: {
+                        op: 'add-fact',
+                        id: 'content_safety_probe',
+                        fact: {
+                          description: probe,
+                          category: probe,
+                          source: probe,
+                        },
+                      },
+                      review_issues: [{severity: 'warning', message: probe}],
+                    });
+                }""",
+                content_probe,
+            )
+            expect(page.locator("#edit-preview")).to_contain_text(content_probe)
+            assert page.locator('#edit-preview img[src="/content-probe"]').count() == 0
+
+            page.locator("#aspic-btn").click()
+            expect(page.locator("#aspic-pre")).to_contain_text(content_probe)
+            assert page.locator('#modal-aspic img[src="/content-probe"]').count() == 0
+            page.keyboard.press("Escape")
+
             assert page.locator("[onerror], [onclick], [onload]").count() == 0
             page.wait_for_timeout(100)
             assert page.evaluate("window.__abdaXssFired") == 0

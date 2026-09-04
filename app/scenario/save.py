@@ -71,7 +71,7 @@ def save_scenario(
       ScenarioIdCollision -- target exists and `overwrite` is False.
       SaveVerificationFailed -- written YAML fails to load/build.
     """
-    if not ID_PATTERN.match(save_as_id):
+    if not ID_PATTERN.fullmatch(save_as_id):
         raise InvalidScenarioId(
             f"save_as_id {save_as_id!r} must match [A-Za-z_][A-Za-z0-9_]*"
         )

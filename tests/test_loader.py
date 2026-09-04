@@ -65,6 +65,21 @@ def test_bad_identifier_pattern_rejected():
         scenario_from_dict(raw)
 
 
+def test_identifier_with_trailing_newline_rejected():
+    raw = _minimal_scenario()
+    raw["facts"]["looks_valid\n"] = {"description": "bad"}
+    with pytest.raises(ScenarioValidationError):
+        scenario_from_dict(raw)
+
+
+def test_literal_with_trailing_newline_rejected():
+    raw = _minimal_scenario()
+    raw["facts"]["f1\n"] = raw["facts"].pop("f1")
+    raw["rules"]["r1"]["premises"] = ["f1\n"]
+    with pytest.raises(ScenarioValidationError):
+        scenario_from_dict(raw)
+
+
 def test_rule_with_bad_type_rejected():
     raw = _minimal_scenario()
     raw["rules"]["r1"]["type"] = "magical"

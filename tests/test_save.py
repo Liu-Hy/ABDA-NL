@@ -137,6 +137,7 @@ def test_save_with_zero_ops_produces_equivalent_scenario(baseline_dir, examples_
     "1_starts_with_digit",
     "contains/slash",
     "contains..traversal",
+    "looks_valid_but_has_a_newline\n",
     "",
 ])
 def test_invalid_id_rejected(baseline_dir, examples_root, bad_id):

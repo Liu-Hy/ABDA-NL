@@ -648,13 +648,18 @@ def test_save_scenario_collision_with_overwrite_succeeds(
     assert second.json()["title"] == "Second"
 
 
-def test_save_scenario_invalid_id_returns_400(client: TestClient, save_sandbox):
+@pytest.mark.parametrize("bad_id", ["has spaces", "looks_valid_but_has_a_newline\n"])
+def test_save_scenario_invalid_id_returns_400(
+    client: TestClient,
+    save_sandbox,
+    bad_id: str,
+):
     resp = client.post(
         "/scenarios",
         json={
             "source_id": "popov_v_hayashi",
             "diff_ops": [],
-            "save_as_id": "has spaces",
+            "save_as_id": bad_id,
             "title": "x",
         },
     )
