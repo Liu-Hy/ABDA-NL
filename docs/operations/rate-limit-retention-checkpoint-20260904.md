@@ -52,4 +52,8 @@ without mutation. A separate read-only audit must bind the resulting Azure
 revision to this source and digest before the image becomes the release
 candidate. Gate 21 supplies that exact audit for both the ten-user pilot and
 the later 100-user public configuration without changing Azure or calling a
-model provider.
+model provider. Gate 22 rehearses a compatible rollback to the prior hardened
+image and restores this image automatically. Gate 23 then reuses the reviewed
+promotion logic with the restored retention revision and preserves the
+independent $50 trial pilot, $500 public trial cap, and $500 emergency
+OpenRouter cap boundaries.
