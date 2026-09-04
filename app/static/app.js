@@ -89,6 +89,7 @@ async function apiRequest(path, options = {}) {
     const error = new Error(apiErrorMessage(body, `${options.method || 'GET'} ${path}: ${response.status}`));
     error.status = response.status;
     error.code = body?.detail?.code || body?.errors?.[0]?.code || null;
+    error.errors = body?.errors || [];
     error.body = body;
     throw error;
   }
@@ -116,38 +117,20 @@ async function apiPostState(
   const payload = project
     ? { expected_version: project.version, diff_ops }
     : { scenario_id, diff_ops };
-  const r = await fetch(path, {
+  return await apiRequest(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     signal,
   });
-  const body = await r.json();
-  if (!r.ok) {
-    const err = new Error(apiErrorMessage(body, `POST ${path}: ${r.status}`));
-    err.errors = body.errors || [];
-    err.status = r.status;
-    err.code = body?.detail?.code || body?.errors?.[0]?.code || null;
-    throw err;
-  }
-  return body;  // { scenario, af }
 }
 
 async function apiSaveScenario(payload) {
-  const r = await fetch('/scenarios', {
+  return await apiRequest('/scenarios', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  const body = await r.json();
-  if (!r.ok) {
-    const err = new Error(body?.errors?.[0]?.message || `POST /scenarios: ${r.status}`);
-    err.errors = body.errors || [];
-    err.status = r.status;
-    err.code = body?.errors?.[0]?.code || null;
-    throw err;
-  }
-  return body;  // { id, title, scenario, af }
 }
 
 // Track the current in-flight POST /state so newer requests can cancel

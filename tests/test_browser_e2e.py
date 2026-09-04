@@ -2022,6 +2022,40 @@ def test_failed_example_load_keeps_the_existing_private_project(
             browser.close()
 
 
+def test_non_json_state_failure_reports_the_http_status(live_browser_server):
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            result = page.evaluate(
+                """async () => {
+                    const original = window.fetch.bind(window);
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/state' && options.method === 'POST') {
+                        return Promise.resolve(new Response(
+                          'upstream temporarily unavailable',
+                          {status: 502, headers: {'Content-Type': 'text/plain'}},
+                        ));
+                      }
+                      return original(path, options);
+                    };
+                    try {
+                      await apiPostState(state.scenario_id, [], undefined, null);
+                      return {message: 'request unexpectedly succeeded', status: null};
+                    } catch (error) {
+                      return {message: error.message, status: error.status ?? null};
+                    }
+                }"""
+            )
+
+            assert result == {"message": "POST /state: 502", "status": 502}
+        finally:
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 
