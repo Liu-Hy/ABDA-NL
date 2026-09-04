@@ -4,6 +4,11 @@ State: hardened image live; privacy preparation complete; permanent deletion nex
 
 Runbook revision: `suspension-integrity-20260904.1`
 
+This runbook covers the remaining live service operations. It does not resolve
+the separate source-redistribution question recorded in
+[the source license review](source-license-review.md). Resolve that gate before
+declaring a public source or service release complete.
+
 ## Resume here after the completed privacy preparation
 
 The next live operator action is the permanent-deletion half of Section 2.

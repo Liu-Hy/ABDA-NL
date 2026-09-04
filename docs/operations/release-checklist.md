@@ -21,6 +21,10 @@ Record:
 
 ## Source and artifact gates
 
+- [ ] Engine provenance and redistribution terms are resolved according to
+      [the source license review](source-license-review.md). The repository
+      license, attribution, and any separate permission cover the imported and
+      modified engine files before a public release is declared complete.
 - [ ] The tracked worktree is clean and user-owned source documents are not in
       the commit.
 - [ ] CI passes on Python 3.10 and 3.13.
