@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from app.abda_bridge import ArgumentComplexityError, ArgumentConstructionError
 from app.core.safe_logging import exception_diagnostic
 from app.mcp.server import MCPToolUserError, _tool_boundary
+from app.scenario.loader import ScenarioValidationError
 
 
 def _raise_private_message() -> None:
@@ -47,6 +49,38 @@ def test_mcp_unexpected_failure_log_and_response_omit_private_message(
     assert "location=test_safe_exception_logging.py:_raise_private_message:" in caplog.text
     assert "private-account@example.edu" not in caplog.text
     assert "bearer-private-value" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (
+            ArgumentComplexityError("internal limit detail"),
+            "This scenario is too complex to analyze safely.",
+        ),
+        (
+            ArgumentConstructionError("internal construction detail"),
+            "This scenario cannot be analyzed.",
+        ),
+        (
+            ScenarioValidationError(["internal schema detail"]),
+            "This scenario cannot be analyzed.",
+        ),
+    ],
+)
+def test_mcp_expected_scenario_failures_are_sanitized_without_error_logs(
+    error: Exception,
+    expected: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.ERROR, logger="app.mcp.server"):
+        with pytest.raises(MCPToolUserError) as caught:
+            with _tool_boundary("expected-scenario-failure"):
+                raise error
+
+    assert expected in str(caught.value)
+    assert "internal" not in str(caught.value)
+    assert "MCP tool failed" not in caplog.text
 
 
 def test_application_sources_do_not_use_exception_message_traceback_logging() -> None:

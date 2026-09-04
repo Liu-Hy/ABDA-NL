@@ -425,6 +425,20 @@ def test_mcp_scopes_optimistic_writes_and_cross_user_isolation(client: TestClien
     )["structuredContent"]
     assert created["version"] == 1
 
+    invalid_edit = _call_tool(
+        client,
+        write_token,
+        "apply_project_ops",
+        {
+            "project_id": created["id"],
+            "expected_version": 1,
+            "diff_ops": [{"op": "toggle-assumption", "id": "not_present"}],
+        },
+    )
+    assert invalid_edit["isError"] is True
+    assert "not_present" in invalid_edit["content"][0]["text"]
+    assert "could not complete" not in invalid_edit["content"][0]["text"]
+
     updated = _call_tool(
         client,
         write_token,

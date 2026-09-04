@@ -87,6 +87,12 @@ Unknown and cross-user project IDs have the same not-found result. Write tools
 reuse the existing project service and require `expected_version`, so an agent
 cannot silently overwrite a browser edit or another agent call.
 
+Expected edit, schema, argument-construction, and computation-limit failures are
+returned as stable, actionable tool errors. Complexity and construction details
+are summarized rather than exposing internal exception text. Unexpected
+failures retain only exception type and source location in the server log and
+return a generic retry message to the client.
+
 Read tools return compact grounded outcome summaries by default. A caller can
 request the complete argument graph when it is actually needed. Tool
 annotations mark project mutations and metered LLM calls as writes, which lets

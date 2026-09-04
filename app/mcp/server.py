@@ -25,6 +25,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from app.abda_bridge import ArgumentComplexityError, ArgumentConstructionError
 from app.api.llm_access import (
     HANDLED_LLM_ERRORS,
     llm_http_exception,
@@ -43,8 +44,8 @@ from app.scenario.catalog import (
     ScenarioNotFoundError,
     load_bundled_scenario,
 )
-from app.scenario.diff_ops import apply as apply_ops
-from app.scenario.loader import scenario_from_dict
+from app.scenario.diff_ops import DiffOpError, apply as apply_ops
+from app.scenario.loader import ScenarioValidationError, scenario_from_dict
 from app.scenario.serialize import scenario_to_dict
 from app.scenario.state import compute_state_bundle
 from app.services.mcp_tokens import (
@@ -202,6 +203,17 @@ def _tool_boundary(operation: str) -> Iterator[None]:
         yield
     except MCPToolUserError:
         raise
+    except ArgumentComplexityError as exc:
+        raise MCPToolUserError(
+            "This scenario is too complex to analyze safely. Reduce the number "
+            "of rules or alternative derivations."
+        ) from exc
+    except (ArgumentConstructionError, ScenarioValidationError) as exc:
+        raise MCPToolUserError(
+            "This scenario cannot be analyzed. Review its rules and try again."
+        ) from exc
+    except DiffOpError as exc:
+        raise MCPToolUserError(str(exc)) from exc
     except (
         ProjectLimitError,
         ProjectNotFoundError,
