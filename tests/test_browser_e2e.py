@@ -690,6 +690,8 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(graph_scroll).to_have_attribute(
                 "aria-label", "Scrollable argument graph"
             )
+            graph_scroll.focus()
+            expect(graph_scroll).to_be_focused()
             _axe_report(page, "argument graph")
             page.keyboard.press("Escape")
             page.locator("#aspic-btn").focus()

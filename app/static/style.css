@@ -1478,6 +1478,10 @@ body.llm-disabled .rule-info { display: none; }
   border-radius: var(--radius);
   padding: .4rem;
 }
+.af-svg-scroll:focus-visible {
+  outline: 3px solid #0b70c9;
+  outline-offset: 2px;
+}
 .af-svg-scroll svg {
   display: block;
   /* Centre small diagrams horizontally in the scroll area. */
