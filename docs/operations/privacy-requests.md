@@ -1,8 +1,8 @@
 # Privacy request operations
 
 Status: implemented in the source-security candidate. Live preparation against
-an isolated disposable account passed on 2026-09-04 CDT. The 15-minute hold and
-permanent-deletion phase remain.
+an isolated disposable account passed on 2026-09-04 CDT. The minimum 15-minute
+hold has elapsed, and the permanent-deletion phase remains.
 
 This runbook supports verified access exports and permanent deletion requests.
 The operator tool is `abda-nl-privacy`. It never accepts an account email on the

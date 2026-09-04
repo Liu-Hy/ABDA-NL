@@ -112,6 +112,18 @@ If the Cloud Shell session closes, no release state is lost. Open a new session
 and repeat only the preparation block above to recreate its temporary `p`
 value, then resume the required phase.
 
+There are intentionally two different immutable commits in this handoff. The
+download block above uses `9fb7386c271355f5adb07b4e8457368d1db44ad8`,
+which pins the helper file itself. When that helper runs, it must print:
+
+```text
+ABDA-NL consolidated operator helper revision: 13
+Pinned gate source commit: 830302fc1bf30bf0f00c457fdfe8bc190b3562fe
+```
+
+The second commit pins the complete child-Gate bundle. Seeing it does not mean
+that the helper download used the wrong revision.
+
 Verify the complete immutable Gate bundle before running a phase:
 
 ```bash
@@ -321,6 +333,18 @@ Required success ends with:
 ```text
 result: ALL_POST_PRIVACY_OPERATOR_GATES_VERIFIED
 ```
+
+This helper also has two intentional commit identities. The download block
+uses `3584c2e8ac762cbca279d895aebb87104762a497` for the helper file. Its
+verification output must begin with:
+
+```text
+ABDA-NL post-privacy operator helper revision: 5
+Pinned gate source commit: fc01896d53820b22cc1f440916e228690b6de26d
+```
+
+The printed commit pins the post-privacy child-Gate bundle and is expected to
+differ from the helper file's download commit.
 
 Deploy the exact attested cumulative image:
 
