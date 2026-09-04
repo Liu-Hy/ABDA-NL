@@ -16,15 +16,15 @@ def test_post_privacy_helper_is_pinned_and_ordered():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "fc01896d53820b22cc1f440916e228690b6de26d",
+        "a233bbd0f3ea7b45b64c8e38a4b1e784f5215348",
         "gate20-rate-limit-retention-image.sh",
-        "73237cbacd2e1582226bb41c8ab1fa4db252a143dea616d3777189881c92a676",
+        "fc5678988b8ca3f1c0544493ae32c9d54bf5deaea30d1b49436d3c259827ea55",
         "gate21-rate-limit-retention-audit.sh",
-        "1d61dd3ca61a90789e277aa1ce2952b9dfd68cfdf34b8763c3a3edfcbff46c91",
+        "aca6531bf37339fb42fa5cd5370627dc3f2d87e0969a475a7edae8d718549c0a",
         "gate22-rate-limit-retention-rollback.sh",
-        "baccf323ab35b65979a3cf7a777d43d25b4beecad90bd7a2d413a39d81672317",
+        "4d859dd102d756c177682912a16af36a238fff4a6c182c0fb00d23d6c7b991df",
         "gate23-rate-limit-retention-promotion.sh",
-        "c751bb23fafa1fb0971fdb777c1b093499b3e0fca6591cb79f67b7942618d0c6",
+        "9164f34daa336b2aed5721c5c20f293eea445b0bf72c8971d29af6017a5c3f05",
         "gate16_public_hostname_boundary.py",
         "bb528ff37e21a0b4219e5ced7f3f1e5ffbd2ea2324f2cdcda1fdc6e010f94d7c",
         "ALL_POST_PRIVACY_OPERATOR_GATES_VERIFIED",
