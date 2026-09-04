@@ -3,6 +3,8 @@
 let globalStatusTimer = null;
 const modalOpeners = new Map();
 let externalLoginRefreshPending = false;
+let projectRefreshGeneration = 0;
+let mcpTokenRefreshGeneration = 0;
 
 function byId(id) {
   return document.getElementById(id);
@@ -312,13 +314,16 @@ async function refreshAuthenticatedWorkspace(options = {}) {
     renderAccountUI();
     return;
   }
+  const projectGeneration = ++projectRefreshGeneration;
   try {
     const [trial, projects] = await Promise.all([
       apiRequest('/api/trial'),
       apiRequest('/api/projects'),
     ]);
     state.trial = trial;
-    state.projects = projects.projects || [];
+    if (projectGeneration === projectRefreshGeneration) {
+      state.projects = projects.projects || [];
+    }
     renderAccountUI();
     renderAccessSummary();
   } catch (error) {
@@ -596,13 +601,16 @@ function clearBYOKKey() {
 
 async function refreshProjects(options = {}) {
   if (!state.authSession.authenticated) return;
+  const requestGeneration = ++projectRefreshGeneration;
   if (!options.quiet) setWorkspaceStatus('projects-status', 'Refreshing projects...', 'info');
   try {
     const body = await apiRequest('/api/projects');
+    if (requestGeneration !== projectRefreshGeneration) return;
     state.projects = body.projects || [];
     renderProjectsUI();
     if (!options.quiet) setWorkspaceStatus('projects-status', '', 'info');
   } catch (error) {
+    if (requestGeneration !== projectRefreshGeneration) return;
     setWorkspaceStatus('projects-status', error.message, 'error');
   }
 }
@@ -715,6 +723,14 @@ async function createProjectFromCurrentView(event) {
   const name = byId('project-name-input').value.trim();
   const description = byId('project-description-input').value.trim();
   if (!name || !state.bundle) return;
+  const sourceView = {
+    kind: state.viewKind,
+    activeProject: state.activeProject,
+    sharedProject: state.sharedProject,
+    scenarioId: state.scenario_id,
+    bundle: state.bundle,
+    diffOps: state.diff_ops,
+  };
   const button = byId('project-create-btn');
   button.disabled = true;
   setWorkspaceStatus('projects-status', 'Creating private project...', 'info');
@@ -743,6 +759,22 @@ async function createProjectFromCurrentView(event) {
           scenario: state.bundle.scenario,
         }),
       });
+    }
+    const viewChanged = (
+      state.viewKind !== sourceView.kind
+      || state.activeProject !== sourceView.activeProject
+      || state.sharedProject !== sourceView.sharedProject
+      || state.scenario_id !== sourceView.scenarioId
+      || state.bundle !== sourceView.bundle
+      || state.diff_ops !== sourceView.diffOps
+    );
+    if (viewChanged) {
+      await refreshProjects({ quiet: true });
+      showGlobalStatus(
+        `Created private project "${project.name}". Open it from the Projects list when ready.`,
+        'success',
+      );
+      return;
     }
     setViewContext('project', project);
     state.scenario_id = project.source_scenario_id;
@@ -907,13 +939,16 @@ async function revokeProjectShare(shareId) {
 
 async function refreshMCPTokens(options = {}) {
   if (!state.authSession.authenticated) return;
+  const requestGeneration = ++mcpTokenRefreshGeneration;
   if (!options.quiet) setWorkspaceStatus('mcp-status', 'Refreshing credentials...', 'info');
   try {
     const body = await apiRequest('/api/mcp/tokens');
+    if (requestGeneration !== mcpTokenRefreshGeneration) return;
     state.mcpTokens = body.tokens || [];
     renderMCPTokens();
     if (!options.quiet) setWorkspaceStatus('mcp-status', '', 'info');
   } catch (error) {
+    if (requestGeneration !== mcpTokenRefreshGeneration) return;
     setWorkspaceStatus('mcp-status', error.message, 'error');
   }
 }

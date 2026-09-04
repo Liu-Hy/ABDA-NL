@@ -1075,6 +1075,80 @@ def test_project_change_cannot_be_replaced_by_an_older_save_response(
             browser.close()
 
 
+def test_view_change_cannot_be_replaced_by_an_older_project_create_response(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-create@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#workspace-tab-projects").click()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    window.__resolveOldCreate = null;
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/api/projects' && options.method === 'POST') {
+                        return new Promise(resolve => {
+                          const scenario = structuredClone(state.bundle.scenario);
+                          scenario.title = 'Older created project';
+                          window.__resolveOldCreate = () => resolve(new Response(
+                            JSON.stringify({
+                              id: 'older-created-project',
+                              name: 'Older created project',
+                              description: '',
+                              source_scenario_id: state.scenario_id,
+                              scenario,
+                              af: structuredClone(state.bundle.af),
+                              version: 1,
+                              created_at: new Date().toISOString(),
+                              updated_at: new Date().toISOString(),
+                            }),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      return original(path, options);
+                    };
+                }"""
+            )
+            page.locator("#project-name-input").fill("Older created project")
+            page.locator("#project-create-btn").click()
+            page.wait_for_function("() => window.__resolveOldCreate !== null")
+
+            page.evaluate(
+                """() => {
+                    const scenario = structuredClone(state.bundle.scenario);
+                    scenario.title = 'New current view';
+                    setViewContext('example');
+                    state.scenario_id = 'new-current-view';
+                    state.baseline = scenario;
+                    state.bundle = {scenario, af: structuredClone(state.bundle.af)};
+                    state.diff_ops = [];
+                    renderAll();
+                    window.__resolveOldCreate();
+                }"""
+            )
+            page.wait_for_function(
+                "() => !document.querySelector('#project-create-btn').disabled"
+            )
+
+            assert page.evaluate("state.viewKind") == "example"
+            assert page.evaluate("state.activeProject") is None
+            assert page.evaluate("state.scenario_id") == "new-current-view"
+            expect(page.locator("#scenario-name")).to_have_text("New current view")
+        finally:
+            browser.close()
+
+
 def test_closing_workspace_discards_a_late_mcp_token(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 
@@ -1129,6 +1203,77 @@ def test_closing_workspace_discards_a_late_mcp_token(live_browser_server):
             expect(page.locator("#mcp-codex-config")).to_have_text("")
             expect(page.locator("#mcp-claude-command")).to_have_text("")
             assert "private_late_secret" not in page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+
+def test_slower_mcp_refresh_cannot_restore_a_revoked_credential(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-token-list@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#workspace-tab-mcp").click()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    let tokenListRequest = 0;
+                    window.__resolveOldTokenList = null;
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/api/mcp/tokens' && !options.method) {
+                        tokenListRequest += 1;
+                        if (tokenListRequest === 1) {
+                          return new Promise(resolve => {
+                            window.__resolveOldTokenList = () => resolve(new Response(
+                              JSON.stringify({tokens: [{
+                                id: 'revoked-token',
+                                name: 'Already revoked',
+                                token_prefix: 'abda_mcp_old',
+                                scopes: ['projects:read'],
+                                expires_at: new Date(Date.now() + 86400000).toISOString(),
+                                last_used_at: null,
+                                active: true,
+                              }]}),
+                              {status: 200, headers: {'Content-Type': 'application/json'}},
+                            ));
+                          });
+                        }
+                        return Promise.resolve(new Response(
+                          JSON.stringify({tokens: []}),
+                          {status: 200, headers: {'Content-Type': 'application/json'}},
+                        ));
+                      }
+                      return original(path, options);
+                    };
+                    window.__oldTokenListRequest = refreshMCPTokens();
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveOldTokenList !== null")
+            page.evaluate("() => refreshMCPTokens()")
+            expect(page.locator("#mcp-token-list")).to_contain_text(
+                "No agent credentials yet."
+            )
+
+            page.evaluate(
+                """async () => {
+                    window.__resolveOldTokenList();
+                    await window.__oldTokenListRequest;
+                }"""
+            )
+
+            expect(page.locator("#mcp-token-list")).to_contain_text(
+                "No agent credentials yet."
+            )
+            assert page.locator('[data-mcp-action="revoke"]').count() == 0
         finally:
             browser.close()
 
