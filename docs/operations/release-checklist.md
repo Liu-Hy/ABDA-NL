@@ -177,7 +177,9 @@ Retain only its content-free status receipt. It does not take screenshots,
 submit credentials, call a model, or change Azure configuration.
 
 - [ ] Automated WCAG A and AA checks pass at desktop and narrow widths.
-- [ ] Chromium and Firefox complete the primary workflow.
+- [ ] Chromium, Firefox, and Playwright WebKit complete the automated primary
+      workflow. WebKit lowers Safari-engine risk but does not replace the Safari
+      check on macOS.
 - [ ] Safari completes the primary workflow when a macOS device is available.
 - [ ] Keyboard-only use can open, traverse, submit, and close every dialog.
 - [ ] Focus remains visible, dialog focus is trapped, Escape closes, and focus

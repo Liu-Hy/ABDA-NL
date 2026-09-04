@@ -165,6 +165,14 @@ def test_operations_index_names_one_current_sequence_and_has_valid_doc_links():
         assert (index_path.parent / relative_link).is_file(), relative_link
 
 
+def test_ci_exercises_chromium_firefox_and_webkit():
+    workflow = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+
+    assert "browser: [chromium, firefox, webkit]" in workflow
+    assert 'ABDA_BROWSER_ENGINE: "${{ matrix.browser }}"' in workflow
+    assert 'playwright install --with-deps "${{ matrix.browser }}"' in workflow
+
+
 def test_foundry_inventory_instructions_are_copyable_and_read_only():
     promotion = (ROOT / "docs" / "operations" / "model-promotion.md").read_text(
         encoding="utf-8"

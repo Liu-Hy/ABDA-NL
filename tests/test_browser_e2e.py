@@ -17,8 +17,8 @@ import pytest
 
 BROWSER_TESTS = (os.getenv("ABDA_BROWSER_TESTS") or "").strip() == "1"
 BROWSER_ENGINE = (os.getenv("ABDA_BROWSER_ENGINE") or "chromium").strip().lower()
-if BROWSER_ENGINE not in {"chromium", "firefox"}:
-    raise ValueError("ABDA_BROWSER_ENGINE must be chromium or firefox")
+if BROWSER_ENGINE not in {"chromium", "firefox", "webkit"}:
+    raise ValueError("ABDA_BROWSER_ENGINE must be chromium, firefox, or webkit")
 pytestmark = pytest.mark.skipif(
     not BROWSER_TESTS,
     reason="set ABDA_BROWSER_TESTS=1 after installing the selected browser runtime",
