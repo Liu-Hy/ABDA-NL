@@ -21,6 +21,7 @@ const state = {
   activeShares: [],
   sharesLoadedFor: null,
   latestShare: null,
+  oneTimeSecretGeneration: 0,
   viewKind: 'example',  // 'example' | 'project' | 'shared'
   sharedProject: null,
   readOnly: false,
@@ -357,9 +358,13 @@ function setViewContext(kind, project = null) {
 
 async function loadProject(projectId) {
   if (hasUnsavedChanges() && !window.confirm('Discard the unsaved changes in the current view?')) return;
+  const ctrl = beginRequest();
   setWorkspaceStatus('projects-status', 'Opening project...', 'info');
   try {
-    const project = await apiRequest(`/api/projects/${encodeURIComponent(projectId)}`);
+    const project = await apiRequest(`/api/projects/${encodeURIComponent(projectId)}`, {
+      signal: ctrl.signal,
+    });
+    if (!isCurrent(ctrl)) return;
     setViewContext('project', project);
     state.scenario_id = project.source_scenario_id;
     state.baseline = project.scenario;
@@ -374,17 +379,21 @@ async function loadProject(projectId) {
     requestCloseModal('modal-workspace');
     showGlobalStatus(`Opened private project "${project.name}".`, 'success');
   } catch (error) {
+    if (isAbortError(error) || !isCurrent(ctrl)) return;
     setWorkspaceStatus('projects-status', error.message, 'error');
   }
 }
 
 async function loadSharedProject(token) {
   if (!token || token.length > 256) throw new Error('This shared project link is invalid.');
+  const ctrl = beginRequest();
   const project = await apiRequest('/api/shares/resolve', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
+    signal: ctrl.signal,
   });
+  if (!isCurrent(ctrl)) return;
   setViewContext('shared', project);
   state.scenario_id = null;
   state.baseline = project.scenario;

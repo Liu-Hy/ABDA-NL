@@ -854,6 +854,285 @@ def test_reopening_the_editor_discards_an_older_proposal_response(
             browser.close()
 
 
+def test_slower_project_open_cannot_replace_the_latest_selection(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    const makeProject = (id, name) => {
+                      const scenario = structuredClone(state.bundle.scenario);
+                      scenario.title = name;
+                      return {
+                        id,
+                        name,
+                        description: '',
+                        source_scenario_id: state.scenario_id,
+                        scenario,
+                        af: structuredClone(state.bundle.af),
+                        version: 1,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      };
+                    };
+                    window.__resolveSlowProject = null;
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/api/projects/slow-project') {
+                        return new Promise(resolve => {
+                          window.__resolveSlowProject = () => resolve(new Response(
+                            JSON.stringify(makeProject('slow-project', 'Slow project')),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      if (path === '/api/projects/latest-project') {
+                        return Promise.resolve(new Response(
+                          JSON.stringify(makeProject('latest-project', 'Latest project')),
+                          {status: 200, headers: {'Content-Type': 'application/json'}},
+                        ));
+                      }
+                      return original(path, options);
+                    };
+                    window.__slowProjectOpen = loadProject('slow-project');
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveSlowProject !== null")
+
+            page.evaluate(
+                """async () => {
+                    await loadProject('latest-project');
+                }"""
+            )
+            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#scenario-name")).to_have_text("Latest project")
+
+            page.evaluate(
+                """async () => {
+                    window.__resolveSlowProject();
+                    await window.__slowProjectOpen;
+                }"""
+            )
+
+            assert page.evaluate("state.activeProject.id") == "latest-project"
+            expect(page.locator("#scenario-name")).to_have_text("Latest project")
+        finally:
+            browser.close()
+
+
+def test_project_change_discards_an_in_flight_share_secret(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-share@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#workspace-tab-projects").click()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    const makeProject = (id, name) => ({
+                      id,
+                      name,
+                      description: '',
+                      source_scenario_id: state.scenario_id,
+                      scenario: structuredClone(state.bundle.scenario),
+                      af: structuredClone(state.bundle.af),
+                      version: 1,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    });
+                    window.__shareProjectA = makeProject('project-a', 'Project A');
+                    window.__shareProjectB = makeProject('project-b', 'Project B');
+                    setViewContext('project', window.__shareProjectA);
+                    state.diff_ops = [];
+                    renderProjectsUI();
+                    window.__resolveOldShare = null;
+                    window.fetch = (path, options = {}) => {
+                      if (
+                        path === '/api/projects/project-a/shares'
+                        && options.method === 'POST'
+                      ) {
+                        return new Promise(resolve => {
+                          window.__resolveOldShare = () => resolve(new Response(
+                            JSON.stringify({
+                              id: 'old-share',
+                              url: `${window.location.origin}/#share=private-old-secret`,
+                            }),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      if (path === '/api/projects/project-b/shares') {
+                        return Promise.resolve(new Response(
+                          JSON.stringify({share_links: []}),
+                          {status: 200, headers: {'Content-Type': 'application/json'}},
+                        ));
+                      }
+                      return original(path, options);
+                    };
+                    window.__oldShareRequest = createProjectShare();
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveOldShare !== null")
+            page.evaluate(
+                """() => {
+                    setViewContext('project', window.__shareProjectB);
+                    renderProjectsUI();
+                    window.__resolveOldShare();
+                }"""
+            )
+            page.evaluate("() => window.__oldShareRequest")
+
+            assert page.evaluate("state.activeProject.id") == "project-b"
+            assert page.evaluate("state.latestShare") is None
+            assert "private-old-secret" not in page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+
+def test_project_change_cannot_be_replaced_by_an_older_save_response(
+    live_browser_server,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("stale-save@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    const makeProject = (id, name) => {
+                      const scenario = structuredClone(state.bundle.scenario);
+                      scenario.title = name;
+                      return {
+                        id,
+                        name,
+                        description: '',
+                        source_scenario_id: state.scenario_id,
+                        scenario,
+                        af: structuredClone(state.bundle.af),
+                        version: 1,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                      };
+                    };
+                    window.__saveProjectA = makeProject('save-a', 'Save A');
+                    window.__saveProjectB = makeProject('save-b', 'Save B');
+                    setViewContext('project', window.__saveProjectA);
+                    state.diff_ops = [{op: 'test-only-change'}];
+                    renderAll();
+                    window.__resolveOldSave = null;
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/api/projects/save-a' && options.method === 'PUT') {
+                        return new Promise(resolve => {
+                          const updated = structuredClone(window.__saveProjectA);
+                          updated.version = 2;
+                          window.__resolveOldSave = () => resolve(new Response(
+                            JSON.stringify(updated),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      return original(path, options);
+                    };
+                    window.__oldSaveRequest = saveProjectChanges();
+                }"""
+            )
+            page.wait_for_function("() => window.__resolveOldSave !== null")
+            page.evaluate(
+                """() => {
+                    setViewContext('project', window.__saveProjectB);
+                    state.diff_ops = [];
+                    renderAll();
+                    window.__resolveOldSave();
+                }"""
+            )
+            page.evaluate("() => window.__oldSaveRequest")
+
+            assert page.evaluate("state.activeProject.id") == "save-b"
+            expect(page.locator("#scenario-name")).to_have_text("Save B")
+        finally:
+            browser.close()
+
+
+def test_closing_workspace_discards_a_late_mcp_token(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#dev-login-email").fill("late-token@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            page.locator("#workspace-tab-mcp").click()
+
+            page.evaluate(
+                """() => {
+                    const original = window.fetch.bind(window);
+                    window.__resolveLateToken = null;
+                    window.fetch = (path, options = {}) => {
+                      if (path === '/api/mcp/tokens' && options.method === 'POST') {
+                        return new Promise(resolve => {
+                          window.__resolveLateToken = () => resolve(new Response(
+                            JSON.stringify({
+                              id: 'late-token',
+                              token: 'abda_mcp_private_late_secret',
+                              codex_config: 'private late Codex config',
+                              claude_command: 'private late Claude command',
+                            }),
+                            {status: 200, headers: {'Content-Type': 'application/json'}},
+                          ));
+                        });
+                      }
+                      return original(path, options);
+                    };
+                }"""
+            )
+            page.locator("#mcp-token-name").fill("Late token")
+            page.locator("#mcp-token-form button[type=submit]").click()
+            page.wait_for_function("() => window.__resolveLateToken !== null")
+            page.keyboard.press("Escape")
+            expect(page.locator("#modal-workspace .modal-content")).to_be_hidden()
+
+            page.evaluate("() => window.__resolveLateToken()")
+            page.wait_for_function(
+                "() => !document.querySelector('#mcp-token-form button[type=submit]').disabled"
+            )
+            page.locator("#workspace-btn").click()
+            page.locator("#workspace-tab-mcp").click()
+
+            expect(page.locator("#mcp-secret-panel")).to_be_hidden()
+            expect(page.locator("#mcp-secret-value")).to_have_value("")
+            expect(page.locator("#mcp-codex-config")).to_have_text("")
+            expect(page.locator("#mcp-claude-command")).to_have_text("")
+            assert "private_late_secret" not in page.locator("body").inner_text()
+        finally:
+            browser.close()
+
+
 def test_research_workspace_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

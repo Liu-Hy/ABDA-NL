@@ -778,6 +778,14 @@ async function saveProjectChanges() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ expected_version: project.version, scenario: state.bundle.scenario }),
     });
+    if (state.activeProject !== project) {
+      await refreshProjects({ quiet: true });
+      showGlobalStatus(
+        `Saved project "${updated.name}" as version ${updated.version}. The current view was not changed.`,
+        'success',
+      );
+      return updated;
+    }
     state.activeProject = updated;
     state.baseline = updated.scenario;
     state.bundle = { scenario: updated.scenario, af: updated.af };
@@ -789,9 +797,11 @@ async function saveProjectChanges() {
     showGlobalStatus(`Saved project "${updated.name}" as version ${updated.version}.`, 'success');
     return updated;
   } catch (error) {
-    if (error.code === 'project_version_conflict') {
+    if (error.code === 'project_version_conflict' && state.activeProject === project) {
       openWorkspace('projects');
       setWorkspaceStatus('projects-status', 'This project changed in another tab. Reopen it before saving again.', 'error');
+    } else if (error.code === 'project_version_conflict') {
+      showGlobalStatus(`Project "${project.name}" changed before the save completed. Reopen it before saving again.`, 'error');
     } else {
       showGlobalStatus(error.message, 'error');
     }
@@ -836,16 +846,29 @@ async function createProjectShare() {
   if (!state.activeProject) return;
   if (state.diff_ops.length > 0) {
     const saved = await saveProjectChanges();
-    if (!saved) return;
+    if (!saved || state.activeProject !== saved) return;
   }
+  const project = state.activeProject;
+  const secretGeneration = state.oneTimeSecretGeneration;
   try {
-    const share = await apiRequest(`/api/projects/${encodeURIComponent(state.activeProject.id)}/shares`, {
+    const share = await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/shares`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
     });
-    state.latestShare = { projectId: state.activeProject.id, url: share.url };
-    await refreshProjectShares({ quiet: true });
+    if (
+      state.activeProject !== project
+      || state.oneTimeSecretGeneration !== secretGeneration
+    ) {
+      await refreshProjectShares({ quiet: true, project });
+      showGlobalStatus(
+        'A share link was created, but its one-time URL was discarded after the view changed.',
+        'info',
+      );
+      return;
+    }
+    state.latestShare = { projectId: project.id, url: share.url };
+    await refreshProjectShares({ quiet: true, project });
     renderProjectsUI();
     setWorkspaceStatus('projects-status', 'A new read-only link is ready. Copy it now.', 'success');
   } catch (error) {
@@ -854,11 +877,13 @@ async function createProjectShare() {
 }
 
 async function refreshProjectShares(options = {}) {
-  if (!state.activeProject) return;
+  const project = options.project || state.activeProject;
+  if (!project) return;
   try {
-    const body = await apiRequest(`/api/projects/${encodeURIComponent(state.activeProject.id)}/shares`);
+    const body = await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/shares`);
+    if (state.activeProject !== project) return;
     state.activeShares = body.share_links || [];
-    state.sharesLoadedFor = state.activeProject.id;
+    state.sharesLoadedFor = project.id;
     renderProjectsUI();
     if (!options.quiet) setWorkspaceStatus('projects-status', 'Share-link status refreshed.', 'success');
   } catch (error) {
@@ -868,10 +893,12 @@ async function refreshProjectShares(options = {}) {
 
 async function revokeProjectShare(shareId) {
   if (!state.activeProject || !window.confirm('Revoke this read-only share link?')) return;
+  const project = state.activeProject;
   try {
-    await apiRequest(`/api/projects/${encodeURIComponent(state.activeProject.id)}/shares/${encodeURIComponent(shareId)}`, { method: 'DELETE' });
-    if (state.latestShare?.projectId === state.activeProject.id) state.latestShare = null;
-    await refreshProjectShares({ quiet: true });
+    await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/shares/${encodeURIComponent(shareId)}`, { method: 'DELETE' });
+    if (state.activeProject !== project) return;
+    if (state.latestShare?.projectId === project.id) state.latestShare = null;
+    await refreshProjectShares({ quiet: true, project });
     setWorkspaceStatus('projects-status', 'Share link revoked.', 'success');
   } catch (error) {
     setWorkspaceStatus('projects-status', error.message, 'error');
@@ -923,6 +950,7 @@ async function createMCPToken(event) {
     return;
   }
   const submit = event.currentTarget.querySelector('button[type="submit"]');
+  const secretGeneration = state.oneTimeSecretGeneration;
   submit.disabled = true;
   setWorkspaceStatus('mcp-status', 'Creating credential...', 'info');
   try {
@@ -935,6 +963,14 @@ async function createMCPToken(event) {
         expires_in_days: Number(byId('mcp-token-expiry').value),
       }),
     });
+    if (state.oneTimeSecretGeneration !== secretGeneration) {
+      await refreshMCPTokens({ quiet: true });
+      showGlobalStatus(
+        'The credential was created, but its one-time token was discarded after the workspace closed.',
+        'info',
+      );
+      return;
+    }
     byId('mcp-secret-value').value = created.token;
     byId('mcp-secret-value').type = 'password';
     byId('mcp-secret-reveal-btn').textContent = 'Show';
@@ -980,6 +1016,7 @@ function clearMCPSecretPanel() {
 }
 
 function clearWorkspaceOneTimeSecrets() {
+  state.oneTimeSecretGeneration += 1;
   state.latestShare = null;
   const shareInput = byId('latest-share-url');
   if (shareInput) shareInput.value = '';
