@@ -282,14 +282,14 @@ def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
     assert 'os.environ.pop("ABDA_DATABASE_APP_PASSWORD"' in runner
     assert "shutil.rmtree(export_root" in runner
     assert "age < 900" in runner
-    assert "no deletion execution was created" in source
+    assert "PRIVACY_DELETION_PREFLIGHT_VERIFIED" in runner
     assert "account_fingerprint:" not in runner
     assert "\N{EN DASH}" not in source and "\N{EM DASH}" not in source
 
 
-def test_pending_live_preparation_runner_signature_is_preserved():
+def test_privacy_runner_signature_is_reviewed():
     runner_sha256 = hashlib.sha256(_runner_source().encode()).hexdigest()
-    assert runner_sha256 == "41dae6e04d0ae1af2214aeb1cc2b44cb3cabd1cf2f161854d52322af906bcd4f"
+    assert runner_sha256 == "76702829f146c76381e02d73fbaa316fd233a5fe474e09c48130acacf19a1237"
 
 
 def test_app_and_job_preflights_are_narrow(tmp_path: Path):
@@ -365,77 +365,88 @@ def test_execution_template_and_resume_classifier(tmp_path: Path):
     assert "another migration job execution is active" in result.stderr
 
 
-def test_delete_preflight_requires_a_completed_prepare_hold(tmp_path: Path):
-    prepare_template_path = tmp_path / "prepare-execution.yaml"
-    prepare_template = _write_template(prepare_template_path, "prepare")
-    executions = tmp_path / "executions.json"
-
-    executions.write_text("[]", encoding="utf-8")
-    result = _run_function(
-        "abda_privacy_require_prepare_hold",
-        executions,
-        prepare_template_path,
-        "2026-09-04T01:20:00Z",
-    )
-    assert result.returncode != 0
-    assert "no successful matching privacy preparation" in result.stderr
-
-    executions.write_text(
+def test_execution_list_is_hydrated_from_show(
+    tmp_path: Path, monkeypatch,
+):
+    template_path = tmp_path / "privacy-execution.yaml"
+    template = _write_template(template_path)
+    execution_name = "abda-nl-stg-migrate-hydrated"
+    summary_path = tmp_path / "execution-list.json"
+    summary_path.write_text(
         json.dumps(
             [
-                _execution(
-                    "abda-nl-stg-migrate-prepared",
-                    "Succeeded",
-                    prepare_template,
-                    end_time="2026-09-04T01:10:00Z",
-                )
+                {
+                    "name": execution_name,
+                    "properties": {
+                        "status": "Succeeded",
+                        "startTime": "2026-09-04T01:00:00Z",
+                    },
+                }
             ]
         ),
         encoding="utf-8",
     )
-    result = _run_function(
-        "abda_privacy_require_prepare_hold",
-        executions,
-        prepare_template_path,
-        "2026-09-04T01:24:59Z",
+    detail_path = tmp_path / "execution-detail.json"
+    detail_path.write_text(
+        json.dumps(_execution(execution_name, "Succeeded", template)),
+        encoding="utf-8",
     )
-    assert result.returncode != 0
-    assert "wait 1 more seconds" in result.stderr
-    assert "no deletion execution was created" in result.stderr
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_az = fake_bin / "az"
+    fake_az.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "[[ \"$*\" == *'containerapp job execution show'* ]]\n"
+        "cat \"$ABDA_FAKE_EXECUTION_DETAIL\"\n",
+        encoding="utf-8",
+    )
+    fake_az.chmod(0o700)
+    monkeypatch.setenv("ABDA_FAKE_EXECUTION_DETAIL", str(detail_path))
+    monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
 
+    hydrated_path = tmp_path / "hydrated.json"
     result = _run_function(
-        "abda_privacy_require_prepare_hold",
-        executions,
-        prepare_template_path,
-        "2026-09-04T01:25:00Z",
+        "abda_privacy_load_execution_details",
+        summary_path,
+        hydrated_path,
+        tmp_path / "details",
     )
     assert result.returncode == 0, result.stderr
-    assert "prepare_hold_seconds: 900" in result.stdout
-    assert "delete_preflight: passed" in result.stdout
+    hydrated = json.loads(hydrated_path.read_text(encoding="utf-8"))
+    assert hydrated == [_execution(execution_name, "Succeeded", template)]
+    classification = _run_function(
+        "abda_privacy_classify_executions",
+        hydrated_path,
+        template_path,
+    )
+    assert classification.returncode == 0
+    assert classification.stdout.strip() == f"succeeded|{execution_name}"
 
-    delete_template = json.loads(json.dumps(prepare_template))
-    delete_template["containers"][0]["args"][-2] = "delete"
+
+def test_read_only_preflight_can_retry_a_failed_execution(tmp_path: Path):
+    preflight_template_path = tmp_path / "preflight-execution.yaml"
+    preflight_template = _write_template(preflight_template_path, "preflight-delete")
+    executions = tmp_path / "executions.json"
     executions.write_text(
         json.dumps(
             [
                 _execution(
-                    "abda-nl-stg-migrate-wrong-action",
-                    "Succeeded",
-                    delete_template,
-                    end_time="2026-09-04T01:00:00Z",
+                    "abda-nl-stg-migrate-preflight",
+                    "Failed",
+                    preflight_template,
                 )
             ]
         ),
         encoding="utf-8",
     )
     result = _run_function(
-        "abda_privacy_require_prepare_hold",
+        "abda_privacy_classify_executions",
         executions,
-        prepare_template_path,
-        "2026-09-04T01:25:00Z",
+        preflight_template_path,
+        "true",
     )
-    assert result.returncode != 0
-    assert "no successful matching privacy preparation" in result.stderr
+    assert result.returncode == 0 and result.stdout.strip() == "new|"
 
 
 def test_embedded_runner_prepares_resumes_and_deletes(tmp_path: Path):
@@ -467,6 +478,23 @@ def test_embedded_runner_prepares_resumes_and_deletes(tmp_path: Path):
     )
     assert resumed.returncode == 0 and "preparation_resumed: true" in resumed.stdout
 
+    early_preflight = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            runner,
+            "preflight-delete",
+            "PRIV-ACCEPT-20260830-01",
+        ],
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert early_preflight.returncode != 0
+    assert "wait " in early_preflight.stderr
+
     engine = create_engine(f"sqlite+pysqlite:///{database}")
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     with factory() as session:
@@ -477,6 +505,24 @@ def test_embedded_runner_prepares_resumes_and_deletes(tmp_path: Path):
         user.updated_at = utc_now() - timedelta(minutes=16)
         session.commit()
     engine.dispose()
+
+    preflight = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            runner,
+            "preflight-delete",
+            "PRIV-ACCEPT-20260830-01",
+        ],
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert preflight.returncode == 0, preflight.stderr
+    assert "PRIVACY_DELETION_PREFLIGHT_VERIFIED" in preflight.stdout
+    assert EMAIL not in preflight.stdout
 
     deleted = subprocess.run(
         [sys.executable, "-c", runner, "delete", "PRIV-ACCEPT-20260830-01"],

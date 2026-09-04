@@ -7,7 +7,7 @@
 # application configuration. It never changes Auth0, DNS, secrets, trial
 # settings, or provider routing.
 
-ABDA_PRIVACY_SCRIPT_REVISION='9'
+ABDA_PRIVACY_SCRIPT_REVISION='10'
 ABDA_PRIVACY_APPLICATION_SOURCE_COMMIT='51702e175bd14d4cb54075808f839d173d561324'
 ABDA_PRIVACY_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
 ABDA_PRIVACY_EXPECTED_REVISION='abda-nl-stg-web--harden-51702e1'
@@ -225,7 +225,7 @@ from pathlib import Path
 import sys
 
 path, payload, action, image, postgres_host, request_reference = sys.argv[1:]
-if action not in {"prepare", "delete"}:
+if action not in {"prepare", "preflight-delete", "delete"}:
     raise SystemExit("STOP: invalid privacy execution action")
 document = {
     "containers": [
@@ -262,10 +262,91 @@ PY
   chmod 600 "$path"
 }
 
+abda_privacy_load_execution_details() {
+  local list_path=$1
+  local output_path=$2
+  local details_root=$3
+  local names_path="$details_root/names.txt"
+  local manifest_path="$details_root/manifest.txt"
+  mkdir -p "$details_root"
+  chmod 700 "$details_root"
+  python3 - "$list_path" "$ABDA_MIGRATION_JOB_NAME" >"$names_path" <<'PY'
+import json
+import re
+import sys
+
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    executions = json.load(handle)
+job_name = sys.argv[2]
+if not isinstance(executions, list):
+    raise SystemExit("STOP: Azure returned an invalid job execution list")
+rows = []
+for execution in executions:
+    name = str(execution.get("name") or "")
+    if not re.fullmatch(re.escape(job_name) + r"-[a-z0-9]+", name):
+        raise SystemExit("STOP: Azure returned an invalid job execution name")
+    properties = execution.get("properties") or execution
+    rows.append((str(properties.get("startTime") or ""), name))
+if len(rows) > 50:
+    raise SystemExit("STOP: too many migration job executions require inspection")
+for _, name in sorted(rows, reverse=True):
+    print(name)
+PY
+
+  : >"$manifest_path"
+  local execution_name=''
+  local detail_path=''
+  local detail_index=0
+  while IFS= read -r execution_name; do
+    [[ -n "$execution_name" ]] || continue
+    detail_index=$((detail_index + 1))
+    detail_path="$details_root/execution-$detail_index.json"
+    az containerapp job execution show \
+      --name "$ABDA_MIGRATION_JOB_NAME" \
+      --resource-group "$ABDA_RESOURCE_GROUP" \
+      --job-execution-name "$execution_name" \
+      --output json >"$detail_path"
+    python3 - "$detail_path" "$execution_name" <<'PY'
+import json
+import sys
+
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    execution = json.load(handle)
+if execution.get("name") != sys.argv[2]:
+    raise SystemExit("STOP: Azure returned a different job execution")
+properties = execution.get("properties") or {}
+if not isinstance(properties.get("template"), dict):
+    raise SystemExit("STOP: Azure omitted a job execution template")
+PY
+    printf '%s\n' "$detail_path" >>"$manifest_path"
+  done <"$names_path"
+
+  python3 - "$manifest_path" "$output_path" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+
+manifest = Path(sys.argv[1])
+executions = []
+for line in manifest.read_text(encoding="utf-8").splitlines():
+    with open(line, encoding="utf-8") as handle:
+        executions.append(json.load(handle))
+Path(sys.argv[2]).write_text(
+    json.dumps(executions, separators=(",", ":")),
+    encoding="utf-8",
+)
+PY
+  chmod 600 "$output_path"
+}
+
 abda_privacy_classify_executions() {
   local executions_path=$1
   local template_path=$2
-  python3 - "$executions_path" "$template_path" <<'PY'
+  local failed_retry=${3:-false}
+  python3 - "$executions_path" "$template_path" "$failed_retry" <<'PY'
 import json
 import sys
 
@@ -273,6 +354,7 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     executions = json.load(handle)
 with open(sys.argv[2], encoding="utf-8") as handle:
     expected_template = json.load(handle)
+failed_retry = sys.argv[3] == "true"
 if not isinstance(executions, list):
     raise SystemExit("STOP: Azure returned an invalid job execution list")
 
@@ -341,104 +423,12 @@ _, name, status = max(matching)
 if status == "Succeeded":
     print(f"succeeded|{name}")
 elif status in terminal_failure_states:
-    print(f"failed|{name}")
+    if failed_retry:
+        print("new|")
+    else:
+        print(f"failed|{name}")
 else:
     raise SystemExit("STOP: the matching privacy execution has an unknown state")
-PY
-}
-
-abda_privacy_require_prepare_hold() {
-  local executions_path=$1
-  local prepare_template_path=$2
-  local now=${3:-}
-  python3 - "$executions_path" "$prepare_template_path" "$now" <<'PY'
-from datetime import datetime, timezone
-import json
-import math
-import sys
-
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    executions = json.load(handle)
-with open(sys.argv[2], encoding="utf-8") as handle:
-    expected_template = json.load(handle)
-now_text = sys.argv[3]
-
-if not isinstance(executions, list):
-    raise SystemExit("STOP: Azure returned an invalid job execution list")
-
-
-def signature(template):
-    containers = (template or {}).get("containers") or []
-    init_containers = (template or {}).get("initContainers") or []
-    if len(containers) != 1 or init_containers:
-        return None
-    container = containers[0]
-    environment = sorted(
-        (
-            str(item.get("name") or ""),
-            str(item.get("value") or ""),
-            str(item.get("secretRef") or ""),
-        )
-        for item in container.get("env") or []
-    )
-    resources = container.get("resources") or {}
-    try:
-        cpu = float(resources.get("cpu"))
-    except (TypeError, ValueError):
-        return None
-    return {
-        "name": container.get("name"),
-        "image": container.get("image"),
-        "command": container.get("command") or [],
-        "args": container.get("args") or [],
-        "env": environment,
-        "cpu": cpu,
-        "memory": str(resources.get("memory") or "").replace(" ", ""),
-    }
-
-
-def timestamp(value):
-    text = str(value or "")
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError as exc:
-        raise SystemExit("STOP: the preparation execution end time is invalid") from exc
-    if parsed.tzinfo is None:
-        raise SystemExit("STOP: the preparation execution end time has no timezone")
-    return parsed.astimezone(timezone.utc)
-
-
-expected = signature(expected_template)
-if expected is None:
-    raise SystemExit("STOP: the generated preparation template is invalid")
-matches = []
-for execution in executions:
-    properties = execution.get("properties") or execution
-    if (
-        str(properties.get("status") or "") == "Succeeded"
-        and signature(properties.get("template") or {}) == expected
-    ):
-        matches.append(timestamp(properties.get("endTime")))
-if not matches:
-    raise SystemExit("STOP: no successful matching privacy preparation execution was found")
-
-completed_at = max(matches)
-now = timestamp(now_text) if now_text else datetime.now(timezone.utc)
-elapsed = math.floor((now - completed_at).total_seconds())
-if elapsed < 0:
-    raise SystemExit("STOP: the preparation execution end time is in the future")
-minimum_hold_seconds = 900
-if elapsed < minimum_hold_seconds:
-    remaining = minimum_hold_seconds - elapsed
-    raise SystemExit(
-        f"STOP: wait {remaining} more seconds before starting permanent deletion; "
-        "no deletion execution was created"
-    )
-print(f"prepare_hold_seconds: {elapsed}")
-print("delete_preflight: passed")
 PY
 }
 
@@ -580,7 +570,11 @@ def prepared_age_seconds(updated_at: datetime) -> int:
     return max(0, int((datetime.now(timezone.utc) - value).total_seconds()))
 
 
-if len(sys.argv) != 3 or sys.argv[1] not in {"prepare", "delete"}:
+if len(sys.argv) != 3 or sys.argv[1] not in {
+    "prepare",
+    "preflight-delete",
+    "delete",
+}:
     fail("the execution must select exactly one reviewed privacy phase")
 action = sys.argv[1]
 REFERENCE = validate_privacy_request_reference(sys.argv[2])
@@ -675,6 +669,20 @@ elif action == "prepare" and status == "deletion_pending":
     print("preparation_resumed: true")
     print("trial_credit_ever_activated: false")
     print("result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES")
+elif action == "preflight-delete" and status == "deletion_pending":
+    age = prepared_age_seconds(updated_at)
+    if age < 900:
+        fail(f"wait {900 - age} more seconds before permanent deletion")
+    if shares_before != 0 or mcp_before != 0:
+        fail("the prepared account still has active share or MCP access")
+    if summary.pending_trial_reservation_count or summary.pending_emergency_reservation_count:
+        fail("the prepared account has an unsettled model reservation")
+    print("ABDA-NL Gate 11 privacy deletion preflight status:")
+    print(f"prepare_hold_seconds: {age}")
+    print("active_share_count: 0")
+    print("active_mcp_token_count: 0")
+    print("trial_credit_ever_activated: false")
+    print("result: PRIVACY_DELETION_PREFLIGHT_VERIFIED")
 elif action == "delete" and status == "deletion_pending":
     age = prepared_age_seconds(updated_at)
     if age < 900:
@@ -735,21 +743,21 @@ abda_privacy_run_job() {
   az containerapp job execution list \
     --name "$ABDA_MIGRATION_JOB_NAME" \
     --resource-group "$ABDA_RESOURCE_GROUP" \
-    --output json >"$ABDA_PRIVACY_ROOT/executions-before.json"
+    --output json >"$ABDA_PRIVACY_ROOT/execution-list.json"
+  abda_privacy_load_execution_details \
+    "$ABDA_PRIVACY_ROOT/execution-list.json" \
+    "$ABDA_PRIVACY_ROOT/executions-before.json" \
+    "$ABDA_PRIVACY_ROOT/execution-details"
   local classification=''
+  local failed_retry='false'
+  if [[ "$action" == 'preflight-delete' ]]; then
+    failed_retry='true'
+  fi
   classification="$(abda_privacy_classify_executions \
-    "$ABDA_PRIVACY_ROOT/executions-before.json" "$template_path")"
+    "$ABDA_PRIVACY_ROOT/executions-before.json" "$template_path" "$failed_retry")"
   local execution_phase=${classification%%|*}
   ABDA_PRIVACY_EXECUTION_NAME=${classification#*|}
   ABDA_PRIVACY_EXECUTION_RESUMED='false'
-
-  if [[ "$action" == 'delete' && "$execution_phase" == 'new' ]]; then
-    local prepare_template_path="$ABDA_PRIVACY_ROOT/privacy-prepare-execution.yaml"
-    abda_privacy_write_job_template \
-      "$prepare_template_path" "$runner_payload" prepare
-    abda_privacy_require_prepare_hold \
-      "$ABDA_PRIVACY_ROOT/executions-before.json" "$prepare_template_path"
-  fi
 
   case "$execution_phase" in
     new)
@@ -783,7 +791,7 @@ PY
       ;;
     failed)
       abda_privacy_fail \
-        'an exact prior privacy job execution failed; inspect it before any retry'
+        'an exact prior mutating privacy job execution failed; inspect it before any retry'
       ;;
     *)
       abda_privacy_fail 'the privacy job execution classification was invalid'
@@ -841,7 +849,7 @@ abda_privacy_main() {
   printf '%s\n' \
     'This gate validates export, suspension, access revocation, and permanent deletion.' \
     'It is destructive only to one disposable staging account after exact confirmations.' \
-    'It uses one execution-only override of the existing manual migration job.' \
+    'It uses one or two execution-only overrides of the existing manual migration job.' \
     'It never changes Azure configuration, Auth0, trial limits, or provider routing.'
 
   abda_privacy_set_constants
@@ -930,7 +938,7 @@ PY
   esac
 
   ABDA_PRIVACY_SECTION='isolated privacy workflow execution'
-  printf '\n[5/6] Running the privacy workflow as one isolated manual job execution...\n'
+  printf '\n[5/6] Running the privacy workflow as isolated manual job executions...\n'
   printf '%s\n' \
     'The runner selects exactly one account by the two disposable object names.' \
     'No email address is entered in the terminal or stored in the execution template.' \
@@ -938,6 +946,16 @@ PY
   local runner_payload=''
   runner_payload="$(abda_privacy_runner_source | base64 | tr -d '\n')"
   [[ -n "$runner_payload" ]] || abda_privacy_fail 'the privacy runner payload is empty'
+  local preflight_execution_name=''
+  local preflight_execution_state=''
+  if [[ "$privacy_action" == 'delete' ]]; then
+    printf 'Running a read-only database-state and 15-minute-hold preflight first.\n'
+    abda_privacy_run_job "$runner_payload" preflight-delete
+    preflight_execution_name=$ABDA_PRIVACY_EXECUTION_NAME
+    preflight_execution_state=$ABDA_PRIVACY_EXECUTION_STATE
+    [[ "$preflight_execution_state" == 'Succeeded' ]] || \
+      abda_privacy_fail 'the deletion preflight did not succeed'
+  fi
   abda_privacy_run_job "$runner_payload" "$privacy_action"
 
   ABDA_PRIVACY_SECTION='content-free receipt verification'
@@ -971,6 +989,10 @@ PY
   printf 'privacy_job_execution: %s\n' "$ABDA_PRIVACY_EXECUTION_NAME"
   printf 'privacy_job_execution_state: %s\n' "$ABDA_PRIVACY_EXECUTION_STATE"
   printf 'privacy_job_execution_resumed: %s\n' "$ABDA_PRIVACY_EXECUTION_RESUMED"
+  if [[ "$privacy_action" == 'delete' ]]; then
+    printf 'privacy_preflight_execution: %s\n' "$preflight_execution_name"
+    printf 'privacy_preflight_execution_state: %s\n' "$preflight_execution_state"
+  fi
   printf 'job_configuration_changed: false\n'
   printf 'application_changed: false\n'
   printf 'email_entered_in_terminal: false\n'
