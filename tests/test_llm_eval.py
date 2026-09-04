@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.evals.llm_eval import (
     _check_proposal,
     evaluate_chat,
+    evaluate_case,
     evaluate_propose,
     evaluate_review,
     load_suite,
@@ -33,12 +34,16 @@ class _FakeClient:
     def __init__(self, *, completions=None, tools=None):
         self.completions = list(completions or [])
         self.tools = list(tools or [])
+        self.closed = False
 
     def complete(self, **_kwargs):
         return self.completions.pop(0)
 
     def tool_call(self, **_kwargs):
         return self.tools.pop(0)
+
+    def close(self):
+        self.closed = True
 
 
 def _response(text: str) -> LLMResponse:
@@ -326,6 +331,36 @@ def test_route_summary_does_not_fail_unselected_case_kinds():
     assert summary["gate_checks"]["chat_pass_rate"] is True
     assert summary["gate_checks"]["review_pass_rate"] is True
     assert summary["gate_passed"] is True
+
+
+def test_evaluate_case_closes_its_route_client(monkeypatch):
+    client = _FakeClient(
+        completions=[
+            _response(
+                "Neither Popov nor Hayashi has a clearly stronger claim. "
+                "The baseline remains balanced and undecided."
+            )
+        ]
+    )
+
+    class Router:
+        def evaluation_route(self, *_args, **_kwargs):
+            return client
+
+    monkeypatch.setattr(
+        "app.evals.llm_eval._audit_totals",
+        lambda _router, _request_id: {"provider_calls": 1},
+    )
+    result = evaluate_case(
+        _case("popov-baseline-decision"),
+        router=Router(),
+        route_id="test-route",
+        repetition=1,
+        allow_emergency_spend=False,
+    )
+
+    assert result["passed"] is True
+    assert client.closed is True
 
 
 def test_openrouter_evaluation_requires_explicit_paid_permission():

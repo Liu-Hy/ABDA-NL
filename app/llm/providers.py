@@ -237,6 +237,8 @@ def _text_content(value: Any) -> str:
             continue
         if item.get("type") in {"text", "output_text"} and isinstance(item.get("text"), str):
             parts.append(item["text"])
+        elif item.get("type") == "refusal" and isinstance(item.get("refusal"), str):
+            parts.append(item["refusal"])
     return "".join(parts)
 
 
@@ -280,6 +282,9 @@ class OpenAICompatibleClient:
             timeout=httpx.Timeout(timeout_seconds, connect=10.0),
             transport=transport,
         )
+
+    def close(self) -> None:
+        self._client.close()
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -409,8 +414,23 @@ class OpenAICompatibleClient:
         choice = self._first_choice(data, self.provider)
         message = _mapping(choice.get("message"))
         usage = _usage_envelope(data.get("usage"))
+        text = _text_content(message.get("content"))
+        if not text.strip() and isinstance(message.get("refusal"), str):
+            text = message["refusal"]
+        if not text.strip():
+            usage, provider_cost, billing_uncertain = _response_billing_fields(data)
+            raise LLMProviderError(
+                f"{self.provider} returned no text output",
+                provider=self.provider,
+                retryable=False,
+                outage_candidate=False,
+                error_type="invalid_response",
+                usage=usage,
+                provider_cost_microusd=provider_cost,
+                billing_uncertain=billing_uncertain,
+            )
         return LLMResponse(
-            text=_text_content(message.get("content")),
+            text=text,
             stop_reason=str(choice.get("finish_reason") or "stop"),
             usage=usage,
             latency_ms=latency_ms,
@@ -652,13 +672,18 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
             if not isinstance(item, dict) or item.get("type") != "message":
                 continue
             for content in item.get("content") or []:
-                if (
-                    isinstance(content, dict)
-                    and content.get("type") == "output_text"
-                    and isinstance(content.get("text"), str)
+                if not isinstance(content, dict):
+                    continue
+                if content.get("type") == "output_text" and isinstance(
+                    content.get("text"), str
                 ):
                     text_parts.append(content["text"])
-        if not text_parts:
+                elif content.get("type") == "refusal" and isinstance(
+                    content.get("refusal"), str
+                ):
+                    text_parts.append(content["refusal"])
+        text = "".join(text_parts)
+        if not text.strip():
             usage = self._responses_usage(data)
             raise LLMProviderError(
                 f"{self.provider} returned no text output",
@@ -669,7 +694,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 billing_uncertain=not any(value > 0 for value in usage.values()),
             )
         return LLMResponse(
-            text="".join(text_parts),
+            text=text,
             stop_reason=self._responses_stop_reason(data),
             usage=self._responses_usage(data),
             latency_ms=latency_ms,
@@ -793,6 +818,9 @@ class GeminiClient:
             transport=transport,
         )
 
+    def close(self) -> None:
+        self._client.close()
+
     @staticmethod
     def _contents(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         contents: list[dict[str, Any]] = []
@@ -850,11 +878,18 @@ class GeminiClient:
         candidates = data.get("candidates") or []
         if not candidates or not isinstance(candidates[0], dict):
             usage = GeminiClient._usage(data)
+            prompt_feedback = _mapping(data.get("promptFeedback"))
+            blocked = bool(str(prompt_feedback.get("blockReason") or "").strip())
             raise LLMProviderError(
-                "Google Gemini returned no candidate",
+                (
+                    "Google Gemini declined the request"
+                    if blocked
+                    else "Google Gemini returned no candidate"
+                ),
                 provider="google",
-                retryable=True,
-                outage_candidate=True,
+                retryable=not blocked,
+                outage_candidate=not blocked,
+                error_type="content_blocked" if blocked else "invalid_response",
                 usage=usage,
                 billing_uncertain=not any(value > 0 for value in usage.values()),
             )
@@ -909,10 +944,21 @@ class GeminiClient:
             for part in parts
             if isinstance(part, dict) and isinstance(part.get("text"), str)
         )
+        usage = self._usage(data)
+        if not text.strip():
+            raise LLMProviderError(
+                "Google Gemini returned no text output",
+                provider=self.provider,
+                retryable=False,
+                outage_candidate=False,
+                error_type="invalid_response",
+                usage=usage,
+                billing_uncertain=not any(value > 0 for value in usage.values()),
+            )
         return LLMResponse(
             text=text,
             stop_reason=str(candidate.get("finishReason") or "STOP"),
-            usage=self._usage(data),
+            usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("modelVersion") or self.model),
             provider=self.provider,

@@ -145,6 +145,89 @@ def test_openai_compatible_complete_maps_payload_usage_and_metadata():
     assert response.route == "test-route"
 
 
+def test_openai_compatible_rejects_empty_billed_text():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"role": "assistant", "content": "   "},
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 100,
+                    "completion_tokens": 2,
+                    "cost": 0.0002,
+                },
+            },
+        )
+
+    client = OpenAICompatibleClient(
+        model="google/gemini-3.7-flash",
+        model_spec=load_model_catalog().models["gemini-3.7-flash"],
+        provider="openrouter",
+        billing_source="openrouter-emergency",
+        route="fallback",
+        base_url="https://openrouter.test/api/v1",
+        api_key="secret",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(LLMProviderError) as caught:
+        client.complete(
+            system="system",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=10,
+        )
+
+    assert caught.value.error_type == "invalid_response"
+    assert caught.value.retryable is False
+    assert caught.value.outage_candidate is False
+    assert caught.value.usage["input_tokens"] == 100
+    assert caught.value.provider_cost_microusd == 200
+
+
+def test_openai_compatible_returns_structured_refusal_text():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "refusal": "I cannot help with that request.",
+                        },
+                    }
+                ],
+                "usage": {"prompt_tokens": 20, "completion_tokens": 8},
+            },
+        )
+
+    client = OpenAICompatibleClient(
+        model="gpt-5.4-mini",
+        model_spec=load_model_catalog().models["gpt-5.4-mini"],
+        provider="openai",
+        billing_source="byok",
+        route="byok:openai:gpt-5.4-mini",
+        base_url="https://openai.test/v1",
+        api_key="secret",
+        transport=httpx.MockTransport(handler),
+    )
+
+    response = client.complete(
+        system="system",
+        messages=[{"role": "user", "content": "question"}],
+        max_tokens=20,
+    )
+
+    assert response.text == "I cannot help with that request."
+
+
 def test_openai_compatible_tool_call_forces_named_function():
     captured = {}
 
@@ -560,6 +643,47 @@ def test_openai_responses_complete_uses_privacy_and_reasoning_fields():
     assert result.usage["cache_creation_input_tokens"] == 20
 
 
+def test_openai_responses_returns_refusal_text():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "refusal",
+                                "refusal": "I cannot help with that request.",
+                            }
+                        ],
+                    }
+                ],
+                "usage": {"input_tokens": 20, "output_tokens": 8},
+            },
+        )
+
+    client = OpenAIResponsesClient(
+        model="gpt-5.6-terra",
+        model_spec=load_model_catalog().models["gpt-5.6-terra"],
+        provider="openai",
+        billing_source="byok",
+        route="byok:openai:gpt-5.6-terra",
+        base_url="https://api.openai.test/v1",
+        api_key="test-key",
+        transport=httpx.MockTransport(handler),
+    )
+
+    response = client.complete(
+        system="system",
+        messages=[{"role": "user", "content": "question"}],
+        max_tokens=20,
+    )
+
+    assert response.text == "I cannot help with that request."
+
+
 def test_openai_responses_tool_call_uses_flat_function_shape():
     captured = {}
 
@@ -674,6 +798,99 @@ def test_gemini_complete_maps_native_request_and_response():
     assert result.text == "Gemini answer"
     assert result.usage["input_tokens"] == 55
     assert result.usage["cache_read_input_tokens"] == 20
+
+
+def test_gemini_safety_block_is_not_retried_as_an_outage():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "promptFeedback": {"blockReason": "SAFETY"},
+                "usageMetadata": {"promptTokenCount": 18},
+            },
+        )
+
+    client = GeminiClient(
+        model="gemini-3.7-flash",
+        model_spec=load_model_catalog().models["gemini-3.7-flash"],
+        api_key="google-test-key",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(LLMProviderError) as caught:
+        client.complete(
+            system="system",
+            messages=[{"role": "user", "content": "question"}],
+            max_tokens=20,
+        )
+
+    assert caught.value.error_type == "content_blocked"
+    assert caught.value.retryable is False
+    assert caught.value.outage_candidate is False
+    assert caught.value.usage["input_tokens"] == 18
+
+
+def test_gemini_rejects_empty_billed_text():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "finishReason": "MAX_TOKENS",
+                        "content": {"parts": []},
+                    }
+                ],
+                "usageMetadata": {
+                    "promptTokenCount": 18,
+                    "candidatesTokenCount": 2,
+                },
+            },
+        )
+
+    client = GeminiClient(
+        model="gemini-3.7-flash",
+        model_spec=load_model_catalog().models["gemini-3.7-flash"],
+        api_key="google-test-key",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(LLMProviderError) as caught:
+        client.complete(
+            system="system",
+            messages=[{"role": "user", "content": "question"}],
+            max_tokens=20,
+        )
+
+    assert caught.value.error_type == "invalid_response"
+    assert caught.value.retryable is False
+    assert caught.value.usage["output_tokens"] == 2
+
+
+def test_http_provider_clients_close_their_connection_pools():
+    spec = load_model_catalog().models["gemini-3.7-flash"]
+    openai = OpenAICompatibleClient(
+        model="google/gemini-3.7-flash",
+        model_spec=spec,
+        provider="openrouter",
+        billing_source="byok",
+        route="byok:openrouter:gemini-3.7-flash",
+        base_url="https://openrouter.test/api/v1",
+        api_key="secret",
+        transport=httpx.MockTransport(lambda _request: httpx.Response(200)),
+    )
+    gemini = GeminiClient(
+        model="gemini-3.7-flash",
+        model_spec=spec,
+        api_key="secret",
+        transport=httpx.MockTransport(lambda _request: httpx.Response(200)),
+    )
+
+    openai.close()
+    gemini.close()
+
+    assert openai._client.is_closed is True
+    assert gemini._client.is_closed is True
 
 
 def test_gemini_tool_call_uses_forced_function_calling():

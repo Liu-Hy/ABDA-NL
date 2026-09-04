@@ -434,12 +434,21 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
     )["token"]
     captured = {}
 
+    class ClosableClient:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    selected_client = ClosableClient()
+
     def fake_select(options, *, user, request_id, request_kind, legacy_factory):
         captured["profile"] = options.profile
         captured["user_id"] = user.id
         captured["request_id"] = request_id
         captured["request_kind"] = request_kind
-        return object()
+        return selected_client
 
     def fake_propose(*args, **kwargs):
         return SimpleNamespace(
@@ -480,6 +489,7 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
     assert captured["profile"] == "balanced"
     assert captured["user_id"] == user["id"]
     assert captured["request_kind"] == "mcp-propose"
+    assert selected_client.closed is True
 
     unchanged = client.get(f"/api/projects/{project['id']}").json()
     assert unchanged["version"] == 1

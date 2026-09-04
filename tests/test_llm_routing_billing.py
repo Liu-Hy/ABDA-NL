@@ -290,6 +290,15 @@ class _SuccessfulClient:
         raise AssertionError("not used")
 
 
+class _ClosableClient(_SuccessfulClient):
+    def __init__(self):
+        super().__init__()
+        self.close_calls = 0
+
+    def close(self):
+        self.close_calls += 1
+
+
 class _WrongResponseTypeClient(_SuccessfulClient):
     def complete(self, **_kwargs):
         return ToolCallResponse(
@@ -450,6 +459,45 @@ def test_metered_client_settles_actual_cost_and_records_route(billing_factory):
         assert event.route == "fallback"
         assert get_trial_balance(session, billing_factory.user_id).spent_microusd > 0
         assert get_emergency_balance(session).spent_microusd > 0
+
+
+def test_composite_client_close_reaches_each_physical_provider_once(
+    billing_factory,
+):
+    model = load_model_catalog().models["deepseek-v4-flash"]
+    primary_physical = _ClosableClient()
+    fallback_physical = _ClosableClient()
+    context = CallContext(
+        user_id=None,
+        request_id="close-composite",
+        request_kind="test",
+        charge_trial=False,
+    )
+    primary = RetryingClient(
+        MeteredClient(
+            primary_physical,
+            model_spec=model,
+            context=context,
+            charge_emergency=False,
+            session_factory=billing_factory,
+        ),
+        attempts=1,
+    )
+    fallback = RetryingClient(
+        MeteredClient(
+            fallback_physical,
+            model_spec=model,
+            context=context,
+            charge_emergency=False,
+            session_factory=billing_factory,
+        ),
+        attempts=1,
+    )
+
+    FailoverClient(primary, fallback, cooldown_seconds=60).close()
+
+    assert primary_physical.close_calls == 1
+    assert fallback_physical.close_calls == 1
 
 
 def test_metered_client_rejects_wrong_response_types_without_asserts(

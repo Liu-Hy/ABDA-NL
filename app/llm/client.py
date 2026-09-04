@@ -107,6 +107,29 @@ class LLMClient(Protocol):
         ...
 
 
+def close_llm_client(client: Any | None) -> None:
+    """Close an owned provider client without changing the request outcome.
+
+    Managed and BYOK routes create a fresh network client for each application
+    request. Closing it deterministically prevents idle connection pools from
+    accumulating in a long-running public worker. Test doubles and legacy
+    clients without a ``close`` method remain valid.
+    """
+    if client is None:
+        return
+    close = getattr(client, "close", None)
+    if not callable(close):
+        return
+    try:
+        close()
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "llm_client_close_failed client=%s exception=%s",
+            type(client).__name__,
+            type(exc).__name__,
+        )
+
+
 DEFAULT_MODEL = "claude-sonnet-4-6"
 
 
@@ -265,6 +288,9 @@ class ClaudeClient:
         )
         self.route = route or f"{self.provider}:{self.model}"
 
+    def close(self) -> None:
+        self._client.close()
+
     def complete(
         self,
         *,
@@ -299,6 +325,12 @@ class ClaudeClient:
             "cache_read_input_tokens": getattr(final.usage, "cache_read_input_tokens", 0) or 0,
             "cache_creation_input_tokens": getattr(final.usage, "cache_creation_input_tokens", 0) or 0,
         }
+
+        if not text.strip():
+            raise LLMResponseValidationError(
+                "the provider returned no text output",
+                usage=usage,
+            )
 
         log.info(
             "llm_call model=%s stop=%s input=%d cache_read=%d cache_write=%d output=%d latency_ms=%d",
@@ -375,6 +407,16 @@ class ClaudeClient:
                 f"got blocks: {[getattr(b, 'type', None) for b in final.content]}",
                 usage=usage,
             )
+        if tool_block.name != tool["name"]:
+            raise LLMResponseValidationError(
+                "the provider returned the wrong tool",
+                usage=usage,
+            )
+        if not isinstance(tool_block.input, dict):
+            raise LLMResponseValidationError(
+                "the provider returned non-object tool input",
+                usage=usage,
+            )
 
         log.info(
             "llm_tool model=%s tool=%s stop=%s input=%d cache_read=%d cache_write=%d output=%d latency_ms=%d",
@@ -390,7 +432,7 @@ class ClaudeClient:
 
         return ToolCallResponse(
             tool_name=tool_block.name,
-            tool_input=dict(tool_block.input or {}),
+            tool_input=dict(tool_block.input),
             stop_reason=final.stop_reason or "tool_use",
             usage=usage,
             latency_ms=latency_ms,
@@ -504,6 +546,9 @@ class OllamaClient:
             timeout=httpx.Timeout(timeout_s, connect=5.0),
             transport=transport,
         )
+
+    def close(self) -> None:
+        self._client.close()
 
     # --- Helpers ---
 

@@ -236,6 +236,21 @@ def test_http_error_mapping_never_exposes_provider_or_key_details():
     assert unavailable.headers == {"Retry-After": "30"}
     assert "sk-user-secret" not in str(unavailable.detail)
 
+    blocked = llm_http_exception(
+        LLMProviderError(
+            "provider body contained sk-user-secret",
+            provider="google",
+            retryable=False,
+            outage_candidate=False,
+            error_type="content_blocked",
+        ),
+        byok=True,
+    )
+    assert blocked.status_code == 400
+    assert blocked.detail["code"] == "byok_request_rejected"
+    assert blocked.headers is None
+    assert "sk-user-secret" not in str(blocked.detail)
+
     route = llm_http_exception(
         LLMRouteConfigurationError("internal endpoint and account details"),
         byok=False,
@@ -322,6 +337,10 @@ class _CannedPhysicalClient:
         self.provider = provider
         self.billing_source = billing_source
         self.route = route
+        self.closed = False
+
+    def close(self):
+        self.closed = True
 
     def complete(self, **_kwargs):
         return LLMResponse(
@@ -375,19 +394,19 @@ def test_funded_api_call_deducts_exact_metered_trial_cost(monkeypatch):
         openrouter_failover_enabled=False,
     )
     router = LLMRouter(settings=settings, session_factory=get_session_factory())
+    physical_clients = []
 
     def raw_route(route, *, user_id):
         assert user_id
         spec = router.catalog.model_for_route(route)
-        return (
-            _CannedPhysicalClient(
-                model=spec.id,
-                provider=route.provider,
-                billing_source=route.billing_source,
-                route=route.id,
-            ),
-            spec,
+        physical = _CannedPhysicalClient(
+            model=spec.id,
+            provider=route.provider,
+            billing_source=route.billing_source,
+            route=route.id,
         )
+        physical_clients.append(physical)
+        return physical, spec
 
     monkeypatch.setattr(router, "_raw_route", raw_route)
     _install_request_router(monkeypatch, router, settings)
@@ -412,6 +431,8 @@ def test_funded_api_call_deducts_exact_metered_trial_cost(monkeypatch):
     assert body["cost_microusd"] > 0
     assert balance["spent_microusd"] == body["cost_microusd"]
     assert balance["reserved_microusd"] == 0
+    assert len(physical_clients) == 1
+    assert physical_clients[0].closed is True
 
     with get_session_factory()() as session:
         events = session.query(LLMUsageEvent).filter_by(

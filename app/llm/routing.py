@@ -25,7 +25,13 @@ from app.llm.catalog import (
     TokenPricing,
     load_model_catalog,
 )
-from app.llm.client import ClaudeClient, LLMClient, LLMResponse, ToolCallResponse
+from app.llm.client import (
+    ClaudeClient,
+    LLMClient,
+    LLMResponse,
+    ToolCallResponse,
+    close_llm_client,
+)
 from app.llm.providers import (
     GeminiClient,
     LLMProviderError,
@@ -306,6 +312,9 @@ class MeteredClient:
         self.billing_source = getattr(inner, "billing_source", "unknown")
         self.route = getattr(inner, "route", "unknown")
 
+    def close(self) -> None:
+        close_llm_client(self.inner)
+
     def _settled_cost_microusd(
         self,
         usage: dict[str, int],
@@ -540,6 +549,9 @@ class RetryingClient:
         self.billing_source = getattr(inner, "billing_source", "unknown")
         self.route = getattr(inner, "route", "unknown")
 
+    def close(self) -> None:
+        close_llm_client(self.inner)
+
     def _invoke(self, method: str, **kwargs: Any) -> Any:
         last_error: LLMProviderError | None = None
         for attempt in range(1, self.attempts + 1):
@@ -617,6 +629,11 @@ class FailoverClient:
         self.provider = getattr(primary, "provider", "unknown")
         self.billing_source = getattr(primary, "billing_source", "unknown")
         self.route = getattr(primary, "route", "unknown")
+
+    def close(self) -> None:
+        close_llm_client(self.primary)
+        if self.fallback is not None and self.fallback is not self.primary:
+            close_llm_client(self.fallback)
 
     def _invoke(self, method: str, **kwargs: Any) -> Any:
         if self.fallback is None:

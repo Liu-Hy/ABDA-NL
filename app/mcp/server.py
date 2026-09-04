@@ -36,6 +36,7 @@ from app.core.safe_logging import exception_diagnostic
 from app.db.models import Project, User
 from app.db.session import get_session_factory
 from app.llm.chat_service import run_turn
+from app.llm.client import close_llm_client
 from app.llm.edit_service import ProposerRetryExhausted, run_propose
 from app.scenario.catalog import (
     EXAMPLES_ROOT,
@@ -548,6 +549,7 @@ def ask_project(
         question = _bounded_text(question, "question")
         user, project, scenario, bundle = _load_project_for_llm(project_id)
         request_id = _request_id(ctx)
+        client = None
         try:
             client = _select_mcp_llm_client(
                 user=user,
@@ -565,6 +567,8 @@ def ask_project(
             )
         except HANDLED_LLM_ERRORS as exc:
             raise _llm_error(exc) from exc
+        finally:
+            close_llm_client(client)
         return {
             "message": result.text,
             "stop_reason": result.stop_reason,
@@ -594,6 +598,7 @@ def propose_project_edit(
         instruction = _bounded_text(instruction, "instruction")
         user, project, scenario, bundle = _load_project_for_llm(project_id)
         request_id = _request_id(ctx)
+        client = None
         try:
             client = _select_mcp_llm_client(
                 user=user,
@@ -617,6 +622,8 @@ def propose_project_edit(
             ) from exc
         except HANDLED_LLM_ERRORS as exc:
             raise _llm_error(exc) from exc
+        finally:
+            close_llm_client(client)
         return {
             "project_id": project.id,
             "expected_version": project.version,

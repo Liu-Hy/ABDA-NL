@@ -22,7 +22,7 @@ from app.db.models import (
     User,
 )
 from app.db.session import database_is_ready, get_session_factory
-from app.llm.client import LLMResponse, ToolCallResponse
+from app.llm.client import LLMResponse, ToolCallResponse, close_llm_client
 from app.llm.providers import LLMProviderError
 from app.llm.routing import CallContext, CircuitRegistry, FailoverClient, LLMRouter
 from app.services.accounts import IdentityError, normalize_email
@@ -373,7 +373,10 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             cache=False,
         )
     finally:
-        _set_emergency_enabled(factory, enabled=False, expected_current=True)
+        try:
+            _set_emergency_enabled(factory, enabled=False, expected_current=True)
+        finally:
+            close_llm_client(client)
 
     if response.route != fallback_route or response.provider != "openrouter":
         raise OutageDrillError("the forced outage did not return through OpenRouter")

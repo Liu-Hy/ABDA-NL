@@ -77,6 +77,7 @@ from app.db.models import (
     User,
 )
 from app.db.session import get_db, get_engine
+from app.llm.client import close_llm_client
 from app.observability import REQUEST_METRICS
 
 
@@ -202,6 +203,7 @@ def _scenario_sort_key(scenario_id: str) -> tuple[int, str]:
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
+    global _llm_client
     init_engine()
     initialize_database()
     _warm_managed_baseline_cache(get_settings())
@@ -212,6 +214,8 @@ async def _lifespan(_app: FastAPI):
             yield
     finally:
         mcp_http_app.unbind(mcp_runtime.app)
+        close_llm_client(_llm_client)
+        _llm_client = None
 
 
 app = FastAPI(
@@ -594,6 +598,11 @@ def _request_llm_client(
     )
 
 
+def _close_request_llm_client(client) -> None:
+    if client is not None and client is not _llm_client:
+        close_llm_client(client)
+
+
 def _run_chat_request(
     payload,
     raw_request: Request,
@@ -608,6 +617,7 @@ def _run_chat_request(
     from app.llm.chat_service import run_turn
 
     uses_byok = payload.llm is not None and payload.llm.byok is not None
+    client = None
     try:
         client = _request_llm_client(
             payload.llm,
@@ -627,6 +637,8 @@ def _run_chat_request(
         raise llm_http_exception(exc, byok=uses_byok) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        _close_request_llm_client(client)
 
     log.info(
         "chat_turn request_id=%s context=%s msgs=%d route=%s cost_microusd=%d "
@@ -671,6 +683,7 @@ def _run_propose_request(
         raise HTTPException(status_code=400, detail="modify-rule requires `existing_id`")
 
     uses_byok = payload.llm is not None and payload.llm.byok is not None
+    client = None
     try:
         client = _request_llm_client(
             payload.llm,
@@ -701,6 +714,8 @@ def _run_propose_request(
         raise llm_http_exception(exc, byok=uses_byok) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        _close_request_llm_client(client)
 
     log.info(
         "propose_turn request_id=%s context=%s route=%s cost_microusd=%d "

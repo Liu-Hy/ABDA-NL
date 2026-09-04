@@ -244,6 +244,13 @@ def llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
             )
             response_status = status.HTTP_429_TOO_MANY_REQUESTS
             response_headers = {"Retry-After": "30"}
+        elif exc.error_type == "content_blocked":
+            code = "byok_request_rejected"
+            message = (
+                "The provider declined this request. Revise it or check the "
+                "provider's content policy."
+            )
+            response_status = status.HTTP_400_BAD_REQUEST
         elif (
             exc.status_code is not None
             and 400 <= exc.status_code < 500
@@ -285,7 +292,10 @@ def llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
         message = "Funded model access is temporarily unavailable."
     elif isinstance(exc, (UsageReservationError, EmergencyReservationError)):
         code = "usage_accounting_unavailable"
-        message = "Usage accounting is temporarily unavailable. No retry was charged."
+        message = (
+            "Usage accounting is temporarily unavailable. The request may have used "
+            "credit, so check the displayed balance before retrying."
+        )
     else:
         code = "llm_provider_unavailable"
         message = "The language model provider is temporarily unavailable."

@@ -19,6 +19,7 @@ from app.db.models import LLMUsageEvent
 from app.db.session import initialize_database
 from app.llm.catalog import load_model_catalog, reset_model_catalog_cache
 from app.llm.chat_service import run_turn
+from app.llm.client import close_llm_client
 from app.llm.edit_service import ProposerRetryExhausted, run_propose, run_review
 from app.llm.routing import CallContext, LLMRouter, LocalSpendCap
 from app.scenario.catalog import EXAMPLES_ROOT, load_bundled_scenario
@@ -274,6 +275,7 @@ def evaluate_case(
     started = datetime.now(timezone.utc)
     payload: dict[str, Any]
     error: dict[str, str] | None = None
+    client = None
     try:
         client = router.evaluation_route(
             route_id,
@@ -302,6 +304,8 @@ def evaluate_case(
     except Exception as exc:  # noqa: BLE001
         payload = {"passed": False}
         error = {"type": type(exc).__name__, "message": str(exc)[:500]}
+    finally:
+        close_llm_client(client)
 
     audit = _audit_totals(router, request_id)
     finished = datetime.now(timezone.utc)

@@ -64,11 +64,18 @@ def drill_factory(tmp_path):
 
 
 class _SuccessfulOpenRouter:
+    instances = []
+
     def __init__(self, **kwargs):
         self.model = kwargs["model"]
         self.provider = kwargs["provider"]
         self.billing_source = kwargs["billing_source"]
         self.route = kwargs["route"]
+        self.closed = False
+        self.instances.append(self)
+
+    def close(self):
+        self.closed = True
 
     def complete(self, **_kwargs):
         return LLMResponse(
@@ -104,6 +111,7 @@ class _ReasoningOnlyOpenRouter(_SuccessfulOpenRouter):
 
 
 def _install_runtime(monkeypatch, factory):
+    _SuccessfulOpenRouter.instances.clear()
     settings = replace(
         Settings.from_environment(),
         environment="staging",
@@ -177,6 +185,8 @@ def test_outage_drill_reaches_fallback_and_reconciles_both_ledgers(
         )
         assert event is not None
         assert event.route == outage_drill._FALLBACK_ROUTE
+    assert len(_SuccessfulOpenRouter.instances) == 1
+    assert _SuccessfulOpenRouter.instances[0].closed is True
 
 
 def test_outage_drill_restores_disabled_budget_after_provider_failure(
@@ -200,6 +210,8 @@ def test_outage_drill_restores_disabled_budget_after_provider_failure(
         assert emergency.enabled is False
         assert emergency.spent_microusd == 0
         assert emergency.reserved_microusd == 0
+    assert len(_SuccessfulOpenRouter.instances) == 1
+    assert _SuccessfulOpenRouter.instances[0].closed is True
 
 
 def test_outage_drill_preserves_receipt_when_visible_marker_is_missing(
