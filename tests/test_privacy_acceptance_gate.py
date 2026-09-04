@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import timedelta
 import json
 import os
@@ -27,6 +28,8 @@ from app.db.models import (
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "deploy" / "azure" / "gate11-privacy-acceptance.sh"
 EMAIL = "privacy-gate@example.edu"
+PROJECT_NAME = "Privacy acceptance disposable"
+TOKEN_NAME = "Privacy acceptance disposable"
 EXPECTED_REVISION = "abda-nl-stg-web--harden-51702e1"
 EXPECTED_IMAGE = (
     "ghcr.io/liu-hy/abda-nl@sha256:"
@@ -36,11 +39,7 @@ EXPECTED_IMAGE = (
 
 def _runner_source() -> str:
     result = subprocess.run(
-        [
-            "bash",
-            "-c",
-            f"source {shlex.quote(str(GATE))}; abda_privacy_runner_source",
-        ],
+        ["bash", "-c", f"source {shlex.quote(str(GATE))}; abda_privacy_runner_source"],
         check=True,
         capture_output=True,
         text=True,
@@ -90,10 +89,53 @@ def _application(*, revision: str = EXPECTED_REVISION) -> dict:
             "configuration": {"activeRevisionsMode": "Single"},
             "template": {
                 "containers": [
+                    {"name": "web", "image": EXPECTED_IMAGE, "env": values}
+                ]
+            },
+        },
+    }
+
+
+def _job() -> dict:
+    return {
+        "name": "abda-nl-stg-migrate",
+        "location": "East US 2",
+        "properties": {
+            "provisioningState": "Succeeded",
+            "environmentId": (
+                "/subscriptions/test/resourceGroups/abda-nl-staging/providers/"
+                "Microsoft.App/managedEnvironments/abda-nl-stg-environment"
+            ),
+            "configuration": {
+                "triggerType": "Manual",
+                "replicaTimeout": 900,
+                "replicaRetryLimit": 0,
+                "manualTriggerConfig": {
+                    "parallelism": 1,
+                    "replicaCompletionCount": 1,
+                },
+                "secrets": [
+                    {"name": "admin-database-url"},
+                    {"name": "app-database-password"},
+                ],
+            },
+            "template": {
+                "containers": [
                     {
-                        "name": "web",
-                        "image": EXPECTED_IMAGE,
-                        "env": values,
+                        "name": "migrate",
+                        "image": "ghcr.io/liu-hy/abda-nl@sha256:" + "c" * 64,
+                        "command": ["/opt/venv/bin/python"],
+                        "args": ["-m", "app.cli.migrate"],
+                        "env": [
+                            {
+                                "name": "ABDA_DATABASE_URL",
+                                "secretRef": "admin-database-url",
+                            },
+                            {
+                                "name": "ABDA_DATABASE_APP_PASSWORD",
+                                "secretRef": "app-database-password",
+                            },
+                        ],
                     }
                 ]
             },
@@ -101,14 +143,14 @@ def _application(*, revision: str = EXPECTED_REVISION) -> dict:
     }
 
 
-def _seed_database(path: Path) -> str:
+def _seed_database(path: Path, *, email: str = EMAIL, marker: str = "a") -> str:
     engine = create_engine(f"sqlite+pysqlite:///{path}")
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     now = utc_now()
     with factory() as session:
         user = User(
-            email=EMAIL,
+            email=email,
             email_verified=True,
             display_name="Disposable Privacy Gate",
             created_at=now,
@@ -121,15 +163,15 @@ def _seed_database(path: Path) -> str:
             Identity(
                 user_id=user.id,
                 issuer="https://identity.example.test",
-                subject="privacy-gate-subject",
-                provider_email=EMAIL,
+                subject=f"privacy-gate-subject-{marker}",
+                provider_email=email,
                 created_at=now,
                 last_login_at=now,
             )
         )
         project = Project(
             owner_user_id=user.id,
-            name="Disposable privacy acceptance",
+            name=PROJECT_NAME,
             description="Content that must be exported and deleted",
             source_scenario_id="fire_prevention",
             scenario_json={"title": "Disposable", "language": {"p": "Test"}},
@@ -142,7 +184,7 @@ def _seed_database(path: Path) -> str:
         session.add(
             ShareLink(
                 project_id=project.id,
-                token_hash="a" * 64,
+                token_hash=marker * 64,
                 permission="view",
                 created_at=now,
             )
@@ -150,10 +192,10 @@ def _seed_database(path: Path) -> str:
         session.add(
             MCPAccessToken(
                 user_id=user.id,
-                name="Disposable privacy token",
-                token_prefix="abda_mcp_privacy",
-                token_hash="b" * 64,
-                scopes="projects:read projects:write",
+                name=TOKEN_NAME,
+                token_prefix=f"abda_mcp_privacy_{marker}",
+                token_hash=marker.upper() * 64,
+                scopes="projects:read",
                 created_at=now,
                 expires_at=now + timedelta(days=30),
             )
@@ -179,125 +221,144 @@ def _runner_environment(database: Path) -> dict[str, str]:
     return environment
 
 
+def _write_template(path: Path, action: str = "prepare") -> dict:
+    payload = base64.b64encode(_runner_source().encode()).decode()
+    result = _run_function("abda_privacy_write_job_template", path, payload, action)
+    assert result.returncode == 0, result.stderr
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _execution(name: str, status: str, template: dict) -> dict:
+    return {
+        "name": name,
+        "properties": {
+            "status": status,
+            "startTime": "2026-09-04T01:00:00Z",
+            "template": template,
+        },
+    }
+
+
 def test_gate_has_valid_syntax_and_a_narrow_destructive_boundary():
     assert GATE.stat().st_mode & 0o111
     subprocess.run(["bash", "-n", str(GATE)], check=True)
     source = GATE.read_text(encoding="utf-8")
     runner = _runner_source()
-
     for expected in (
         "RUN_ABDA_PRIVACY_ACCEPTANCE",
         "PREPARE_PRIVACY_ACCEPTANCE",
         "DELETE_PRIVACY_ACCEPTANCE",
         "PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES",
         "LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED",
-        "abda-nl-stg-web--harden-51702e1",
-        "Handshake status 404 Not Found",
-        "Retrying safely",
+        "az containerapp job start",
+        "--yaml",
     ):
         assert expected in source
-    assert source.count("\n    az containerapp exec ") == 1
-    assert "az containerapp update" not in source
-    assert "az containerapp delete" not in source
-    assert "az group delete" not in source
-    assert "az containerapp secret" not in source
-    assert "OPENROUTER_API_KEY" not in source
-    assert "AZURE_OPENAI_API_KEY" not in source
-    assert "getpass.getpass" in runner
+    assert source.count("\n      az containerapp job start ") == 1
+    for forbidden in (
+        "az containerapp exec",
+        "az containerapp job update",
+        "az containerapp update",
+        "az containerapp delete",
+        "az group delete",
+        "az containerapp secret",
+        "az deployment group",
+        "OPENROUTER_API_KEY",
+        "AZURE_OPENAI_API_KEY",
+    ):
+        assert forbidden not in source
+    assert "getpass.getpass" not in runner
+    assert PROJECT_NAME in runner and TOKEN_NAME in runner
+    assert "postgresql+psycopg://abda_app:" in runner
+    assert 'os.environ.pop("ABDA_DATABASE_APP_PASSWORD"' in runner
     assert "shutil.rmtree(export_root" in runner
-    assert "updated_at" in runner
     assert "age < 900" in runner
     assert "account_fingerprint:" not in runner
-    assert "token_hash" not in runner.split("forbidden =", 1)[0]
     assert "\N{EN DASH}" not in source and "\N{EM DASH}" not in source
 
 
-def test_app_preflight_accepts_only_the_approved_revision(tmp_path: Path):
-    valid = tmp_path / "valid.json"
-    valid.write_text(json.dumps(_application()), encoding="utf-8")
-    result = _run_function("abda_privacy_validate_app", valid)
-    assert result.returncode == 0, result.stderr
-
-    wrong = tmp_path / "wrong.json"
-    wrong.write_text(json.dumps(_application(revision="abda-nl-stg-web--ux-6d0fb44")), encoding="utf-8")
-    result = _run_function("abda_privacy_validate_app", wrong)
-    assert result.returncode != 0
-    assert "application revision changed" in result.stderr
-
-
-def test_exec_retry_is_limited_to_preconnection_404(tmp_path: Path):
-    fake_bin = tmp_path / "bin"
-    fake_bin.mkdir()
-    counter = tmp_path / "exec-count"
-    fake_az = fake_bin / "az"
-    fake_az.write_text(
-        """#!/usr/bin/env python3
-import json
-import os
-from pathlib import Path
-import sys
-
-arguments = sys.argv[1:]
-if arguments[:3] == ["containerapp", "replica", "list"]:
-    print(json.dumps([{
-        "name": "ready-replica",
-        "properties": {
-            "runningState": "Running",
-            "containers": [{"name": "web", "ready": True}],
-        },
-    }]))
-    raise SystemExit(0)
-if arguments[:2] == ["containerapp", "exec"]:
-    path = Path(os.environ["ABDA_PRIVACY_TEST_COUNTER"])
-    count = int(path.read_text() if path.exists() else "0") + 1
-    path.write_text(str(count))
-    if count == 1:
-        print("Handshake status 404 Not Found")
-        raise SystemExit(1)
-    print("phase: prepared")
-    print("result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES")
-    raise SystemExit(0)
-raise SystemExit("unexpected az command")
-""",
+def test_app_and_job_preflights_are_narrow(tmp_path: Path):
+    app = tmp_path / "app.json"
+    app.write_text(json.dumps(_application()), encoding="utf-8")
+    assert _run_function("abda_privacy_validate_app", app).returncode == 0
+    app.write_text(
+        json.dumps(_application(revision="abda-nl-stg-web--ux-6d0fb44")),
         encoding="utf-8",
     )
-    fake_az.chmod(0o755)
-    gate_root = tmp_path / "gate-root"
-    gate_root.mkdir()
-    command = (
-        f"source {shlex.quote(str(GATE))}; "
-        "abda_privacy_set_constants; "
-        f"ABDA_PRIVACY_ROOT={shlex.quote(str(gate_root))}; "
-        "sleep() { :; }; "
-        "abda_privacy_run_runner harmless-payload"
-    )
-    environment = os.environ.copy()
-    environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
-    environment["ABDA_PRIVACY_TEST_COUNTER"] = str(counter)
-    result = subprocess.run(
-        ["bash", "-c", command],
-        check=False,
-        capture_output=True,
-        text=True,
-        env=environment,
-    )
-    assert result.returncode == 0, result.stderr
-    assert counter.read_text(encoding="utf-8") == "2"
-    assert "Retrying safely" in result.stdout
-    assert "PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES" in (
-        gate_root / "container-exec.log"
-    ).read_text(encoding="utf-8")
+    result = _run_function("abda_privacy_validate_app", app)
+    assert result.returncode != 0 and "application revision changed" in result.stderr
+
+    before = tmp_path / "job-before.json"
+    after = tmp_path / "job-after.json"
+    before.write_text(json.dumps(_job()), encoding="utf-8")
+    assert _run_function("abda_privacy_validate_job", before).returncode == 0
+    changed = _job()
+    changed["systemData"] = {"lastModifiedAt": "later"}
+    after.write_text(json.dumps(changed), encoding="utf-8")
+    assert _run_function("abda_privacy_compare_job_configuration", before, after).returncode == 0
+    changed["properties"]["template"]["containers"][0]["args"] = ["changed"]
+    after.write_text(json.dumps(changed), encoding="utf-8")
+    result = _run_function("abda_privacy_compare_job_configuration", before, after)
+    assert result.returncode != 0 and "job configuration changed" in result.stderr
 
 
-def test_embedded_runner_prepares_waits_and_deletes_disposable_data(tmp_path: Path):
+def test_execution_template_and_resume_classifier(tmp_path: Path):
+    template_path = tmp_path / "privacy-execution.yaml"
+    template = _write_template(template_path)
+    assert template_path.stat().st_mode & 0o777 == 0o600
+    container = template["containers"][0]
+    assert container["name"] == "migrate"
+    assert container["image"] == EXPECTED_IMAGE
+    assert container["args"][-2:] == ["prepare", "PRIV-ACCEPT-20260830-01"]
+    environment = {item["name"]: item for item in container["env"]}
+    assert environment["ABDA_DATABASE_APP_PASSWORD"]["secretRef"] == "app-database-password"
+    serialized = json.dumps(template)
+    assert EMAIL not in serialized
+    assert "admin-database-url" not in serialized
+    assert "ABDA_DATABASE_URL" not in serialized
+
+    executions = tmp_path / "executions.json"
+    for value, expected in (
+        ([], "new|"),
+        (
+            [_execution("abda-nl-stg-migrate-running", "Running", template)],
+            "active|abda-nl-stg-migrate-running",
+        ),
+        (
+            [_execution("abda-nl-stg-migrate-success", "Succeeded", template)],
+            "succeeded|abda-nl-stg-migrate-success",
+        ),
+        (
+            [_execution("abda-nl-stg-migrate-failed", "Failed", template)],
+            "failed|abda-nl-stg-migrate-failed",
+        ),
+    ):
+        executions.write_text(json.dumps(value), encoding="utf-8")
+        result = _run_function(
+            "abda_privacy_classify_executions", executions, template_path
+        )
+        assert result.returncode == 0 and result.stdout.strip() == expected
+
+    foreign = json.loads(json.dumps(template))
+    foreign["containers"][0]["args"][-2] = "delete"
+    executions.write_text(
+        json.dumps([_execution("abda-nl-stg-migrate-foreign", "Processing", foreign)]),
+        encoding="utf-8",
+    )
+    result = _run_function("abda_privacy_classify_executions", executions, template_path)
+    assert result.returncode != 0
+    assert "another migration job execution is active" in result.stderr
+
+
+def test_embedded_runner_prepares_resumes_and_deletes(tmp_path: Path):
     database = tmp_path / "privacy.sqlite3"
     user_id = _seed_database(database)
     runner = _runner_source()
     environment = _runner_environment(database)
+    prepare = [sys.executable, "-c", runner, "prepare", "PRIV-ACCEPT-20260830-01"]
 
     prepared = subprocess.run(
-        [sys.executable, "-c", runner],
-        input=f"{EMAIL}\nPREPARE_PRIVACY_ACCEPTANCE\n",
+        prepare,
         env=environment,
         check=False,
         capture_output=True,
@@ -307,8 +368,16 @@ def test_embedded_runner_prepares_waits_and_deletes_disposable_data(tmp_path: Pa
     assert prepared.returncode == 0, prepared.stderr
     assert "PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES" in prepared.stdout
     assert EMAIL not in prepared.stdout
-    assert "a" * 64 not in prepared.stdout
-    assert "b" * 64 not in prepared.stdout
+
+    resumed = subprocess.run(
+        prepare,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert resumed.returncode == 0 and "preparation_resumed: true" in resumed.stdout
 
     engine = create_engine(f"sqlite+pysqlite:///{database}")
     factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -316,16 +385,13 @@ def test_embedded_runner_prepares_waits_and_deletes_disposable_data(tmp_path: Pa
         user = session.get(User, user_id)
         assert user is not None and user.status == "deletion_pending"
         assert session.scalar(select(ShareLink.revoked_at)) is not None
-        assert session.scalar(
-            select(MCPAccessToken.revoked_at).where(MCPAccessToken.user_id == user_id)
-        ) is not None
+        assert session.scalar(select(MCPAccessToken.revoked_at)) is not None
         user.updated_at = utc_now() - timedelta(minutes=16)
         session.commit()
     engine.dispose()
 
     deleted = subprocess.run(
-        [sys.executable, "-c", runner],
-        input=f"{EMAIL}\nDELETE_PRIVACY_ACCEPTANCE\n",
+        [sys.executable, "-c", runner, "delete", "PRIV-ACCEPT-20260830-01"],
         env=environment,
         check=False,
         capture_output=True,
@@ -335,8 +401,38 @@ def test_embedded_runner_prepares_waits_and_deletes_disposable_data(tmp_path: Pa
     assert deleted.returncode == 0, deleted.stderr
     assert "LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED" in deleted.stdout
     assert EMAIL not in deleted.stdout
-
     engine = create_engine(f"sqlite+pysqlite:///{database}")
     with sessionmaker(bind=engine)() as session:
         assert session.get(User, user_id) is None
+    engine.dispose()
+
+
+def test_embedded_runner_refuses_ambiguous_accounts(tmp_path: Path):
+    database = tmp_path / "ambiguous.sqlite3"
+    first_id = _seed_database(database, marker="a")
+    second_id = _seed_database(
+        database,
+        email="privacy-gate-second@example.edu",
+        marker="b",
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            _runner_source(),
+            "prepare",
+            "PRIV-ACCEPT-20260830-01",
+        ],
+        env=_runner_environment(database),
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert result.returncode != 0 and "exactly one disposable account" in result.stderr
+    assert EMAIL not in result.stderr
+    engine = create_engine(f"sqlite+pysqlite:///{database}")
+    with sessionmaker(bind=engine)() as session:
+        assert session.get(User, first_id).status == "active"
+        assert session.get(User, second_id).status == "active"
     engine.dispose()
