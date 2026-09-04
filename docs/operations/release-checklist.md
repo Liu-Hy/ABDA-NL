@@ -64,6 +64,12 @@ Record:
 - [ ] A billed validation failure settles returned usage, while an
       indeterminate post-dispatch failure or result without billing evidence
       settles its full conservative reservation.
+- [ ] Empty billed text and malformed forced-tool output are rejected without
+      losing available usage or provider-cost evidence.
+- [ ] Managed, BYOK, evaluation, MCP, and outage-drill provider clients close
+      their connection pools after each owned request, including failures.
+- [ ] Provider content-policy rejection is not retried or classified as an
+      outage, and structured refusal text remains visible to the user.
 - [ ] One forced qualifying primary outage reaches OpenRouter and settles both
       ledgers correctly in staging.
 - [ ] An authentication, deployment-name, or validator failure does not trigger

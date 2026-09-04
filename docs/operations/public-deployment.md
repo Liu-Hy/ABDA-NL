@@ -506,12 +506,14 @@ The live staging image is pinned in the
 [source-security checkpoint](source-security-checkpoint-20260902.md). Its
 disposable-account privacy acceptance must finish against that exact image.
 The subsequent image-only transition is recorded in the
-[provider accounting integrity checkpoint](accounting-integrity-checkpoint-20260904.md)
+[provider lifecycle checkpoint](provider-lifecycle-checkpoint-20260904.md)
 and guarded by `deploy/azure/gate20-rate-limit-retention-image.sh`. It moves
 only from the live source-security image to the tested and attested cumulative
-retention and accounting image. The earlier
-[retention checkpoint](rate-limit-retention-checkpoint-20260904.md) remains
-historical evidence for an image that was never deployed. Do not reuse an older
+retention, accounting, and provider-lifecycle image. The earlier
+[provider accounting checkpoint](accounting-integrity-checkpoint-20260904.md)
+and
+[retention checkpoint](rate-limit-retention-checkpoint-20260904.md) remain
+historical evidence for images that were never deployed. Do not reuse an older
 numbered Gate for a later release by editing values in Cloud Shell.
 
 After Gate 20 and its read-only Gate 21 audit, the applicable rollback rehearsal

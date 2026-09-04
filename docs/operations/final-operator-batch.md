@@ -29,10 +29,11 @@ Firefox checks are already complete. Do not rerun them unless the relevant
 application code or configuration changes. The remaining presentation-hardware
 checks and recovery tabletop are batched in Section 6.
 
-Before running any remaining phase, confirm that the consolidated helper block
-below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. Stop and refresh this
-file from the personal repository's `development` branch if a saved copy uses
-an older commit.
+Before running the remaining privacy phase, confirm that the `p` helper block
+below uses commit `9fb7386c271355f5adb07b4e8457368d1db44ad8`. After privacy deletion,
+use only the separate `q` helper pinned in Section 3. Stop and refresh this file
+from the personal repository's `development` branch if a saved copy uses older
+values.
 
 The managed-boundary image already passed live OpenRouter BYOK acceptance. The
 current hardened service passed fresh public Chromium and Firefox accessibility
@@ -300,9 +301,9 @@ complete block once:
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c2='0e51e4c7c37f6e7f294326ddae5478a61b0764a1'
+c2='3584c2e8ac762cbca279d895aebb87104762a497'
 f2='deploy/azure/post-privacy-operator-gate.sh'
-s2='542566165265b650a882c60094cc235af48b955154428d049b3b494febce6697'
+s2='73b6823fc4cb4f4841571388c20506fb56013989b361d72e9788c3e69f1124fe'
 q="$(mktemp /tmp/abda-post-privacy.XXXXXX)"
 curl -fsSL "$u/$c2/$f2" -o "$q"
 printf '%s  %s\n' "$s2" "$q" | sha256sum --check
@@ -331,9 +332,9 @@ At its prompt, type
 `PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE` once and press Enter.
 Use that phrase only after both privacy deletion steps above succeeded. The
 Gate changes only the web image and revision suffix. It verifies the new
-retention and conservative provider-billing disclosures, and preserves the
-existing managed-service and shared-view boundaries. Required success ends
-with:
+retention, conservative provider-billing, response-validation, and
+client-lifecycle disclosures, and preserves the existing managed-service and
+shared-view boundaries. Required success ends with:
 
 ```text
 result: SERVICE_INTEGRITY_IMAGE_DEPLOYED_AUDIT_REQUIRED
@@ -450,7 +451,7 @@ mutation confirmation because it is read-only.
 Required final receipts are:
 
 ```text
-result: COMPATIBLE_RETENTION_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED
+result: COMPATIBLE_SERVICE_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED
 result: PUBLIC_BUDGETS_AND_OUTAGE_FALLBACK_PROMOTED
 result: FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 ```

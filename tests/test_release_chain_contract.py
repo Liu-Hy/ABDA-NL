@@ -144,10 +144,10 @@ def test_operator_runbook_pins_the_exact_current_helper():
     assert f"s='{helper_sha256}'" in runbook
 
     post_privacy_sha256 = hashlib.sha256(POST_PRIVACY_HELPER.read_bytes()).hexdigest()
-    assert "0e51e4c7c37f6e7f294326ddae5478a61b0764a1" in runbook
+    assert "3584c2e8ac762cbca279d895aebb87104762a497" in runbook
     assert (
         post_privacy_sha256
-        == "542566165265b650a882c60094cc235af48b955154428d049b3b494febce6697"
+        == "73b6823fc4cb4f4841571388c20506fb56013989b361d72e9788c3e69f1124fe"
     )
     assert f"s2='{post_privacy_sha256}'" in runbook
 
