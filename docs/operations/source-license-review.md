@@ -78,6 +78,32 @@ third-party code. This document is an engineering provenance record, not legal
 advice. When uncertainty remains, consult the university's research software
 or legal support before release.
 
+## Recommended resolution workflow
+
+The least disruptive path is to establish whether separate permission already
+exists, then request it from the upstream rights holder only if needed:
+
+1. Ask the author of ABDA-NL's engine import whether the project already has a
+   written license or permission that covers the imported source and later
+   modifications. Preserve the original record and verify its exact scope.
+2. If no such record exists, contact the upstream maintainer through the public
+   repository. Include links to both repositories, the fixed upstream commit,
+   the current path list, and the intended MIT distribution.
+3. Ask the responder to confirm that they own the relevant rights or are
+   authorized to grant the permission. A useful unambiguous response would
+   grant ABDA-NL permission to use, reproduce, modify, distribute, and
+   sublicense the identified upstream source and ABDA-NL derivatives under the
+   MIT License, subject to accurate attribution. The rights holder may use
+   equivalent preferred wording.
+4. Preserve the complete response privately. Add the agreed attribution and
+   permission scope to the repository before checking this release gate.
+5. If permission is refused, incomplete, or ambiguous, do not infer consent.
+   Choose the GPL-compatible or replacement path with the project owners.
+
+For a release with material external visibility, have the final permission and
+repository notices reviewed by the university's research software or legal
+support rather than relying on this engineering checklist alone.
+
 ## Test hygiene
 
 The four historical CamelCase test modules were not collected by the default

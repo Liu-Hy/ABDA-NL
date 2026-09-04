@@ -26,6 +26,11 @@ checksum in Cloud Shell.
   completed implementation evidence from external and hardware acceptance.
 - [Public and COMMA release checklist](release-checklist.md) is the final
   requirement-by-requirement signoff record.
+- [Source license review](source-license-review.md) records the unresolved
+  engine redistribution gate and its acceptable resolution paths.
+- [Deterministic engine validation](deterministic-engine-validation-20260904.md)
+  records historical scenario compatibility and exact parity for all six
+  deployed baseline payloads.
 
 If a Gate stops, preserve its visible sanitized output and exit code. Do not
 issue an improvised Azure update or repeat a paid provider call. Resume only
