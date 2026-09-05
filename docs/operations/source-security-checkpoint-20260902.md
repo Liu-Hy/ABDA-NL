@@ -183,7 +183,13 @@ Neither check authenticated, called a model provider, or changed Azure.
 ## Remaining release boundary
 
 The hardened image deployment, its first live audit, and privacy preparation
-are complete. The remaining release sequence is privacy deletion,
+are complete. On September 5 the operator also recovered successful deletion
+execution `abda-nl-stg-migrate-w9hv7gt`: reviewed deletion runner and image,
+one inner success receipt, no refusal, and one deleted identity, project, share,
+and credential each. Do not repeat deletion. Its historical database-binding
+check and separate Auth0 cleanup remain open; see the
+[recovery evidence and limits](privacy-preflight-failure-20260905.md).
+The remaining release sequence includes
 friendly apex and `www` redirects, compatible rollback and restoration,
 production-cap promotion after email-capacity confirmation, and the final
 promoted-state audit. These phases are pinned in

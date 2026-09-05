@@ -138,11 +138,29 @@ def test_history_counts_cannot_substitute_for_a_verified_deletion_command():
     row.update(execution="abda-nl-stg-migrate-delete01", runner_refusals=0)
     description = {"execution_command": "privacy_delete", "runner_source": "privacy_revision_8", "reviewed_privacy_image": "true"}
     assert diagnostic.verified_deletion(row, "Succeeded", description, "expected_postgres_runner_inputs")
+    assert diagnostic.verified_deletion_receipt(row, "Succeeded", description)
     assert not diagnostic.verified_deletion(row, "Failed", description, "expected_postgres_runner_inputs")
     assert not diagnostic.verified_deletion(row, "Succeeded", description, "secret_reference_not_resolved")
+    assert not diagnostic.verified_deletion(row, "Succeeded", description, "unrecognized")
+    assert not diagnostic.verified_deletion(row, "Succeeded", description, "not_recorded")
     assert not diagnostic.verified_deletion(row, "Succeeded", {**description, "execution_command": "database_migration"}, "expected_postgres_runner_inputs")
     row["deleted_identity_count"] = None
     assert not diagnostic.verified_deletion(row, "Succeeded", description, "expected_postgres_runner_inputs")
+
+
+@pytest.mark.parametrize("changes", [
+    {"runner_source": "unrecognized"},
+    {"reviewed_privacy_image": "false"},
+    {"execution_command": "privacy_prepare"},
+])
+def test_receipt_recovery_does_not_relax_runner_or_image_verification(changes):
+    row = dict.fromkeys(diagnostic.HISTORY_FIELDS, 1)
+    row["runner_refusals"] = 0
+    description = {
+        "execution_command": "privacy_delete", "runner_source": "privacy_revision_10",
+        "reviewed_privacy_image": "true", **changes,
+    }
+    assert not diagnostic.verified_deletion_receipt(row, "Succeeded", description)
 
 
 def test_history_validates_every_field_before_reporting_rows():
@@ -170,7 +188,22 @@ def test_database_description_does_not_expose_values():
     assert diagnostic.database_input([{"env": env}]) == "secret_reference_not_resolved"
 
 
-def test_history_audit_uses_only_queries_and_never_prints_arguments(monkeypatch, capsys):
+@pytest.mark.parametrize("containers, expected", [
+    ([{}], "not_recorded"),
+    ([{"env": None}], "not_recorded"),
+    ([{"env": []}], "not_recorded"),
+    ([None], "unavailable"),
+    ([{"env": "private-value"}], "unrecognized"),
+    ([{"env": [None]}], "unrecognized"),
+    ([{"env": [{"name": []}]}], "unrecognized"),
+    ([{"env": [{"name": "same"}, {"name": "same"}]}], "unrecognized"),
+])
+def test_missing_or_invalid_database_metadata_is_not_a_match(containers, expected):
+    assert diagnostic.database_input(containers) == expected
+
+
+@pytest.mark.parametrize("database_state", ["verified", "unrecognized", "not_recorded"])
+def test_history_audit_uses_only_queries_and_never_prints_arguments(monkeypatch, capsys, database_state):
     secret = "private.test.token"
     delete_name = "abda-nl-stg-migrate-delete01"
     calls = []
@@ -193,6 +226,10 @@ def test_history_audit_uses_only_queries_and_never_prints_arguments(monkeypatch,
                 {"name": "ABDA_DATABASE_APP_PASSWORD", "secretRef": "app-database-password"},
             ],
         }]
+        if database_state == "not_recorded":
+            containers[0].pop("env")
+        elif database_state == "unrecognized":
+            containers[0]["env"] = [{"name": "unrecognized", "value": "private-db-value"}]
         return {"name": name, "status": "Succeeded", "containers": containers}
 
     def run(args, *, label, stdin):
@@ -210,9 +247,19 @@ def test_history_audit_uses_only_queries_and_never_prints_arguments(monkeypatch,
     monkeypatch.setattr(diagnostic, "describe_command", lambda cs: {
         "execution_command": cs[0]["phase"], "runner_source": "privacy_revision_8", "reviewed_privacy_image": "true",
     })
-    assert diagnostic.main(["--history"]) == 0
+    assert diagnostic.main(["--history"]) == (0 if database_state == "verified" else 2)
     output = capsys.readouterr().out
-    assert "VERIFIED_PRIOR_PRIVACY_DELETION_FOUND" in output
-    assert "database_input_chain_verified: true" in output
+    assert "verified_deletion_receipt_count: 1" in output
+    assert f"verified_deletion_receipt_execution: {delete_name}" in output
+    assert "deletion_retry_authorized: false" in output
+    if database_state == "verified":
+        assert "VERIFIED_PRIOR_PRIVACY_DELETION_FOUND" in output
+        assert "database_input_chain_verified: true" in output
+    else:
+        assert "PRIVACY_DELETION_RECEIPT_FOUND_DATABASE_REVIEW_PENDING" in output
+        assert "database_input_chain_verified: false" in output
+        assert "verified_deletion_execution_count: 0" in output
+        assert "Do not repeat deletion" in output
     assert secret not in output and "private-argument" not in output
+    assert "private-db-value" not in output
     assert all("start" not in args and "delete" not in args for args in calls)

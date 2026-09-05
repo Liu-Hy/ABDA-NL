@@ -1,10 +1,15 @@
 # Privacy request operations
 
 Status: implemented in the source-security candidate. Live preparation against
-an isolated disposable account passed on 2026-09-04 CDT. The minimum 15-minute
-hold has elapsed, and the permanent-deletion phase remains. On September 5,
-the revision 10 read-only deletion preflight failed before deletion began.
-See [the failure diagnostic](privacy-preflight-failure-20260905.md) before retrying.
+an isolated disposable account passed on 2026-09-04 CDT. The September 5 history
+receipt also recovered successful deletion execution
+`abda-nl-stg-migrate-w9hv7gt`, with the reviewed runner and image, and one deleted
+identity, project, share link, and MCP credential each. Historical database
+binding remains unverified because the diagnostic could not classify the saved
+inputs. Auth0 identity cleanup is separate and unconfirmed. See
+[the recovery record](privacy-preflight-failure-20260905.md). Do not repeat the
+privacy gate or recreate this disposable account. The workflow below documents
+the general procedure, not an instruction to repeat the recovered deletion.
 
 This runbook supports verified access exports and permanent deletion requests.
 The operator tool is `abda-nl-privacy`. It never accepts an account email on the

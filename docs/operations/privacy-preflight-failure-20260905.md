@@ -1,5 +1,60 @@
 # Privacy preflight failure, September 5, 2026
 
+## Current recovery result
+
+The operator's revision 3 `--history` receipt has recovered an actual successful
+deletion, `abda-nl-stg-migrate-w9hv7gt`. Its recorded command is `privacy_delete`,
+its embedded runner matches reviewed revision 10, and its image matches the
+hardened service. Log Analytics reports one inner deletion success marker,
+zero refusals, and exactly one deleted identity, project, share link, and MCP
+credential. These are application database records, not a deletion of the
+external Auth0 user. The reviewed runner prints success only after the privacy
+CLI returns a committed deletion receipt with these counts.
+
+This is positive evidence of a completed deletion, not merely an inference
+from the later zero-match inspection. It provides a plausible explanation for
+the later account-match refusal. The report does not include execution times
+or a verified historical database binding, so it does not independently prove
+the ordering and database continuity of every execution.
+
+All four history records returned `database_input: unrecognized`. Revision 3
+therefore reported zero *fully database-verified* deletions and exited 2,
+despite the positive deletion receipt. That result does not mean the delete
+job failed. Nor does it prove a database change. The sanitized receipt cannot
+distinguish absent environment metadata from a different representation or
+unexpected input. Do not assert an Azure omission or classifier root cause
+without further evidence.
+
+Revision 4 separates verified deletion receipts from full historical database
+verification. It retains exit 2 and `database_input_chain_verified: false`
+when the latter is unresolved. Missing environment metadata is now distinct
+from unrecognized metadata; neither is accepted as a match. Focused local
+regressions cover both shapes and the reported success-with-unknown-binding
+case. No new cloud run is needed merely to reformat the receipt already supplied.
+
+Do not rerun preparation, preflight, or deletion and do not recreate test
+objects. Keep the exact disposable Auth0 identity blocked while its final
+cleanup is pending. The remaining historical database-binding evidence can be
+collected with the next read-only operator batch, without starting another job
+or requesting raw environment values. Do not mark that evidence check, Auth0
+cleanup, or the full public-service release complete yet. The source license
+publication hold remains independent and unchanged.
+
+Local verification for this reporting-only correction:
+
+```bash
+.venv/bin/ruff check deploy/azure/diagnose-privacy-preflight.py tests/test_privacy_failure_diagnostic.py
+.venv/bin/pytest -q tests/test_privacy_failure_diagnostic.py tests/test_privacy_match_inspection.py tests/test_privacy_acceptance_gate.py tests/test_post_privacy_operator_gate.py
+git diff --check
+```
+
+Lint passed, all 44 focused tests passed, and the diff check passed. These are
+local regression results, not a new Azure verification. No application image,
+cloud configuration, account data, destructive gate, or stable `main` code was
+changed during this recovery update.
+
+## Historical investigation
+
 The operator ran helper revision 14 and Gate 11 revision 10 with both correct
 confirmations. The read-only `preflight-delete` execution
 `abda-nl-stg-migrate-n9lelb6` reached `Failed`. The wrapper stopped before
@@ -51,16 +106,16 @@ in `deletion_pending`. This rules out ambiguity or an archived named project
 as the explanation at that snapshot. It does not prove account deletion:
 an intervening deletion or a change in database inputs must be checked.
 
-The current next step is diagnostic revision 3 with `--history`. It reads
+The next step at that point was diagnostic revision 3 with `--history`. It reads
 seven days of the existing job's receipt counts, then compares recorded
 commands, runner hashes, image identities, and database inputs for relevant
 executions. It starts no job. A past deletion is accepted as evidence only
 with a successful execution, recognized deletion runner, expected image and
 database inputs, a deletion success marker, no refusal marker, and positive
 deleted identity, project, share, and credential counts. The original
-preparation and latest inspection database inputs must also match. No result
-from this historical check has been received yet. Do not repeat deletion or
-declare the privacy acceptance complete solely because selector counts are zero.
+preparation and latest inspection database inputs must also match for the full
+binding check. Its result is now recorded above. Do not repeat deletion or
+declare the full privacy acceptance complete solely because selector counts are zero.
 
 `deploy/azure/diagnose-privacy-preflight.py` inspects that exact execution and
 queries seven days of its Log Analytics evidence. The query returns only
@@ -71,7 +126,8 @@ operations have a 70-second process limit; the log HTTP request has a
 60-second total limit. The Log Analytics token travels through curl standard
 input, never command arguments, files, or terminal output.
 
-Run the downloaded, checksum-verified diagnostic with `python3`, in either the
+For a future explicitly requested diagnostic, run the downloaded,
+checksum-verified diagnostic with `python3`, in either the
 existing Azure Cloud Shell session or a new authenticated session. Use
 `python3 SCRIPT_PATH --preparation` to repeat the already completed historical
 execution check only when needed. No input or

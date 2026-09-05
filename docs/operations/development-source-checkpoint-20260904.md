@@ -74,8 +74,9 @@ resolution paths and controls this release boundary.
 The remaining external and operator acceptance work is also intentionally
 separate from source verification:
 
-- complete the permanent-deletion half for the prepared disposable privacy
-  account, then delete its blocked Auth0 identity;
+- reconcile the historical database binding for the now-recovered successful
+  privacy deletion receipt, then clean up its blocked Auth0 identity; do not
+  repeat deletion (see [the September 5 recovery](privacy-preflight-failure-20260905.md));
 - configure and verify the Cloudflare apex and `www` redirect;
 - confirm production Resend capacity before expanding beyond the ten-user
   pilot;

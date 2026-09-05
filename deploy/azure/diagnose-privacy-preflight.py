@@ -193,9 +193,16 @@ def describe_command(containers: object) -> dict[str, str]:
 
 def database_input(containers: object) -> str:
     """Describe only whether the recorded input identifies the reviewed database."""
-    if not isinstance(containers, list) or len(containers) != 1:
+    if not isinstance(containers, list) or len(containers) != 1 or not isinstance(containers[0], dict):
         return "unavailable"
-    items = containers[0].get("env") or []
+    items = containers[0].get("env")
+    if items is None or items == []:
+        return "not_recorded"
+    if not isinstance(items, list) or any(
+        not isinstance(item, dict) or not isinstance(item.get("name"), str)
+        for item in items
+    ):
+        return "unrecognized"
     env = {item.get("name"): item for item in items}
     if len(env) != len(items):
         return "unrecognized"
@@ -260,19 +267,26 @@ def history_rows(response: object) -> list[dict]:
     return sorted(rows, key=lambda row: row["execution"])
 
 
-def verified_deletion(row: dict, state: str, description: dict, database: str) -> bool:
+def verified_deletion_receipt(row: dict, state: str, description: dict) -> bool:
+    """Verify the operation, not the unresolved historical database binding."""
     return bool(
         state == "Succeeded" and description.get("execution_command") == "privacy_delete"
         and description.get("runner_source") in set(REVIEWED_RUNNERS.values())
         and description.get("reviewed_privacy_image") == "true"
-        and database == "expected_postgres_runner_inputs"
         and row["deletion_success"] > 0 and row["runner_refusals"] == 0
         and all((row[field] or 0) >= 1 for field in HISTORY_FIELDS if field.startswith("deleted_"))
     )
 
 
+def verified_deletion(row: dict, state: str, description: dict, database: str) -> bool:
+    return (
+        verified_deletion_receipt(row, state, description)
+        and database == "expected_postgres_runner_inputs"
+    )
+
+
 def inspect_history() -> int:
-    print("ABDA-NL privacy history diagnostic revision: 3", flush=True)
+    print("ABDA-NL privacy history diagnostic revision: 4", flush=True)
     print("Read-only: queries saved execution metadata and receipt counts. No job is started.", flush=True)
     print("\n[1/3] Verifying Azure identity and obtaining log access...", flush=True)
     account = az_json("account", "show", label="Azure identity")
@@ -327,6 +341,10 @@ def inspect_history() -> int:
             if row["execution"] == name:
                 for key in HISTORY_FIELDS[1:]:
                     print(f"{key}: {row[key] if row[key] is not None else 'not_recorded'}")
+    receipts = [
+        row["execution"] for row in rows
+        if verified_deletion_receipt(row, *evidence[row["execution"]][:2])
+    ]
     confirmed = [row["execution"] for row in rows if verified_deletion(row, *evidence[row["execution"]])]
     original_state, original_command, original_database = evidence[PREPARATION_EXECUTION]
     database_chain_verified = (
@@ -337,6 +355,9 @@ def inspect_history() -> int:
         and evidence["abda-nl-stg-migrate-iw6rmwz"][2] == original_database
     )
     print("\nABDA-NL privacy deletion history status:")
+    print(f"verified_deletion_receipt_count: {len(receipts)}")
+    for name in receipts:
+        print(f"verified_deletion_receipt_execution: {name}")
     print(f"verified_deletion_execution_count: {len(confirmed)}")
     for name in confirmed:
         print(f"verified_deletion_execution: {name}")
@@ -347,8 +368,17 @@ def inspect_history() -> int:
     print("account_data_changed: false")
     print("azure_configuration_changed: false")
     print("raw_log_messages_retrieved: false")
+    print("deletion_retry_authorized: false")
     verified = bool(confirmed and database_chain_verified)
-    print("result: " + ("VERIFIED_PRIOR_PRIVACY_DELETION_FOUND" if verified else "PRIVACY_HISTORY_REQUIRES_REVIEW"))
+    if verified:
+        result = "VERIFIED_PRIOR_PRIVACY_DELETION_FOUND"
+    elif receipts:
+        result = "PRIVACY_DELETION_RECEIPT_FOUND_DATABASE_REVIEW_PENDING"
+        print("A reviewed deletion succeeded. Do not repeat deletion or recreate the test account.")
+        print("Its historical database binding is not verified by this diagnostic.")
+    else:
+        result = "PRIVACY_HISTORY_REQUIRES_REVIEW"
+    print(f"result: {result}")
     return 0 if verified else 2
 
 
@@ -359,7 +389,7 @@ def main(argv: list[str] | None = None) -> int:
     if arguments not in ([], ["--preparation"]):
         raise DiagnosticError("only --preparation or --history is supported")
     execution_name = PREPARATION_EXECUTION if arguments else EXECUTION
-    print("ABDA-NL privacy preflight diagnostic revision: 3", flush=True)
+    print("ABDA-NL privacy preflight diagnostic revision: 4", flush=True)
     print("Read-only: inspects one recorded execution and requests log counts only.", flush=True)
     print("It does not start a job or read account data or raw log messages.", flush=True)
 
