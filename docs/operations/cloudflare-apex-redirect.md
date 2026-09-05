@@ -21,6 +21,14 @@ Auth0 targets. The Resend DKIM, SPF, feedback MX, and authentication-subdomain
 DMARC records also remained present. Only the two redirect aliases and rule
 below remain to be configured.
 
+On 2026-09-05, the read-only hostname gate again stopped because the apex had
+no A record. Direct queries to both `alexis.ns.cloudflare.com` and
+`dana.ns.cloudflare.com` returned authoritative `NOERROR` responses with zero
+A answers. The demo readiness endpoint still returned HTTP 200 with
+`{"status":"ready"}`, and Auth0 discovery returned the expected
+`https://login.abda-nl.org/` issuer. This does not establish a full hostname
+gate pass. The dashboard changes below remain pending.
+
 ## Cloudflare dashboard steps
 
 First create the two alias-only DNS records under **DNS**, then **Records**:
