@@ -2,6 +2,54 @@
 
 ## Current recovery result
 
+Status: recovered deletion and database destination reviewed; the operator
+confirmed deletion of the exact disposable Auth0 identity on September 5, 2026.
+The privacy-recovery prerequisite is complete. Do not rerun preparation,
+preflight, deletion, or account creation. The cumulative image rollout and the
+other public-service gates remain separate, unfinished operations.
+
+The final `READ_ONLY_PRIVACY_METADATA_COLLECTED` receipt supplied these
+execution times (UTC), with all three executions in `Succeeded`:
+
+| Execution | Operation | Started | Ended |
+| --- | --- | --- | --- |
+| `abda-nl-stg-migrate-7tlx9gq` | Preparation | 2026-09-04 05:18:35 | 2026-09-04 05:19:04 |
+| `abda-nl-stg-migrate-w9hv7gt` | Deletion | 2026-09-04 16:35:18 | 2026-09-04 16:35:48 |
+| `abda-nl-stg-migrate-iw6rmwz` | Read-only inspection | 2026-09-05 20:36:11 | 2026-09-05 20:36:45 |
+
+The completed preparation preceded deletion by more than eleven hours,
+exceeding the required fifteen-minute hold. The inspection followed deletion.
+Every reported environment was an array with the expected PostgreSQL host,
+an application-password secret reference, and no `ABDA_DATABASE_URL` override.
+The host was
+`abda-nl-stg-postgres-bgjhpbgw.postgres.database.azure.com`.
+
+The original revision 8 and revision 10 runner hashes were rechecked against
+the recorded execution classifications. Both runners construct the connection
+URL using that host, fixed user `abda_app`, port 5432, and database `abda`.
+The password is URL-encoded, so its contents cannot alter the destination.
+The inspection runner uses the same destination construction. The reviewed
+image does not set a competing database URL. Combined with the actual inner
+preparation, deletion, and inspection receipts, this establishes the intended
+database destination without retrieving a secret value.
+
+The remaining `expected_password_ref: false` fields only establish that the
+reference names did not equal the diagnostic's hard-coded
+`app-database-password`. They do not show a wrong password or database. The
+actual names and the reason for their difference remain unknown. This
+destination review does not assert that the references were identical or that
+the old diagnostic passed. Its exact-reference-name requirement was stronger
+than necessary for establishing which database these reviewed runners used.
+
+Auth0 cleanup is an operator-confirmed dashboard action, not an automated API
+verification. No account email, token, or private project content is retained
+in this record. The normal funded account was not the cleanup target.
+
+## Earlier recovery evidence and diagnostic limits
+
+The following records preserve the investigation as it unfolded. Statements
+about pending work below describe that earlier state, not new instructions.
+
 The operator's revision 3 `--history` receipt has recovered an actual successful
 deletion, `abda-nl-stg-migrate-w9hv7gt`. Its recorded command is `privacy_delete`,
 its embedded runner matches reviewed revision 10, and its image matches the

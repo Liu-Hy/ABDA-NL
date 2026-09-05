@@ -1,10 +1,9 @@
 # Final public-service operator batch
 
-State: hardened image live; privacy preparation and successful deletion receipt
-recovered; historical database binding and Auth0 cleanup still pending;
+State: hardened image live; privacy recovery and exact Auth0 cleanup complete;
 GPL cumulative image published and pinned; Azure rollout pending
 
-Runbook revision: `gpl-image-and-helper-verified-20260905`
+Runbook revision: `privacy-recovery-closed-gpl-rollout-ready-20260905`
 
 This runbook covers the remaining live service operations. The maintainer has
 chosen GPL-3.0 for the combined development distribution. The preserved
@@ -13,19 +12,20 @@ notices and artifact checks are recorded in
 
 The previously queued `084817f` image is superseded. Section 3 now pins the
 [tested, attested GPL image](gpl-distribution-checkpoint-20260905.md) and its
-verified helper. Do not run a mutating phase until the outstanding privacy
-database-binding review and exact Auth0 cleanup are complete. Do not repeat
-privacy deletion. The source decision is no longer waiting for an MIT
-exception or a license choice. This image has not yet been deployed to Azure.
+verified helper. The privacy database-destination review is complete, and the
+operator confirmed deletion of the exact disposable Auth0 identity. Continue
+at Section 3. Do not repeat privacy deletion. The source decision is no longer
+waiting for an MIT exception or a license choice. This image has not yet been
+deployed to Azure.
 The Cloudflare dashboard configuration and Resend capacity decision are
 independent of this recovery.
 
-## Privacy deletion receipt recovered, do not repeat the gate
+## Privacy recovery complete, do not repeat the gate
 
 Gate 11 revision 10 started the read-only preflight execution
 `abda-nl-stg-migrate-n9lelb6`, which ended in `Failed` on September 5. The
-deletion execution was not started by that failed attempt. Keep the disposable
-Auth0 user blocked. [The recovery record](privacy-preflight-failure-20260905.md)
+deletion execution was not started by that failed attempt.
+[The recovery record](privacy-preflight-failure-20260905.md)
 documents the subsequent investigation. Its first receipt identified an account-matching
 refusal. Diagnostic revision 2 with `--preparation` has now verified the
 earlier execution's actual command and inner preparation receipt. A subsequent
@@ -35,16 +35,19 @@ deletion execution `abda-nl-stg-migrate-w9hv7gt`, with the reviewed revision 10
 runner and image, one deletion success marker, no refusal, and one deleted
 identity, project, share link, and MCP credential each. Its exit 2 concerns
 unrecognized historical database inputs, not a failed deletion job. The
-database-binding check remains explicitly unverified. Do not rerun the SQL
+final metadata receipt subsequently confirmed the expected PostgreSQL host
+and the preparation, deletion, and inspection ordering. Review of the exact
+runner code established the fixed `abda` destination without reading passwords.
+The password-reference-name mismatch does not change that destination; the
+old diagnostic has not been rerun or relabeled as passed. The operator then
+confirmed deletion of the disposable Auth0 identity. Do not rerun the SQL
 inspection or any privacy phase just to obtain a different exit code.
 
 The preparation and deletion commands in Section 2 are historical instructions,
 not the next task for this already exercised disposable account. Do not recreate
-the account, project, share, or MCP token. Revision 4 of the diagnostic separates
-the verified deletion receipt from the remaining database review without
-loosening any destructive gate. The operator need not rerun it just to repeat
-evidence already supplied. Batch the remaining read-only binding evidence with
-other operator work, without another job or raw environment output.
+the account, project, share, or MCP token. The prerequisite is closed by the
+combined historical receipts, destination review, and operator-confirmed Auth0
+cleanup, not by a newly executed destructive gate.
 
 The first revision 9 deletion attempt stopped before starting a deletion
 execution because its historical-template preflight found no exact match.
@@ -53,15 +56,13 @@ preflight. The prior attempt changed no account or Azure state.
 
 Remaining operator work:
 
-1. Keep the exact disposable identity blocked in Auth0. After the remaining
-   binding review is resolved, remove that same identity if it still exists.
-   Do not guess which user to remove, or delete the normal funded account.
+1. Use Section 3 for the image-only deployment, one short funded request, and
+   the read-only audit. No new privacy or token test is required.
 2. Complete the Cloudflare dashboard changes in Section 4, then run the
    current helper's read-only `bash "$p" hostname` check.
 3. Confirm the Resend production sending capacity described in Section 5.
-4. After the remaining privacy binding review and Auth0 cleanup, use the new
-   Section 3 helper for the image-only deployment and one funded smoke. Keep
-   rollback and promotion behind their existing independent prerequisites.
+4. Keep rollback and promotion behind their existing independent prerequisites
+   in Section 5. Do not increase the pilot limits as part of the image update.
 
 The hardened-image deployment, its audit, BYOK, MCP, capacity, Chromium, and
 Firefox checks are already complete. Do not rerun them unless the relevant
@@ -70,8 +71,8 @@ checks and recovery tabletop are batched in Section 6.
 
 The historical `p` helper block below uses commit
 `4d62e92c443480d1a72530d3dcc4022a0e5adbfd`. Do not use it to repeat privacy work.
-The separate `q` helper in Section 3 is also historical pending the replacement
-image and newly pinned gates. Refresh saved copies of this runbook from the
+The separate `q` helper in Section 3 is the current GPL rollout helper.
+Refresh saved copies of this runbook from the
 personal repository's `development` branch before any new cloud operation.
 
 The managed-boundary image already passed live OpenRouter BYOK acceptance. The
@@ -79,7 +80,7 @@ current hardened service passed fresh public Chromium and Firefox accessibility
 and bounded capacity checks on 2026-09-04 CDT. Subsequent runtime changes remove
 private or model-derived identifiers from operational logs, reduce evaluator
 route-list output, and prevent unexpected exception messages or tracebacks from
-entering logs. The superseded cumulative image also disables hidden Anthropic SDK
+entering logs. The current GPL cumulative image also disables hidden Anthropic SDK
 retries and conservatively settles provider attempts whose billing outcome
 cannot be proven. It rejects empty or malformed billed responses while retaining
 their usage evidence, distinguishes a Gemini content-policy rejection from an
@@ -108,19 +109,18 @@ The hardened release identity is:
 - target pilot revision: `abda-nl-stg-web--harden-51702e1`
 - public origin: `https://demo.abda-nl.org`
 
-The superseded, never-deployed post-privacy cumulative identity is:
+The verified GPL cumulative identity, awaiting Azure deployment, is:
 
 - application source commit: `ed241c1509739f16b2433ced686da76fe1ed1d94`
-- source tag: `service-image-staging-suspension-integrity-20260904-083939`
+- source tag: `service-image-staging-gpl3-20260905-ed241c1`
 - image digest: `sha256:b7025d4322e05a698e79eb120a233c68cf638d5cdd44c8f58223681ff15ae1c5`
-- provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45200764`
+- publication and verified provenance: [GPL artifact checkpoint](gpl-distribution-checkpoint-20260905.md#published-artifact)
 - target pilot revision: `abda-nl-stg-web--gpl-ed241c1`
 - public origin: `https://demo.abda-nl.org`
 
-Do not deploy this image. The privacy Gate was intentionally bound to the
-hardened live image; its successful deletion receipt has now been recovered.
-Replace the superseded image and repin every post-privacy Gate before resuming
-an Azure release mutation. Do not repeat deletion to unblock that work.
+Deploy this exact image through the Section 3 helper, not a superseded image
+or an unpinned tag. The privacy Gate was intentionally bound to the hardened
+live image; its completed work must not be repeated after the image update.
 
 Before running the final promotion, confirm production email capacity. The
 current Resend Free limit of 100 messages per day has no headroom for 100 new
@@ -130,7 +130,10 @@ limit. Keep the existing verified domain and API key integration. If the
 service remains on Free, stop after the ten-user pilot and stagger invitations
 instead of running the 100-user promotion.
 
-## Prepare one Cloud Shell session
+## Historical helper for completed gates and the hostname check
+
+Do not start here for the new deployment. Use the separate Section 3 `q`
+helper. This `p` helper remains a reference for completed gates and Section 4.
 
 A new or existing Azure Cloud Shell session is acceptable. Paste this complete
 block once. It downloads a small helper from an immutable commit and verifies
@@ -272,6 +275,10 @@ change Azure, and it does not discard the saved baseline.
 
 ## 2. Prepare and delete one disposable privacy account
 
+Historical instructions only. The existing privacy acceptance and external
+Auth0 cleanup are complete. Do not run this section or recreate its account.
+The status and steps below record the original two-phase workflow.
+
 Status: preparation completed on 2026-09-04 CDT through job execution
 `abda-nl-stg-migrate-7tlx9gq`. The execution succeeded, the saved job and web
 application configurations remained unchanged, and the receipt reported no
@@ -350,16 +357,15 @@ share, token, or account.
 
 ## 3. Deploy and audit the cumulative service image
 
-Status: GPL image and helper verified; live rollout awaits the remaining
-privacy binding review and Auth0 cleanup. This image includes the WebKit
+Status: GPL image and helper verified; privacy recovery and Auth0 cleanup
+complete. The image-only rollout may now proceed. This image includes the WebKit
 keyboard correction and all cumulative fixes. The license change itself does
 not require an additional browser test.
 
-Proceed only after the recovered successful deletion receipt is bound to the
-expected database and the exact disposable Auth0 identity is removed if it
-still exists. The completed deletion must not be repeated to obtain another
-receipt. A new or existing Cloud Shell session is acceptable. Paste this
-complete block once:
+The recovered successful deletion receipt has been reviewed against the
+expected database, and the operator confirmed removal of the exact disposable
+Auth0 identity. Do not repeat deletion. A new or existing Cloud Shell session
+is acceptable. Paste this complete block once:
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
@@ -367,7 +373,7 @@ c2='b14357722d8a2f6686d1fb14beb2c0806cb568be'
 f2='deploy/azure/post-privacy-operator-gate.sh'
 s2='2e8fa216c34c4ff96c674e1d6f00ebd8d7169e84c951a38a8209dfb887328dcb'
 q="$(mktemp /tmp/abda-post-privacy.XXXXXX)"
-curl -fsSL "$u/$c2/$f2" -o "$q"
+curl -fsSL --connect-timeout 10 --max-time 60 "$u/$c2/$f2" -o "$q" &&
 printf '%s  %s\n' "$s2" "$q" | sha256sum --check
 ```
 
@@ -404,7 +410,7 @@ bash "$q" deploy
 
 At its prompt, type
 `PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE` once and press Enter.
-Use that phrase only after the privacy recovery prerequisites above are met. The
+The privacy recovery prerequisite for that phrase is now met. The
 Gate changes only the web image and revision suffix. It verifies the new
 retention, conservative provider-billing, response-validation, client-lifecycle,
 and account-suspension boundaries, and preserves the existing managed-service
@@ -460,7 +466,8 @@ bash "$p" hostname
 ```
 
 If that Cloud Shell session closed, repeat the preparation block under
-"Prepare one Cloud Shell session" and run `bash "$p" verify` first.
+"Historical helper for completed gates and the hostname check" and run
+`bash "$p" verify` first.
 
 It verifies root and `www` redirects, path and query preservation, direct demo
 readiness, Auth0 discovery, and the Resend DNS boundary. It makes no change and

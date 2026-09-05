@@ -68,8 +68,10 @@ source locations are recorded in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTI
   phase entries successfully. It made no Azure request or change.
 - Use the exact download block and ordering in
   [the final operator batch](final-operator-batch.md#3-deploy-and-audit-the-cumulative-service-image).
-  The remaining privacy binding review and exact Auth0 cleanup still precede
-  mutation. Do not repeat the already successful privacy deletion.
+  The later September 5 [privacy recovery review](privacy-preflight-failure-20260905.md)
+  and operator confirmation of exact Auth0 cleanup have satisfied that
+  prerequisite. The image-only rollout may proceed; it has not yet been
+  performed. Do not repeat the already successful privacy deletion.
 
 Neither repository's stable `main` changed; both were verified live at
 `e4be41c72f34dd555147a2de221d84b3fd735c9f`. The old main license label is not
