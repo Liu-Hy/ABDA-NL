@@ -210,9 +210,9 @@ collected in [the final operator batch](final-operator-batch.md):
 2. Historical database-binding verification for the recovered successful
    privacy deletion, followed by cleanup of its exact blocked Auth0 identity.
    The completed deletion must not be repeated.
-3. Publish a correctly licensed cumulative image that includes the WebKit
-   correction, repin the post-privacy Gate chain, then complete its image-only
-   deployment, one funded smoke, and read-only audit.
+3. The correctly licensed cumulative image and post-privacy Gate pins are
+   [verified](gpl-distribution-checkpoint-20260905.md). Complete its image-only
+   Azure deployment, one funded smoke, and read-only audit after privacy recovery.
 4. Deployment and read-only verification of the prepared root-domain redirect.
 5. Confirm production Resend sending capacity before expanding registration
    beyond the ten-user pilot.

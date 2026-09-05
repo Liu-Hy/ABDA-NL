@@ -9,6 +9,9 @@ checksum in Cloud Shell.
 
 ## Current release sequence
 
+- [GPL distribution checkpoint](gpl-distribution-checkpoint-20260905.md)
+  records the selected license, preserved notices, verified source and image,
+  and repinned operator helper. Azure rollout remains pending.
 - [Final public-service operator batch](final-operator-batch.md) contains the
   current download block, exact confirmations, resume behavior, and ordered
   release Gates.

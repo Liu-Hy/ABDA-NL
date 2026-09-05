@@ -2,24 +2,23 @@
 
 State: hardened image live; privacy preparation and successful deletion receipt
 recovered; historical database binding and Auth0 cleanup still pending;
-post-privacy image superseded before deployment
+GPL cumulative image published and pinned; Azure rollout pending
 
-Runbook revision: `gpl-distribution-chosen-20260905`
+Runbook revision: `gpl-image-and-helper-verified-20260905`
 
 This runbook covers the remaining live service operations. The maintainer has
 chosen GPL-3.0 for the combined development distribution. The preserved
 notices and artifact checks are recorded in
 [the source license review](source-license-review.md).
 
-Do not run the Section 3 deployment or any Section 5 Azure command from this
-revision. The previously queued `084817f` image predates the WebKit keyboard
-scrolling correction at `17ef659` and the GPL distribution correction. The old image
-and helper remain below as historical evidence, not as the current deployment
-target. Do not repeat privacy deletion. The Cloudflare dashboard configuration
-and the Resend capacity decision remain independent of this recovery.
-A new attested GPL-labeled image and newly pinned helper are required. The
-source decision is no longer waiting for an MIT exception or a license choice.
-Do not mistake this source correction for a completed cloud rollout.
+The previously queued `084817f` image is superseded. Section 3 now pins the
+[tested, attested GPL image](gpl-distribution-checkpoint-20260905.md) and its
+verified helper. Do not run a mutating phase until the outstanding privacy
+database-binding review and exact Auth0 cleanup are complete. Do not repeat
+privacy deletion. The source decision is no longer waiting for an MIT
+exception or a license choice. This image has not yet been deployed to Azure.
+The Cloudflare dashboard configuration and Resend capacity decision are
+independent of this recovery.
 
 ## Privacy deletion receipt recovered, do not repeat the gate
 
@@ -60,8 +59,9 @@ Remaining operator work:
 2. Complete the Cloudflare dashboard changes in Section 4, then run the
    current helper's read-only `bash "$p" hostname` check.
 3. Confirm the Resend production sending capacity described in Section 5.
-4. Stop before Section 3 deployment, rollback, promotion, or final audit. Those
-   phases need the replacement image and helper described above.
+4. After the remaining privacy binding review and Auth0 cleanup, use the new
+   Section 3 helper for the image-only deployment and one funded smoke. Keep
+   rollback and promotion behind their existing independent prerequisites.
 
 The hardened-image deployment, its audit, BYOK, MCP, capacity, Chromium, and
 Firefox checks are already complete. Do not rerun them unless the relevant
@@ -350,21 +350,22 @@ share, token, or account.
 
 ## 3. Deploy and audit the cumulative service image
 
-Status: superseded before deployment. Do not run the commands in this section.
-They are retained only to identify the previously reviewed immutable chain. A
-replacement must include the WebKit keyboard correction and must use the
-license disposition chosen for the imported engine.
+Status: GPL image and helper verified; live rollout awaits the remaining
+privacy binding review and Auth0 cleanup. This image includes the WebKit
+keyboard correction and all cumulative fixes. The license change itself does
+not require an additional browser test.
 
-Proceed only after the privacy Gate returned
-`LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED` and the disposable Auth0 identity
-was deleted. A new or existing Cloud Shell session is acceptable. Paste this
+Proceed only after the recovered successful deletion receipt is bound to the
+expected database and the exact disposable Auth0 identity is removed if it
+still exists. The completed deletion must not be repeated to obtain another
+receipt. A new or existing Cloud Shell session is acceptable. Paste this
 complete block once:
 
 ```bash
 u='https://raw.githubusercontent.com/Liu-Hy/ABDA-NL'
-c2='3d23869304474c0119456ca53f76b9d2e34c58a5'
+c2='b14357722d8a2f6686d1fb14beb2c0806cb568be'
 f2='deploy/azure/post-privacy-operator-gate.sh'
-s2='c7cdf2bfcfe25f3752d16b60f86c4f5c5628ff96cfda221affa06a78784bbc3e'
+s2='2e8fa216c34c4ff96c674e1d6f00ebd8d7169e84c951a38a8209dfb887328dcb'
 q="$(mktemp /tmp/abda-post-privacy.XXXXXX)"
 curl -fsSL "$u/$c2/$f2" -o "$q"
 printf '%s  %s\n' "$s2" "$q" | sha256sum --check
@@ -384,12 +385,12 @@ result: ALL_POST_PRIVACY_OPERATOR_GATES_VERIFIED
 ```
 
 This helper also has two intentional commit identities. The download block
-uses `3d23869304474c0119456ca53f76b9d2e34c58a5` for the helper file. Its
+uses `b14357722d8a2f6686d1fb14beb2c0806cb568be` for the helper file. Its
 verification output must begin with:
 
 ```text
-ABDA-NL post-privacy operator helper revision: 6
-Pinned gate source commit: a233bbd0f3ea7b45b64c8e38a4b1e784f5215348
+ABDA-NL post-privacy operator helper revision: 7
+Pinned gate source commit: 9ccbab542a93898c02223b94dfc9e0e1d4eacb7e
 ```
 
 The printed commit pins the post-privacy child-Gate bundle and is expected to
@@ -403,7 +404,7 @@ bash "$q" deploy
 
 At its prompt, type
 `PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE` once and press Enter.
-Use that phrase only after both privacy deletion steps above succeeded. The
+Use that phrase only after the privacy recovery prerequisites above are met. The
 Gate changes only the web image and revision suffix. It verifies the new
 retention, conservative provider-billing, response-validation, client-lifecycle,
 and account-suspension boundaries, and preserves the existing managed-service

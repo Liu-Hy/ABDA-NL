@@ -74,12 +74,13 @@ overwrite their immutable tags. Use newly built GPL-labeled artifacts for new
 distributions. This development-only correction does not retroactively resolve
 the older paper branch's missing engine notice.
 
-The previously queued `084817f` image remains superseded. The next image must
-include both the cumulative application fixes and this licensing correction.
-The operator helper must be repinned to the new source and digest, with exact
-GPL label verification for the new image. Historical checks for old images
-must continue to expect their actual labels. Do not execute the superseded
-deployment chain in the meantime.
+The previously queued `084817f` image remains superseded. The
+[GPL distribution checkpoint](gpl-distribution-checkpoint-20260905.md) records
+the published cumulative image, CI, attestation, and new helper pins. The
+new-image check requires GPL exactly; the historical rollback image still
+requires its actual MIT label. This distinction does not relicense that old
+artifact or make it the preferred distribution. Follow only the current
+operator batch and its remaining external prerequisites.
 
 Clearing this source gate does not verify Azure rollout, historical privacy
 database binding, Auth0 cleanup, root-domain redirection, email capacity, or
