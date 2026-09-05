@@ -23,6 +23,27 @@ from the requested phase and execution status; its inner receipt has not yet
 been independently established. Do not claim the preparation failed or change
 account selection until that evidence is available.
 
+The operator then verified the original execution with revision 2. Its saved
+command was `privacy_prepare`, its runner matched revision 8, its image matched
+the reviewed image, and its logs contained one preparation success marker and
+one validated-export marker. There were no refusal, deletion, or migration
+markers. The original preparation is now independently confirmed. The
+account-match discrepancy remains unexplained by logs alone.
+
+The next operation is `deploy/azure/inspect-privacy-matches.py`. This starts one
+execution of the existing manual job with the application database role and
+the reviewed image. The runner enforces a SQL read-only transaction, counts
+each selector condition, and exits without preparing or deleting an account.
+It counts revoked shares and credentials within the original preparation's
+execution interval to help distinguish the already prepared account from
+other accounts with identical test names. These are diagnostic counts only,
+not an alternate deletion selector. No account email, identifier, project
+content, or credential value is printed. The wrapper retrieves only aggregate
+log counts and requires the inner inspection receipt before reporting success.
+The saved job configuration and web application are not changed. A second
+inspection is unnecessary if the first execution merely awaits log ingestion;
+retain its execution name when reporting any error.
+
 `deploy/azure/diagnose-privacy-preflight.py` inspects that exact execution and
 queries seven days of its Log Analytics evidence. The query returns only
 numeric counts for fixed refusal messages, exception classes, platform failure
@@ -34,7 +55,8 @@ input, never command arguments, files, or terminal output.
 
 Run the downloaded, checksum-verified diagnostic with `python3`, in either the
 existing Azure Cloud Shell session or a new authenticated session. Use
-`python3 SCRIPT_PATH --preparation` for the current recovery step. No input or
+`python3 SCRIPT_PATH --preparation` to repeat the already completed historical
+execution check only when needed. No input or
 confirmation is required. Return its final status and exit code. Zero matching
 logs produce `PRIVACY_EXECUTION_LOG_EVIDENCE_NOT_AVAILABLE`, not a successful
 diagnosis. A completed diagnostic also does not establish successful deletion.
