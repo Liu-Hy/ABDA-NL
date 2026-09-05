@@ -41,8 +41,8 @@ def test_rate_limit_retention_audit_is_pinned_and_read_only():
     source = GATE.read_text(encoding="utf-8")
 
     for expected in (
-        "084817fcefdcbee36e223ff6932d6c344618e1c3",
-        "ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3",
+        "ed241c1509739f16b2433ced686da76fe1ed1d94",
+        "b7025d4322e05a698e79eb120a233c68cf638d5cdd44c8f58223681ff15ae1c5",
         "59db2e3f304fcd8dfc7fadad87c25d68dbe45b0e17440b9a7277467e24bf7857",
         "830302fc1bf30bf0f00c457fdfe8bc190b3562fe",
         "gate9-observability-audit.sh",
@@ -57,10 +57,10 @@ def test_rate_limit_retention_audit_is_pinned_and_read_only():
 
 def test_rate_limit_retention_pilot_audit_settings_are_exact():
     assert _settings("--pilot") == [
-        "084817fcefdcbee36e223ff6932d6c344618e1c3",
-        "ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3",
+        "ed241c1509739f16b2433ced686da76fe1ed1d94",
+        "b7025d4322e05a698e79eb120a233c68cf638d5cdd44c8f58223681ff15ae1c5",
         "suspension-pilot",
-        "abda-nl-stg-web--suspend-084817f",
+        "abda-nl-stg-web--gpl-ed241c1",
         "10",
         "50000000",
         "false",
@@ -70,10 +70,10 @@ def test_rate_limit_retention_pilot_audit_settings_are_exact():
 
 def test_rate_limit_retention_public_audit_settings_are_exact():
     assert _settings("--public") == [
-        "084817fcefdcbee36e223ff6932d6c344618e1c3",
-        "ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3",
+        "ed241c1509739f16b2433ced686da76fe1ed1d94",
+        "b7025d4322e05a698e79eb120a233c68cf638d5cdd44c8f58223681ff15ae1c5",
         "suspension-public",
-        "abda-nl-stg-web--public-100-084817f",
+        "abda-nl-stg-web--public-100-ed241c1",
         "100",
         "500000000",
         "true",

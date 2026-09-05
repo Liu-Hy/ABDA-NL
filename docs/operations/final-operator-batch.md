@@ -110,11 +110,11 @@ The hardened release identity is:
 
 The superseded, never-deployed post-privacy cumulative identity is:
 
-- application source commit: `084817fcefdcbee36e223ff6932d6c344618e1c3`
+- application source commit: `ed241c1509739f16b2433ced686da76fe1ed1d94`
 - source tag: `service-image-staging-suspension-integrity-20260904-083939`
-- image digest: `sha256:ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3`
+- image digest: `sha256:b7025d4322e05a698e79eb120a233c68cf638d5cdd44c8f58223681ff15ae1c5`
 - provenance attestation: `https://github.com/Liu-Hy/ABDA-NL/attestations/45200764`
-- target pilot revision: `abda-nl-stg-web--suspend-084817f`
+- target pilot revision: `abda-nl-stg-web--gpl-ed241c1`
 - public origin: `https://demo.abda-nl.org`
 
 Do not deploy this image. The privacy Gate was intentionally bound to the

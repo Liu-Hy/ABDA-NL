@@ -9,13 +9,13 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_MCP_IMAGE_SCRIPT_REVISION='5'
-ABDA_MCP_IMAGE_SOURCE_COMMIT='084817fcefdcbee36e223ff6932d6c344618e1c3'
+ABDA_MCP_IMAGE_SCRIPT_REVISION='6'
+ABDA_MCP_IMAGE_SOURCE_COMMIT='ed241c1509739f16b2433ced686da76fe1ed1d94'
 ABDA_MCP_IMAGE_OLD_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
-ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3'
+ABDA_MCP_IMAGE_NEW_IMAGE_SHA256='b7025d4322e05a698e79eb120a233c68cf638d5cdd44c8f58223681ff15ae1c5'
 ABDA_MCP_IMAGE_OLD_REVISION='abda-nl-stg-web--harden-51702e1'
-ABDA_MCP_IMAGE_TARGET_SUFFIX='suspend-084817f'
-ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--suspend-084817f'
+ABDA_MCP_IMAGE_TARGET_SUFFIX='gpl-ed241c1'
+ABDA_MCP_IMAGE_TARGET_REVISION='abda-nl-stg-web--gpl-ed241c1'
 ABDA_MCP_IMAGE_GATE_TITLE='cumulative service-integrity and suspension image'
 ABDA_MCP_IMAGE_CONFIRMATION='PRIVACY_DELETION_VERIFIED_DEPLOY_ABDA_SERVICE_IMAGE'
 ABDA_MCP_IMAGE_RESULT='SERVICE_INTEGRITY_IMAGE_DEPLOYED_AUDIT_REQUIRED'
@@ -46,6 +46,41 @@ source "$ABDA_RETENTION_SHARED_GATE"
 if [[ "$ABDA_RETENTION_SHARED_GATE_TEMPORARY" == 'true' ]]; then
   rm -f -- "$ABDA_RETENTION_SHARED_GATE"
 fi
+
+# The corrected distribution must not inherit the historical MIT label check.
+abda_mcp_image_validate_registry_image() {
+  local headers_path=$1
+  local manifest_path=$2
+  local config_path=$3
+  python3 - "$headers_path" "$manifest_path" "$config_path" \
+    "$ABDA_MCP_IMAGE_NEW_IMAGE_SHA256" "$ABDA_MCP_IMAGE_SOURCE_COMMIT" <<'PY'
+import json
+import sys
+
+headers_path, manifest_path, config_path, digest, commit = sys.argv[1:]
+with open(headers_path, encoding="utf-8") as handle:
+    headers = handle.read().lower()
+if f"docker-content-digest: sha256:{digest}" not in headers:
+    raise SystemExit("STOP: GHCR returned an unexpected image digest")
+with open(manifest_path, encoding="utf-8") as handle:
+    manifest = json.load(handle)
+if manifest.get("schemaVersion") != 2:
+    raise SystemExit("STOP: GHCR returned an unexpected manifest schema")
+config_descriptor = manifest.get("config") or {}
+if not str(config_descriptor.get("digest") or "").startswith("sha256:"):
+    raise SystemExit("STOP: GHCR image config digest is missing")
+with open(config_path, encoding="utf-8") as handle:
+    config = json.load(handle)
+labels = (config.get("config") or {}).get("Labels") or {}
+expected = {
+    "org.opencontainers.image.source": "https://github.com/Liu-Hy/ABDA-NL",
+    "org.opencontainers.image.revision": commit,
+    "org.opencontainers.image.licenses": "GPL-3.0-only",
+}
+if any(labels.get(name) != value for name, value in expected.items()):
+    raise SystemExit("STOP: GHCR image provenance labels changed")
+PY
+}
 
 abda_mcp_image_validate_static_fix() {
   local prefix=$1

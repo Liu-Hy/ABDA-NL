@@ -33,22 +33,62 @@ if [[ "$ABDA_RETENTION_ROLLBACK_SHARED_GATE_TEMPORARY" == 'true' ]]; then
   rm -f -- "$ABDA_RETENTION_ROLLBACK_SHARED_GATE"
 fi
 
-ABDA_ROLLBACK_SCRIPT_REVISION='suspension-5'
-ABDA_CURRENT_SOURCE_COMMIT='084817fcefdcbee36e223ff6932d6c344618e1c3'
-ABDA_CURRENT_IMAGE_SHA256='ef13b298df3eea1f1a52cd6f546d1c3f81cbc67cf73486b916bb2938f48b56b3'
+ABDA_ROLLBACK_SCRIPT_REVISION='gpl-6'
+ABDA_CURRENT_SOURCE_COMMIT='ed241c1509739f16b2433ced686da76fe1ed1d94'
+ABDA_CURRENT_IMAGE_SHA256='b7025d4322e05a698e79eb120a233c68cf638d5cdd44c8f58223681ff15ae1c5'
 ABDA_ROLLBACK_SOURCE_COMMIT='51702e175bd14d4cb54075808f839d173d561324'
 ABDA_ROLLBACK_IMAGE_SHA256='a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc'
-ABDA_CURRENT_REVISION='abda-nl-stg-web--suspend-084817f'
+ABDA_CURRENT_REVISION='abda-nl-stg-web--gpl-ed241c1'
 ABDA_ROLLBACK_SUFFIX='rollback-51702e1'
 ABDA_ROLLBACK_REVISION='abda-nl-stg-web--rollback-51702e1'
-ABDA_RESTORE_SUFFIX='restore-084817f'
-ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-084817f'
+ABDA_RESTORE_SUFFIX='restore-ed241c1'
+ABDA_RESTORE_REVISION='abda-nl-stg-web--restore-ed241c1'
 
 ABDA_RETENTION_ROLLBACK_PUBLIC_FUNCTION="$(
   declare -f abda_rollback_public_acceptance
 )"
 eval "${ABDA_RETENTION_ROLLBACK_PUBLIC_FUNCTION/abda_rollback_public_acceptance/abda_retention_rollback_base_public_acceptance}"
 unset ABDA_RETENTION_ROLLBACK_PUBLIC_FUNCTION
+
+# Preserve the old artifact's actual label, but require GPL on the new image.
+abda_rollback_validate_registry_image() {
+  local headers_path=$1
+  local manifest_path=$2
+  local config_path=$3
+  local expected_digest=$4
+  local expected_commit=$5
+  python3 - "$headers_path" "$manifest_path" "$config_path" \
+    "$expected_digest" "$expected_commit" \
+    "$ABDA_CURRENT_SOURCE_COMMIT" "$ABDA_ROLLBACK_SOURCE_COMMIT" <<'PY'
+import json
+import sys
+
+headers_path, manifest_path, config_path, digest, commit, current, rollback = sys.argv[1:]
+license_by_commit = {current: "GPL-3.0-only", rollback: "MIT"}
+if current == rollback or commit not in license_by_commit:
+    raise SystemExit("STOP: unreviewed image license provenance")
+with open(headers_path, encoding="utf-8") as handle:
+    headers = handle.read().lower()
+if f"docker-content-digest: sha256:{digest}" not in headers:
+    raise SystemExit("STOP: GHCR returned an unexpected image digest")
+with open(manifest_path, encoding="utf-8") as handle:
+    manifest = json.load(handle)
+if manifest.get("schemaVersion") != 2:
+    raise SystemExit("STOP: GHCR returned an unexpected manifest schema")
+if not str((manifest.get("config") or {}).get("digest") or "").startswith("sha256:"):
+    raise SystemExit("STOP: GHCR image config digest is missing")
+with open(config_path, encoding="utf-8") as handle:
+    config = json.load(handle)
+labels = (config.get("config") or {}).get("Labels") or {}
+expected = {
+    "org.opencontainers.image.source": "https://github.com/Liu-Hy/ABDA-NL",
+    "org.opencontainers.image.revision": commit,
+    "org.opencontainers.image.licenses": license_by_commit[commit],
+}
+if any(labels.get(name) != value for name, value in expected.items()):
+    raise SystemExit("STOP: GHCR image provenance labels changed")
+PY
+}
 
 abda_rollback_public_acceptance() {
   local prefix=$1
