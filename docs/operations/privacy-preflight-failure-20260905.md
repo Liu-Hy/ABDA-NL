@@ -44,6 +44,24 @@ The saved job configuration and web application are not changed. A second
 inspection is unnecessary if the first execution merely awaits log ingestion;
 retain its execution name when reporting any error.
 
+The inspection completed in `abda-nl-stg-migrate-iw6rmwz`, with one verified
+inner receipt and zero inspection errors. All selector counters were zero,
+including named project owners, named credential owners, and all accounts
+in `deletion_pending`. This rules out ambiguity or an archived named project
+as the explanation at that snapshot. It does not prove account deletion:
+an intervening deletion or a change in database inputs must be checked.
+
+The current next step is diagnostic revision 3 with `--history`. It reads
+seven days of the existing job's receipt counts, then compares recorded
+commands, runner hashes, image identities, and database inputs for relevant
+executions. It starts no job. A past deletion is accepted as evidence only
+with a successful execution, recognized deletion runner, expected image and
+database inputs, a deletion success marker, no refusal marker, and positive
+deleted identity, project, share, and credential counts. The original
+preparation and latest inspection database inputs must also match. No result
+from this historical check has been received yet. Do not repeat deletion or
+declare the privacy acceptance complete solely because selector counts are zero.
+
 `deploy/azure/diagnose-privacy-preflight.py` inspects that exact execution and
 queries seven days of its Log Analytics evidence. The query returns only
 numeric counts for fixed refusal messages, exception classes, platform failure

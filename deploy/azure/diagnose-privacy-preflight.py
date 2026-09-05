@@ -10,6 +10,7 @@ import json
 import re
 import subprocess
 import sys
+from urllib.parse import urlsplit
 
 
 SUBSCRIPTION = "00e62f6e-2174-40b2-b428-8ebfd7c2ac54"
@@ -70,6 +71,10 @@ PATTERNS = {
     "deadline_exceeded": "DeadlineExceeded",
 }
 FIELDS = ("total_logs", "console_logs", "system_logs", "runner_error_line", *PATTERNS)
+HISTORY_FIELDS = (
+    "execution", "preparation_success", "export_validated", "deletion_success", "runner_refusals",
+    "deleted_identity_count", "deleted_project_count", "deleted_share_link_count", "deleted_mcp_token_count",
+)
 
 
 class DiagnosticError(RuntimeError):
@@ -186,12 +191,175 @@ def describe_command(containers: object) -> dict[str, str]:
     return description
 
 
+def database_input(containers: object) -> str:
+    """Describe only whether the recorded input identifies the reviewed database."""
+    if not isinstance(containers, list) or len(containers) != 1:
+        return "unavailable"
+    items = containers[0].get("env") or []
+    env = {item.get("name"): item for item in items}
+    if len(env) != len(items):
+        return "unrecognized"
+    host = "abda-nl-stg-postgres-bgjhpbgw.postgres.database.azure.com"
+    explicit = env.get("ABDA_DATABASE_URL", {})
+    if explicit.get("secretRef"):
+        return "secret_reference_not_resolved"
+    if explicit.get("value"):
+        try:
+            parsed = urlsplit(explicit["value"])
+            matches = parsed.scheme == "postgresql+psycopg" and parsed.hostname == host and parsed.path == "/abda"
+            return "expected_postgres_url" if matches else "different_database_url"
+        except ValueError:
+            return "unrecognized"
+    if (
+        env.get("ABDA_POSTGRES_HOST", {}).get("value") == host
+        and env.get("ABDA_DATABASE_APP_PASSWORD", {}).get("secretRef") == "app-database-password"
+    ):
+        return "expected_postgres_runner_inputs"
+    return "unrecognized"
+
+
+def history_query() -> str:
+    return f"""ContainerAppConsoleLogs_CL
+| where TimeGenerated >= ago(7d) and ContainerGroupName_s startswith '{JOB}-'
+| extend execution=extract('^({JOB}-[a-z0-9]+)', 1, ContainerGroupName_s)
+| summarize preparation_success=countif(Log_s contains 'result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES'),
+export_validated=countif(Log_s contains 'private_export_validated_and_removed: true'),
+deletion_success=countif(Log_s contains 'result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED'),
+runner_refusals=countif(Log_s contains 'privacy acceptance refused:'),
+deleted_identity_count=max(toint(extract('deleted_identity_count: ([0-9]+)', 1, Log_s))),
+deleted_project_count=max(toint(extract('deleted_project_count: ([0-9]+)', 1, Log_s))),
+deleted_share_link_count=max(toint(extract('deleted_share_link_count: ([0-9]+)', 1, Log_s))),
+deleted_mcp_token_count=max(toint(extract('deleted_mcp_token_count: ([0-9]+)', 1, Log_s))) by execution
+| where preparation_success > 0 or deletion_success > 0 or runner_refusals > 0
+| project {', '.join(HISTORY_FIELDS)}
+"""
+
+
+def history_rows(response: object) -> list[dict]:
+    if not isinstance(response, dict) or response.get("error"):
+        raise DiagnosticError("Log Analytics reported a history query error")
+    tables = response.get("tables", [])
+    if len(tables) != 1 or tuple(column.get("name") for column in tables[0].get("columns", [])) != HISTORY_FIELDS:
+        raise DiagnosticError("Log Analytics returned an unexpected history summary")
+    raw_rows = tables[0].get("rows", [])
+    if len(raw_rows) > 50:
+        raise DiagnosticError("too many privacy history entries require review")
+    rows = []
+    for raw in raw_rows:
+        if len(raw) != len(HISTORY_FIELDS) or not isinstance(raw[0], str) or not re.fullmatch(re.escape(JOB) + r"-[a-z0-9]+", raw[0]):
+            raise DiagnosticError("Log Analytics returned an invalid history entry")
+        row = {"execution": raw[0]}
+        for name, value in zip(HISTORY_FIELDS[1:], raw[1:], strict=True):
+            if value is None and name.startswith("deleted_"):
+                row[name] = None
+            elif type(value) is int and value >= 0:
+                row[name] = value
+            else:
+                raise DiagnosticError("Log Analytics returned a nonnumeric history count")
+        rows.append(row)
+    return sorted(rows, key=lambda row: row["execution"])
+
+
+def verified_deletion(row: dict, state: str, description: dict, database: str) -> bool:
+    return bool(
+        state == "Succeeded" and description.get("execution_command") == "privacy_delete"
+        and description.get("runner_source") in set(REVIEWED_RUNNERS.values())
+        and description.get("reviewed_privacy_image") == "true"
+        and database == "expected_postgres_runner_inputs"
+        and row["deletion_success"] > 0 and row["runner_refusals"] == 0
+        and all((row[field] or 0) >= 1 for field in HISTORY_FIELDS if field.startswith("deleted_"))
+    )
+
+
+def inspect_history() -> int:
+    print("ABDA-NL privacy history diagnostic revision: 3", flush=True)
+    print("Read-only: queries saved execution metadata and receipt counts. No job is started.", flush=True)
+    print("\n[1/3] Verifying Azure identity and obtaining log access...", flush=True)
+    account = az_json("account", "show", label="Azure identity")
+    if not isinstance(account, dict) or (
+        account.get("id"), account.get("tenantId"),
+        str((account.get("user") or {}).get("name", "")).lower(), account.get("state"),
+    ) != (SUBSCRIPTION, TENANT, AZURE_USER, "Enabled"):
+        raise DiagnosticError("the active Azure identity or subscription differs")
+    workspace = az_json("monitor", "log-analytics", "workspace", "show", "--resource-group", RESOURCE_GROUP,
+                        "--workspace-name", WORKSPACE, "--subscription", SUBSCRIPTION,
+                        "--query", "customerId", label="Workspace lookup")
+    if not isinstance(workspace, str) or not re.fullmatch(r"[0-9a-fA-F-]{36}", workspace):
+        raise DiagnosticError("Azure returned an invalid workspace identifier")
+    token = az_json("account", "get-access-token", "--resource", "https://api.loganalytics.io",
+                    "--subscription", SUBSCRIPTION, "--query", "accessToken", label="Log API authentication")
+    if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_.~-]+", token):
+        raise DiagnosticError("Azure returned an invalid Log Analytics token")
+    print("\n[2/3] Finding preparation and deletion receipts over seven days...", flush=True)
+    response = run_json([
+        "curl", "--fail", "--silent", "--show-error", "--proto", "=https", "--tlsv1.2",
+        "--connect-timeout", "10", "--max-time", "60", "--config", "-",
+        "--header", "Content-Type: application/json", "--header", "Prefer: wait=45",
+        "--data-binary", json.dumps({"query": history_query(), "timespan": "P7D"}),
+        f"https://api.loganalytics.azure.com/v1/workspaces/{workspace}/query",
+    ], label="Privacy history query", stdin=f'header = "Authorization: Bearer {token}"\n')
+    token = ""
+    rows = history_rows(response)
+    print(f"privacy_history_entries: {len(rows)}", flush=True)
+    print("\n[3/3] Checking actual commands, images, and database inputs...", flush=True)
+    names = sorted({row["execution"] for row in rows} | {PREPARATION_EXECUTION, "abda-nl-stg-migrate-iw6rmwz"})
+    evidence = {}
+    for name in names:
+        record = az_json("containerapp", "job", "execution", "show", "--name", JOB,
+                         "--resource-group", RESOURCE_GROUP, "--subscription", SUBSCRIPTION,
+                         "--job-execution-name", name,
+                         "--query", "{name:name,status:properties.status,containers:properties.template.containers}",
+                         label="Recorded privacy execution lookup")
+        if not isinstance(record, dict) or record.get("name") != name:
+            raise DiagnosticError("Azure returned a different history execution")
+        state = record.get("status")
+        if state not in {"Failed", "Degraded", "Stopped", "Running", "Processing", "Succeeded", "Unknown"}:
+            raise DiagnosticError("Azure returned an unrecognized history execution state")
+        description = describe_command(record.get("containers"))
+        database = database_input(record.get("containers"))
+        evidence[name] = (state, description, database)
+        print(f"\nexecution: {name}")
+        print(f"execution_state: {state}")
+        for key, value in description.items():
+            print(f"{key}: {value}")
+        print(f"database_input: {database}")
+        for row in rows:
+            if row["execution"] == name:
+                for key in HISTORY_FIELDS[1:]:
+                    print(f"{key}: {row[key] if row[key] is not None else 'not_recorded'}")
+    confirmed = [row["execution"] for row in rows if verified_deletion(row, *evidence[row["execution"]])]
+    original_state, original_command, original_database = evidence[PREPARATION_EXECUTION]
+    database_chain_verified = (
+        original_state == "Succeeded" and original_command.get("execution_command") == "privacy_prepare"
+        and original_command.get("runner_source") == "privacy_revision_8"
+        and original_command.get("reviewed_privacy_image") == "true"
+        and original_database == "expected_postgres_runner_inputs"
+        and evidence["abda-nl-stg-migrate-iw6rmwz"][2] == original_database
+    )
+    print("\nABDA-NL privacy deletion history status:")
+    print(f"verified_deletion_execution_count: {len(confirmed)}")
+    for name in confirmed:
+        print(f"verified_deletion_execution: {name}")
+    print(f"original_preparation_database_input: {evidence[PREPARATION_EXECUTION][2]}")
+    print(f"latest_inspection_database_input: {evidence['abda-nl-stg-migrate-iw6rmwz'][2]}")
+    print(f"database_input_chain_verified: {str(database_chain_verified).lower()}")
+    print("job_started: false")
+    print("account_data_changed: false")
+    print("azure_configuration_changed: false")
+    print("raw_log_messages_retrieved: false")
+    verified = bool(confirmed and database_chain_verified)
+    print("result: " + ("VERIFIED_PRIOR_PRIVACY_DELETION_FOUND" if verified else "PRIVACY_HISTORY_REQUIRES_REVIEW"))
+    return 0 if verified else 2
+
+
 def main(argv: list[str] | None = None) -> int:
     arguments = argv or []
+    if arguments == ["--history"]:
+        return inspect_history()
     if arguments not in ([], ["--preparation"]):
-        raise DiagnosticError("only the optional --preparation argument is supported")
+        raise DiagnosticError("only --preparation or --history is supported")
     execution_name = PREPARATION_EXECUTION if arguments else EXECUTION
-    print("ABDA-NL privacy preflight diagnostic revision: 2", flush=True)
+    print("ABDA-NL privacy preflight diagnostic revision: 3", flush=True)
     print("Read-only: inspects one recorded execution and requests log counts only.", flush=True)
     print("It does not start a job or read account data or raw log messages.", flush=True)
 

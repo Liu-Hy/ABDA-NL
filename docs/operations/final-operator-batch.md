@@ -29,12 +29,16 @@ deletion execution was not started. Keep the disposable Auth0 user blocked.
 Use [the count-only failure diagnostic](privacy-preflight-failure-20260905.md)
 before another privacy run. Its first receipt identified an account-matching
 refusal. Diagnostic revision 2 with `--preparation` has now verified the
-earlier execution's actual command and inner preparation receipt. The next
-step is `inspect-privacy-matches.py`, which returns counts from one SQL
-read-only inspection. The next paragraph describes the deletion sequence
-to resume only after the failure has been explained and addressed.
+earlier execution's actual command and inner preparation receipt. A subsequent
+read-only inspection has also completed, with zero named test objects and zero
+prepared accounts. The current next step is diagnostic revision 3 with
+`--history`, to check for an intervening successful deletion and verify database
+inputs. Do not rerun the completed SQL inspection. The next paragraph is
+historical deletion guidance, to use only if the reconciled evidence shows that
+deletion is still required. A verified prior deletion must not be repeated.
 
-The remaining privacy operation is the permanent-deletion half of Section 2.
+If deletion is still required, use the permanent-deletion half of Section 2
+only after the current account-matching discrepancy has been resolved.
 The 15-minute hold has already elapsed. Keep the disposable Auth0 user blocked,
 load and verify the `p` helper exactly as documented below, then run only the
 privacy phase. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, followed by

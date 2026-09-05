@@ -131,3 +131,88 @@ def test_failed_external_command_does_not_echo_private_errors(monkeypatch):
     with pytest.raises(diagnostic.DiagnosticError) as error:
         diagnostic.run_json(["az", "account", "get-access-token"], label="Authentication")
     assert str(error.value) == "Authentication exited with code 1"
+
+
+def test_history_counts_cannot_substitute_for_a_verified_deletion_command():
+    row = dict.fromkeys(diagnostic.HISTORY_FIELDS, 1)
+    row.update(execution="abda-nl-stg-migrate-delete01", runner_refusals=0)
+    description = {"execution_command": "privacy_delete", "runner_source": "privacy_revision_8", "reviewed_privacy_image": "true"}
+    assert diagnostic.verified_deletion(row, "Succeeded", description, "expected_postgres_runner_inputs")
+    assert not diagnostic.verified_deletion(row, "Failed", description, "expected_postgres_runner_inputs")
+    assert not diagnostic.verified_deletion(row, "Succeeded", description, "secret_reference_not_resolved")
+    assert not diagnostic.verified_deletion(row, "Succeeded", {**description, "execution_command": "database_migration"}, "expected_postgres_runner_inputs")
+    row["deleted_identity_count"] = None
+    assert not diagnostic.verified_deletion(row, "Succeeded", description, "expected_postgres_runner_inputs")
+
+
+def test_history_validates_every_field_before_reporting_rows():
+    values = ["abda-nl-stg-migrate-delete01", 0, 0, 1, 0, 1, 1, 1, 1]
+    response = {"tables": [{"columns": [{"name": name} for name in diagnostic.HISTORY_FIELDS], "rows": [values]}]}
+    assert diagnostic.history_rows(response)[0]["deletion_success"] == 1
+    values[0] = "private@example.edu"
+    with pytest.raises(diagnostic.DiagnosticError, match="invalid history entry"):
+        diagnostic.history_rows(response)
+    values[0] = "abda-nl-stg-migrate-delete01"
+    values[5] = "private@example.edu"
+    with pytest.raises(diagnostic.DiagnosticError, match="nonnumeric history count"):
+        diagnostic.history_rows(response)
+
+
+def test_database_description_does_not_expose_values():
+    env = [
+        {"name": "ABDA_POSTGRES_HOST", "value": "abda-nl-stg-postgres-bgjhpbgw.postgres.database.azure.com"},
+        {"name": "ABDA_DATABASE_APP_PASSWORD", "secretRef": "app-database-password"},
+    ]
+    assert diagnostic.database_input([{"env": env}]) == "expected_postgres_runner_inputs"
+    env.append({"name": "ABDA_DATABASE_URL", "value": "postgresql+psycopg://private:secret@unexpected.example/db"})
+    assert diagnostic.database_input([{"env": env}]) == "different_database_url"
+    env[-1] = {"name": "ABDA_DATABASE_URL", "secretRef": "secret-value"}
+    assert diagnostic.database_input([{"env": env}]) == "secret_reference_not_resolved"
+
+
+def test_history_audit_uses_only_queries_and_never_prints_arguments(monkeypatch, capsys):
+    secret = "private.test.token"
+    delete_name = "abda-nl-stg-migrate-delete01"
+    calls = []
+    def az(*args, label):
+        calls.append(args)
+        if args[:2] == ("account", "show"):
+            return {"id": diagnostic.SUBSCRIPTION, "tenantId": diagnostic.TENANT,
+                    "user": {"name": diagnostic.AZURE_USER}, "state": "Enabled"}
+        if args[:4] == ("monitor", "log-analytics", "workspace", "show"):
+            return "12345678-1234-1234-1234-123456789abc"
+        if args[:2] == ("account", "get-access-token"):
+            return secret
+        assert args[:4] == ("containerapp", "job", "execution", "show")
+        name = args[args.index("--job-execution-name") + 1]
+        containers = [{
+            "phase": "privacy_delete" if name == delete_name else "privacy_prepare",
+            "args": ["private-argument"],
+            "env": [
+                {"name": "ABDA_POSTGRES_HOST", "value": "abda-nl-stg-postgres-bgjhpbgw.postgres.database.azure.com"},
+                {"name": "ABDA_DATABASE_APP_PASSWORD", "secretRef": "app-database-password"},
+            ],
+        }]
+        return {"name": name, "status": "Succeeded", "containers": containers}
+
+    def run(args, *, label, stdin):
+        assert secret in stdin and secret not in " ".join(args)
+        query = json.loads(args[args.index("--data-binary") + 1])["query"]
+        assert "| summarize" in query
+        assert query.strip().endswith(", ".join(diagnostic.HISTORY_FIELDS))
+        return {"tables": [{
+            "columns": [{"name": field} for field in diagnostic.HISTORY_FIELDS],
+            "rows": [[delete_name, 0, 0, 1, 0, 1, 1, 1, 1]],
+        }]}
+
+    monkeypatch.setattr(diagnostic, "az_json", az)
+    monkeypatch.setattr(diagnostic, "run_json", run)
+    monkeypatch.setattr(diagnostic, "describe_command", lambda cs: {
+        "execution_command": cs[0]["phase"], "runner_source": "privacy_revision_8", "reviewed_privacy_image": "true",
+    })
+    assert diagnostic.main(["--history"]) == 0
+    output = capsys.readouterr().out
+    assert "VERIFIED_PRIOR_PRIVACY_DELETION_FOUND" in output
+    assert "database_input_chain_verified: true" in output
+    assert secret not in output and "private-argument" not in output
+    assert all("start" not in args and "delete" not in args for args in calls)
