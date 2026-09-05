@@ -17,11 +17,11 @@ RUN /opt/venv/bin/python -m pip install \
 FROM python:3.13-slim-bookworm@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e AS runtime
 
 ARG ABDA_IMAGE_REVISION=unknown
-ARG ABDA_IMAGE_SOURCE=https://github.com/idaks/ABDA-NL
+ARG ABDA_IMAGE_SOURCE=https://github.com/Liu-Hy/ABDA-NL
 
 LABEL org.opencontainers.image.source="${ABDA_IMAGE_SOURCE}" \
       org.opencontainers.image.revision="${ABDA_IMAGE_REVISION}" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="GPL-3.0-only"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -33,6 +33,8 @@ RUN python -m pip uninstall --yes pip \
 WORKDIR /srv/abda
 COPY --from=build /opt/venv /opt/venv
 COPY --chown=abda:abda alembic.ini pyproject.toml README.md LICENSE ./
+COPY --chown=abda:abda THIRD_PARTY_NOTICES.md ./
+COPY --chown=abda:abda LICENSES ./LICENSES
 COPY --chown=abda:abda app ./app
 COPY --chown=abda:abda examples ./examples
 COPY --chown=abda:abda migrations ./migrations

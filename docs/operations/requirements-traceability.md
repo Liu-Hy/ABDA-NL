@@ -185,8 +185,8 @@ records runtime pip removal, the exact base-image vulnerability baseline,
 complete image and Dockerfile scanning, secret-scan isolation, a CycloneDX
 SBOM, clean CodeQL and repository alert state, and the full CI matrix for the
 latest code-changing source. This evidence is source and ephemeral-build
-evidence only. The license gate deliberately prevents publication or
-deployment of that cumulative image.
+evidence only. The GPL distribution correction on September 5 resolves the
+license-choice hold. A newly verified image and deployment are still required.
 
 The historical
 [account-suspension integrity checkpoint](suspension-integrity-checkpoint-20260904.md)
@@ -204,9 +204,9 @@ disposition chosen through the source license review.
 The repository is not sufficient evidence for these remaining items. They are
 collected in [the final operator batch](final-operator-batch.md):
 
-1. Resolve the imported engine's provenance and redistribution terms as
-   recorded in [the source license review](source-license-review.md). This is
-   separate from coauthor consent to the repository's current MIT label.
+1. The source license choice is resolved as GPL-3.0-only, with original MIT
+   notices retained. See [the source license review](source-license-review.md).
+   This does not retroactively change old artifacts or the paper branch.
 2. Historical database-binding verification for the recovered successful
    privacy deletion, followed by cleanup of its exact blocked Auth0 identity.
    The completed deletion must not be repeated.

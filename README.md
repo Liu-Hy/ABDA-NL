@@ -219,3 +219,15 @@ email OIDC, and an explicit migration job. Operator documentation is tracked in:
 Local and Delta launch behavior remains independent of public hosting. A normal
 local `abda-nl` command opens the browser automatically. Delta continues to use
 `demo` plus the laptop's persistent `ssh delta-demo` tunnel.
+
+## License and attribution
+
+This development distribution uses [GNU GPL version 3](LICENSE)
+(`GPL-3.0-only`) and is supplied without warranty. The original MIT notice,
+component licenses, and [corresponding-source instructions](THIRD_PARTY_NOTICES.md#corresponding-source)
+are preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The paper and cited research material are not relicensed by this change.
+
+ABDA-NL includes the [ABDA engine](https://github.com/Schirmi136/ABDA).
+Martin Caminada led ABDA and proposed ABDA-NL. The imported engine's public
+Git history credits Sören Uebis. See the notices for detailed provenance.

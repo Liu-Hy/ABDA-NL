@@ -37,8 +37,8 @@ checksum in Cloud Shell.
   completed implementation evidence from external and hardware acceptance.
 - [Public and COMMA release checklist](release-checklist.md) is the final
   requirement-by-requirement signoff record.
-- [Source license review](source-license-review.md) records the unresolved
-  engine redistribution gate and its acceptable resolution paths.
+- [Source license review](source-license-review.md) records the GPL-3.0-only
+  distribution decision, preserved MIT and upstream notices, and artifact checks.
 - [Deterministic engine validation](deterministic-engine-validation-20260904.md)
   records historical scenario compatibility and exact parity for all six
   deployed baseline payloads.

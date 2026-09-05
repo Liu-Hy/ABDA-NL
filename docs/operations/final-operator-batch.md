@@ -4,23 +4,22 @@ State: hardened image live; privacy preparation and successful deletion receipt
 recovered; historical database binding and Auth0 cleanup still pending;
 post-privacy image superseded before deployment
 
-Runbook revision: `privacy-deletion-receipt-recovered-20260905.2`
+Runbook revision: `gpl-distribution-chosen-20260905`
 
-This runbook covers the remaining live service operations. It does not resolve
-the separate source-redistribution question recorded in
-[the source license review](source-license-review.md). Resolve that gate before
-declaring a public source or service release complete.
+This runbook covers the remaining live service operations. The maintainer has
+chosen GPL-3.0 for the combined development distribution. The preserved
+notices and artifact checks are recorded in
+[the source license review](source-license-review.md).
 
 Do not run the Section 3 deployment or any Section 5 Azure command from this
 revision. The previously queued `084817f` image predates the WebKit keyboard
-scrolling correction at `17ef659`. Publishing its replacement would currently
-apply an unresolved `MIT` OCI label to the imported GPL engine. The old image
+scrolling correction at `17ef659` and the GPL distribution correction. The old image
 and helper remain below as historical evidence, not as the current deployment
 target. Do not repeat privacy deletion. The Cloudflare dashboard configuration
 and the Resend capacity decision remain independent of this recovery.
-A new attested image and newly pinned helper are required after
-the source license gate is resolved. The image workflow now enforces that hold
-before it builds or publishes a tagged artifact.
+A new attested GPL-labeled image and newly pinned helper are required. The
+source decision is no longer waiting for an MIT exception or a license choice.
+Do not mistake this source correction for a completed cloud rollout.
 
 ## Privacy deletion receipt recovered, do not repeat the gate
 

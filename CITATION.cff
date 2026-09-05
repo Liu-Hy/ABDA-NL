@@ -20,7 +20,7 @@ authors:
     given-names: Bertram
 repository-code: https://github.com/idaks/ABDA-NL
 url: https://github.com/idaks/ABDA-NL
-license: MIT
+license: GPL-3.0-only
 keywords:
   - argumentation
   - ASPIC-

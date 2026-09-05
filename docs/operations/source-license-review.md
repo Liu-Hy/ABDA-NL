@@ -1,201 +1,100 @@
 # ABDA engine source license review
 
-Status: external authorization or a repository license decision is required
-before a public service release is declared complete.
+Status: GPL-3.0 chosen by the project maintainer on September 5, 2026.
+The development distribution uses the SPDX identifier `GPL-3.0-only`.
 
-Public image publication gate: blocked
+Public image publication gate: cleared
 
-The image workflow accepts only this exact line:
-`Public image publication gate: cleared`. Change it in the same reviewed commit
-that records the chosen license, permission scope, attribution, and notices. A
-tag cannot bypass this source gate.
+## Decision and scope
 
-## Why this is a release gate
+The combined ABDA-NL distribution, including the imported ABDA engine, is
+distributed under GNU GPL version 3. A special MIT exception for upstream ABDA
+is no longer the selected path. No separate relicensing permission request or
+institutional review is a prerequisite introduced by this engineering gate.
+Existing third-party obligations still apply.
 
-ABDA-NL currently identifies the repository as MIT licensed. A source review on
-2026-09-04 found that the engine added in commit
-`90b7338da35d8a33b36ad4c877f9a61c99c61d7c` closely matches the public
-[`Schirmi136/ABDA`](https://github.com/Schirmi136/ABDA) implementation at commit
-[`6e7a45c40150fbf6bb5377271bf238d8fcd32463`](https://github.com/Schirmi136/ABDA/commit/6e7a45c40150fbf6bb5377271bf238d8fcd32463).
-That upstream repository identifies its license as GPL-3.0.
+The original ABDA-NL MIT grant is retained verbatim in
+[LICENSES/ABDA-NL-MIT.txt](../../LICENSES/ABDA-NL-MIT.txt). It remains a grant
+for the original MIT-covered portions, not for the imported engine. The
+[third-party notice](../../THIRD_PARTY_NOTICES.md) identifies upstream authorship,
+the imported file scope, modification dates, and dependency notices.
+Research leadership and authorship are acknowledged without inventing
+exclusive copyright ownership.
 
-The comparison matched 21 relative engine paths. Fourteen current ABDA-NL
-blobs are byte-identical to the upstream blobs, and seven contain later
-changes. Git history shows that the engine directory did not exist in ABDA-NL
-before the cited import commit. These facts establish a provenance question.
-They do not establish whether the project already received a separate license
-or other permission outside Git history.
+The top-level GPL text is byte-identical to upstream's pinned `LICENSE.md`.
+The package, citation, Dockerfile, and image workflow use `GPL-3.0-only`.
+Choosing version 3 specifically does not assert a new grant for later versions.
+The paper and third-party research material are outside this software change.
 
-The repository's MIT `LICENSE` predates the engine import. The import commit
-added the engine and bridge but did not add the upstream GPL license or a
-third-party notice. Git therefore contains no recorded exception that would
-make the existing top-level label sufficient by itself.
+## Preserved provenance
 
-The same upstream repository contains the 15 `Tests/RuleFiles` fixtures that
-the historical `tests/ConclusionWarrantedTests.py` references. Those fixtures
-were never committed to ABDA-NL. They must not be copied into this MIT-labeled
-repository while the license path remains unresolved.
+The review on September 4, 2026 identified upstream
+[Schirmi136/ABDA](https://github.com/Schirmi136/ABDA) at revision
+[`6e7a45c40150fbf6bb5377271bf238d8fcd32463`](https://github.com/Schirmi136/ABDA/tree/6e7a45c40150fbf6bb5377271bf238d8fcd32463).
+Its [GPL license](https://github.com/Schirmi136/ABDA/blob/6e7a45c40150fbf6bb5377271bf238d8fcd32463/LICENSE.md)
+predates the ABDA-NL import `90b7338da35d8a33b36ad4c877f9a61c99c61d7c`.
 
-## Evidence that can be reproduced
+Twenty-one engine paths matched upstream. At the time of the review, fourteen
+were byte-identical and seven differed. The exact list is preserved in
+[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#abda-engine).
+The upstream public history credits Sören Uebis. The project maintainer
+identifies Martin Caminada as ABDA's research lead and the originator of
+ABDA-NL. These facts are complementary, not proof that either person alone
+owns every contribution.
 
-The upstream license and tree can be inspected without credentials:
+The earlier top-level MIT notice omitted the imported GPL license. This
+change corrects the development distribution; it does not rewrite the
+original import, authors, or historical source records.
 
-```bash
-gh api repos/Schirmi136/ABDA/license \
-  --jq '{name: .license.name, spdx_id: .license.spdx_id, html_url: .html_url}'
+## Distribution checks
 
-gh api \
-  'repos/Schirmi136/ABDA/git/trees/6e7a45c40150fbf6bb5377271bf238d8fcd32463?recursive=1' \
-  --jq '.tree[] | select(.type == "blob") | [.path, .sha] | @tsv'
-```
+The publication gate is cleared only for source containing this correction.
+CI checks the actual wheel's license metadata and the bytes of all three
+application notice files. CI and image publication compare the corresponding
+container files against the source tree. Existing vendored browser license
+files remain part of both wheels and containers. The seven modified imported
+modules carry a dated modification notice.
 
-Git blob identifiers use the file contents, so equal identifiers are direct
-evidence of equal bytes. The current comparison found these byte-identical
-paths beneath `app/abda`:
+Published images identify their repository and complete source revision in
+OCI labels. The publication receipt links directly to that public commit and
+its downloadable source archive, containing application source and build
+scripts. Dependency locks, retained dependency notices, the vendor manifest,
+and image SBOM identify separately licensed components.
+See [corresponding-source instructions](../../THIRD_PARTY_NOTICES.md#corresponding-source).
 
-```text
-ABDA.py
-ArgumentationSystem/Attack.py
-Configuration.py
-GroundedDiscussionGame/Game.py
-GroundedDiscussionGame/GameShell.py
-GroundedDiscussionGame/Moves/CB.py
-GroundedDiscussionGame/Moves/CONCEDE.py
-GroundedDiscussionGame/Moves/HTB.py
-GroundedDiscussionGame/Moves/Move.py
-GroundedDiscussionGame/Moves/RETRACT.py
-KnowledgeBase/AspicRulesLoader.py
-KnowledgeBase/BaseRule.py
-KnowledgeBase/DefeasibleRuleSet.py
-KnowledgeBase/RuleCollection.py
-```
+Changing this document alone cannot establish artifact compliance. Tests and
+publication checks must pass before a corrected image is handed to an operator.
 
-The seven matched paths with later ABDA-NL changes are:
+## Historical images and the next rollout
 
-```text
-ABDAShell.py
-ArgumentationSystem/Argument.py
-ArgumentationSystem/ArgumentBuilder.py
-ArgumentationSystem/ArgumentationGraph.py
-GraphVisualization/GraphConvert.py
-KnowledgeBase/DefeasibleRule.py
-KnowledgeBase/StrictRule.py
-```
+Stable `main` and existing immutable images have not changed. Their old MIT
+labels are historical metadata, not permission to redistribute the imported
+engine under MIT. Do not replace those records with invented GPL labels or
+overwrite their immutable tags. Use newly built GPL-labeled artifacts for new
+distributions. This development-only correction does not retroactively resolve
+the older paper branch's missing engine notice.
 
-These paths should still be treated as modified upstream work until
-authorization is clear. Together, the two lists define the 21-file scope that
-must be covered by permission, compatible licensing, or replacement.
+The previously queued `084817f` image remains superseded. The next image must
+include both the cumulative application fixes and this licensing correction.
+The operator helper must be repinned to the new source and digest, with exact
+GPL label verification for the new image. Historical checks for old images
+must continue to expect their actual labels. Do not execute the superseded
+deployment chain in the meantime.
 
-## Resolution change surface
+Clearing this source gate does not verify Azure rollout, historical privacy
+database binding, Auth0 cleanup, root-domain redirection, email capacity, or
+public trial/fallback promotion. Those remain separate acceptance evidence.
 
-The eventual decision must be applied consistently. Do not clear the image
-publication gate by changing only this document. Review and update all of the
-following current-license surfaces in the same release change:
+## Test provenance
 
-- the top-level `LICENSE`
-- `pyproject.toml` package metadata
-- `CITATION.cff` software metadata
-- the OCI label in `Dockerfile`
-- the OCI label in `.github/workflows/publish-service-image.yml`
-- active Azure image and rollback Gates that verify an OCI license label
-- tests that enforce the selected package, container, and Gate contracts
-- an attribution or third-party notice that identifies the 21-file engine
-  scope, upstream repository, fixed upstream commit, modifications, and the
-  applicable permission or license
+The four retired historical CamelCase test modules remain available in Git
+history. Three contained five self-contained tests; the fourth depended on
+15 absent upstream fixtures. Maintained tests cover grounded-label fixed
+points, cycles, min-max numbering, and discussion games without those fixtures.
 
-Historical deployment records reproduce labels on immutable images that
-already exist. Keep those records accurate instead of rewriting their old
-labels. A new release record must identify the corrected source commit and
-image digest.
-
-Python wheels already include the top-level license through package metadata.
-The production Dockerfile now copies the same top-level `LICENSE` into
-`/srv/abda/LICENSE`, and both CI and the publication workflow verify that it is
-present. After the license decision, this keeps the wheel and container tied
-to the same reviewed top-level license file.
-
-The public upstream history shows one GitHub contributor, Sören Uebis, across
-all commits, including the engine code and the commit that added GPL-3.0. That
-is a useful contact lead, but it is not proof that one person owns every
-relevant right or can grant a relicensing exception. Any permission response
-must confirm the responder's authority and the exact covered files.
-
-## Acceptable resolution paths
-
-The project owners should choose one path after checking any prior agreements:
-
-1. Obtain written permission from the relevant upstream copyright holder to
-   distribute the imported engine and its modifications under MIT. Preserve
-   that permission, add accurate attribution, and state which files it covers.
-2. Distribute the combined repository under GPL-3.0 or another confirmed
-   compatible arrangement, with the required notices and corresponding source.
-3. Replace the imported engine with an independently authorized implementation,
-   then rerun the complete semantic, browser, packaging, and deployment gates.
-   Replacement at the branch tip does not remove upstream objects from Git
-   history. An MIT-only distribution would also need a clean-history release or
-   separate permission, while the original history is preserved in a lawful
-   archive.
-
-Coauthor approval of ABDA-NL's MIT label does not by itself grant rights in
-third-party code. This document is an engineering provenance record, not legal
-advice. When uncertainty remains, consult the university's research software
-or legal support before release.
-
-## Recommended resolution workflow
-
-The least disruptive path is to establish whether separate permission already
-exists, then request it from the upstream rights holder only if needed:
-
-1. Ask the author of ABDA-NL's engine import whether the project already has a
-   written license or permission that covers the imported source and later
-   modifications. Preserve the original record and verify its exact scope.
-2. If no such record exists, contact the upstream maintainer through the public
-   repository. Include links to both repositories, the fixed upstream commit,
-   the current path list, and the intended MIT distribution.
-3. Ask the responder to confirm that they own the relevant rights or are
-   authorized to grant the permission. A useful unambiguous response would
-   grant ABDA-NL permission to use, reproduce, modify, distribute, and
-   sublicense the identified upstream source and ABDA-NL derivatives under the
-   MIT License, subject to accurate attribution. The rights holder may use
-   equivalent preferred wording.
-4. Preserve the complete response privately. Add the agreed attribution and
-   permission scope to the repository before checking this release gate.
-5. If permission is refused, incomplete, or ambiguous, do not infer consent.
-   Choose the GPL-compatible or replacement path with the project owners.
-
-For a release with material external visibility, have the final permission and
-repository notices reviewed by the university's research software or legal
-support rather than relying on this engineering checklist alone.
-
-## Test hygiene
-
-The four historical CamelCase test modules were not collected by the default
-pytest rule. Three contained five self-contained tests. The fourth referenced
-the 15 absent upstream fixtures and failed before reaching an assertion when
-run directly. The development branch retired those modules without rewriting
-their history.
-
-Maintained, newly authored tests now cover grounded-label fixed points,
-cycles, min-max numbering, and a complete Python discussion-game defense. The
-real-browser suite additionally covers a multi-challenge defense and an
-undecided cycle through the public interactive game. These tests use generated
-in-memory graphs and do not copy the absent upstream fixtures.
-
-The removed historical modules remain available in Git history for provenance
-review. Their deletion from the branch tip is test hygiene, not a license
-remedy. Do not restore the upstream fixtures until their redistribution terms
-are resolved.
-
-## Transient semantic compatibility check
-
-On 2026-09-04, a disposable directory under `/tmp` combined the unmodified
-historical ABDA-NL test modules from commit `e6a3062` with only the missing
-`Tests/RuleFiles` directory from the fixed upstream commit `6e7a45c`. The test
-process exercised the current engine and reported 20 passing tests in 1.15
-seconds. No upstream fixture was added to the ABDA-NL worktree or commit. The
-exact identities and result are preserved in the
-[deterministic engine validation record](deterministic-engine-validation-20260904.md).
-
-This result provides useful compatibility evidence for the deterministic
-engine. It does not resolve the redistribution question or authorize copying
-the upstream fixtures into ABDA-NL.
+On September 4, a temporary compatibility check combined the historical
+modules from `e6a3062` with the fixed upstream fixture directory and exercised
+the current engine: 20 tests passed in 1.15 seconds. No fixture was committed.
+Retiring tests was test hygiene, not a licensing remedy. The GPL choice
+removes the earlier MIT-only obstacle to considering upstream fixtures, but
+no fixture import is needed for this change.

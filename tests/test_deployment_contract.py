@@ -265,7 +265,7 @@ def test_service_image_workflow_prevents_mutable_or_unverified_deployments():
     assert "subject-digest: ${{ steps.publish.outputs.digest }}" in workflow
     assert "push-to-registry: true" in workflow
     assert ":latest" not in workflow
-    assert "ARG ABDA_IMAGE_SOURCE=https://github.com/idaks/ABDA-NL" in dockerfile
+    assert "ARG ABDA_IMAGE_SOURCE=https://github.com/Liu-Hy/ABDA-NL" in dockerfile
     assert 'org.opencontainers.image.source="${ABDA_IMAGE_SOURCE}"' in dockerfile
     assert "pyproject.toml README.md LICENSE ./" in dockerfile
     assert "cat /srv/abda/LICENSE | cmp --silent LICENSE -" in workflow

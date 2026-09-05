@@ -162,6 +162,8 @@ jobs:
           python -m build --no-isolation --wheel --outdir "$RUNNER_TEMP/dist"
           python - "$RUNNER_TEMP"/dist/abda_nl-*.whl <<'PY'
           import sys
+          from email.parser import BytesParser
+          from pathlib import Path
           from zipfile import ZipFile
 
           with ZipFile(sys.argv[1]) as wheel:
@@ -177,6 +179,16 @@ jobs:
           with open("LICENSE", "rb") as source:
               if packaged_license != source.read():
                   raise SystemExit("wheel LICENSE differs from the source LICENSE")
+          with ZipFile(sys.argv[1]) as wheel:
+              license_root = license_files[0].removesuffix("LICENSE")
+              for notice in ("THIRD_PARTY_NOTICES.md", "LICENSES/ABDA-NL-MIT.txt"):
+                  if wheel.read(license_root + notice) != Path(notice).read_bytes():
+                      raise SystemExit(f"wheel notice differs from source: {notice}")
+              metadata = BytesParser().parsebytes(
+                  wheel.read(license_root.removesuffix("licenses/") + "METADATA")
+              )
+              if metadata["License-Expression"] != "GPL-3.0-only":
+                  raise SystemExit("wheel license expression is not GPL-3.0-only")
           PY
           python -m pip install --force-reinstall --no-deps \
             "$RUNNER_TEMP"/dist/abda_nl-*.whl
@@ -336,6 +348,10 @@ jobs:
           test -s LICENSE
           docker exec "$ABDA_CI_CONTAINER_ID" \
             cat /srv/abda/LICENSE | cmp --silent LICENSE -
+          for ABDA_NOTICE in THIRD_PARTY_NOTICES.md LICENSES/ABDA-NL-MIT.txt; do
+            docker exec "$ABDA_CI_CONTAINER_ID" \
+              cat "/srv/abda/$ABDA_NOTICE" | cmp --silent "$ABDA_NOTICE" -
+          done
           docker exec "$ABDA_CI_CONTAINER_ID" \
             /opt/venv/bin/python -c \
             'import importlib.util; assert importlib.util.find_spec("pip") is None'

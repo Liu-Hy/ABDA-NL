@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Modified for ABDA-NL from Schirmi136/ABDA; imported 2026-06-29.
+# Modification notice added 2026-09-05. See Git history and THIRD_PARTY_NOTICES.md.
+
 from itertools import product
 
 from ArgumentationSystem.Argument import Argument

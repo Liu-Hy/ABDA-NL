@@ -64,6 +64,7 @@ camera-ready.pdf
 *.md
 !README.md
 !LICENSE.md
+!THIRD_PARTY_NOTICES.md
 !CONTRIBUTING.md
 !CHANGELOG.md
 !CODE_OF_CONDUCT.md

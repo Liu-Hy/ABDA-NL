@@ -105,7 +105,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.source.outputs.commit }}
-            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.licenses=GPL-3.0-only
           platforms: linux/amd64
           provenance: false
           pull: true
@@ -158,6 +158,10 @@ jobs:
           test -s LICENSE
           docker exec "$ABDA_IMAGE_CONTAINER_ID" \
             cat /srv/abda/LICENSE | cmp --silent LICENSE -
+          for ABDA_NOTICE in THIRD_PARTY_NOTICES.md LICENSES/ABDA-NL-MIT.txt; do
+            docker exec "$ABDA_IMAGE_CONTAINER_ID" \
+              cat "/srv/abda/$ABDA_NOTICE" | cmp --silent "$ABDA_NOTICE" -
+          done
           docker exec "$ABDA_IMAGE_CONTAINER_ID" \
             /opt/venv/bin/python -c \
             'import importlib.util; assert importlib.util.find_spec("pip") is None'
@@ -253,6 +257,12 @@ jobs:
             echo '## Verified service image'
             echo
             echo "Git commit: \`$ABDA_IMAGE_COMMIT\`"
+            echo
+            echo 'License: GPL-3.0-only; original component notices retained.'
+            echo
+            echo "Corresponding source: https://github.com/${GITHUB_REPOSITORY}/tree/${ABDA_IMAGE_COMMIT}"
+            echo
+            echo "Source archive: https://github.com/${GITHUB_REPOSITORY}/archive/${ABDA_IMAGE_COMMIT}.tar.gz"
             echo
             echo "Deploy exactly: \`$ABDA_IMAGE_NAME@$ABDA_IMAGE_DIGEST\`"
             echo
