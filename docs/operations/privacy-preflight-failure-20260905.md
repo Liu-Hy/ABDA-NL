@@ -6,6 +6,23 @@ confirmations. The read-only `preflight-delete` execution
 starting the deletion execution. The failure reason is not established by the
 receipt. Keep the disposable Auth0 identity blocked pending diagnosis.
 
+The operator's diagnostic receipt subsequently reported one runner refusal,
+specifically `account_match_refused: 1`, with no traceback or database error
+markers. The preflight reached the account query but did not find exactly one
+matching account. This does not distinguish zero matches from multiple matches.
+The revision 8 and revision 10 selectors have the same project, credential,
+verified-email, account-state, and non-archived-project conditions.
+
+Revision 2 of the diagnostic adds `--preparation` to inspect the earlier
+`abda-nl-stg-migrate-7tlx9gq` execution instead. It classifies the saved command
+and hashes the embedded runner source without executing it or printing its
+arguments. It queries counts for the actual preparation, export, deletion, and
+migration success markers. A successful Azure execution alone does not prove
+which operation ran. The original wrapper's preparation result was inferred
+from the requested phase and execution status; its inner receipt has not yet
+been independently established. Do not claim the preparation failed or change
+account selection until that evidence is available.
+
 `deploy/azure/diagnose-privacy-preflight.py` inspects that exact execution and
 queries seven days of its Log Analytics evidence. The query returns only
 numeric counts for fixed refusal messages, exception classes, platform failure
@@ -16,7 +33,8 @@ operations have a 70-second process limit; the log HTTP request has a
 input, never command arguments, files, or terminal output.
 
 Run the downloaded, checksum-verified diagnostic with `python3`, in either the
-existing Azure Cloud Shell session or a new authenticated session. No input or
+existing Azure Cloud Shell session or a new authenticated session. Use
+`python3 SCRIPT_PATH --preparation` for the current recovery step. No input or
 confirmation is required. Return its final status and exit code. Zero matching
 logs produce `PRIVACY_EXECUTION_LOG_EVIDENCE_NOT_AVAILABLE`, not a successful
 diagnosis. A completed diagnostic also does not establish successful deletion.

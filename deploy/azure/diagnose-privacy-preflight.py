@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import ast
+import base64
+import hashlib
 import json
 import re
 import subprocess
@@ -16,6 +19,15 @@ RESOURCE_GROUP = "abda-nl-staging"
 WORKSPACE = "abda-nl-stg-logs-bgjhpbgw"
 JOB = "abda-nl-stg-migrate"
 EXECUTION = "abda-nl-stg-migrate-n9lelb6"
+PREPARATION_EXECUTION = "abda-nl-stg-migrate-7tlx9gq"
+REVIEWED_RUNNERS = {
+    "41dae6e04d0ae1af2214aeb1cc2b44cb3cabd1cf2f161854d52322af906bcd4f": "privacy_revision_8",
+    "76702829f146c76381e02d73fbaa316fd233a5fe474e09c48130acacf19a1237": "privacy_revision_10",
+}
+EXPECTED_IMAGE = (
+    "ghcr.io/liu-hy/abda-nl@sha256:"
+    "a0b3ba24aff06ecf461f86547131d86451c541e306a7ecfc278f280fcef5c0bc"
+)
 
 # All labels and patterns are fixed code. Log text never leaves Log Analytics.
 PATTERNS = {
@@ -29,6 +41,11 @@ PATTERNS = {
     "database_input_refused": "application database input is unavailable",
     "cli_refused": "deployed privacy command refused the reviewed operation",
     "preflight_success": "result: PRIVACY_DELETION_PREFLIGHT_VERIFIED",
+    "preparation_success": "result: PRIVACY_ACCEPTANCE_PREPARED_WAIT_15_MINUTES",
+    "preparation_resumed": "preparation_resumed: true",
+    "export_validated": "private_export_validated_and_removed: true",
+    "deletion_success": "result: LIVE_PRIVACY_EXPORT_AND_DELETION_VERIFIED",
+    "migration_completed": "Database migration and restricted application role provisioning completed.",
     "tracebacks": "Traceback (most recent call last)",
     "attribute_error": "AttributeError:",
     "type_error": "TypeError:",
@@ -83,15 +100,17 @@ def az_json(*arguments: str, label: str) -> object:
     )
 
 
-def logs_query() -> str:
+def logs_query(execution_name: str = EXECUTION) -> str:
+    if execution_name not in {EXECUTION, PREPARATION_EXECUTION}:
+        raise DiagnosticError("the execution is outside this diagnostic")
     predicates = ",\n    ".join(
         f"{label}=countif(Message contains {json.dumps(pattern)})"
         for label, pattern in PATTERNS.items()
     )
     return f"""union withsource=LogTable ContainerAppConsoleLogs_CL, ContainerAppSystemLogs_CL
 | where TimeGenerated >= ago(7d)
-| where tostring(column_ifexists('ContainerGroupName_s', '')) startswith '{EXECUTION}'
-    or tostring(pack_all()) contains '{EXECUTION}'
+| where tostring(column_ifexists('ContainerGroupName_s', '')) startswith '{execution_name}'
+    or tostring(pack_all()) contains '{execution_name}'
 | extend Message=tostring(column_ifexists('Log_s', ''))
 | summarize total_logs=count(),
     console_logs=countif(LogTable contains 'ConsoleLogs'),
@@ -122,9 +141,58 @@ def parse_counts(response: object) -> dict[str, int]:
     return counts
 
 
-def main() -> int:
-    print("ABDA-NL privacy preflight diagnostic revision: 1", flush=True)
-    print("Read-only: inspects the failed execution and requests log counts only.", flush=True)
+def describe_command(containers: object) -> dict[str, str]:
+    """Classify saved commands without executing code or printing argument values."""
+    description = {"execution_command": "unrecognized", "runner_source": "unrecognized"}
+    if not isinstance(containers, list) or len(containers) != 1 or not isinstance(containers[0], dict):
+        return {"execution_command": "template_unavailable", "runner_source": "unavailable"}
+    container = containers[0]
+    description["reviewed_privacy_image"] = str(container.get("image") == EXPECTED_IMAGE).lower()
+    command = container.get("command")
+    args = container.get("args")
+    if command != ["/opt/venv/bin/python"] or not isinstance(args, list):
+        return description
+    if args == ["-m", "app.cli.migrate"]:
+        description.update(execution_command="database_migration", runner_source="migration_module")
+        return description
+    if (
+        len(args) != 4 or args[0] != "-c" or not isinstance(args[2], str)
+        or args[2] not in {"prepare", "preflight-delete", "delete"}
+    ):
+        return description
+    if args[3] != "PRIV-ACCEPT-20260830-01" or not isinstance(args[1], str) or len(args[1]) > 131072:
+        return description
+    description["execution_command"] = f"privacy_{args[2]}"
+    try:
+        tree = ast.parse(args[1])
+        payloads = [
+            node.args[0].value for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "base64"
+            and node.func.attr == "b64decode" and len(node.args) == 1
+            and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)
+        ]
+        if len(payloads) == 1:
+            expected_wrapper = (
+                "import base64;exec(compile(base64.b64decode("
+                + repr(payloads[0]) + "),'<privacy-acceptance>','exec'))"
+            )
+            if args[1] != expected_wrapper:
+                return description
+            digest = hashlib.sha256(base64.b64decode(payloads[0], validate=True)).hexdigest()
+            description["runner_source"] = REVIEWED_RUNNERS.get(digest, "unrecognized")
+    except (ValueError, SyntaxError, RecursionError):
+        pass
+    return description
+
+
+def main(argv: list[str] | None = None) -> int:
+    arguments = argv or []
+    if arguments not in ([], ["--preparation"]):
+        raise DiagnosticError("only the optional --preparation argument is supported")
+    execution_name = PREPARATION_EXECUTION if arguments else EXECUTION
+    print("ABDA-NL privacy preflight diagnostic revision: 2", flush=True)
+    print("Read-only: inspects one recorded execution and requests log counts only.", flush=True)
     print("It does not start a job or read account data or raw log messages.", flush=True)
 
     print("\n[1/3] Checking Azure identity and the reported execution...", flush=True)
@@ -137,16 +205,23 @@ def main() -> int:
     execution = az_json(
         "containerapp", "job", "execution", "show", "--name", JOB,
         "--resource-group", RESOURCE_GROUP, "--subscription", SUBSCRIPTION,
-        "--job-execution-name", EXECUTION,
-        "--query", "{name:name,status:properties.status}", label="Execution lookup",
+        "--job-execution-name", execution_name,
+        "--query", (
+            "{name:name,status:properties.status,"
+            "containers:properties.template.containers[].{name:name,image:image,command:command,args:args}}"
+        ),
+        label="Execution lookup",
     )
-    if not isinstance(execution, dict) or execution.get("name") != EXECUTION:
+    if not isinstance(execution, dict) or execution.get("name") != execution_name:
         raise DiagnosticError("Azure returned a different execution")
     state = execution.get("status")
     if state not in {"Failed", "Degraded", "Stopped", "Running", "Processing", "Succeeded", "Unknown"}:
         raise DiagnosticError("Azure returned an unrecognized execution state")
-    print(f"privacy_job_execution: {EXECUTION}", flush=True)
+    print(f"privacy_job_execution: {execution_name}", flush=True)
     print(f"privacy_job_state: {state}", flush=True)
+    command_description = describe_command(execution.get("containers"))
+    for name, value in command_description.items():
+        print(f"{name}: {value}", flush=True)
 
     print("\n[2/3] Resolving the existing Log Analytics workspace...", flush=True)
     workspace_id = az_json(
@@ -169,7 +244,7 @@ def main() -> int:
             "curl", "--fail", "--silent", "--show-error", "--proto", "=https",
             "--tlsv1.2", "--connect-timeout", "10", "--max-time", "60", "--config", "-",
             "--header", "Content-Type: application/json", "--header", "Prefer: wait=45",
-            "--data-binary", json.dumps({"query": logs_query(), "timespan": "P7D"}),
+            "--data-binary", json.dumps({"query": logs_query(execution_name), "timespan": "P7D"}),
             f"https://api.loganalytics.azure.com/v1/workspaces/{workspace_id}/query",
         ],
         label="Count-only log query", stdin=f'header = "Authorization: Bearer {token}"\n',
@@ -177,7 +252,10 @@ def main() -> int:
     token = ""
     counts = parse_counts(response)
     print("\nABDA-NL privacy preflight diagnostic status:")
-    print(f"execution: {EXECUTION}")
+    print(f"execution: {execution_name}")
+    print(f"execution_state: {state}")
+    for name, value in command_description.items():
+        print(f"{name}: {value}")
     for name, value in counts.items():
         print(f"{name}: {value}")
     print("raw_log_messages_retrieved: false")
@@ -193,7 +271,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     try:
-        code = main()
+        code = main(sys.argv[1:])
     except DiagnosticError as exc:
         print(f"STOP: {exc}", file=sys.stderr)
         code = 1

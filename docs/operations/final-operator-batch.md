@@ -27,7 +27,9 @@ Gate 11 revision 10 started the read-only preflight execution
 `abda-nl-stg-migrate-n9lelb6`, which ended in `Failed` on September 5. The
 deletion execution was not started. Keep the disposable Auth0 user blocked.
 Use [the count-only failure diagnostic](privacy-preflight-failure-20260905.md)
-before another privacy run. The next paragraph describes the deletion sequence
+before another privacy run. Its first receipt identified an account-matching
+refusal. Diagnostic revision 2 with `--preparation` is the next step, to check
+the earlier execution's actual command and inner preparation receipt. The next paragraph describes the deletion sequence
 to resume only after the failure has been explained and addressed.
 
 The remaining privacy operation is the permanent-deletion half of Section 2.
