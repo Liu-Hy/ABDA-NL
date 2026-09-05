@@ -8,8 +8,8 @@ set -Eeuo pipefail
 set +x
 umask 077
 
-ABDA_POST_PRIVACY_SCRIPT_REVISION='6'
-ABDA_POST_PRIVACY_SOURCE_COMMIT='a233bbd0f3ea7b45b64c8e38a4b1e784f5215348'
+ABDA_POST_PRIVACY_SCRIPT_REVISION='7'
+ABDA_POST_PRIVACY_SOURCE_COMMIT='9ccbab542a93898c02223b94dfc9e0e1d4eacb7e'
 ABDA_POST_PRIVACY_ROOT=''
 
 abda_post_privacy_cleanup() {
@@ -46,14 +46,14 @@ abda_post_privacy_gate_metadata() {
     deploy)
       printf '%s\n' \
         'deploy/azure/gate20-rate-limit-retention-image.sh' \
-        'fc5678988b8ca3f1c0544493ae32c9d54bf5deaea30d1b49436d3c259827ea55' \
+        'e99f824b5921d792405d0aa8a74e7d3763dc80c0ae8c6c45b8c8c2174d239f27' \
         'bash' \
         'Changes only the existing web image and revision suffix.'
       ;;
     audit)
       printf '%s\n' \
         'deploy/azure/gate21-rate-limit-retention-audit.sh' \
-        'aca6531bf37339fb42fa5cd5370627dc3f2d87e0969a475a7edae8d718549c0a' \
+        '4295903c77e4af6cd12b2ef891ffc63d51727a5643d33228fdffbc087f4fa748' \
         'bash' \
         'Read-only Azure, HTTPS, release, and count-only log checks.'
       ;;
@@ -67,21 +67,21 @@ abda_post_privacy_gate_metadata() {
     rollback)
       printf '%s\n' \
         'deploy/azure/gate22-rate-limit-retention-rollback.sh' \
-        '4d859dd102d756c177682912a16af36a238fff4a6c182c0fb00d23d6c7b991df' \
+        '35ac2c7c0805080613245e311e4fe39ae6618bec244cf22d348e52de06525f59' \
         'bash' \
         'Changes only the web image twice and restores the cumulative image.'
       ;;
     promote)
       printf '%s\n' \
         'deploy/azure/gate23-rate-limit-retention-promotion.sh' \
-        '9164f34daa336b2aed5721c5c20f293eea445b0bf72c8971d29af6017a5c3f05' \
+        'aa41db0844ea0792dcb5a195d276e15f820c02d37220a80c842399ca0f1e8a7a' \
         'bash' \
         'Changes only three reviewed trial and fallback settings.'
       ;;
     final-audit)
       printf '%s\n' \
         'deploy/azure/gate21-rate-limit-retention-audit.sh' \
-        'aca6531bf37339fb42fa5cd5370627dc3f2d87e0969a475a7edae8d718549c0a' \
+        '4295903c77e4af6cd12b2ef891ffc63d51727a5643d33228fdffbc087f4fa748' \
         'bash' \
         'Read-only audit of the promoted 100-user public boundary.'
       ;;
