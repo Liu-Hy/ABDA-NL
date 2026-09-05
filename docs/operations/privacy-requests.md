@@ -2,7 +2,9 @@
 
 Status: implemented in the source-security candidate. Live preparation against
 an isolated disposable account passed on 2026-09-04 CDT. The minimum 15-minute
-hold has elapsed, and the permanent-deletion phase remains.
+hold has elapsed, and the permanent-deletion phase remains. On September 5,
+the revision 10 read-only deletion preflight failed before deletion began.
+See [the failure diagnostic](privacy-preflight-failure-20260905.md) before retrying.
 
 This runbook supports verified access exports and permanent deletion requests.
 The operator tool is `abda-nl-privacy`. It never accepts an account email on the

@@ -1,9 +1,9 @@
 # Final public-service operator batch
 
-State: hardened image live; privacy preparation complete; permanent deletion
-next; post-privacy image superseded before deployment
+State: hardened image live; privacy preparation complete; deletion preflight
+failed and needs diagnosis; post-privacy image superseded before deployment
 
-Runbook revision: `privacy-preflight-recovery-20260904.3`
+Runbook revision: `privacy-preflight-diagnostic-20260905.1`
 
 This runbook covers the remaining live service operations. It does not resolve
 the separate source-redistribution question recorded in
@@ -21,9 +21,16 @@ independently. A new attested image and newly pinned helper are required after
 the source license gate is resolved. The image workflow now enforces that hold
 before it builds or publishes a tagged artifact.
 
-## Resume here after the completed privacy preparation
+## Diagnose the failed privacy preflight first
 
-The next live operator action is the permanent-deletion half of Section 2.
+Gate 11 revision 10 started the read-only preflight execution
+`abda-nl-stg-migrate-n9lelb6`, which ended in `Failed` on September 5. The
+deletion execution was not started. Keep the disposable Auth0 user blocked.
+Use [the count-only failure diagnostic](privacy-preflight-failure-20260905.md)
+before another privacy run. The next paragraph describes the deletion sequence
+to resume only after the failure has been explained and addressed.
+
+The remaining privacy operation is the permanent-deletion half of Section 2.
 The 15-minute hold has already elapsed. Keep the disposable Auth0 user blocked,
 load and verify the `p` helper exactly as documented below, then run only the
 privacy phase. Enter `RUN_ABDA_PRIVACY_ACCEPTANCE`, followed by
