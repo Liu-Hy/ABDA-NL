@@ -6,6 +6,17 @@ friendly redirects verified; Resend Free accepted by the operator; public promot
 
 Runbook revision: `free-sender-accepted-public-promotion-20260906`
 
+## Updated execution handoff
+
+The operator no longer needs to run each routine cloud gate manually. Follow
+the [agent-driven Azure login instructions](agent-driven-deployment.md) once
+in a Delta terminal. After authorization, the agent first inspects live state,
+then owns the approved deployment, diagnostics, recovery, and automated checks.
+The Cloud Shell commands below remain a manual recovery alternative, not a
+requirement to repeat completed steps. Human browser acceptance is batched.
+Until that login is complete, no agent-driven Azure deployment is authorized
+by the local CLI preparation alone.
+
 This runbook covers the remaining live service operations. The maintainer has
 chosen GPL-3.0 for the combined development distribution. The preserved
 notices and artifact checks are recorded in
