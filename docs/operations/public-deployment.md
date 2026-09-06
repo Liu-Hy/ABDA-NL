@@ -508,71 +508,66 @@ Repeat every acceptance check against
 
 ## Updates and rollback
 
-The live staging image is pinned in the
-[source-security checkpoint](source-security-checkpoint-20260902.md). Its
-disposable-account privacy acceptance must finish against that exact image.
-The previously planned image-only transition is recorded in the
-[account-suspension checkpoint](suspension-integrity-checkpoint-20260904.md)
-and was guarded by `deploy/azure/gate20-rate-limit-retention-image.sh`. That
-candidate was superseded before deployment after WebKit exposed a keyboard
-focus defect. Do not run Gate 20 until a correctly licensed replacement image
-includes that correction and the complete Gate chain is repinned. The earlier
-[provider accounting checkpoint](accounting-integrity-checkpoint-20260904.md)
-and
-[retention checkpoint](rate-limit-retention-checkpoint-20260904.md) remain
-historical evidence for images that were never deployed. Do not reuse an older
-numbered Gate for a later release by editing values in Cloud Shell.
+The current image and public limits are recorded in the
+[September 6 release](public-release-20260906.md). Privacy acceptance, GPL
+rollout, compatible rollback and restoration, and the 100-user promotion are
+complete. The numbered transition Gates are retained historical procedures,
+not a requirement to create a new manual Gate for every fix. Do not replay
+pilot-bound rollback or promotion scripts against the public revision.
 
-After a replacement deployment and its read-only audit, repin the applicable
-rollback rehearsal from `deploy/azure/gate22-rate-limit-retention-rollback.sh`.
-The current historical script recognizes the
-current, rollback, pending-restore, and restored states. One explicit
-confirmation authorizes both image-only transitions. If the shell is
-interrupted after the first transition, rerun the same immutable script instead
-of issuing a manual Azure update. The script accepts the prior hardened image
-before restoring its pinned cumulative image and proves that settings, secrets,
-migrations, trial limits, and provider routing did not change.
+Routine updates are agent-operated through the
+[authorized Delta profile](agent-driven-deployment.md):
 
-The final capacity change is guarded by
-`deploy/azure/gate23-rate-limit-retention-promotion.sh`. Repin it for the
-replacement image, then run it only after the
-release audit, rollback rehearsal, MCP, BYOK, and disposable-account privacy
-acceptance are complete. It accepts only the restored cumulative image and the
-safely idle ten-user pilot. Its one Azure mutation changes exactly these
-values:
+1. Group code changes, test locally and in CI, and publish an attested digest.
+   Verify anonymous pull, provenance, and the old-to-new schema diff. Retain
+   the last known healthy image as the recovery target.
+2. Read the exact current app, revision, deployment state, and budget settings.
+   Save a private before-state snapshot and check for conflicting operations.
+   Do not assume the live image still matches an older runbook.
+3. For an image-only change with unchanged schema and migration parity, update
+   only the image and revision suffix. Preserve environment values, secrets,
+   probes, scaling, ingress, and the promoted budgets.
+4. Observe the submitted revision rather than resubmitting during provisioning.
+   Check readiness, replica health, and relevant public behavior with bounded
+   calls. Compare configurable settings without treating Azure's read-only
+   response metadata as desired configuration.
+5. If the new image fails, inspect the failure and restore the recorded
+   compatible healthy image through the same image-only operation. Do not
+   change budgets or restore a database to repair an image regression.
+6. Record automated acceptance and batch remaining human checks. Reuse prior
+   identity and project evidence when that behavior has not changed. An
+   already authorized routine action does not require another operator-typed
+   confirmation.
 
-- `ABDA_TRIAL_MAX_USERS` from 10 to 100
-- `ABDA_TRIAL_BUDGET_MICROUSD` from 50000000 to 500000000
-- `ABDA_OPENROUTER_FAILOVER_ENABLED` from false to true
+The image-only operation, after the two reviewed values have been selected,
+has this shape. It is not a command to rerun for the already healthy service:
 
-The $5 grant and independent $500 OpenRouter hard limit do not change. The gate
-checks both protected ledgers before and after the update, requires zero pending
-or uncertain reservations, and refuses any accounting change during the
-configuration-only transition. It does not change the image, secrets,
-migrations, Auth0, DNS, certificate, probes, scaling, or database resources.
+```bash
+: "${ABDA_REVIEWED_IMAGE:?Set the verified ghcr.io/liu-hy/abda-nl@sha256 digest URI}"
+: "${ABDA_REVIEWED_REVISION_SUFFIX:?Set the reviewed unique revision suffix}"
+az containerapp update \
+  --subscription 00e62f6e-2174-40b2-b428-8ebfd7c2ac54 \
+  --resource-group abda-nl-staging --name abda-nl-stg-web \
+  --container-name web --image "$ABDA_REVIEWED_IMAGE" \
+  --revision-suffix "$ABDA_REVIEWED_REVISION_SUFFIX" \
+  --only-show-errors --output none
+```
 
-For every update:
-
-1. Publish an attested image from a tested commit and record its digest.
-2. Deploy and complete the migration job.
-3. Deploy the web module only after migration succeeds.
-4. Run the acceptance checks and record the result.
-
-An image-only update may omit the migration job only when the exact old-to-new
-source diff contains no migration or schema change, CI confirms migration
-parity, the existing database is ready, and the guarded update changes no
-application setting or secret. Record that evidence for the exact image. A
-generic update must continue to use the migration-first sequence above.
+A schema-changing release is different. Review migration and compatibility,
+run the appropriate migration job, require success, then deploy and verify
+the web revision. Destructive migrations or new infrastructure need separate
+authority if not already approved. Do not use a full Bicep redeployment with
+default parameters for a routine code rollback: defaults can reset public
+settings that the image-only operation should preserve.
 
 Treat an application database password change as a coordinated maintenance
 event. The migration job rotates the role password before the new web revision
 receives it, so deploy the web module immediately after the successful job and
 verify readiness. Ordinary releases reuse the existing application password.
 
-To roll back application code, set `ABDA_DEPLOY_IMAGE` to a previously recorded
-digest URI and redeploy `app.bicepparam`. Do not run an automatic Alembic
-downgrade. A rollback is safe only when the previous application version is
-compatible with the current schema. Schema changes should therefore remain
+Do not run an automatic Alembic downgrade. A rollback is safe only when the
+previous application version is compatible with the current schema.
+Schema changes should therefore remain
 backward-compatible across at least one release.
 
 Azure PostgreSQL keeps seven days of backups in this deployment. A point-in-time

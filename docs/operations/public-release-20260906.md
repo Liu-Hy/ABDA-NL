@@ -107,6 +107,16 @@ evaluate every minute, and point to `abda-nl-stg-operators`. Their previously
 verified inbox delivery was not redundantly retested. No restored database,
 monitor resource, or additional cloud infrastructure was created.
 
+A separate count-only query of the
+[Application Insights availability-results table](https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/appavailabilityresults)
+confirmed the scheduled tests are actually running, not merely configured.
+Over the preceding 24 hours, East US, North Central US, and West Europe each
+recorded 288 samples with zero failures, 864 successful samples in total.
+Their respective p95 durations were 284, 359, and 556 ms. Latest samples were
+between `2026-09-06T18:28:18Z` and `2026-09-06T18:29:50Z`.
+Result: `THREE_REGION_AVAILABILITY_ACTIVITY_VERIFIED`. No raw message,
+instrumentation key, client IP address, or user identity was retrieved.
+
 ## Browser and bounded capacity acceptance
 
 The public-origin gate passed in Chromium and Firefox. Each completed six
@@ -159,5 +169,10 @@ The eight-job [CI run for the Azure login handoff](https://github.com/Liu-Hy/ABD
 and its [CodeQL run](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34045729254)
 passed for source `21e36608f75c4aaa6c54040d18859a1bc9c13aaf` before this live
 batch. After documenting the results, 39 focused login-helper, release-chain,
-rollback, promotion, and audit tests passed; Ruff and whitespace checks passed.
-Application source and gate pins were not edited during this release batch.
+rollback, promotion, and audit tests passed. Full CI then caught one outdated
+documentation assertion requiring the old manual-only entrypoint wording.
+The test now requires the current release, authorized handoff, historical
+runbook, and valid links while retaining the warning against replaying old
+commands. The expanded focused suite passed 55 tests; Ruff and whitespace
+checks passed. Application source and gate pins were not edited during this
+release batch.

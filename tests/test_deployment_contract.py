@@ -148,13 +148,15 @@ def test_postgres_recovery_is_private_new_server_and_reviewed_cutover():
     assert "docs/operations/database-recovery.md" in readme
 
 
-def test_operations_index_names_one_current_sequence_and_has_valid_doc_links():
+def test_operations_index_links_current_release_and_authorized_handoff():
     index_path = ROOT / "docs" / "operations" / "README.md"
     index = index_path.read_text(encoding="utf-8")
     normalized_index = " ".join(index.split())
 
-    assert "only current ordered sequence" in normalized_index
-    assert "[final public-service operator batch](final-operator-batch.md)" in index
+    assert "[current public release record](public-release-20260906.md)" in index
+    assert "[agent-driven deployment handoff](agent-driven-deployment.md)" in index
+    assert "[final operator batch](final-operator-batch.md)" in index
+    assert "execute approved routine work directly" in normalized_index
     assert (
         "Do not reconstruct a current command from a historical checkpoint"
         in normalized_index

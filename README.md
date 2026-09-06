@@ -9,9 +9,10 @@ ABDA-NL is a browser-based natural-language scenario explorer for
 argument-based reasoning.
 
 Try the hosted service at <https://demo.abda-nl.org>. You can explore the bundled
-examples without signing in. For model assistance, sign in with an email code
-and activate a funded trial, or use your own provider key in **Workspace**, then
-**AI access**. The Account panel reports trial availability and your balance.
+examples without signing in. For model assistance, sign in with an email code.
+Activate a funded trial in **Workspace > Account**, or supply your own provider
+key in **Workspace > AI access**. The Account panel reports trial availability
+and your balance.
 
 ## Run the demo
 
