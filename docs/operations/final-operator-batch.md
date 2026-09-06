@@ -1,10 +1,11 @@
 # Final public-service operator batch
 
-State: GPL cumulative image live; pilot audit, funded smoke, public browser,
-and bounded capacity checks passed; privacy recovery and Auth0 cleanup complete;
-friendly redirects verified; Resend Free accepted by the operator; public promotion pending
+State: public promotion complete. The GPL image is healthy with a cumulative
+100-account trial cap and bounded OpenRouter outage fallback enabled.
+Rollback, restoration, final audit, external release check, public browser,
+and bounded capacity checks passed. See the [September 6 release record](public-release-20260906.md).
 
-Runbook revision: `free-sender-accepted-public-promotion-20260906`
+Runbook revision: `agent-executed-public-release-20260906`
 
 ## Updated execution handoff
 
@@ -28,8 +29,8 @@ verified helper. The privacy database-destination review is complete, and the
 operator confirmed deletion of the exact disposable Auth0 identity. The
 [GPL live checkpoint](gpl-live-checkpoint-20260905.md) records the completed
 rollout audit and model smoke. Section 4's hostname check has also passed.
-Continue at Section 5, not the completed
-Section 3 deployment or Section 4 setup. Do not repeat privacy deletion. The source decision is
+Sections 3 through 5 are now complete. Continue only with the batched
+presentation checks in Section 6. Do not repeat privacy deletion. The source decision is
 no longer waiting for an MIT exception or a license choice.
 The operator confirmed a return to Resend Free on September 6 and accepted
 responsibility for monitoring email volume and upgrading when necessary.
@@ -70,12 +71,11 @@ execution because its historical-template preflight found no exact match.
 Revision 10 replaces that brittle check with a read-only database-state
 preflight. The prior attempt changed no account or Azure state.
 
-Remaining operator work:
-
-1. If the previous Cloud Shell session closed, recreate and verify the current
-   `q` helper using Section 3's download block only.
-2. Run rollback, promotion, and final audit in Section 5, one command at a
-   time. Advance only after each exact success receipt, not merely exit code 0.
+Remaining operator work is the final presentation-hardware and team-readiness
+batch in Section 6. The private Delta Azure login is working; the agent has
+completed rollback, promotion, and final audit. No Cloud Shell command or helper
+download is needed now. The commands below retain the historical transition
+procedure and its exact boundaries, not instructions to repeat a completed release.
 
 Section 3, including its funded request and audit, is complete. Public
 Chromium and Firefox checks and the bounded capacity smoke passed afterward.
@@ -508,6 +508,12 @@ result: PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED
 ```
 
 ## 5. Rehearse rollback, promote, and run the final audit
+
+Completed on September 6 through the authorized Delta CLI. All three exact
+success receipts and independent public checks are in the
+[public release record](public-release-20260906.md). Do not rerun the pilot-bound
+rollback or promotion script against the already promoted public revision.
+The instructions below describe the completed transition.
 
 The cumulative-image deployment and audit, prior BYOK and MCP acceptance,
 privacy deletion, and hostname receipts above are complete. On September 6,

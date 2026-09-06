@@ -1,31 +1,37 @@
 # ABDA-NL operations
 
-Start with the
-[final public-service operator batch](final-operator-batch.md). It is the only
-current ordered sequence for changing the deployed release. Dated staging
-checkpoints are evidence records. Do not reconstruct a current command from a
+Start with the [current public release record](public-release-20260906.md)
+and [agent-driven deployment handoff](agent-driven-deployment.md). The operator's
+Delta Azure login now allows the agent to execute approved routine work directly.
+The [final operator batch](final-operator-batch.md) records the completed cloud
+sequence and the remaining presentation checks. Dated staging checkpoints are
+evidence records. Do not reconstruct a current command from a
 historical checkpoint or edit an immutable commit, image digest, revision, or
 checksum in Cloud Shell.
 
 ## Current release sequence
 
+- [September 6 public release](public-release-20260906.md) records the live
+  100-user configuration, bounded outage fallback, completed rollback and
+  restoration, final audit, external release check, and browser and capacity
+  acceptance. No routine operator Cloud Shell batch remains.
 - [GPL distribution checkpoint](gpl-distribution-checkpoint-20260905.md)
   records the selected license, preserved notices, verified source and image,
-  and repinned operator helper. Azure rollout remains pending.
+  and repinned operator helper. Its image is now deployed and publicly promoted.
 - [Final public-service operator batch](final-operator-batch.md) contains the
   current download block, exact confirmations, resume behavior, and ordered
   release Gates.
 - [Source-security checkpoint](source-security-checkpoint-20260902.md) binds the
-  current hardened source, CI, CodeQL, immutable image digest, provenance,
+  earlier hardened source, CI, CodeQL, immutable image digest, provenance,
   Azure deployment, and live sanitized-log audit.
 - [Development source checkpoint](development-source-checkpoint-20260904.md)
   records the cumulative application source before the container-security
   checkpoint, its unchanged stable main ancestor, and the explicit
   license-gated deployment hold.
 - [Container security checkpoint](container-security-checkpoint-20260904.md)
-  records the current development container build, exact severe-vulnerability
-  baseline, independent secret scan, CycloneDX SBOM, CI evidence, and continued
-  license-gated deployment hold.
+  records the development container build, exact severe-vulnerability baseline,
+  independent secret scan, CycloneDX SBOM, and CI evidence. Its historical
+  license hold was resolved by the GPL distribution decision.
 - [Rate-limit retention checkpoint](rate-limit-retention-checkpoint-20260904.md)
   records the original tested and attested retention image, now preserved as
   historical evidence.
@@ -39,7 +45,8 @@ checksum in Cloud Shell.
 - [Requirements traceability](requirements-traceability.md) distinguishes
   completed implementation evidence from external and hardware acceptance.
 - [Public and COMMA release checklist](release-checklist.md) is the final
-  requirement-by-requirement signoff record.
+  reusable requirement-by-requirement template. Dated evidence records identify
+  which checks passed for a particular release.
 - [Source license review](source-license-review.md) records the GPL-3.0-only
   distribution decision, preserved MIT and upstream notices, and artifact checks.
 - [Deterministic engine validation](deterministic-engine-validation-20260904.md)
@@ -47,10 +54,10 @@ checksum in Cloud Shell.
   deployed baseline payloads.
 - [Deterministic computation budget](deterministic-computation-budget-20260904.md)
   records the source-level bound on combinatorial reasoning work and its
-  unchanged bundled outputs. It is not yet a live deployment record.
+  unchanged bundled outputs, included in the deployed GPL image.
 - [MCP read abuse boundary](mcp-read-abuse-boundary-20260904.md) records the
   shared per-account request ceiling for deterministic MCP read tools. It is
-  source-level evidence pending the license-gated cumulative deployment.
+  source-level evidence included in the deployed GPL image.
 
 If a Gate stops, preserve its visible sanitized output and exit code. Do not
 issue an improvised Azure update or repeat a paid provider call. Resume only

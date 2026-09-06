@@ -4,6 +4,11 @@ Status: GPL cumulative image live; operator model smoke and pilot audit
 accepted. Automated public Chromium, Firefox, and bounded capacity checks
 passed afterward. This is not the 100-user promotion or final public release.
 
+Subsequent status: the [September 6 public release](public-release-20260906.md)
+completed rollback, restoration, the 100-user promotion, enabled bounded outage
+fallback, and passed final audit and public checks. The pilot and unavailable-CLI
+statements below describe this earlier checkpoint, not the current service.
+
 ## Deployed identity and operator evidence
 
 - Application source: `ed241c1509739f16b2433ced686da76fe1ed1d94`.

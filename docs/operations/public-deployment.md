@@ -5,6 +5,12 @@ Container Apps. It uses the same Python entrypoint as local and Delta runs,
 but keeps persistent state in a private PostgreSQL server and exposes only the
 web application over HTTPS.
 
+Current deployment: the [September 6 public release](public-release-20260906.md)
+has completed the initial rollout and public promotion. Routine changes now
+use the [authorized Delta CLI session](agent-driven-deployment.md), not a
+manual Cloud Shell handoff after every change. Initial provisioning commands
+below are reference procedures, not required next steps for the live service.
+
 The initial deployment should use the generated
 `*.azurecontainerapps.io` origin. The preferred permanent name is
 `demo.DOMAIN` under an operator-owned domain. Cloudflare can be the registrar

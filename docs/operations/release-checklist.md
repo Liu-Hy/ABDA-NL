@@ -4,6 +4,12 @@ Use this checklist for a public release and again for the conference build. A
 release is identified by one Git commit and one immutable container image. Do
 not combine evidence from different commits.
 
+This file is a reusable checklist template, not the current completion ledger.
+The [September 6 public release record](public-release-20260906.md) binds the
+completed checks to the exact live image and public configuration. Its remaining
+human checks are grouped in [the final operator batch](final-operator-batch.md#6-conference-and-team-readiness-batch).
+Blank boxes here do not invalidate those recorded results or require their repetition.
+
 ## Release identity
 
 Record:

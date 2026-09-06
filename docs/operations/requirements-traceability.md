@@ -20,6 +20,24 @@ publication decision.
 
 ## September 5 recovery checkpoint
 
+Current September 6 status supersedes the pilot and remaining-cloud-operation
+statements in this historical checkpoint and its evidence tables. The
+[public release record](public-release-20260906.md) proves completed rollback
+and restoration, 100 cumulative $5 trial grants with a $500 total cap, enabled
+outage-only OpenRouter fallback under its separate $500 cap, and passed final
+audit, external release, public browser, and bounded capacity checks. The
+operator-authorized Delta CLI now owns routine cloud operations. There is no
+remaining manual deployment batch.
+
+The actual Foundry inventory is also verified. The four newer candidates
+previously probed by name are absent; the evaluated primary and fallback stay
+unchanged. Earlier verified-email, project, sharing, BYOK, and MCP live evidence
+is retained without redundant user testing. Presentation hardware, direct BYOK
+accounts with sufficient provider credit, and organizational reviews remain
+separate acceptance boundaries.
+
+### Historical pilot evidence
+
 The original document hashes above were rechecked unchanged. Development
 commit `26c0908bcbd1fb2bab87f7892f3ae4c6c3b113e8` passed all eight jobs in
 [CI run 33991132718](https://github.com/Liu-Hy/ABDA-NL/actions/runs/33991132718),
@@ -211,10 +229,10 @@ superseded before deployment when WebKit exposed a keyboard focus defect. A
 replacement image must include source `17ef659` or later and use the license
 disposition chosen through the source license review.
 
-## Release-only evidence still required
+## Release evidence and remaining external acceptance
 
-The repository is not sufficient evidence for these remaining items. They are
-collected in [the final operator batch](final-operator-batch.md):
+The following list distinguishes completed live evidence from the final human
+batch in [the operator runbook](final-operator-batch.md):
 
 1. The source license choice is resolved as GPL-3.0-only, with original MIT
    notices retained. See [the source license review](source-license-review.md).
@@ -232,10 +250,13 @@ collected in [the final operator batch](final-operator-batch.md):
    Free and accepted quota-related availability risk, monitoring volume and
    upgrading when needed. Pro is not a prerequisite for 100 trial accounts.
    See [the email operations decision](auth0-email-otp.md#capacity-before-general-registration).
-6. Record the exact Azure Foundry deployment inventory, then evaluate any newly
-   discovered candidate by its actual deployment name.
-7. The final-image rollback and restoration, public budget promotion, and
-   promoted-state release audit.
+6. The exact Azure Foundry deployment inventory was recorded on September 6.
+   The four newer candidates are not deployed. Existing models remain subject
+   to the quality gate; no guessed-name probe needs repeating.
+7. Final-image rollback and restoration, public budget promotion, and the
+   promoted-state release audit all passed on September 6. Independent external
+   release, Chromium, Firefox, and capacity checks also passed. See
+   [the exact release receipt](public-release-20260906.md).
 8. The exact laptop `ssh delta-demo` browser path.
 9. Safari, screen-reader, presentation display, conference network, and two
    complete rehearsal runs.

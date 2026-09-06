@@ -1,13 +1,17 @@
 # Agent-driven deployment handoff
 
-Status (2026-09-06): Azure CLI 2.90.0 is installed and launches successfully in
-`/u/haoyang/.local/share/abda-azure/cli`. Azure login is operator-owned and has
-not been performed by the agent. Project dependencies and Azure resources are
-unchanged by this preparation.
+Status (2026-09-06): the operator completed device-code login with Azure CLI
+2.90.0 in `/u/haoyang/.local/share/abda-azure/cli`. The agent independently
+verified the exact identity and successfully read the live application,
+deployment and job status, private PostgreSQL boundary, alert definitions,
+and the configured Foundry account's deployment inventory. Routine Azure
+operations no longer require the operator to relay Cloud Shell commands.
 
 Local verification: shell syntax, eight isolated helper tests, and Ruff passed.
-The real CLI reports no signed-in account, as expected. These checks verify the
-local handoff, not successful tenant login or authorization to deploy.
+Before the operator logged in, the real CLI correctly reported no signed-in
+account. The subsequent successful Azure reads establish live access in
+addition to the local helper tests. They do not promise indefinite login
+validity or authorize unrelated Azure resources.
 
 ## Why change the workflow
 

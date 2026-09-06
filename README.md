@@ -8,9 +8,10 @@
 ABDA-NL is a browser-based natural-language scenario explorer for
 argument-based reasoning.
 
-The hosted service is available at <https://demo.abda-nl.org>. During staged
-release checks it may use a smaller trial cohort than the final public limit.
-The account panel reports whether funded trial activation is currently open.
+Try the hosted service at <https://demo.abda-nl.org>. You can explore the bundled
+examples without signing in. For model assistance, sign in with an email code
+and activate a funded trial, or use your own provider key in **Workspace**, then
+**AI access**. The Account panel reports trial availability and your balance.
 
 ## Run the demo
 
@@ -79,11 +80,11 @@ argumentation UI without an LLM, `make demo-local` opens a local browser, and
 ## Funded models and BYOK
 
 Public funded requests require a verified account and an activated trial. The
-intended public configuration gives the first 100 successful activations $5 of
-metered model usage. The release starts with a smaller pilot and reaches 100
-only after its accounting, outage, privacy, email-capacity, and rollback Gates
-pass. The server reserves enough credit before each physical provider call and
-settles the reservation from the returned token counts.
+public service offers the first 100 successful activations $5 of metered model
+usage each, with a $500 total trial cap. The server reserves credit before each
+physical provider call and settles recorded usage. If a dispatched request has
+no reliable billing result, it conservatively charges the reserved amount
+instead of making the same credit available to spend again.
 
 CloudBank Azure Foundry is the primary funded route. OpenRouter is used only
 after bounded retries establish a transport, throttling, or provider-service

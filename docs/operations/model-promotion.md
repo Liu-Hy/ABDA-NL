@@ -108,10 +108,46 @@ operator evidence directory because they contain full model responses.
 
 ## Candidate probe
 
+### Verified deployment inventory on 2026-09-06
+
+After the operator authorized the private Delta Azure CLI session, the agent
+ran the read-only inventory below. It derived the Foundry account from the
+deployed application's endpoint and verified these 15 successful deployments.
+No API key was retrieved, no model was called, and no deployment was created
+or modified.
+
+| Deployment name | Model version | API family |
+| --- | --- | --- |
+| `gpt-5.5` | `2026-04-24` | OpenAI |
+| `gpt-5.4` | `2026-03-05` | OpenAI |
+| `gpt-5.4-mini` | `2026-03-17` | OpenAI |
+| `gpt-4o` | `2024-11-20` | OpenAI |
+| `gpt-4o-mini` | `2024-07-18` | OpenAI |
+| `o4-mini` | `2025-04-16` | OpenAI |
+| `claude-opus-4-7` | `1` | Anthropic |
+| `gpt-5.4-pro` | `2026-03-05` | OpenAI |
+| `claude-opus-4-6` | `1` | Anthropic |
+| `claude-sonnet-4-6` | `1` | Anthropic |
+| `claude-haiku-4-5` | `20251001` | Anthropic |
+| `gpt-5` | `2025-08-07` | OpenAI |
+| `gpt-5-mini` | `2025-08-07` | OpenAI |
+| `DeepSeek-R1-0528` | `1` | DeepSeek |
+| `claude-sonnet-4-5` | `20250929` | Anthropic |
+
+The result was `FOUNDRY_DEPLOYMENT_INVENTORY_LISTED_READ_ONLY`. Sonnet 5,
+GPT-5.6 Terra, DeepSeek V4 Flash, and Qwen3.6 Plus are not in this account's
+deployment list. The older DeepSeek R1 deployment is not an alias for V4.
+The existing GPT-5.4 mini deployment does not override its failed quality gate.
+Retain the fully evaluated Sonnet 4.6 primary and Gemini 3.7 Flash outage route.
+This closes the deployment-inventory prerequisite without claiming that every
+listed deployment has passed ABDA evaluation. Future candidate work can use
+this exact inventory instead of repeating calls to guessed deployment names.
+
 ### Read the actual Azure deployment inventory
 
 Do not infer a deployment name from the Foundry catalog or a model ID. The
-following Cloud Shell block is read-only. It verifies the ABDA-NL subscription,
+following block is read-only. It can run through the authorized Delta CLI
+profile or, as a manual alternative, in Cloud Shell. It verifies the ABDA-NL subscription,
 reads the non-secret Foundry endpoint already configured on the web app, finds
 the matching Cognitive Services account, and lists that account's deployed
 models. It does not read an API key, deploy a model, change quota, or call a
