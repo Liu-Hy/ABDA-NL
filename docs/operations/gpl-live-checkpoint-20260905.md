@@ -76,10 +76,15 @@ condition. The unchanged gate then returned
 DNS resolution. The full receipt is in the [hostname record](cloudflare-apex-redirect.md).
 Do not repeat this completed setup.
 
-Establish sufficient transactional-email capacity before the 100-user
-promotion. The existing revision 7 post-privacy
+On September 6, the operator confirmed returning to Resend Free and accepted
+the email-quota risk, with operator monitoring and timely upgrade as needed.
+This supersedes the earlier paid-sender prerequisite. It does not change the
+already verified sender integration or block the 100-user promotion. See the
+[email operations decision](auth0-email-otp.md#capacity-before-general-registration).
+
+The existing revision 7 post-privacy
 helper remains current; its scripts and hashes have not changed. Follow
-Sections 4 and 5 of the [operator batch](final-operator-batch.md). The final
+Section 5 of the [operator batch](final-operator-batch.md). The final
 image rollback, restoration, promotion, and promoted-state audit remain
 unperformed. Preserve the ten-user pilot until their prerequisites are met.
 
@@ -87,3 +92,26 @@ Privacy recovery and exact disposable Auth0 cleanup are complete. Do not
 repeat them, re-create their objects, or repeat BYOK and MCP acceptance merely
 to obtain a new receipt. No stable `main` branch or runtime source was changed
 while recording this checkpoint.
+
+## September 6 release handoff refresh
+
+The operator's Free-plan decision is recorded above. The current runbook now
+separates the three remaining commands and requires each success receipt
+before advancing. It explicitly distinguishes cancellation with exit code 0
+from completion, and normal rollback restoration from interrupted execution.
+
+Focused local verification passed 31 tests across the release-chain contract,
+post-privacy helper, cumulative rollback, promotion and audit wrappers, and
+the shared rollback and budget-promotion Gates. The unchanged revision 7
+helper downloaded and hash-verified all six pinned phase entries successfully.
+Both requirements-document hashes still match the traceability record. A
+bounded unauthenticated HTTPS readiness request returned `{"status":"ready"}`.
+That request does not refresh the protected budgets or prove a promoted
+Azure revision. Live remote checks found both stable `main` branches unchanged
+at `e4be41c72f34dd555147a2de221d84b3fd735c9f`.
+
+Only operational documentation changed. No runtime, image, Azure, Auth0,
+Cloudflare, provider-routing, or budget mutation was performed. The local
+environment has no Azure CLI or authenticated Azure operator connection, so
+the three remaining live phases require the operator's Cloud Shell. Their
+completion is not inferred from these local tests or the readiness response.

@@ -2,9 +2,9 @@
 
 State: GPL cumulative image live; pilot audit, funded smoke, public browser,
 and bounded capacity checks passed; privacy recovery and Auth0 cleanup complete;
-friendly redirects verified; production email capacity and public promotion pending
+friendly redirects verified; Resend Free accepted by the operator; public promotion pending
 
-Runbook revision: `gpl-pilot-and-hostname-verified-20260905`
+Runbook revision: `free-sender-accepted-public-promotion-20260906`
 
 This runbook covers the remaining live service operations. The maintainer has
 chosen GPL-3.0 for the combined development distribution. The preserved
@@ -17,11 +17,13 @@ verified helper. The privacy database-destination review is complete, and the
 operator confirmed deletion of the exact disposable Auth0 identity. The
 [GPL live checkpoint](gpl-live-checkpoint-20260905.md) records the completed
 rollout audit and model smoke. Section 4's hostname check has also passed.
-Continue at Section 5 after its email-capacity prerequisite, not the completed
+Continue at Section 5, not the completed
 Section 3 deployment or Section 4 setup. Do not repeat privacy deletion. The source decision is
 no longer waiting for an MIT exception or a license choice.
-The verified Cloudflare configuration and pending Resend capacity decision are
-independent of the completed privacy recovery.
+The operator confirmed a return to Resend Free on September 6 and accepted
+responsibility for monitoring email volume and upgrading when necessary.
+That decision closes the sender-plan question; a paid plan is not a release
+prerequisite. No further subscription confirmation is required.
 
 ## Privacy recovery complete, do not repeat the gate
 
@@ -59,9 +61,10 @@ preflight. The prior attempt changed no account or Azure state.
 
 Remaining operator work:
 
-1. Confirm the Resend production sending capacity described in Section 5.
-2. Then run the current helper's rollback, promotion, and final audit in
-   Section 5. Keep the ten-user pilot until those prerequisites are met.
+1. If the previous Cloud Shell session closed, recreate and verify the current
+   `q` helper using Section 3's download block only.
+2. Run rollback, promotion, and final audit in Section 5, one command at a
+   time. Advance only after each exact success receipt, not merely exit code 0.
 
 Section 3, including its funded request and audit, is complete. Public
 Chromium and Firefox checks and the bounded capacity smoke passed afterward.
@@ -127,13 +130,11 @@ This exact image has completed Section 3. Do not repeat deployment merely to
 collect another receipt. The privacy Gate was intentionally bound to the
 previous hardened image; its completed work must not be repeated.
 
-Before running the final promotion, confirm production email capacity. The
-current Resend Free limit of 100 messages per day has no headroom for 100 new
-OTP users plus retries and returning logins. The recommended public-launch
-choice is Resend Transactional Pro, currently $20 per month with no daily
-limit. Keep the existing verified domain and API key integration. If the
-service remains on Free, stop after the ten-user pilot and stagger invitations
-instead of running the 100-user promotion.
+The 100 funded accounts are a cumulative trial limit, not a promise of 100
+simultaneous email deliveries. Resend Free is the operator's accepted sender
+plan. Keep the verified domain and Auth0 integration unchanged. The accepted
+email-volume risk does not weaken identity verification, per-user credit,
+global budgets, or provider-routing controls.
 
 ## Historical helper for completed gates
 
@@ -497,71 +498,91 @@ result: PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED
 
 ## 5. Rehearse rollback, promote, and run the final audit
 
-Proceed only after the cumulative-image deployment and audit, prior BYOK and
-MCP acceptance, privacy deletion, and hostname receipts above are present.
-Before starting this section, confirm the transactional-email plan that backs
-the Auth0 Resend provider:
-
-1. Sign in to the Resend account that owns `auth.abda-nl.org`.
-2. Open **Settings**, then **Billing**. The Billing page is the documented
-   place to view or change the subscription.
-3. For a 100-user public launch, use **Transactional Pro**, 50,000 emails per
-   month for $20 per month. It has no daily email limit. Do not select a
-   marketing plan, Scale, a dedicated IP, or an additional-domain add-on for
-   ABDA-NL. Keep **Transactional Overages** disabled because they are
-   unnecessary for this launch size.
-4. Confirm that Billing shows the paid transactional plan and that overages are
-   disabled. Do not copy payment details into an operator receipt. The existing
-   domain, API key, Auth0 provider configuration, and verified delivery evidence
-   remain unchanged.
-
-The [Resend pricing page](https://resend.com/pricing?product=transactional)
-currently lists Free at 100 emails per day and Transactional Pro at $20 per
-month with no daily limit. The
-[Resend billing guide](https://resend.com/docs/dashboard/settings/billing)
-documents the **Settings**, **Billing** path, and the
-[Resend overage announcement](https://resend.com/changelog/pay-as-you-go-pricing)
-documents its separate opt-in toggle. If the account remains on Free, do not
-run the 100-user promotion. Keep the ten-user pilot and stagger access until
-sender capacity is increased.
+The cumulative-image deployment and audit, prior BYOK and MCP acceptance,
+privacy deletion, and hostname receipts above are complete. On September 6,
+the operator confirmed returning to Resend Free, will monitor sent and
+delivered counts during the conference, and explicitly accepted the risk of
+temporarily reaching the email quota before upgrading. This is an
+operator-confirmed decision, not an API inspection of the subscription.
+Do not ask for another sender-plan check or block the 100-user promotion on
+Transactional Pro. The [email operations record](auth0-email-otp.md#capacity-before-general-registration)
+documents the accepted policy and provider limits. No automatic email-volume
+alert or subscription upgrade is claimed to be configured.
 
 The operator has accepted the current OpenRouter key for the initial public
 fallback. The application enforces its independent $500 ledger cap. Rotating to
 a dedicated provider key with a matching lifetime limit remains recommended
 defense in depth after the deadline, but is not a prerequisite for this Gate.
 
-Run these commands in order:
+Use the same Cloud Shell session in which `q` was downloaded and verified.
+A new session is also safe after recreating `q` from Section 3. No repository
+checkout is required in Cloud Shell. Run the following commands separately;
+do not paste all phases as one block. Avoid model calls during this batch so
+the accounting checks can observe idle reservations.
+
+### 5a. Rehearse rollback and restore the current image
 
 ```bash
 bash "$q" rollback
-bash "$q" promote
-bash "$q" final-audit
 ```
 
-The rollback Gate changes only the web image, accepts the compatible older
-image, and restores the exact candidate automatically. The promotion Gate
-changes exactly three values: the trial user limit from 10 to 100, the total
-trial allocation from $50 to $500, and the public OpenRouter outage switch from
-disabled to enabled. It preserves the independent $500 OpenRouter hard cap.
-Each mutating Gate displays its exact confirmation phrase before making a
-change.
+At `Confirmation:`, type `RUN_ABDA_ROLLBACK_REHEARSAL` once, without quotes,
+then press Enter. The Gate changes only the web image and revision suffix,
+verifies the compatible older image, and restores the exact current image in
+the same normal run. It does not restore old database contents or rerun a
+migration. If interrupted, restoration may not have completed; do not advance
+to promotion. The same pinned rollback Gate can resume the recognized state.
 
-At the rollback prompt, type `RUN_ABDA_ROLLBACK_REHEARSAL` once. At the
-promotion prompt, type `PROMOTE_ABDA_PUBLIC_BUDGETS` once, but only after the
-transactional-email capacity check above is complete. The final audit has no
-mutation confirmation because it is read-only.
-
-Required final receipts are:
+Proceed only after exit code 0 and:
 
 ```text
 result: COMPATIBLE_SERVICE_IMAGE_ROLLBACK_AND_RESTORE_VERIFIED
+```
+
+### 5b. Promote public trial limits and the bounded outage fallback
+
+```bash
+bash "$q" promote
+```
+
+At `Confirmation:`, type `PROMOTE_ABDA_PUBLIC_BUDGETS` once, without quotes,
+then press Enter. The Gate changes exactly three settings:
+
+- Trial accounts: 10 to 100.
+- Total trial budget: $50 to $500, keeping the $5 grant per account. Existing
+  accounts are not granted another $5 and previous spending is retained.
+- Public OpenRouter fallback: disabled to enabled, only for qualifying
+  temporary CloudBank outages, with the existing independent cumulative
+  $500 emergency cap. Per-user trial accounting still applies to fallback.
+
+BYOK, image, secrets, Auth0, DNS, and database resources are unchanged. The
+revision suffix changes to identify the promoted configuration. Proceed only
+after exit code 0 and:
+
+```text
 result: PUBLIC_BUDGETS_AND_OUTAGE_FALLBACK_PROMOTED
+```
+
+### 5c. Audit the promoted release
+
+```bash
+bash "$q" final-audit
+```
+
+This phase has no mutation confirmation. Required success is exit code 0 and:
+
+```text
 result: FINAL_PUBLIC_RELEASE_AND_OBSERVABILITY_AUDIT_VERIFIED
 ```
 
 The final audit is read-only. It verifies the promoted revision, public caps,
 idle reservations, protected metrics, HTTPS behavior, 30-day log retention,
 and zero sensitive-pattern log counts.
+
+Send the three final status blocks together after the batch. No separate
+browser test or model request is required. If a phase fails or is cancelled,
+stop there and send only its content-free status and exit code; do not advance
+because a cancellation also exits with code 0. Do not send secrets or raw logs.
 
 ## 6. Conference and team readiness batch
 

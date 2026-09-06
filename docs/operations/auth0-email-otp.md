@@ -136,22 +136,31 @@ delivery latency is acceptable and that failures appear in Auth0 logs.
 
 ### Capacity before general registration
 
-Resend's public plan table checked on 2026-09-02 gives the Free transactional
-plan 100 messages per day and 3,000 per month. Its account-limit documentation
-also gives all plans a default five-request-per-second sending limit. Every OTP
-login consumes a message, so 100 first-time users alone can exhaust the Free
-daily allowance without leaving room for retries or returning users.
+Decision recorded on 2026-09-06: the operator confirmed returning to Resend
+Free and accepted responsibility for monitoring sent and delivered email counts
+during the conference, upgrading to Pro when needed, and accepting a temporary
+quota-related login interruption. This supersedes the earlier recommendation
+to require Pro or retain the ten-user pilot. A paid sender plan is not a
+prerequisite for the 100-account trial promotion. Do not request another plan
+confirmation or introduce a new quota-monitoring setup gate.
 
-The ten-user pilot can remain on Free. Before promoting the service to 100
-funded users, the recommended operational choice is Resend Transactional Pro,
-currently listed at $20 per month for 50,000 messages with no daily limit. The
-operator should keep Transactional Overages disabled, then monitor the Usage
-and Logs pages during a conference surge. This leaves a fixed monthly plan and
-a 50,000-message service ceiling instead of allowing automatic overage charges.
-If a paid sender is not approved, keep the funded program at the ten-user pilot
-and stagger invitations instead of advertising immediate 100-user
-registration. Do not replace the production sender with Auth0's built-in test
-sender.
+The [official plan table](https://resend.com/docs/knowledge-base/what-is-resend-pricing)
+checked on 2026-09-06 lists Free at 100 messages per day and 3,000 per month.
+Pro includes 50,000 messages for $20 per month with no daily limit. Pay-as-you-go
+is available only on paid plans and does not extend Free's daily allowance.
+Trial accounts and email deliveries are separate quantities; returning users
+and repeated OTP requests can consume additional messages.
+
+The [Metrics dashboard](https://resend.com/changelog/enhanced-metrics-dashboard)
+supports current sending statistics and date filtering. For quota planning,
+use sent counts and the provider's quota display rather than delivered counts
+alone. The [API limit documentation](https://resend.com/docs/api-reference/rate-limit)
+defines quota-exceeded responses and daily and monthly usage headers. It does
+not promise a precise upgrade activation delay. The project does not currently
+claim an automatic email-volume alert or subscription-upgrade mechanism.
+Keep the verified sender and Auth0 provider configuration; do not replace them
+with Auth0's built-in test sender. This operational choice does not weaken
+verified-email checks, model budgets, or credential protections.
 
 Auth0 Free itself has ample identity capacity for this release. Its current
 plan includes Passwordless, one custom domain, and up to 25,000 monthly active
