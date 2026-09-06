@@ -5,8 +5,10 @@
 Status: recovered deletion and database destination reviewed; the operator
 confirmed deletion of the exact disposable Auth0 identity on September 5, 2026.
 The privacy-recovery prerequisite is complete. Do not rerun preparation,
-preflight, deletion, or account creation. The cumulative image rollout and the
-other public-service gates remain separate, unfinished operations.
+preflight, deletion, or account creation. The subsequent cumulative image
+pilot audit and model smoke have also passed; see the
+[GPL live checkpoint](gpl-live-checkpoint-20260905.md). The remaining public
+promotion and conference gates are separate from this completed recovery.
 
 The final `READ_ONLY_PRIVACY_METADATA_COLLECTED` receipt supplied these
 execution times (UTC), with all three executions in `Succeeded`:

@@ -1,9 +1,10 @@
 # Final public-service operator batch
 
-State: hardened image live; privacy recovery and exact Auth0 cleanup complete;
-GPL cumulative image published and pinned; Azure rollout pending
+State: GPL cumulative image live; pilot audit, funded smoke, public browser,
+and bounded capacity checks passed; privacy recovery and Auth0 cleanup complete;
+friendly redirects and public promotion remain pending
 
-Runbook revision: `privacy-recovery-closed-gpl-rollout-ready-20260905`
+Runbook revision: `gpl-pilot-live-audited-20260905`
 
 This runbook covers the remaining live service operations. The maintainer has
 chosen GPL-3.0 for the combined development distribution. The preserved
@@ -13,10 +14,11 @@ notices and artifact checks are recorded in
 The previously queued `084817f` image is superseded. Section 3 now pins the
 [tested, attested GPL image](gpl-distribution-checkpoint-20260905.md) and its
 verified helper. The privacy database-destination review is complete, and the
-operator confirmed deletion of the exact disposable Auth0 identity. Continue
-at Section 3. Do not repeat privacy deletion. The source decision is no longer
-waiting for an MIT exception or a license choice. This image has not yet been
-deployed to Azure.
+operator confirmed deletion of the exact disposable Auth0 identity. The
+[GPL live checkpoint](gpl-live-checkpoint-20260905.md) records the completed
+rollout audit and model smoke. Continue at Sections 4 and 5, not the completed
+Section 3 deployment. Do not repeat privacy deletion. The source decision is
+no longer waiting for an MIT exception or a license choice.
 The Cloudflare dashboard configuration and Resend capacity decision are
 independent of this recovery.
 
@@ -56,13 +58,15 @@ preflight. The prior attempt changed no account or Azure state.
 
 Remaining operator work:
 
-1. Use Section 3 for the image-only deployment, one short funded request, and
-   the read-only audit. No new privacy or token test is required.
-2. Complete the Cloudflare dashboard changes in Section 4, then run the
-   current helper's read-only `bash "$p" hostname` check.
-3. Confirm the Resend production sending capacity described in Section 5.
-4. Keep rollback and promotion behind their existing independent prerequisites
-   in Section 5. Do not increase the pilot limits as part of the image update.
+1. Complete the Cloudflare dashboard changes in Section 4. Codex can run the
+   read-only hostname check without an operator Cloud Shell session.
+2. Confirm the Resend production sending capacity described in Section 5.
+3. Then run the current helper's rollback, promotion, and final audit in
+   Section 5. Keep the ten-user pilot until those prerequisites are met.
+
+Section 3, including its funded request and audit, is complete. Public
+Chromium and Firefox checks and the bounded capacity smoke passed afterward.
+No new privacy, token, BYOK, or browser model test is required now.
 
 The hardened-image deployment, its audit, BYOK, MCP, capacity, Chromium, and
 Firefox checks are already complete. Do not rerun them unless the relevant
@@ -76,7 +80,7 @@ Refresh saved copies of this runbook from the
 personal repository's `development` branch before any new cloud operation.
 
 The managed-boundary image already passed live OpenRouter BYOK acceptance. The
-current hardened service passed fresh public Chromium and Firefox accessibility
+then-current hardened service passed fresh public Chromium and Firefox accessibility
 and bounded capacity checks on 2026-09-04 CDT. Subsequent runtime changes remove
 private or model-derived identifiers from operational logs, reduce evaluator
 route-list output, and prevent unexpected exception messages or tracebacks from
@@ -100,7 +104,7 @@ Chromium and Firefox accessibility Gate are already complete. The last two
 were rerun against the unchanged hardened service after privacy preparation.
 Do not rerun them unless their corresponding code or configuration changes.
 
-The hardened release identity is:
+The previous hardened release identity was:
 
 - application source commit: `51702e175bd14d4cb54075808f839d173d561324`
 - source tag: `service-image-staging-safe-exceptions-20260902-191532`
@@ -109,7 +113,7 @@ The hardened release identity is:
 - target pilot revision: `abda-nl-stg-web--harden-51702e1`
 - public origin: `https://demo.abda-nl.org`
 
-The verified GPL cumulative identity, awaiting Azure deployment, is:
+The live, audited GPL cumulative identity is:
 
 - application source commit: `ed241c1509739f16b2433ced686da76fe1ed1d94`
 - source tag: `service-image-staging-gpl3-20260905-ed241c1`
@@ -118,9 +122,9 @@ The verified GPL cumulative identity, awaiting Azure deployment, is:
 - target pilot revision: `abda-nl-stg-web--gpl-ed241c1`
 - public origin: `https://demo.abda-nl.org`
 
-Deploy this exact image through the Section 3 helper, not a superseded image
-or an unpinned tag. The privacy Gate was intentionally bound to the hardened
-live image; its completed work must not be repeated after the image update.
+This exact image has completed Section 3. Do not repeat deployment merely to
+collect another receipt. The privacy Gate was intentionally bound to the
+previous hardened image; its completed work must not be repeated.
 
 Before running the final promotion, confirm production email capacity. The
 current Resend Free limit of 100 messages per day has no headroom for 100 new
@@ -130,10 +134,11 @@ limit. Keep the existing verified domain and API key integration. If the
 service remains on Free, stop after the ten-user pilot and stagger invitations
 instead of running the 100-user promotion.
 
-## Historical helper for completed gates and the hostname check
+## Historical helper for completed gates
 
-Do not start here for the new deployment. Use the separate Section 3 `q`
-helper. This `p` helper remains a reference for completed gates and Section 4.
+Do not start here for remaining operations. Use the separate Section 3 `q`
+download and verification block if the previous session closed. Its deployment
+and pilot audit are already complete. This `p` helper is a historical reference.
 
 A new or existing Azure Cloud Shell session is acceptable. Paste this complete
 block once. It downloads a small helper from an immutable commit and verifies
@@ -357,9 +362,14 @@ share, token, or account.
 
 ## 3. Deploy and audit the cumulative service image
 
-Status: GPL image and helper verified; privacy recovery and Auth0 cleanup
-complete. The image-only rollout may now proceed. This image includes the WebKit
-keyboard correction and all cumulative fixes. The license change itself does
+Status: complete. The operator supplied the successful `gpl-6` pilot audit for
+`abda-nl-stg-web--gpl-ed241c1` and confirmed a normal funded answer. Public
+Chromium, Firefox, and bounded capacity checks passed afterward. See the
+[live checkpoint](gpl-live-checkpoint-20260905.md). The steps below are retained
+for recovery, not as a request to repeat completed work.
+
+This image includes the WebKit keyboard correction and all cumulative fixes.
+The license change itself does
 not require an additional browser test.
 
 The recovered successful deletion receipt has been reviewed against the
@@ -443,9 +453,9 @@ Do not repeat MCP or OpenRouter BYOK acceptance for this image. Those paths and
 their trust boundaries are unchanged. Provider accounting, client lifetime,
 and stale-session suspension behavior are covered by focused tests, the real
 PostgreSQL CI Gate, the full CI matrix, and the one funded smoke above. After
-the deployment receipt is available, Codex can run the automated public browser
-and bounded deterministic capacity checks from Delta without another manual
-browser action.
+the audit receipt arrived, Codex ran the automated public Chromium and Firefox
+checks and the bounded deterministic capacity smoke successfully. No further
+manual browser action is needed for this checkpoint.
 
 If Cloud Shell closes, repeat only the block that creates `q`, run
 `bash "$q" verify`, then resume the required phase. Every mutating Gate detects
@@ -458,16 +468,17 @@ Follow the exact dashboard values in
 the proxied `@` and `www` placeholder records and one narrowly matched 301
 redirect rule. It must not match `demo`, `login`, or `auth`.
 
-After the two records and rule are saved, return to the same Cloud Shell and
-run this read-only check with the current `p` helper:
+After the two records and rule are saved, tell Codex. The complete read-only
+check can run from Delta without your Cloud Shell or credentials. If you
+prefer to run it yourself, use the same current `q` helper from Section 3:
 
 ```bash
-bash "$p" hostname
+bash "$q" hostname
 ```
 
 If that Cloud Shell session closed, repeat the preparation block under
-"Historical helper for completed gates and the hostname check" and run
-`bash "$p" verify` first.
+Section 3 to recreate `q`, and run `bash "$q" verify` first. Do not repeat
+`deploy` or `audit` just to recreate the temporary helper.
 
 It verifies root and `www` redirects, path and query preservation, direct demo
 readiness, Auth0 discovery, and the Resend DNS boundary. It makes no change and

@@ -123,7 +123,7 @@ def test_operator_runbook_keeps_privacy_before_rollback_and_promotion():
         'bash "$p" privacy',
         'bash "$q" deploy',
         'bash "$q" audit',
-        'bash "$p" hostname',
+        'bash "$q" hostname',
         'bash "$q" rollback',
         'bash "$q" promote',
         'bash "$q" final-audit',

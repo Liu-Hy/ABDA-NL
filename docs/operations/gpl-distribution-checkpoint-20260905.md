@@ -3,6 +3,10 @@
 Status: development source and container verified and published. Not an Azure
 deployment receipt or a declaration that all public-service gates are complete.
 
+Subsequent live status: the operator's `gpl-6` audit and funded smoke passed
+for this exact image. Public browser and bounded capacity checks then passed.
+See the separate [live acceptance record](gpl-live-checkpoint-20260905.md).
+
 ## Decision and source
 
 The project maintainer selected GPL-3.0 for the combined ABDA-NL distribution.
@@ -70,8 +74,9 @@ source locations are recorded in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTI
   [the final operator batch](final-operator-batch.md#3-deploy-and-audit-the-cumulative-service-image).
   The later September 5 [privacy recovery review](privacy-preflight-failure-20260905.md)
   and operator confirmation of exact Auth0 cleanup have satisfied that
-  prerequisite. The image-only rollout may proceed; it has not yet been
-  performed. Do not repeat the already successful privacy deletion.
+  prerequisite. The subsequent rollout audit and funded smoke have also
+  passed, as recorded in the live checkpoint above. Do not repeat deployment
+  or the already successful privacy deletion merely to obtain a new receipt.
 
 Neither repository's stable `main` changed; both were verified live at
 `e4be41c72f34dd555147a2de221d84b3fd735c9f`. The old main license label is not

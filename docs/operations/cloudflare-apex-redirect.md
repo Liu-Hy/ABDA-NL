@@ -29,6 +29,13 @@ A answers. The demo readiness endpoint still returned HTTP 200 with
 `https://login.abda-nl.org/` issuer. This does not establish a full hostname
 gate pass. The dashboard changes below remain pending.
 
+After the GPL pilot audit on September 5, Codex repeated the read-only hostname
+check and authoritative queries. The apex and `www` A records were still
+absent. The new image passed public browser and bounded capacity checks, as
+recorded in the [GPL live checkpoint](gpl-live-checkpoint-20260905.md).
+After saving the records and rule below, tell Codex; it can verify the whole
+public boundary without a Cloud Shell session or another manual browser test.
+
 ## Cloudflare dashboard steps
 
 First create the two alias-only DNS records under **DNS**, then **Records**:
