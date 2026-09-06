@@ -181,6 +181,29 @@ def _reload_ready_demo(page) -> None:
     _wait_for_demo_ready(page)
 
 
+def test_conclusion_cards_do_not_clip_wrapped_text(live_browser_server):
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        try:
+            for width, height in ((1440, 900), (1000, 720), (390, 844)):
+                page = browser.new_page(viewport={"width": width, "height": height})
+                _goto_ready_demo(page, live_browser_server)
+                divider = page.locator("#h-resize-left")
+                if divider.is_visible():
+                    divider.press("Home")
+                sizes = page.locator(".conclusion-card .conclusion-label").evaluate_all(
+                    "labels => labels.map(label => ({visible: label.clientHeight, "
+                    "content: label.scrollHeight}))"
+                )
+                assert len(sizes) >= 8
+                assert all(size["content"] <= size["visible"] + 1 for size in sizes)
+                page.close()
+        finally:
+            browser.close()
+
+
 def test_assistant_markdown_is_inert_in_real_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

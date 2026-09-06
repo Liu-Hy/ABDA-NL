@@ -129,6 +129,36 @@ tabletop in the [PostgreSQL recovery runbook](database-recovery.md). During the
 talk, use the deterministic fallback instead of attempting a restore or
 database cutover.
 
+## Offline screenshot backup
+
+The agent can prepare the network-independent visual backup without an account
+or a model call:
+
+```bash
+.venv/bin/python deploy/capture_conference_fallback.py \
+  --output artifacts/conference/new-capture
+```
+
+Choose a fresh output path for each capture. The command refuses to overwrite
+an existing directory or ZIP. It captures the six deterministic narrative views
+from the public Popov example in a new anonymous Chromium context, checks the
+equity conclusion and Reset behavior, and writes a local HTML gallery, PNGs,
+SHA-256 manifest, and adjacent ZIP. It verifies the gallery with browser
+network access disabled. A request allowlist blocks model, project, token,
+login, and unrelated network operations. The anonymous session-status read
+is permitted. State computation may create expiring rate-limit counters but
+does not save a project or alter the bundled example.
+
+Copy the verified ZIP onto the presentation laptop before the conference,
+extract it, and open `abda-nl-offline-backup/index.html` in a browser. No web
+server or internet connection is needed. The page visibly labels these as
+screenshots, not a live or interactive demonstration. Each PNG can also be
+opened separately or incorporated into the presenter's slides. Generated
+captures stay under gitignored `artifacts/`; the generator is tracked.
+
+This backup does not replace the two actual-hardware rehearsals or prove
+that local launching, the laptop tunnel, or a screen reader has passed.
+
 ## Operator preflight
 
 On the presentation day, the operator checks these from unprojected devices:

@@ -212,6 +212,7 @@ body.llm-disabled .left-panel { width: 100%; }
 /* ── Conclusion Card ─────────────────────────────────── */
 .conclusion-card {
   display: flex; align-items: stretch; gap: 0;
+  flex-shrink: 0;
   background: var(--bg); border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: .84rem; font-weight: 500;
