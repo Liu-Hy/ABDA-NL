@@ -11,16 +11,20 @@ checksum in Cloud Shell.
 
 ## Current release sequence
 
+- [Conference layout repair](conference-layout-20260906.md) identifies the
+  latest healthy image, the fixed conclusion-text clipping, and the verified
+  offline screenshot pack. All promoted public limits are unchanged.
 - [September 6 public release](public-release-20260906.md) records the live
   100-user configuration, bounded outage fallback, completed rollback and
   restoration, final audit, external release check, and browser and capacity
   acceptance. No routine operator Cloud Shell batch remains.
 - [GPL distribution checkpoint](gpl-distribution-checkpoint-20260905.md)
   records the selected license, preserved notices, verified source and image,
-  and repinned operator helper. Its image is now deployed and publicly promoted.
+  and repinned operator helper. Its image is retained as the compatible
+  predecessor to the current layout repair.
 - [Final public-service operator batch](final-operator-batch.md) contains the
-  current download block, exact confirmations, resume behavior, and ordered
-  release Gates.
+  historical cloud sequence and the remaining batched hardware checks. Do not
+  replay its completed image-bound transitions against a newer release.
 - [Source-security checkpoint](source-security-checkpoint-20260902.md) binds the
   earlier hardened source, CI, CodeQL, immutable image digest, provenance,
   Azure deployment, and live sanitized-log audit.

@@ -5,6 +5,12 @@ rollback and restoration, the promoted release audit, an independent external
 release check, public browser accessibility, and bounded capacity checks passed.
 Presentation-hardware acceptance remains separate.
 
+Later on September 6, the [conference layout repair](conference-layout-20260906.md)
+replaced the image and revision recorded below while preserving every promoted
+setting. That record identifies the current healthy application and the offline
+presentation backup. The transitions and measurements below remain the original
+public-promotion evidence.
+
 ## Release identity
 
 - Public origin: `https://demo.abda-nl.org`.

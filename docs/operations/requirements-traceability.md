@@ -231,6 +231,11 @@ disposition chosen through the source license review.
 
 ## Release evidence and remaining external acceptance
 
+The subsequent [conference layout repair](conference-layout-20260906.md) fixes
+wrapped conclusion clipping, passes the three-engine regression suite, preserves
+the live public configuration, and adds a verified offline screenshot pack.
+It needs no separate operator cloud or account acceptance.
+
 The following list distinguishes completed live evidence from the final human
 batch in [the operator runbook](final-operator-batch.md):
 

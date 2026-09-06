@@ -4,6 +4,9 @@ State: public promotion complete. The GPL image is healthy with a cumulative
 100-account trial cap and bounded OpenRouter outage fallback enabled.
 Rollback, restoration, final audit, external release check, public browser,
 and bounded capacity checks passed. See the [September 6 release record](public-release-20260906.md).
+The subsequent [layout repair and offline backup](conference-layout-20260906.md)
+identify the latest healthy image with the same public settings. Older image
+identities and commands below are historical, not instructions to redeploy them.
 
 Runbook revision: `agent-executed-public-release-20260906`
 
