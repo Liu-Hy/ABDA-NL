@@ -2,9 +2,9 @@
 
 State: GPL cumulative image live; pilot audit, funded smoke, public browser,
 and bounded capacity checks passed; privacy recovery and Auth0 cleanup complete;
-friendly redirects and public promotion remain pending
+friendly redirects verified; production email capacity and public promotion pending
 
-Runbook revision: `gpl-pilot-live-audited-20260905`
+Runbook revision: `gpl-pilot-and-hostname-verified-20260905`
 
 This runbook covers the remaining live service operations. The maintainer has
 chosen GPL-3.0 for the combined development distribution. The preserved
@@ -16,11 +16,12 @@ The previously queued `084817f` image is superseded. Section 3 now pins the
 verified helper. The privacy database-destination review is complete, and the
 operator confirmed deletion of the exact disposable Auth0 identity. The
 [GPL live checkpoint](gpl-live-checkpoint-20260905.md) records the completed
-rollout audit and model smoke. Continue at Sections 4 and 5, not the completed
-Section 3 deployment. Do not repeat privacy deletion. The source decision is
+rollout audit and model smoke. Section 4's hostname check has also passed.
+Continue at Section 5 after its email-capacity prerequisite, not the completed
+Section 3 deployment or Section 4 setup. Do not repeat privacy deletion. The source decision is
 no longer waiting for an MIT exception or a license choice.
-The Cloudflare dashboard configuration and Resend capacity decision are
-independent of this recovery.
+The verified Cloudflare configuration and pending Resend capacity decision are
+independent of the completed privacy recovery.
 
 ## Privacy recovery complete, do not repeat the gate
 
@@ -58,15 +59,15 @@ preflight. The prior attempt changed no account or Azure state.
 
 Remaining operator work:
 
-1. Complete the Cloudflare dashboard changes in Section 4. Codex can run the
-   read-only hostname check without an operator Cloud Shell session.
-2. Confirm the Resend production sending capacity described in Section 5.
-3. Then run the current helper's rollback, promotion, and final audit in
+1. Confirm the Resend production sending capacity described in Section 5.
+2. Then run the current helper's rollback, promotion, and final audit in
    Section 5. Keep the ten-user pilot until those prerequisites are met.
 
 Section 3, including its funded request and audit, is complete. Public
 Chromium and Firefox checks and the bounded capacity smoke passed afterward.
 No new privacy, token, BYOK, or browser model test is required now.
+Section 4's root and `www` redirects and its complete public hostname gate are
+also verified. Do not repeat the DNS or redirect setup.
 
 The hardened-image deployment, its audit, BYOK, MCP, capacity, Chromium, and
 Firefox checks are already complete. Do not rerun them unless the relevant
@@ -462,6 +463,12 @@ If Cloud Shell closes, repeat only the block that creates `q`, run
 its exact completed or pending revision.
 
 ## 4. Add the friendly root-domain redirect
+
+Status: complete. The operator saved the corrected hostname expression and
+the unchanged read-only gate returned
+`PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED`, exit code 0. Both redirects,
+path and query preservation, demo readiness, Auth0 discovery, and Resend DNS
+passed. The instructions below are retained for recovery only.
 
 Follow the exact dashboard values in
 [`cloudflare-apex-redirect.md`](cloudflare-apex-redirect.md). This creates only

@@ -40,12 +40,12 @@ passed. See
 [the recovery evidence](privacy-preflight-failure-20260905.md). Do not repeat
 the privacy workflow or infer failure from the diagnostic's exit 2.
 
-The live demo readiness endpoint again returned HTTP 200 with
-`{"status":"ready"}`, and Auth0 discovery returned the expected custom-domain
-issuer. The hostname gate remains blocked: both authoritative Cloudflare
-nameservers returned no apex A record. This is a missing friendly redirect,
-not evidence that the existing demo is down. Public checks do not refresh
-protected budget metrics or establish a new deployed image identity.
+After the operator saved the corrected Cloudflare hostname rule, the unchanged
+public hostname gate passed through ordinary DNS resolution. Root and `www`
+redirects, path and query preservation, demo readiness, Auth0 discovery, and
+the existing Resend DNS records were verified. See the
+[hostname receipt](cloudflare-apex-redirect.md). These public checks do not
+refresh protected budget metrics or establish a new deployed image identity.
 
 Live remote checks confirmed both repositories' `main` branches still at
 `e4be41c72f34dd555147a2de221d84b3fd735c9f`. No Azure, Auth0, Cloudflare,
@@ -226,7 +226,8 @@ collected in [the final operator batch](final-operator-batch.md):
    [verified](gpl-distribution-checkpoint-20260905.md). Its live pilot audit,
    funded smoke, and public browser and capacity checks passed. Do not repeat
    this completed batch; continue with the remaining external gates below.
-4. Deployment and read-only verification of the prepared root-domain redirect.
+4. Root-domain redirect setup and the full public hostname gate are complete.
+   No further operator DNS action or manual browser test is required.
 5. Confirm production Resend sending capacity before expanding registration
    beyond the ten-user pilot.
 6. Record the exact Azure Foundry deployment inventory, then evaluate any newly

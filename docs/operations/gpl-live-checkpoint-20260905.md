@@ -69,13 +69,15 @@ on the presentation hardware are still pending.
 
 ## Remaining operator boundaries
 
-The read-only hostname gate still reports that the apex has no public A
-record. Direct queries to both authoritative nameservers also returned no
-apex or `www` A answers. The [Cloudflare redirect steps](cloudflare-apex-redirect.md)
-are still required. This is not an outage of the direct demo origin.
+At the initial pilot checkpoint, the hostname gate reported no apex A record.
+The operator subsequently saved the Cloudflare records and corrected redirect
+condition. The unchanged gate then returned
+`PUBLIC_HOSTNAME_AND_EMAIL_DNS_BOUNDARY_VERIFIED`, exit code 0, through normal
+DNS resolution. The full receipt is in the [hostname record](cloudflare-apex-redirect.md).
+Do not repeat this completed setup.
 
-Complete those dashboard changes and establish sufficient transactional-email
-capacity before the 100-user promotion. The existing revision 7 post-privacy
+Establish sufficient transactional-email capacity before the 100-user
+promotion. The existing revision 7 post-privacy
 helper remains current; its scripts and hashes have not changed. Follow
 Sections 4 and 5 of the [operator batch](final-operator-batch.md). The final
 image rollback, restoration, promotion, and promoted-state audit remain
