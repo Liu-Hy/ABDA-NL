@@ -1,8 +1,8 @@
 # Three-part scenario materials, September 8, 2026
 
-Status: implementation and validation in progress. Not yet a live deployment
-receipt. The community-example release remains the public baseline until the
-rollout evidence below is completed.
+Status: deployed and healthy at <https://demo.abda-nl.org>. The agent performed
+the approved image-only update through the existing dedicated Azure session.
+No operator Cloud Shell relay or new authentication setup was needed.
 
 ## Correction to the scenario design
 
@@ -66,7 +66,7 @@ Serialization omits the new field when empty, preserving all six bundled
 scenario payloads and computations. Portable exports with materials use
 version 2; this image accepts versions 1 and 2.
 
-The planned rollout changes only the web image and revision suffix. It does
+The completed rollout changed only the web image and revision suffix. It did
 not change secrets, catalog/admin configuration, Auth0, DNS, probes, scaling,
 the saved migration job, trial limits, or provider routing. Stable main remains
 untouched.
@@ -78,13 +78,54 @@ an older parser or remove user materials to make an old image start working.
 
 ## Acceptance and rollout evidence
 
-Pending final source verification, immutable image publication, and live
-image-only deployment. See [the user guide](../scenarios.md) for the workflow.
+See [the user guide](../scenarios.md) for the workflow.
+
+- Application source: `995c83c6b577c084ff8833725c0ef347798b9041`.
+- Public image: `ghcr.io/liu-hy/abda-nl@sha256:d231e7e70226928ca1e6d8bb4b15063527c0cbae57de03d5912baaf0d527cab6`.
+- Healthy Azure revision: `abda-nl-stg-web--materials-995c83c`, one ready web
+  replica, zero restarts at acceptance.
+- Superseded revision: `abda-nl-stg-web--curation-a72872f`.
+- [Source CI](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34286609164)
+  and [tag CI](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34286622530)
+  passed Python 3.10/3.13, native lock verification, migrations, PostgreSQL,
+  secrets, deployment artifacts, and Chromium/Firefox/WebKit acceptance.
+- [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34286609058)
+  and [image publication](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34286622543)
+  passed. Publication recorded 973 passed and 41 opt-in tests skipped;
+  browser and PostgreSQL suites ran separately. Dependency audits found no
+  known vulnerabilities. Exact-container smoke included real PDF extraction.
+  Container security checks, SBOM publication, and provenance attestation passed.
+- Anonymous GHCR retrieval verified the manifest digest, Linux/amd64 platform,
+  source labels, and GPL label. Independent `gh attestation verify` passed
+  with the expected publisher workflow and self-hosted signers disallowed.
+- Local focused material/frontend tests: 48 passed. Final local Chromium
+  suite: 40 passed. The test-only follow-up `1360273` waits for development
+  sign-in's asynchronous refresh before injecting a save-order fixture; its
+  application, migration, and dependency files are identical to the image source.
+- All eight checked public application assets matched the reviewed source
+  bytes. Canonical payload hashes for all six bundled scenarios were unchanged.
+- All three new preview endpoints rejected anonymous calls with 401 and
+  cross-origin calls with 403. Both generated and custom origins were ready.
+- Live Chromium and Firefox acceptance each completed six axe scans, three
+  viewport checks, and three keyboard checks, with no page or console errors.
+  Each browser also passed three additional live axe scans of the new materials
+  and import dialogs, including mobile layouts, read-only public glossaries,
+  sign-in-required import controls, and an enabled scenario download.
+- The external release check passed at `2026-09-08T22:42:38Z`: TLS, HTTP redirect,
+  readiness, liveness, security headers, policies, public config, authenticated
+  metrics, database pool, and budget invariants. Trial configuration remains
+  100 users, $5 each, $500 total; bounded OpenRouter failover remains enabled
+  with a $500 cap. Aggregate spending is operational evidence, not a promise
+  that concurrent user activity stops during deployment.
+- Structural before/after comparison proved that only the web image and
+  revision suffix changed. Identity, environment, application configuration,
+  and saved migration-job configuration were unchanged. No migration, provider
+  call, real-account modification, or private-project write was performed.
 
 Initial CodeQL review flagged the filename regular expression's unbounded
 repetition. Added explicit start anchoring and a repetition bound matching the
-filename limit in the validator, schema, and browser. The security gate remains
-enabled and the candidate must pass it before deployment.
+filename limit in the validator, schema, and browser. The deployed candidate
+passed the unchanged security gate.
 
 Browser CI also exposed a timing-dependent download defect: opening New / Open
 during a scenario request left Download current scenario disabled after the

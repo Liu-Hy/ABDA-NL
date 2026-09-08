@@ -1,6 +1,6 @@
 # ABDA-NL operations
 
-Start with the [current public release record](community-examples-20260908.md)
+Start with the [current public release record](scenario-materials-20260908.md)
 and [agent-driven deployment handoff](agent-driven-deployment.md). The operator's
 Delta Azure login now allows the agent to execute approved routine work directly.
 The [final operator batch](final-operator-batch.md) records the completed cloud
@@ -11,16 +11,21 @@ checksum in Cloud Shell.
 
 ## Current release sequence
 
-- [Reviewed community examples](community-examples-20260908.md) is the latest
-  healthy public image. It adds consented submissions, scoped curator review,
-  direct publication, and additive database revision 20260908_0005. After this
-  migration, use the same image with the catalog disabled or a newer compatible
-  image for rollback. Older v4 images reject the new schema head. Do not replay
+- [Three-part scenario materials](scenario-materials-20260908.md) is the latest
+  healthy public image. It adds ASPIC- rule-text and glossary import, editable
+  private reference documents, bounded PDF extraction, and portable exports
+  carrying those materials. It requires no database migration. Once a project
+  contains `sources`, use this image or a newer compatible image for recovery;
+  older parsers cannot read that field even at the same database schema head.
+- [Reviewed community examples](community-examples-20260908.md) records the
+  preceding release. It added consented submissions, scoped curator review,
+  direct publication, and additive database revision 20260908_0005. That schema
+  head is retained by the materials release. Older v4 images reject it. Do not replay
   historical image rollback gates or downgrade the database.
 - [Create and open scenarios](scenario-library-20260908.md) records the new
   builder, checked file import, portable export, and custom-project AI support.
   Those features and the unchanged public limits and routing are retained in
-  the current community-example image. Its prior image is historical evidence,
+  the current materials image. Its prior image is historical evidence,
   not a rollback target for the new database head.
 - [Conference layout repair](conference-layout-20260906.md) identifies the
   previous layout image, the fixed conclusion-text clipping, and the
