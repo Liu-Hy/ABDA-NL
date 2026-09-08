@@ -33,6 +33,7 @@ from app.api.llm_access import (
 )
 from app.api.models import DiffOp, LLMRequestOptions
 from app.core.config import get_settings
+from app.services.scenario_submissions import list_published_scenarios, resolve_public_scenario
 from app.core.safe_logging import exception_diagnostic
 from app.db.models import Project, User
 from app.db.session import get_session_factory
@@ -402,7 +403,7 @@ def _mcp_tool(*, annotations: ToolAnnotations):
 
 @_mcp_tool(annotations=READ_ONLY)
 def list_examples() -> dict[str, Any]:
-    """List immutable bundled examples. Requires projects:read."""
+    """List bundled and reviewed community examples. Requires projects:read."""
     with _tool_boundary("list_examples"):
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
@@ -423,6 +424,7 @@ def list_examples() -> dict[str, Any]:
                         "description": scenario.description,
                     }
                 )
+            examples.extend(list_published_scenarios(session))
             return {"examples": examples}
 
 
@@ -436,7 +438,7 @@ def get_example(
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
             _limit_mcp_read(session, user)
-            scenario = load_bundled_scenario(scenario_id)
+            scenario, _ = resolve_public_scenario(session, scenario_id)
             return {
                 "id": scenario_id,
                 **_state_payload(
@@ -492,14 +494,15 @@ def create_project(
                 "mcp_project_mutation",
                 get_settings().mutation_requests_per_minute,
             )
-            scenario = apply_ops(load_bundled_scenario(source_scenario_id), operations)
+            baseline, corpus_source_id = resolve_public_scenario(session, source_scenario_id)
+            scenario = apply_ops(baseline, operations)
             project = create_project_record(
                 session,
                 user,
                 name=name,
                 description=description,
                 scenario=scenario_to_dict(scenario),
-                source_scenario_id=source_scenario_id,
+                source_scenario_id=corpus_source_id,
             )
             return _project_payload(project)
 

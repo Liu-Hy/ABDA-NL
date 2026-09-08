@@ -41,6 +41,7 @@ from app.core.config import Settings, get_settings
 from app.db.models import MCPAccessToken, Project, User
 from app.db.session import get_db
 from app.scenario.catalog import load_bundled_scenario
+from app.services.scenario_submissions import is_scenario_admin, resolve_public_scenario
 from app.scenario.diff_ops import apply as apply_ops
 from app.scenario.exchange import parse_scenario_file
 from app.scenario.loader import scenario_from_dict
@@ -214,6 +215,8 @@ def auth_session(
 ) -> AuthSessionResponse:
     return AuthSessionResponse(
         authenticated=user is not None,
+        scenario_admin=is_scenario_admin(user, settings),
+        community_catalog_enabled=settings.community_catalog_enabled,
         auth_mode=settings.auth_mode,
         login_url="/auth/login" if settings.auth_mode == "oidc" else None,
         user=UserView.model_validate(user) if user is not None else None,
@@ -249,6 +252,8 @@ def development_login(
     request.session["user_id"] = user.id
     return AuthSessionResponse(
         authenticated=True,
+        scenario_admin=is_scenario_admin(user, settings),
+        community_catalog_enabled=settings.community_catalog_enabled,
         auth_mode=settings.auth_mode,
         user=UserView.model_validate(user),
     )
@@ -429,7 +434,7 @@ def post_project(
     settings: Settings = Depends(get_settings),
 ) -> ProjectDetailResponse:
     _limit_user_mutation(request, session, settings, user)
-    baseline = load_bundled_scenario(payload.source_scenario_id)
+    baseline, source_id = resolve_public_scenario(session, payload.source_scenario_id)
     effective = apply_ops(baseline, [item.model_dump() for item in payload.diff_ops])
     try:
         project = create_project(
@@ -438,7 +443,7 @@ def post_project(
             name=payload.name,
             description=payload.description,
             scenario=scenario_to_dict(effective),
-            source_scenario_id=payload.source_scenario_id,
+            source_scenario_id=source_id,
         )
     except (ProjectLimitError, ValueError) as exc:
         raise _project_error(exc)

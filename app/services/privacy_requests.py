@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    ScenarioSubmission,
     EmergencyUsageReservation,
     Identity,
     LLMUsageEvent,
@@ -24,6 +25,7 @@ from app.db.models import (
     utc_now,
 )
 from app.services.accounts import IdentityError, normalize_email
+from app.core.config import get_settings
 
 
 _REQUEST_REFERENCE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,63}\Z")
@@ -77,6 +79,7 @@ class PrivacyDeletionReceipt:
     anonymized_emergency_reservation_count: int
     retained_trial_granted_microusd: int
     retained_trial_spent_microusd: int
+    deleted_scenario_submission_count: int = 0
 
 
 def _normalized_email(email: str) -> str:
@@ -293,6 +296,16 @@ def export_privacy_account(session: Session, email: str) -> dict[str, Any]:
                 for identity in identities
             ],
         },
+        "scenario_submissions": [
+            {"id": item.id, "title": item.title, "scenario": item.scenario_json,
+             "source_scenario_id": item.source_scenario_id,
+             "project_version": item.project_version, "status": item.status,
+             "review_note": item.review_note, "created_at": _time(item.created_at),
+             "reviewed_at": _time(item.reviewed_at)}
+            for item in (session.scalars(select(ScenarioSubmission).where(
+                ScenarioSubmission.submitter_id == user.id
+            )).all() if get_settings().community_catalog_enabled else [])
+        ],
         "projects": [
             {
                 "id": project.id,
@@ -469,6 +482,11 @@ def delete_privacy_account(
         )
         project_ids = select(Project.id).where(Project.owner_user_id == user.id)
         session.execute(delete(ShareLink).where(ShareLink.project_id.in_(project_ids)))
+        deleted_submissions = 0
+        if get_settings().community_catalog_enabled:
+            deleted_submissions = session.execute(delete(ScenarioSubmission).where(
+                ScenarioSubmission.submitter_id == user.id
+            )).rowcount
         session.execute(delete(Project).where(Project.owner_user_id == user.id))
         session.execute(delete(MCPAccessToken).where(MCPAccessToken.user_id == user.id))
         session.execute(delete(UsageReservation).where(UsageReservation.user_id == user.id))
@@ -484,6 +502,7 @@ def delete_privacy_account(
             deleted_project_count=(summary.active_project_count + summary.archived_project_count),
             deleted_share_link_count=summary.share_link_count,
             deleted_mcp_token_count=summary.mcp_token_count,
+            deleted_scenario_submission_count=deleted_submissions,
             deleted_trial_reservation_count=summary.trial_reservation_count,
             anonymized_llm_usage_event_count=summary.llm_usage_event_count,
             anonymized_emergency_reservation_count=summary.emergency_reservation_count,

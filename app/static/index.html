@@ -142,6 +142,7 @@
         <div class="workspace-tabs" role="tablist" aria-label="Workspace sections">
           <button class="workspace-tab active" id="workspace-tab-account" type="button" role="tab" aria-selected="true" aria-controls="workspace-panel-account" data-workspace-tab="account">Account</button>
           <button class="workspace-tab" id="workspace-tab-projects" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-projects" data-workspace-tab="projects">Projects</button>
+          <button class="workspace-tab" id="workspace-tab-examples" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-examples" data-workspace-tab="examples" hidden>Examples</button>
           <button class="workspace-tab llm-only" id="workspace-tab-ai" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-ai" data-workspace-tab="ai">AI access</button>
           <button class="workspace-tab" id="workspace-tab-mcp" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-mcp" data-workspace-tab="mcp">Codex and Claude</button>
         </div>
@@ -230,6 +231,30 @@
               <div class="project-list" id="project-list"></div>
             </div>
             <div class="workspace-status" id="projects-status" role="status" aria-live="polite"></div>
+          </section>
+
+          <section class="workspace-panel" id="workspace-panel-examples" role="tabpanel" aria-labelledby="workspace-tab-examples" tabindex="0" hidden>
+            <div class="workspace-section-heading">
+              <div><h2>Example submissions</h2><p>Share a useful scenario with everyone who visits the demo.</p></div>
+              <button class="btn" id="examples-refresh-btn" type="button">Refresh</button>
+            </div>
+            <p class="workspace-lead" id="examples-introduction">Open a private project, then choose Suggest as example. Your project stays private; only the snapshot you approve is submitted for review.</p>
+            <div class="form-field" id="examples-filter-field" hidden>
+              <label for="examples-filter">Show</label>
+              <select id="examples-filter">
+                <option value="pending">Awaiting review</option>
+                <option value="published">Published community examples</option>
+                <option value="mine">My submissions</option>
+                <option value="rejected">Declined submissions</option>
+                <option value="withdrawn">Withdrawn or removed</option>
+              </select>
+            </div>
+            <div class="workspace-status" id="examples-status" role="status" aria-live="polite"></div>
+            <div class="project-list" id="examples-list"></div>
+            <div class="example-pagination">
+              <button class="btn btn-small" id="examples-previous" type="button" hidden>Previous page</button>
+              <button class="btn btn-small" id="examples-next" type="button" hidden>Next page</button>
+            </div>
           </section>
 
           <section class="workspace-panel" id="workspace-panel-ai" role="tabpanel" aria-labelledby="workspace-tab-ai" tabindex="0" hidden>
@@ -407,6 +432,7 @@
           <button class="scenario-tab" id="scenario-tab-file" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-file" data-scenario-tab="file" tabindex="-1">Open file</button>
         </div>
         <button class="btn btn-small" id="scenario-my-projects" type="button">My projects</button>
+        <button class="btn btn-small" id="scenario-example-submissions" type="button" hidden>Example submissions</button>
       </div>
       <div class="scenario-library-body">
         <div class="scenario-signin" id="scenario-signin-required">
@@ -581,11 +607,35 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="modal-example-review">
+    <div class="modal-content example-review-content" role="dialog" aria-modal="true" aria-labelledby="example-review-title">
+      <div class="modal-header">
+        <div><div class="modal-title" id="example-review-title">Review this snapshot</div><div class="modal-subtitle" id="example-review-subtitle"></div></div>
+        <button class="modal-close" id="example-review-close" type="button" aria-label="Close snapshot review">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="example-review-snapshot"></div>
+        <div class="example-consent" id="example-consent-panel">
+          <p>This snapshot can become a public, downloadable example. Your account email, chat history, API keys, share links, and private project description are not included automatically. Check the scenario itself for sensitive information.</p>
+          <label><input id="example-public-consent" type="checkbox"> I have permission to share this content publicly and have checked the snapshot.</label>
+          <p class="field-hint">Later project edits or archiving will not change this snapshot.</p>
+        </div>
+        <div class="form-field" id="example-review-note-field" hidden>
+          <label for="example-review-note">Note to the author <span class="optional-label">required when declining or removing</span></label>
+          <textarea id="example-review-note" rows="2" maxlength="1000"></textarea>
+        </div>
+        <div class="workspace-status" id="example-review-status" role="status" aria-live="polite"></div>
+      </div>
+      <div class="modal-footer" id="example-review-actions"></div>
+    </div>
+  </div>
+
   <script src="vendor/dagre.min.js"></script>
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
   <script src="workspace.js"></script>
   <script src="scenarios.js"></script>
+  <script src="curation.js"></script>
 </body>
 </html>

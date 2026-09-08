@@ -21,6 +21,7 @@ from app.db.models import Base, EmergencyBudget, TrialProgram
 
 log = logging.getLogger(__name__)
 LEGACY_SCHEMA_REVISIONS = (
+    "20260908_0005",
     "20260817_0004",
     "20260817_0003",
     "20260817_0002",
@@ -199,6 +200,15 @@ def _require_current_database_revision(
     current = _database_alembic_heads(engine)
     expected = _application_alembic_heads(database_url)
     if current == expected:
+        return
+    # Expand-first rollout: this image can serve the prior feature set while
+    # the single additive catalog migration runs. No catalog table is accessed
+    # until the feature is enabled. Other revision mismatches still fail closed.
+    if (
+        not get_settings().community_catalog_enabled
+        and current == frozenset({"20260817_0004"})
+        and expected == frozenset({"20260908_0005"})
+    ):
         return
     current_label = ",".join(sorted(current)) or "none"
     expected_label = ",".join(sorted(expected)) or "none"

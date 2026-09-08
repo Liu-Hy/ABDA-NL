@@ -48,7 +48,7 @@ def test_frontend_ids_labels_and_assets_are_self_contained():
     duplicates = [value for value, count in Counter(inventory.ids).items() if count > 1]
     assert duplicates == []
     assert set(inventory.label_targets) <= set(inventory.ids)
-    assert inventory.scripts[-3:] == ["app.js", "workspace.js", "scenarios.js"]
+    assert inventory.scripts[-4:] == ["app.js", "workspace.js", "scenarios.js", "curation.js"]
     assert all("://" not in source for source in inventory.scripts)
     assert all("://" not in source for source in inventory.stylesheets)
 
@@ -203,7 +203,8 @@ def test_public_policy_pages_are_linked_and_script_free():
 
     privacy = (STATIC_ROOT / "privacy.html").read_text(encoding="utf-8")
     terms = (STATIC_ROOT / "terms.html").read_text(encoding="utf-8")
-    assert "Last updated September 4, 2026" in privacy
+    assert "Last updated September 8, 2026" in privacy
+    assert "Suggesting a public example" in privacy
     assert "retained for up to 30 days" in privacy
     assert "retained for 7 days" in privacy
     assert "complete it within 30 days" in privacy

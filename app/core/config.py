@@ -39,6 +39,20 @@ def _default_database_url() -> str:
     return f"sqlite+pysqlite:///{database_path}"
 
 
+def _scenario_admin_emails() -> tuple[str, ...]:
+    from email_validator import EmailNotValidError, validate_email
+
+    addresses = []
+    for value in (os.getenv("ABDA_SCENARIO_ADMIN_EMAILS") or "").split(","):
+        if not value.strip():
+            continue
+        try:
+            addresses.append(validate_email(value.strip(), check_deliverability=False).normalized.lower())
+        except EmailNotValidError as exc:
+            raise RuntimeError("ABDA_SCENARIO_ADMIN_EMAILS must contain valid email addresses") from exc
+    return tuple(sorted(set(addresses)))
+
+
 def _safe_https_url(value: str | None) -> bool:
     if not value:
         return False
@@ -103,6 +117,8 @@ class Settings:
     metrics_token: str | None
     proxy_mode: str
     trusted_hosts: tuple[str, ...]
+    scenario_admin_emails: tuple[str, ...] = ()
+    community_catalog_enabled: bool = True
 
     @property
     def is_production(self) -> bool:
@@ -231,6 +247,10 @@ class Settings:
             metrics_token=(os.getenv("ABDA_METRICS_TOKEN") or "").strip() or None,
             proxy_mode=(os.getenv("ABDA_PROXY_MODE") or "direct").strip().lower(),
             trusted_hosts=configured_trusted_hosts or tuple(default_trusted_hosts),
+            scenario_admin_emails=_scenario_admin_emails(),
+            community_catalog_enabled=_truthy(
+                os.getenv("ABDA_COMMUNITY_CATALOG_ENABLED"), default=True
+            ),
         )
         settings.validate()
         return settings

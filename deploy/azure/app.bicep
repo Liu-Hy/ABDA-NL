@@ -78,6 +78,12 @@ param trialBudgetMicrousd int = 500000000
 @description('Allow qualifying CloudBank outages to spend the bounded OpenRouter budget.')
 param openrouterFailoverEnabled bool = false
 
+@description('Comma-separated verified email addresses allowed to curate public example snapshots. Does not grant access to private projects.')
+param scenarioAdminEmails string = ''
+
+@description('Disable only during the expand-first catalog schema rollout. Enable after migration 20260908_0005.')
+param communityCatalogEnabled bool = true
+
 @minValue(1)
 @maxValue(3)
 param minReplicas int = 1
@@ -173,6 +179,8 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'ABDA_ENVIRONMENT', value: deploymentEnvironment }
             { name: 'ABDA_ENABLE_LLM', value: '1' }
             { name: 'ABDA_AUTH_MODE', value: 'oidc' }
+            { name: 'ABDA_SCENARIO_ADMIN_EMAILS', value: scenarioAdminEmails }
+            { name: 'ABDA_COMMUNITY_CATALOG_ENABLED', value: string(communityCatalogEnabled) }
             { name: 'ABDA_AUTO_CREATE_DB', value: '0' }
             { name: 'ABDA_DATABASE_URL', secretRef: 'database-url' }
             { name: 'ABDA_DATABASE_POOL_SIZE', value: '4' }

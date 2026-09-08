@@ -76,6 +76,36 @@ rules:
     conclusion: outside
 ```
 
+## Suggest or publish a preloaded example
+
+Open your private project, then open **Workspace > Projects**. Select
+**Suggest as example**, inspect the snapshot, check the public-sharing consent,
+and select **Submit for review**. No model call or trial credit is required.
+The preview includes the project name and the scenario itself, but not the
+private project description, account email, chat history, or credentials.
+Remove sensitive material from the scenario before submitting it.
+
+Follow the request under **Workspace > Examples**. You can withdraw a pending
+request. If a revision is needed, edit and save the project before submitting
+a new snapshot. A retry of the same project version does not create a duplicate.
+Each account can have five pending requests and fifty submissions in total.
+
+Scenario administrators see **Publish as example** on their own projects.
+They can also review submitted snapshots under **Examples > Awaiting review**,
+then approve or decline them. A short reason is required when declining or
+removing a published example. This role does not grant access to other private
+projects. Review status is shown in the application; no notification email is
+sent for each submission.
+
+Published snapshots appear under **Community examples** in the main scenario
+selector, alongside the unchanged included examples. They support the same
+deterministic analysis, AI tools, downloads, private copies, and MCP reads.
+Publication does not change the source private project. Later edits or
+archiving do not update or remove its public snapshot. An administrator can
+remove it from the public catalog without changing existing private copies.
+Account suspension hides its published snapshots; permanent account deletion
+removes its submissions. Downloaded copies cannot be recalled.
+
 ## Take your scenario with you
 
 **Download current scenario** exports the currently displayed scenario,

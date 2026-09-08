@@ -243,8 +243,12 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(_settings.trusted_h
 register_exception_handlers(app)
 
 from app.api.account_routes import router as account_router
+from app.api.scenario_routes import router as scenario_router
+from app.services.scenario_submissions import list_published_scenarios, resolve_public_scenario
+from app.db.session import get_session_factory
 
 app.include_router(account_router)
+app.include_router(scenario_router)
 app.mount("/mcp", mcp_http_app, name="mcp")
 
 
@@ -339,6 +343,9 @@ async def _request_context(request: Request, call_next):
 
 
 def _load_baseline(scenario_id: str):
+    if scenario_id.startswith("community_"):
+        with get_session_factory()() as session:
+            return resolve_public_scenario(session, scenario_id)[0]
     return load_bundled_scenario(scenario_id)
 
 
@@ -353,7 +360,7 @@ def _cached_managed_baseline_bundle(scenario_id: str) -> dict:
 
 
 def _baseline_state_bundle(scenario_id: str, settings: Settings) -> dict:
-    if settings.is_managed_service:
+    if settings.is_managed_service and not scenario_id.startswith("community_"):
         return deepcopy(_cached_managed_baseline_bundle(scenario_id))
     return _compute_state_bundle(_load_baseline(scenario_id))
 
@@ -519,7 +526,7 @@ def internal_metrics(
 
 
 @app.get("/scenarios", response_model=ScenarioListResponse)
-def list_scenarios() -> ScenarioListResponse:
+def list_scenarios(session: Session = Depends(get_db)) -> ScenarioListResponse:
     items: list[ScenarioListItem] = []
     if EXAMPLES_ROOT.is_dir():
         children = [c for c in EXAMPLES_ROOT.iterdir() if c.is_dir()]
@@ -542,8 +549,10 @@ def list_scenarios() -> ScenarioListResponse:
                     id=child.name,
                     title=scenario.title,
                     description=scenario.description,
+                    source_scenario_id=child.name,
                 )
             )
+    items.extend(ScenarioListItem(**item) for item in list_published_scenarios(session))
     return ScenarioListResponse(scenarios=items)
 
 
@@ -833,8 +842,8 @@ def post_chat(
         user_id=user.id if user is not None else None,
     )
 
-    scenario_dir = EXAMPLES_ROOT / payload.scenario_id
-    baseline = _load_baseline(payload.scenario_id)
+    baseline, source_id = resolve_public_scenario(session, payload.scenario_id)
+    scenario_dir = EXAMPLES_ROOT / source_id if source_id else None
     ops = [op.model_dump() for op in payload.diff_ops]
     scenario = apply_ops(baseline, ops)
     bundle = _compute_state_bundle(scenario)
@@ -875,8 +884,8 @@ def post_propose(
         limit=settings.llm_requests_per_minute,
         user_id=user.id if user is not None else None,
     )
-    scenario_dir = EXAMPLES_ROOT / payload.scenario_id
-    baseline = _load_baseline(payload.scenario_id)
+    baseline, source_id = resolve_public_scenario(session, payload.scenario_id)
+    scenario_dir = EXAMPLES_ROOT / source_id if source_id else None
     ops = [op.model_dump() for op in payload.diff_ops]
     scenario = apply_ops(baseline, ops)
     bundle = _compute_state_bundle(scenario)
@@ -1031,6 +1040,11 @@ def post_save_scenario(
         )
 
     baseline = _load_baseline(request.source_id)
+    baseline_dir = EXAMPLES_ROOT / request.source_id
+    if request.source_id.startswith("community_"):
+        with get_session_factory()() as session:
+            baseline, source_id = resolve_public_scenario(session, request.source_id)
+            baseline_dir = EXAMPLES_ROOT / source_id if source_id else None
     ops = [op.model_dump() for op in request.diff_ops]
     effective = apply_ops(baseline, ops)
 
@@ -1038,7 +1052,7 @@ def post_save_scenario(
         effective=effective,
         title=request.title,
         save_as_id=request.save_as_id,
-        baseline_dir=EXAMPLES_ROOT / request.source_id,
+        baseline_dir=baseline_dir,
         examples_root=EXAMPLES_ROOT,
         overwrite=request.overwrite,
     )

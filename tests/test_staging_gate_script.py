@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
+import re
 from pathlib import Path
 import subprocess
 import textwrap
@@ -175,6 +177,17 @@ def test_gate_reaches_confirmation_without_mutating_azure(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
     az_log = tmp_path / "az.log"
+    # Fake git below supplies current templates, not the historical pinned
+    # commit. Pin those fixture bytes in a temporary gate copy. Never change
+    # the real historical gate's source or checksums when templates evolve.
+    fixture_source = GATE.read_text(encoding="utf-8")
+    for template_name in ("migration-job.bicep", "migration-job.bicepparam", "app.bicep", "app.bicepparam"):
+        relative = f"deploy/azure/{template_name}"
+        digest = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+        fixture_source = re.sub(r"(?m)^[a-f0-9]{64}  " + re.escape(relative) + r"$",
+                                digest + "  " + relative, fixture_source)
+    fixture_gate = tmp_path / "gate-fixture.sh"
+    _write_executable(fixture_gate, fixture_source)
 
     _write_executable(
         fake_bin / "git",
@@ -373,7 +386,7 @@ def test_gate_reaches_confirmation_without_mutating_azure(tmp_path):
         }
     )
     result = subprocess.run(
-        [str(GATE)],
+        [str(fixture_gate)],
         input="\n".join(secret_lines) + "\n",
         check=False,
         capture_output=True,

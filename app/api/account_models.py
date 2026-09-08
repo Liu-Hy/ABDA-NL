@@ -28,6 +28,8 @@ class AuthSessionResponse(BaseModel):
     auth_mode: str
     login_url: Optional[str] = None
     user: Optional[UserView] = None
+    scenario_admin: bool = False
+    community_catalog_enabled: bool = True
 
 
 class LogoutResponse(BaseModel):

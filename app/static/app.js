@@ -300,11 +300,22 @@ function populateScenarioSelect() {
     current.textContent = `Shared: ${state.sharedProject.name}`;
     sel.appendChild(current);
   }
+  const exampleGroups = new Map();
+  const grouped = state.scenarios.some(item => item.category === 'community');
   for (const s of state.scenarios) {
     const opt = document.createElement('option');
     opt.value = s.id;
     opt.textContent = s.title;
-    sel.appendChild(opt);
+    if (grouped) {
+      const label = s.category === 'community' ? 'Community examples' : 'Included examples';
+      if (!exampleGroups.has(label)) {
+        const group = document.createElement('optgroup');
+        group.label = label;
+        exampleGroups.set(label, group);
+        sel.appendChild(group);
+      }
+      exampleGroups.get(label).appendChild(opt);
+    } else sel.appendChild(opt);
   }
   // Assign rather than addEventListener: save-flow calls
   // populateScenarioSelect() on every save to refresh the list, which

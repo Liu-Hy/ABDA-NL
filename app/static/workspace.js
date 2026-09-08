@@ -131,6 +131,8 @@ function requestCloseModal(id) {
   } else if (id === 'modal-workspace') {
     clearWorkspaceOneTimeSecrets();
     closeModal(id);
+  } else if (id === 'modal-example-review') {
+    closeExampleReview();
   } else {
     closeModal(id);
   }
@@ -188,6 +190,7 @@ function openWorkspace(tab = 'account', options = {}) {
 }
 
 function switchWorkspaceTab(name) {
+  if (name === 'examples') refreshExampleSubmissions();
   for (const tab of document.querySelectorAll('[data-workspace-tab]')) {
     const active = tab.dataset.workspaceTab === name;
     tab.classList.toggle('active', active);
@@ -258,6 +261,7 @@ function renderAccountUI() {
   renderMCPTokens();
   renderChatAccess();
   renderScenarioLibraryAccess();
+  renderCurationAccess();
 }
 
 async function refreshExternalOIDCLogin() {
@@ -309,6 +313,7 @@ async function handleLogout(event) {
   clearWorkspaceOneTimeSecrets();
   resetScenarioBuilder();
   clearScenarioPreview();
+  clearCurationState();
   try {
     const result = await apiRequest('/api/auth/logout', { method: 'POST' });
     if (!result?.logout_url) throw new Error('The sign-out destination is unavailable.');
@@ -712,6 +717,7 @@ function currentProjectHTML() {
         <button class="btn btn-primary" type="button" data-project-action="save-current" ${unsaved && !state.projectSavePending ? '' : 'disabled'}>${state.projectSavePending ? 'Saving...' : 'Save changes'}</button>
         <button class="btn" type="button" data-project-action="share-create">Create share link</button>
         <button class="btn" type="button" data-project-action="share-refresh">Manage links</button>
+        ${state.authSession.community_catalog_enabled !== false ? `<button class="btn" type="button" data-project-action="suggest-example">${state.authSession.scenario_admin ? 'Publish as example' : 'Suggest as example'}</button>` : ''}
       </div>
     </div>
     ${latest ? `
@@ -901,6 +907,7 @@ async function handleProjectAction(event) {
   if (action === 'share-refresh') return refreshProjectShares();
   if (action === 'share-copy') return copyElementText('latest-share-url', 'Share link copied.');
   if (action === 'share-revoke') return revokeProjectShare(button.dataset.shareId);
+  if (action === 'suggest-example') return beginExampleSubmission();
 }
 
 async function archiveProject(projectId, name, version) {

@@ -8,6 +8,7 @@ const scenarioLibrary = {
 const SCENARIO_FILE_LIMIT = 1000000;
 
 function initScenarioLibrary() {
+  initCurationUI();
   byId('scenario-library-btn').addEventListener('click', openScenarioLibrary);
   byId('scenario-library-cancel').addEventListener('click', () => requestCloseModal('modal-scenario-library'));
   byId('scenario-my-projects').addEventListener('click', () => {
@@ -463,8 +464,10 @@ function downloadCurrentScenario() {
     setWorkspaceStatus('scenario-library-status', 'Wait for the current scenario to finish loading.', 'info');
     return;
   }
+  const example = state.scenarios.find(item => item.id === state.scenario_id);
+  const exampleSource = example?.category === 'community' ? example.source_scenario_id : state.scenario_id;
   const sourceId = state.activeProject?.source_scenario_id || state.sharedProject?.source_scenario_id
-    || (state.viewKind === 'example' ? state.scenario_id : null);
+    || (state.viewKind === 'example' ? exampleSource : null);
   downloadScenarioFile(state.bundle.scenario, sourceId);
   setWorkspaceStatus('scenario-library-status', 'Downloaded the current scenario, including unsaved edits. Reopen it with Open file.', 'success');
 }

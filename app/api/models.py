@@ -127,6 +127,8 @@ class ScenarioListItem(BaseModel):
     id: str
     title: str
     description: str = ""
+    category: Literal["bundled", "community"] = "bundled"
+    source_scenario_id: Optional[str] = None
 
 
 class ScenarioListResponse(BaseModel):

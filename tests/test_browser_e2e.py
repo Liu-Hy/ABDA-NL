@@ -45,6 +45,8 @@ def live_browser_server(tmp_path):
             "XDG_STATE_HOME": str(state_root),
             "ABDA_ENVIRONMENT": "development",
             "ABDA_AUTH_MODE": "dev",
+            "ABDA_SCENARIO_ADMIN_EMAILS": "curator@example.org",
+            "ABDA_COMMUNITY_CATALOG_ENABLED": "true",
             "ABDA_DATABASE_URL": f"sqlite+pysqlite:///{state_root / 'browser.db'}",
             "ABDA_AUTO_CREATE_DB": "1",
             "ABDA_SESSION_SECRET": "browser-session-secret-with-32-characters",
@@ -250,6 +252,109 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             page.locator("#scenario-my-projects").click()
             page.get_by_role("button", name="Open", exact=True).first.click()
             expect(page.locator("#scenario-select")).to_have_value("__current_project__")
+            assert not errors
+        finally:
+            browser.close()
+
+
+
+
+def test_reviewed_community_examples_in_browser(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    scenario = {
+        "title": "Picnic", "description": "A useful public teaching example.",
+        "facts": {"sunny": {"description": "It is sunny"}},
+        "conclusions": {"outside": {"description": "Hold the picnic outside"}},
+        "rules": {"r1": {"type": "defeasible", "premises": ["sunny"], "conclusion": "outside"}},
+    }
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        author = browser.new_page(viewport={"width": 1200, "height": 900})
+        admin = browser.new_page(viewport={"width": 1200, "height": 900})
+        reader = browser.new_page(viewport={"width": 390, "height": 844})
+        errors = []
+        for page in [author, admin, reader]:
+            page.on("pageerror", lambda error: errors.append(str(error)))
+        admin.on("dialog", lambda dialog: dialog.accept())
+        try:
+            assert author.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "author@example.org"}).ok
+            created = author.request.post(f"{live_browser_server}/api/projects/import", data={
+                "name": "Community picnic", "description": "Private research note", "scenario": scenario,
+            }).json()
+            _goto_ready_demo(author, live_browser_server)
+            author.locator("#scenario-library-btn").click()
+            author.locator("#scenario-my-projects").click()
+            author.locator(f'[data-project-id="{created["id"]}"][data-project-action="open"]').click()
+            expect(author.locator("#scenario-name")).to_have_text("Community picnic")
+            author.locator("#scenario-library-btn").click()
+            author.locator("#scenario-my-projects").click()
+            author.get_by_role("button", name="Suggest as example", exact=True).click()
+            expect(author.locator("#example-review-snapshot")).not_to_contain_text("Private research note")
+            expect(author.get_by_role("button", name="Submit for review", exact=True)).to_be_disabled()
+            _axe_report(author, "author public snapshot consent")
+            _save_browser_evidence(author, "example-consent")
+            author.locator("#example-public-consent").check()
+            author.get_by_role("button", name="Submit for review", exact=True).click()
+            expect(author.locator("#examples-list")).to_contain_text("Awaiting review")
+            assert reader.request.get(f"{live_browser_server}/scenarios").json()["scenarios"][-1]["category"] != "community"
+
+            assert admin.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "curator@example.org"}).ok
+            _goto_ready_demo(admin, live_browser_server)
+            admin.locator("#scenario-library-btn").click()
+            admin.locator("#scenario-example-submissions").click()
+            expect(admin.locator("#examples-list")).to_contain_text("Community picnic")
+            _axe_report(admin, "administrator scenario review queue")
+            admin.get_by_role("button", name="Review snapshot", exact=True).click()
+            expect(admin.locator("#example-review-snapshot")).to_contain_text("It is sunny")
+            _axe_report(admin, "administrator snapshot decision")
+            _save_browser_evidence(admin, "example-review")
+            admin.set_viewport_size({"width": 390, "height": 844})
+            _axe_report(admin, "mobile administrator snapshot decision")
+            assert admin.locator("#modal-example-review .modal-content").evaluate("element => element.scrollWidth <= element.clientWidth")
+            admin.set_viewport_size({"width": 1200, "height": 900})
+            admin.get_by_role("button", name="Approve & publish", exact=True).click()
+            expect(admin.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
+            _goto_ready_demo(reader, live_browser_server)
+            option = reader.locator('#scenario-select optgroup[label="Community examples"] option')
+            expect(option).to_have_count(1)
+            public_id = option.get_attribute("value")
+            reader.locator("#scenario-select").select_option(public_id)
+            expect(reader.locator("#conclusions-list")).to_contain_text("Accepted")
+            reader.locator("#scenario-library-btn").click()
+            with reader.expect_download() as downloaded:
+                reader.locator("#scenario-download-current").click()
+            portable = json.loads(Path(downloaded.value.path()).read_text())
+            assert portable["source_scenario_id"] is None
+            assert portable["scenario"]["title"] == "Community picnic"
+            assert "Private research note" not in str(portable)
+            reader.locator("#scenario-library-cancel").click()
+            _axe_report(reader, "mobile community example")
+
+            # A direct administrator publication uses the same consent preview.
+            own = admin.request.post(f"{live_browser_server}/api/projects/import", data={
+                "name": "Administrator picnic", "scenario": scenario,
+            }).json()
+            admin.locator("#workspace-tab-projects").click()
+            admin.locator("#projects-refresh-btn").click()
+            admin.locator(f'[data-project-id="{own["id"]}"][data-project-action="open"]').click()
+            expect(admin.locator("#scenario-name")).to_have_text("Administrator picnic")
+            admin.locator("#scenario-library-btn").click()
+            admin.locator("#scenario-my-projects").click()
+            admin.get_by_role("button", name="Publish as example", exact=True).click()
+            admin.locator("#example-public-consent").check()
+            admin.get_by_role("button", name="Publish example", exact=True).click()
+            expect(admin.locator("#examples-list")).to_contain_text("Published")
+
+            admin.locator("#examples-filter").select_option("published")
+            card = admin.locator("#examples-list .project-card").filter(has_text="Community picnic")
+            card.get_by_role("button", name="View snapshot", exact=True).click()
+            admin.get_by_role("button", name="Remove from examples", exact=True).click()
+            expect(admin.locator("#example-review-status")).to_contain_text("short reason")
+            admin.locator("#example-review-note").fill("Updating the teaching example.")
+            admin.get_by_role("button", name="Remove from examples", exact=True).click()
+            expect(admin.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
+            assert reader.request.get(f"{live_browser_server}/scenarios/{public_id}").status == 404
             assert not errors
         finally:
             browser.close()

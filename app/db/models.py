@@ -115,6 +115,38 @@ class Project(Base):
     )
 
 
+class ScenarioSubmission(Base):
+    """A consented, immutable project snapshot, private until a curator publishes it."""
+
+    __tablename__ = "scenario_submissions"
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="ck_submission_version"),
+        CheckConstraint("project_version >= 1", name="ck_submission_project_version"),
+        CheckConstraint(
+            "status IN ('pending', 'published', 'rejected', 'withdrawn')",
+            name="ck_submission_status",
+        ),
+        UniqueConstraint("project_id", "project_version", name="uq_submission_project_version"),
+        Index("ix_submission_owner_created", "submitter_id", "created_at"),
+        Index("ix_submission_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    submitter_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[Optional[str]] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"))
+    project_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    source_scenario_id: Mapped[Optional[str]] = mapped_column(String(100))
+    scenario_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    review_note: Mapped[str] = mapped_column(String(1000), nullable=False, default="")
+    reviewer_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
 class ShareLink(Base):
     __tablename__ = "share_links"
 

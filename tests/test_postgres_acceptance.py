@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from dataclasses import replace
 import os
 from uuid import uuid4
 
@@ -14,7 +15,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 
 from app.cli.migrate import provision_application_role
-from app.core.config import reset_settings_cache
+from app.core.config import get_settings, reset_settings_cache
+from app.services.scenario_submissions import submit_scenario, public_id, resolve_public_scenario
 from app.db.session import (
     _alembic_config,
     get_engine,
@@ -309,6 +311,14 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
                 description="Restricted role update verification",
             )
             assert project.version == 2
+            # The restricted web role can use the additive public catalog table.
+            # Publication retains immutable bundled-corpus provenance.
+            catalog_settings = replace(get_settings(), scenario_admin_emails=(user.email,))
+            submission = submit_scenario(session, user, catalog_settings, project_id=project.id,
+                                         expected_version=project.version, publish=True)
+            resolved, source_id = resolve_public_scenario(session, public_id(submission))
+            assert source_id == "fire_prevention"
+            assert resolved.title == project.name
             revoke_share_link(session, user, project.id, share.id)
             with pytest.raises(ShareLinkNotFoundError):
                 resolve_share_link(session, raw_share)
@@ -438,6 +448,7 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
                 request_reference="POSTGRES-PRIVACY-001",
             )
             assert receipt.deleted_project_count == 1
+            assert receipt.deleted_scenario_submission_count == 1
             assert session.get(User, user.id) is None
             assert (
                 session.scalar(

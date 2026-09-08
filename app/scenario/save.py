@@ -116,7 +116,7 @@ def _save_scenario_locked(
     effective: Scenario,
     title: str,
     save_as_id: str,
-    baseline_dir: Path,
+    baseline_dir: Path | None,
     examples_root: Path,
     overwrite: bool = False,
 ) -> Path:
@@ -139,6 +139,8 @@ def _save_scenario_locked(
         raise InvalidScenarioId(
             f"save_as_id {save_as_id!r} must match [A-Za-z_][A-Za-z0-9_]*"
         )
+    if save_as_id.startswith("community_"):
+        raise InvalidScenarioId("the community_ prefix is reserved for reviewed public examples")
     if not title.strip():
         raise InvalidScenarioId("title must be non-empty")
 
@@ -150,7 +152,7 @@ def _save_scenario_locked(
         temp_dir=temp_dir,
         backup_dir=backup_dir,
     )
-    is_source_overwrite = baseline_dir.resolve() == target_dir.resolve()
+    is_source_overwrite = baseline_dir is not None and baseline_dir.resolve() == target_dir.resolve()
     if target_dir.exists() and not overwrite:
         raise ScenarioIdCollision(
             f"scenario id {save_as_id!r} already exists"
@@ -166,7 +168,7 @@ def _save_scenario_locked(
 
     try:
         # 1. Copy baseline artifacts except skipped names.
-        if baseline_dir.is_dir():
+        if baseline_dir is not None and baseline_dir.is_dir():
             for child in baseline_dir.iterdir():
                 if child.name in skip_names:
                     continue
@@ -227,7 +229,7 @@ def save_scenario(
     effective: Scenario,
     title: str,
     save_as_id: str,
-    baseline_dir: Path,
+    baseline_dir: Path | None,
     examples_root: Path,
     overwrite: bool = False,
 ) -> Path:
