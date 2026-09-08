@@ -181,6 +181,221 @@ def _reload_ready_demo(page) -> None:
     _wait_for_demo_ready(page)
 
 
+def test_scenario_library_build_download_import_and_reopen(live_browser_server):
+    from uuid import uuid4
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page(viewport={"width": 1440, "height": 900}, reduced_motion="reduce")
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        try:
+            assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-builder-title").fill("My own picnic")
+            page.locator("#statement_1-text").fill("The forecast is sunny")
+            page.locator("#statement_2-text").fill("We should hold the picnic outside")
+            rule = page.locator(".scenario-rule-card").first
+            rule.locator("[data-literal]").nth(0).select_option("statement_1")
+            rule.locator("[data-literal]").nth(1).select_option("statement_2")
+            _axe_report(page, "new scenario builder")
+            _save_browser_evidence(page, "scenario-builder")
+            with page.expect_response(lambda response: response.url.endswith("/api/projects/import") and response.request.method == "POST") as created:
+                page.locator("#scenario-library-submit").click()
+            project = created.value.json()
+            expect(page.locator("#scenario-name")).to_have_text("My own picnic")
+            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#conclusions-list")).to_contain_text("Accepted")
+            assert project["source_scenario_id"] is None
+            assert page.request.get(f"{live_browser_server}/api/trial").json()["active"] is False
+            page.locator("#scenario-library-btn").click()
+            with page.expect_download() as download:
+                page.locator("#scenario-download-current").click()
+            downloaded = json.loads(Path(download.value.path()).read_text())
+            assert set(downloaded) == {"format", "version", "source_scenario_id", "scenario"}
+            assert downloaded["scenario"] == project["scenario"]
+            page.locator("#scenario-tab-file").click()
+            page.locator("#scenario-file-input").set_input_files({
+                "name": "picnic.abda.json", "mimeType": "application/json", "buffer": json.dumps(downloaded).encode(),
+            })
+            expect(page.locator("#scenario-file-preview")).to_be_visible()
+            page.locator("#scenario-import-name").fill("Picnic imported copy")
+            _axe_report(page, "validated scenario import")
+            _save_browser_evidence(page, "scenario-import")
+            with page.expect_response(lambda response: response.url.endswith("/api/projects/import") and response.request.method == "POST") as imported:
+                page.locator("#scenario-library-submit").click()
+            copy = imported.value.json()
+            assert copy["id"] != project["id"]
+            assert copy["scenario"] == project["scenario"]
+            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            _reload_ready_demo(page)
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-my-projects").click()
+            page.get_by_role("button", name="Open", exact=True).first.click()
+            expect(page.locator("#scenario-select")).to_have_value("__current_project__")
+            assert not errors
+        finally:
+            browser.close()
+
+
+def test_scenario_library_signed_out_and_small_screen(live_browser_server):
+    from uuid import uuid4
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page(viewport={"width": 390, "height": 844}, reduced_motion="reduce")
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#scenario-library-btn").click()
+            expect(page.locator("#scenario-signin-required")).to_be_visible()
+            expect(page.locator("#scenario-library-submit")).to_be_disabled()
+            page.locator("#scenario-tab-new").focus()
+            page.keyboard.press("ArrowRight")
+            expect(page.locator("#scenario-tab-file")).to_be_focused()
+            expect(page.locator("#scenario-file-input")).to_be_disabled()
+            page.keyboard.press("Escape")
+            expect(page.locator("#scenario-library-btn")).to_be_focused()
+            assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
+            _reload_ready_demo(page)
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-starter-btn").click()
+            for width in [390, 780, 1440]:
+                page.set_viewport_size({"width": width, "height": 900})
+                _axe_report(page, f"scenario builder at {width}px")
+                assert page.locator(".scenario-library-content").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+            page.set_viewport_size({"width": 390, "height": 844})
+            _save_browser_evidence(page, "scenario-builder-mobile")
+            page.locator("#scenario-library-submit").click()
+            expect(page.locator("#scenario-name")).to_have_text("Planning a picnic")
+            expect(page.locator("#conclusions-list")).to_contain_text("Undecided")
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-tab-file").click()
+            _axe_report(page, "mobile file picker")
+        finally:
+            browser.close()
+
+
+def test_scenario_import_failures_leave_current_work_untouched(live_browser_server):
+    from uuid import uuid4
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
+            _goto_ready_demo(page, live_browser_server)
+            before = page.locator("#scenario-name").inner_text()
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-tab-file").click()
+            picker = page.locator("#scenario-file-input")
+            picker.set_input_files({"name": "bad.yaml", "mimeType": "text/yaml", "buffer": b"title: ["})
+            expect(page.locator("#scenario-library-status")).to_contain_text("Cannot read")
+            expect(page.locator("#scenario-library-submit")).to_be_disabled()
+            picker.set_input_files({"name": "huge.json", "mimeType": "application/json", "buffer": b"x" * 1_000_001})
+            expect(page.locator("#scenario-library-status")).to_contain_text("smaller than 1 MB")
+            picker.set_input_files({"name": "bad-utf8.yaml", "mimeType": "text/yaml", "buffer": b"\xff\xfe"})
+            expect(page.locator("#scenario-library-status")).to_contain_text("UTF-8")
+            picker.set_input_files({"name": "unknown.yaml", "mimeType": "text/yaml", "buffer": b"title: Unknown\nconclusions: {}\nrules:\n  r1: {type: defeasible, premises: [missing], conclusion: missing}"})
+            expect(page.locator("#scenario-library-status")).to_contain_text("unknown identifier")
+            expect(page.locator("#scenario-name")).to_have_text(before)
+            assert page.request.get(f"{live_browser_server}/api/projects").json()["projects"] == []
+            page.locator("#scenario-library-cancel").click()
+            expect(page.locator("#scenario-name")).to_have_text(before)
+        finally:
+            browser.close()
+
+
+def test_builder_deleted_statement_does_not_rebind_a_rule(live_browser_server):
+    from uuid import uuid4
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-starter-btn").click()
+            row = page.locator(".scenario-statement-row").first
+            removed_id = row.get_attribute("data-statement-id")
+            row.get_by_role("button").click()
+            page.locator("#scenario-add-statement").click()
+            page.locator(".scenario-statement-row input").last.fill("An unrelated new statement")
+            assert page.locator(".scenario-rule-card [data-literal]").first.input_value() == removed_id
+            page.locator("#scenario-library-submit").click()
+            expect(page.locator("#scenario-library-status")).to_contain_text("Choose an existing statement")
+            expect(page.locator("#context-indicator")).to_have_text("Example")
+            page.locator("#scenario-library-cancel").click()
+            page.locator("#scenario-library-btn").click()
+            expect(page.locator("#scenario-builder-title")).to_have_value("Planning a picnic")
+        finally:
+            browser.close()
+
+
+def test_scenario_library_late_create_does_not_replace_another_view(live_browser_server):
+    from uuid import uuid4
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        pending = []
+        try:
+            assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
+            _goto_ready_demo(page, live_browser_server)
+            page.route("**/api/projects/import", lambda route: pending.append(route))
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-starter-btn").click()
+            page.locator("#scenario-library-submit").click()
+            expect(page.locator("#scenario-library-submit")).to_have_text("Opening...")
+            page.locator("#scenario-library-cancel").click()
+            options = page.locator("#scenario-select option").evaluate_all("items => items.map(item => ({id: item.value, name: item.textContent}))")
+            target = next(item for item in options if item["id"] != "popov_v_hayashi")
+            page.locator("#scenario-select").select_option(target["id"])
+            expect(page.locator("#scenario-name")).to_have_text(target["name"])
+            assert len(pending) == 1
+            response = pending[0].fetch()
+            assert response.status == 201
+            pending[0].fulfill(response=response)
+            expect(page.locator("#global-status")).to_contain_text("Open it from My projects")
+            expect(page.locator("#scenario-name")).to_have_text(target["name"])
+            assert len(page.request.get(f"{live_browser_server}/api/projects").json()["projects"]) == 1
+        finally:
+            browser.close()
+
+
+def test_scenario_file_preview_clears_old_data_and_escapes_text(live_browser_server):
+    from uuid import uuid4
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-tab-file").click()
+            payload = {"title": "<svg onload=alert(1)>", "description": "<img src=x onerror=alert(1)>", "conclusions": {}, "rules": {}}
+            picker = page.locator("#scenario-file-input")
+            picker.set_input_files({"name": "safe.json", "mimeType": "application/json", "buffer": json.dumps(payload).encode()})
+            expect(page.locator("#scenario-file-preview")).to_be_visible()
+            expect(page.locator("#scenario-import-name")).to_have_value(payload["title"])
+            expect(page.locator("#scenario-file-description")).to_have_text(payload["description"])
+            assert page.locator("#scenario-file-preview img, #scenario-file-preview svg").count() == 0
+            picker.set_input_files({"name": "bad.yaml", "mimeType": "text/yaml", "buffer": b"title: ["})
+            expect(page.locator("#scenario-library-status")).to_contain_text("Cannot read")
+            expect(page.locator("#scenario-file-preview")).to_be_hidden()
+            expect(page.locator("#scenario-library-submit")).to_be_disabled()
+        finally:
+            browser.close()
+
+
 def test_conclusion_cards_do_not_clip_wrapped_text(live_browser_server):
     from playwright.sync_api import sync_playwright
 

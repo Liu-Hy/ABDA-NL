@@ -233,6 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initResize();
   initModalAccessibility();
   initWorkspaceUI();
+  initScenarioLibrary();
   try {
     // Fetch config first so LLM-only DOM is hidden before first paint of
     // scenario content — avoids a flash of chat/save/add buttons on

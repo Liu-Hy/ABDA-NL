@@ -257,6 +257,7 @@ function renderAccountUI() {
   renderProjectsUI();
   renderMCPTokens();
   renderChatAccess();
+  renderScenarioLibraryAccess();
 }
 
 async function refreshExternalOIDCLogin() {
@@ -272,7 +273,7 @@ async function refreshExternalOIDCLogin() {
     state.authSession = session;
     renderAccountUI();
     await refreshAuthenticatedWorkspace({ quiet: true });
-    showGlobalStatus('Signed in. You can now save a private copy of this shared project.', 'success');
+    showGlobalStatus('Signed in. You can now create, import, and save private projects.', 'success');
   } catch (_error) {
     // Returning to an offline or still-signed-out tab requires no error banner.
   } finally {
@@ -306,6 +307,8 @@ async function handleLogout(event) {
   setWorkspaceStatus('account-status', 'Signing out...', 'info');
   resetBYOKKey();
   clearWorkspaceOneTimeSecrets();
+  resetScenarioBuilder();
+  clearScenarioPreview();
   try {
     const result = await apiRequest('/api/auth/logout', { method: 'POST' });
     if (!result?.logout_url) throw new Error('The sign-out destination is unavailable.');
@@ -661,7 +664,7 @@ function renderProjectsUI() {
   byId('project-count').textContent = `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`;
   const list = byId('project-list');
   if (projects.length === 0) {
-    list.innerHTML = '<div class="empty-list">No private projects yet. Save the current example to create one.</div>';
+    list.innerHTML = '<div class="empty-list">No private projects yet. Use New / Open to create a scenario or import a file, or save the current example below.</div>';
     return;
   }
   list.innerHTML = projects.map(project => `

@@ -24,6 +24,8 @@ from app.api.account_models import (
     ProjectListResponse,
     ProjectSummaryResponse,
     ProjectUpdateRequest,
+    ScenarioFilePreviewRequest,
+    ScenarioFilePreviewResponse,
     ShareLinkCreateRequest,
     ShareLinkCreatedResponse,
     ShareLinkListResponse,
@@ -40,6 +42,7 @@ from app.db.models import MCPAccessToken, Project, User
 from app.db.session import get_db
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.diff_ops import apply as apply_ops
+from app.scenario.exchange import parse_scenario_file
 from app.scenario.loader import scenario_from_dict
 from app.scenario.serialize import scenario_to_dict
 from app.scenario.state import compute_state_bundle
@@ -56,6 +59,7 @@ from app.services.projects import (
     get_project,
     list_projects,
     list_share_links,
+    normalize_project_scenario,
     resolve_share_link,
     revoke_share_link,
     update_project,
@@ -472,6 +476,32 @@ def post_project_import(
         raise _project_error(exc)
     response.headers["ETag"] = f'"{project.version}"'
     return _project_detail(project)
+
+
+@router.post(
+    "/api/projects/import/preview",
+    response_model=ScenarioFilePreviewResponse,
+    dependencies=[Depends(require_same_origin)],
+)
+def preview_project_file(
+    payload: ScenarioFilePreviewRequest,
+    request: Request,
+    user: User = Depends(require_verified_user),
+    session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> ScenarioFilePreviewResponse:
+    enforce_rate_limit(
+        request, session, settings, scope="state_compute",
+        limit=settings.anonymous_requests_per_minute, user_id=user.id,
+    )
+    try:
+        raw, source_id, warnings = parse_scenario_file(payload.text)
+        scenario = normalize_project_scenario(raw, source_id)
+    except ValueError as exc:
+        raise _project_error(exc)
+    return ScenarioFilePreviewResponse(
+        scenario=scenario, source_scenario_id=source_id, warnings=warnings,
+    )
 
 
 @router.get("/api/projects/{project_id}", response_model=ProjectDetailResponse)

@@ -25,6 +25,7 @@
     <div class="topbar-right">
       <label class="visually-hidden" for="scenario-select">Choose an example scenario</label>
       <select class="scenario-select" id="scenario-select"></select>
+      <button class="btn scenario-launcher" id="scenario-library-btn" type="button" title="Create a scenario, open a file, or return to your projects">New / Open</button>
       <label class="compact-switch" title="Compact view: flat list with category badges instead of category headers">
         <input type="checkbox" id="compact-toggle" checked>
         <span class="compact-switch-slider"></span>
@@ -390,6 +391,94 @@
     </div>
   </div>
 
+  <!-- Personal scenario library -->
+  <div class="modal-backdrop" id="modal-scenario-library">
+    <div class="modal-content scenario-library-content">
+      <div class="modal-header">
+        <div>
+          <span class="modal-title">Create or open a scenario</span>
+          <p class="scenario-lead">Create a scenario or bring one with you. Your work stays private.</p>
+        </div>
+        <button class="modal-close" type="button" aria-label="Close scenario library">×</button>
+      </div>
+      <div class="scenario-library-nav">
+        <div class="scenario-tabs" role="tablist" aria-label="Start a scenario">
+          <button class="scenario-tab active" id="scenario-tab-new" type="button" role="tab" aria-selected="true" aria-controls="scenario-panel-new" data-scenario-tab="new">New scenario</button>
+          <button class="scenario-tab" id="scenario-tab-file" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-file" data-scenario-tab="file" tabindex="-1">Open file</button>
+        </div>
+        <button class="btn btn-small" id="scenario-my-projects" type="button">My projects</button>
+      </div>
+      <div class="scenario-library-body">
+        <div class="scenario-signin" id="scenario-signin-required">
+          <span>Sign in to create or import private scenarios. No trial credit or API key is needed.</span>
+          <button class="btn btn-primary" id="scenario-signin-btn" type="button">Sign in</button>
+        </div>
+        <section id="scenario-panel-new" role="tabpanel" aria-labelledby="scenario-tab-new">
+          <form id="scenario-builder-form">
+            <fieldset id="scenario-builder-fields" class="scenario-fields">
+              <div class="form-field">
+                <label for="scenario-builder-title">Scenario title</label>
+                <input id="scenario-builder-title" type="text" required maxlength="120" placeholder="What would you like to explore?">
+              </div>
+              <details class="scenario-description">
+                <summary>Add background <span class="optional-label">optional</span></summary>
+                <div class="form-field">
+                  <label class="visually-hidden" for="scenario-builder-description">Scenario background</label>
+                  <textarea id="scenario-builder-description" rows="2" maxlength="4000" placeholder="A little context for this scenario"></textarea>
+                </div>
+              </details>
+              <div class="scenario-section-heading">
+                <h3><span class="scenario-step" aria-hidden="true">1</span> Write your statements</h3>
+                <button class="btn btn-small" id="scenario-starter-btn" type="button">Try a small example</button>
+              </div>
+              <p class="scenario-hint" id="scenario-statements-help">Facts are given. Assumptions can be challenged. Conclusions are claims you want to test.</p>
+              <div id="scenario-statements" aria-describedby="scenario-statements-help"></div>
+              <button class="btn btn-small" id="scenario-add-statement" type="button">+ Statement</button>
+              <div class="scenario-section-heading">
+                <h3><span class="scenario-step" aria-hidden="true">2</span> Connect them with rules</h3>
+              </div>
+              <p class="scenario-hint">Select what must hold, then what follows. “Usually” allows competing arguments; “always” makes a strict rule.</p>
+              <div id="scenario-builder-rules"></div>
+              <button class="btn btn-small" id="scenario-add-rule" type="button">+ Rule</button>
+            </fieldset>
+          </form>
+        </section>
+        <section id="scenario-panel-file" role="tabpanel" aria-labelledby="scenario-tab-file" hidden>
+          <div class="scenario-file-card" id="scenario-drop-zone">
+            <h3>Bring an existing scenario</h3>
+            <p>Drop a file here, or choose one below.</p>
+            <label for="scenario-file-input">Scenario file</label>
+            <input id="scenario-file-input" type="file" accept=".yaml,.yml,.json" aria-describedby="scenario-file-help">
+            <p class="scenario-hint" id="scenario-file-help">ABDA-NL YAML or JSON, up to 1 MB. Files are checked before saving. PDFs, Word documents, and attached source files are not supported.</p>
+            <button class="btn btn-small" id="scenario-template-btn" type="button">Download a starter file</button>
+          </div>
+          <div id="scenario-file-preview" hidden>
+            <div class="scenario-preview-heading"><span class="verified-badge">Ready to import</span><span id="scenario-file-name"></span></div>
+            <div class="form-field">
+              <label for="scenario-import-name">Save as</label>
+              <input id="scenario-import-name" type="text" maxlength="120" required>
+            </div>
+            <div class="scenario-counts" id="scenario-file-counts"></div>
+            <p class="scenario-hint" id="scenario-file-description"></p>
+            <div id="scenario-file-warnings" class="scenario-file-warnings"></div>
+            <p class="scenario-hint">This creates a new private project. It does not replace an example, an existing project, or your original file.</p>
+          </div>
+        </section>
+      </div>
+      <div class="workspace-status" id="scenario-library-status" role="status" aria-live="polite" tabindex="0"></div>
+      <div class="scenario-library-footer">
+        <div class="scenario-download">
+          <button class="btn btn-small" id="scenario-download-current" type="button">Download current scenario</button>
+          <span class="scenario-hint">Includes unsaved edits. No chat or credentials.</span>
+        </div>
+        <div class="scenario-footer-actions">
+          <button class="btn" id="scenario-library-cancel" type="button">Cancel</button>
+          <button class="btn btn-primary" id="scenario-library-submit" type="button">Create &amp; open</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Save-as-new-scenario modal -->
   <div class="modal-backdrop" id="modal-save">
     <div class="modal-content modal-save-content">
@@ -497,5 +586,6 @@
   <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
   <script src="workspace.js"></script>
+  <script src="scenarios.js"></script>
 </body>
 </html>

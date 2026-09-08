@@ -7,7 +7,7 @@ import pytest
 from deploy.capture_conference_fallback import FRAMES, ORIGIN, SCENARIO, TOGGLE, allowed_request, render_gallery
 
 
-@pytest.mark.parametrize("path", ["/", "/app.js", "/api/auth/session", "/config"])
+@pytest.mark.parametrize("path", ["/", "/app.js", "/scenarios.js", "/api/auth/session", "/config"])
 def test_capture_allows_required_anonymous_reads(path):
     assert allowed_request("GET", ORIGIN + path)
 

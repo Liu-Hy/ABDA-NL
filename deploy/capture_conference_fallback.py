@@ -18,7 +18,7 @@ ORIGIN = "https://demo.abda-nl.org"
 SCENARIO = "popov_v_hayashi"
 TOGGLE = {"op": "toggle-assumption", "id": "equity_compromise_open"}
 GET_PATHS = frozenset({
-    "/", "/style.css", "/app.js", "/workspace.js", "/config", "/scenarios",
+    "/", "/style.css", "/app.js", "/workspace.js", "/scenarios.js", "/config", "/scenarios",
     "/api/auth/session", "/vendor/dagre.min.js", "/vendor/marked.min.js",
     "/vendor/purify.min.js", "/favicon.ico",
 })

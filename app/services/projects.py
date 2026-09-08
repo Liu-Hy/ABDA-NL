@@ -61,7 +61,7 @@ def _clean_description(description: str) -> str:
     return cleaned
 
 
-def _normalize_scenario(raw: dict, source_scenario_id: str | None) -> dict:
+def normalize_project_scenario(raw: dict, source_scenario_id: str | None) -> dict:
     scenario = scenario_from_dict(raw)
     normalized = scenario_to_dict(scenario)
     encoded_size = len(
@@ -160,7 +160,7 @@ def _create_project(
         owner_user_id=owner.id,
         name=_clean_name(name),
         description=_clean_description(description),
-        scenario_json=_normalize_scenario(scenario, source_id),
+        scenario_json=normalize_project_scenario(scenario, source_id),
         source_scenario_id=source_id,
     )
     session.add(project)
@@ -211,7 +211,7 @@ def update_project(
         values["description"] = _clean_description(description)
     if scenario is not None:
         current = get_project(session, owner, project_id)
-        values["scenario_json"] = _normalize_scenario(
+        values["scenario_json"] = normalize_project_scenario(
             scenario, current.source_scenario_id
         )
 

@@ -75,7 +75,7 @@ body.modal-open { overflow: hidden; }
   border-bottom: 1px solid var(--border); flex-shrink: 0; gap: .75rem;
 }
 .topbar-left { display: flex; align-items: center; gap: .5rem; font-size: .86rem; min-width: 0; }
-.topbar-right { display: flex; align-items: center; gap: .35rem; min-width: 0; }
+.topbar-right { display: flex; align-items: center; gap: .35rem; min-width: 0; flex-shrink: 0; }
 .service-links { display: inline-flex; align-items: center; gap: .4rem; margin-left: .15rem; }
 .service-links a { color: var(--text-dim); font-size: .7rem; white-space: nowrap; }
 .service-links a:hover { color: var(--accent); }
@@ -1153,6 +1153,85 @@ body.llm-disabled .rule-info { display: none; }
 .modal-save-content { width: 480px; max-width: 92vw; }
 .modal-save-collision-content { width: 440px; max-width: 92vw; }
 .modal-suspend-impact-content { width: 520px; max-width: 92vw; }
+
+/* Personal scenario library */
+.scenario-launcher { white-space: nowrap; color: var(--accent); border-color: #b9cee6; }
+.scenario-library-content { width: min(760px, 94vw); max-height: 92vh; }
+.scenario-lead { margin-top: .2rem; color: var(--text-dim); font-size: .83rem; font-weight: 400; }
+.scenario-library-nav {
+  display: flex; align-items: center; justify-content: space-between; gap: .65rem;
+  padding: .65rem 1.2rem; border-bottom: 1px solid var(--border);
+}
+.scenario-tabs { display: flex; gap: .25rem; padding: .2rem; border-radius: 10px; background: var(--bg); }
+.scenario-tab {
+  border: 0; border-radius: 7px; padding: .45rem .8rem; background: transparent;
+  color: var(--text-dim); font: inherit; font-size: .83rem; cursor: pointer;
+}
+.scenario-tab.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); font-weight: 650; }
+.scenario-library-body { padding: 1rem 1.2rem; overflow-y: auto; min-height: 0; }
+#scenario-library-status { flex-shrink: 0; max-height: 6rem; overflow: auto; margin: 0; padding: .55rem 1.2rem; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+#scenario-library-status:empty { display: none; }
+.scenario-fields { border: 0; min-width: 0; }
+.scenario-description { margin-bottom: .6rem; }
+.scenario-description summary { color: var(--text-dim); font-size: .8rem; cursor: pointer; margin-bottom: .5rem; }
+.scenario-section-heading { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin: 1.1rem 0 .3rem; }
+.scenario-section-heading h3, .scenario-file-card h3 { font-size: .91rem; font-weight: 650; }
+.scenario-step {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.5rem; height: 1.5rem; margin-right: .3rem; border-radius: 50%;
+  color: var(--accent); background: var(--accent-light); font-size: .75rem;
+}
+.scenario-hint { color: var(--text-dim); font-size: .76rem; line-height: 1.5; }
+.scenario-statement-row { display: grid; grid-template-columns: 8rem minmax(0, 1fr) auto; gap: .4rem; margin: .6rem 0; }
+.scenario-statement-row input, .scenario-statement-row select, .scenario-rule-field select {
+  min-width: 0; width: 100%; padding: .48rem .55rem;
+  border: 1px solid #cfd5dc; border-radius: var(--radius); font: inherit; font-size: .81rem;
+  color: var(--text); background: var(--surface);
+}
+.scenario-rule-card {
+  padding: .65rem .8rem .75rem; margin: .85rem 0; min-width: 0;
+  border: 1px solid var(--border); border-radius: 10px; background: #fafbfd;
+}
+.scenario-rule-card legend { padding: 0 .3rem; font-size: .75rem; font-weight: 650; color: var(--text-dim); }
+.scenario-rule-field { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+.scenario-rule-field > span { width: 4.4rem; flex-shrink: 0; font-size: .8rem; color: var(--text-dim); }
+.scenario-add-condition { margin: 0 0 .75rem 5rem; }
+.scenario-file-card { padding: 1.1rem; border: 1px dashed #91abc8; border-radius: 12px; background: #f8fafd; }
+.scenario-file-card.drag-over { background: var(--accent-light); border-color: var(--accent); }
+.scenario-file-card > p { margin: .35rem 0 .8rem; }
+.scenario-file-card > label { display: block; font-size: .8rem; font-weight: 600; }
+.scenario-file-card input { display: block; max-width: 100%; margin: .5rem 0; font: inherit; font-size: .83rem; }
+.scenario-file-card input::file-selector-button { border: 1px solid #b9cee6; border-radius: 6px; padding: .5rem .75rem; margin-right: .6rem; background: white; color: var(--accent); cursor: pointer; }
+.scenario-preview-heading { display: flex; align-items: center; gap: .7rem; margin: 1.1rem 0 .9rem; font-size: .8rem; overflow-wrap: anywhere; }
+.scenario-counts { display: flex; flex-wrap: wrap; gap: .45rem; margin: .6rem 0; }
+.scenario-counts span { background: var(--bg); color: var(--text-dim); font-size: .76rem; border-radius: 6px; padding: .25rem .55rem; }
+.scenario-file-warnings { font-size: .8rem; color: #725114; white-space: pre-line; margin: .6rem 0; }
+.scenario-library-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: .7rem;
+  border-top: 1px solid var(--border); padding: .85rem 1.2rem; background: #fafbfd;
+}
+.scenario-download { display: flex; align-items: flex-start; flex-direction: column; gap: .3rem; }
+.scenario-footer-actions { display: flex; gap: .45rem; flex-shrink: 0; }
+.scenario-signin { display: flex; align-items: center; gap: 1rem; padding: .75rem; margin-bottom: 1rem; background: var(--accent-light); border-radius: var(--radius); font-size: .81rem; }
+.scenario-signin .btn { flex-shrink: 0; }
+@media (min-width: 1051px) and (max-width: 1350px) {
+  .topbar { flex-wrap: wrap; }
+  .topbar-left { width: 100%; }
+  .topbar-right { flex-wrap: wrap; }
+}
+@media (max-width: 600px) {
+  .scenario-library-content { width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .scenario-library-nav, .scenario-library-body, .scenario-library-footer { padding: .7rem; }
+  .scenario-library-nav, .scenario-section-heading { flex-wrap: wrap; }
+  .scenario-library-footer { flex-wrap: wrap; }
+  .scenario-footer-actions { width: 100%; justify-content: flex-end; }
+  .scenario-statement-row { grid-template-columns: 7.5rem minmax(0, 1fr) auto; }
+  .scenario-statement-row input { grid-row: 2; grid-column: 1 / -1; }
+  .scenario-statement-row > button { grid-column: 3; }
+  .scenario-rule-field { gap: .4rem; }
+  .scenario-rule-field > span { width: 3.7rem; }
+  .scenario-tab { padding: .45rem .55rem; }
+}
 
 /* ── Suspend-impact preview modal ────────────────────── */
 .modal-suspend-impact-content .modal-body { padding: .9rem 1rem .4rem; }

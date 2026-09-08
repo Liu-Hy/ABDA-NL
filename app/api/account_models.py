@@ -80,6 +80,18 @@ class ProjectUpdateRequest(BaseModel):
         return self
 
 
+class ScenarioFilePreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=1_000_000, repr=False)
+
+
+class ScenarioFilePreviewResponse(BaseModel):
+    scenario: dict
+    source_scenario_id: Optional[str] = None
+    warnings: List[str]
+
+
 class ProjectWorkingStateRequest(BaseModel):
     """Apply temporary operations to the saved project version."""
 

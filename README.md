@@ -105,6 +105,25 @@ kept out of the public list until they pass the repository evaluation gate.
 
 ### Browser workspace
 
+Use **New / Open**, beside the example selector, to work with your own scenario:
+
+- **New scenario** lets you write facts, assumptions, and conclusions, then
+  connect them with guided if/then rules. Choose **Create & open** to save a
+  private project and explore its computed arguments. No model call or trial
+  credit is needed.
+- **Open file** accepts an ABDA-NL scenario YAML or JSON file (up to 1 MB).
+  Check the preview, choose a name, and select **Import & open**. This always
+  creates a separate project. It never overwrites an example or existing work.
+- **My projects** reopens saved work. **Download current scenario** exports
+  the current rules and statements, including unsaved edits, for later import.
+  Downloads do not include chat, account identifiers, share links, or API keys.
+
+Sign in before creating or importing private work. The builder draft stays in
+the current tab when you close the dialog, but is not saved until creation;
+refreshing or signing out discards it. File import does not translate prose
+documents or upload attached source documents. See the
+[scenario guide](docs/scenarios.md) for a short example and supported formats.
+
 The webpage keeps anonymous example exploration available while placing private
 and metered features in the **Workspace** dialog:
 
