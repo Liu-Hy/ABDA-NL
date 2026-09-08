@@ -11,6 +11,10 @@ checksum in Cloud Shell.
 
 ## Current release sequence
 
+- [Create and open scenarios](scenario-library-20260908.md) records the new
+  builder, checked file import, portable export, and custom-project AI support.
+  It is a development candidate, not yet a live deployment. The dedicated
+  Azure operator session needs renewed sign-in before an image update.
 - [Conference layout repair](conference-layout-20260906.md) identifies the
   latest healthy image, the fixed conclusion-text clipping, and the verified
   offline screenshot pack. All promoted public limits are unchanged.
