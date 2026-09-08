@@ -80,3 +80,8 @@ an older parser or remove user materials to make an old image start working.
 
 Pending final source verification, immutable image publication, and live
 image-only deployment. See [the user guide](../scenarios.md) for the workflow.
+
+Initial CodeQL review flagged the filename regular expression's unbounded
+repetition. Added explicit start anchoring and a repetition bound matching the
+filename limit in the validator, schema, and browser. The security gate remains
+enabled and the candidate must pass it before deployment.

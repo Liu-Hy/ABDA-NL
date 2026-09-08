@@ -11,7 +11,7 @@ MAX_SOURCE_BYTES = 1_000_000
 MAX_SOURCE_TEXT = 100_000
 MAX_TOTAL_SOURCE_BYTES = 400_000
 MAX_SOURCES = 10
-FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_. -]*\.(?:txt|md|pdf)\Z")
+FILENAME = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_. -]{0,116}\.(?:txt|md|pdf)\Z")
 LITERAL = re.compile(r"-?[A-Za-z_][A-Za-z0-9_]{0,99}\Z")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 

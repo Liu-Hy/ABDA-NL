@@ -20,7 +20,7 @@ class SourceEditor {
     const names = new Set();
     return this.sources.map(source => {
       const filename = source.filename.trim(), text = source.text.trim(), url = (source.url || '').trim();
-      if (!/^[A-Za-z0-9][A-Za-z0-9_. -]*\.(txt|md|pdf)$/.test(filename) || filename.length > 120) throw new Error('Give each source a simple, distinct .txt, .md or .pdf filename.');
+      if (filename.length > 120 || !/^[A-Za-z0-9][A-Za-z0-9_. -]{0,116}\.(txt|md|pdf)$/.test(filename)) throw new Error('Give each source a simple, distinct .txt, .md or .pdf filename.');
       if (names.has(filename.toLowerCase())) throw new Error('Each reference needs a distinct filename.');
       names.add(filename.toLowerCase());
       if (!text || text.length > 100000) throw new Error('Each reference needs text, up to 100,000 characters.');

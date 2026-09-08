@@ -53,7 +53,7 @@
         "type": "object", "additionalProperties": false,
         "required": ["filename", "text"],
         "properties": {
-          "filename": {"type": "string", "maxLength": 120, "pattern": "^[A-Za-z0-9][A-Za-z0-9_. -]*\\.(txt|md|pdf)(?![\\s\\S])"},
+          "filename": {"type": "string", "maxLength": 120, "pattern": "^[A-Za-z0-9][A-Za-z0-9_. -]{0,116}\\.(txt|md|pdf)(?![\\s\\S])"},
           "text": {"type": "string", "minLength": 1, "maxLength": 100000},
           "url": {"type": "string", "maxLength": 2000}
         }
