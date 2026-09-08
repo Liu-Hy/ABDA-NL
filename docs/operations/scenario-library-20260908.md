@@ -1,10 +1,14 @@
 # Create and open scenarios, September 8, 2026
 
-Status: implemented, tested, published, and provenance-verified on `development`.
-The public site has not been updated. A live Azure read reported
-`AADSTS700082` because the dedicated operator session expired after the
-tenant's 12-hour inactivity window. Cached account identity is not evidence
-of current Azure access. No Azure resource was changed in this work.
+Status: deployed at `https://demo.abda-nl.org`; release and public browser
+acceptance passed. The healthy revision is
+`abda-nl-stg-web--scenarios-54a0885`.
+
+The initial deployment attempt waited for renewed authorization after a live
+Azure read reported `AADSTS700082`, the tenant's 12-hour inactivity expiry.
+The operator completed Microsoft sign-in and MFA. A subsequent live Container
+Apps read verified renewed access, in addition to the cached identity check.
+The agent then completed the image-only deployment without a manual gate batch.
 
 ## User experience
 
@@ -92,18 +96,54 @@ found cross-test login throttling, and the subsequent integration review
 completed custom-scenario AI context and Reset support. Do not promote that
 intermediate artifact just because its image publication passed.
 
-## Remaining release step
+## Live deployment and acceptance
 
-The operator can renew the dedicated Azure session from an ordinary Delta
-terminal using the [existing login handoff](agent-driven-deployment.md#one-interactive-authorization).
-Only Microsoft sign-in and MFA require operator action. The candidate's CI,
-published digest, and provenance are verified. After renewed login, the agent
-can read current Azure state, perform the authorized image-only update, and
-run public checks.
+The agent confirmed the exact subscription, tenant, and account, checked that
+no deployment or manual migration job was running, and verified the healthy
+previous revision `abda-nl-stg-web--layout-9c02a80`. A pre-deployment external
+release check passed at `2026-09-08T20:47:15.259441+00:00`.
 
-Do not replay historical numbered gates. Preserve current budgets, secrets,
-Auth0, DNS, database, scaling, and probes. The previous last-recorded live
-image is identified in the [September 6 layout checkpoint](conference-layout-20260906.md);
-read current Azure state before relying on it for an update or rollback.
-The public readiness endpoint returned `ready` on September 8 while this
-candidate was being prepared.
+One Container App image update selected the published digest above and suffix
+`scenarios-54a0885`. The new revision became both latest and latest-ready,
+reported Healthy and Provisioned, and had one running, ready replica with zero
+restarts at inspection. A private before/after comparison proved that the
+application contract changed only in the image and revision suffix. Identity,
+environment references, configuration, secret references, scaling, probes,
+and all other template fields were preserved. No migration, provider call,
+Auth0 change, DNS change, budget adjustment, or database resource change ran.
+
+The external release checker passed again at
+`2026-09-08T20:49:08.610708+00:00`: HTTPS, HTTP redirection, readiness, liveness,
+security headers, policy pages, safe configuration, protected metrics, budget
+invariants, and the database pool. It verified the retained 100-user trial,
+$5 grant, $500 total cap, and enabled $500 OpenRouter outage boundary. Trial
+spend remained 447,085 microUSD and emergency spend remained 149 microUSD;
+there was one activated trial, no pending or uncertain charged reservations,
+and one checked-out database connection out of five at inspection.
+
+Public Chromium and Firefox checks each passed the existing six accessibility
+scans, three viewport checks, and three keyboard checks, with zero console or
+page errors. Additional live scenario-library checks in each browser passed:
+
+- Both dialog tabs at 1440, 780, and 390 pixels, six WCAG A/AA scans per engine,
+  without horizontal overflow.
+- Sign-in guidance, disabled anonymous creation/import, tab-keyboard controls,
+  Escape dismissal, and focus restoration.
+- Starter-file download and current-example export, checking the versioned
+  envelope, exact expected fields, and source-example provenance.
+- Anonymous preview and import requests rejected with HTTP 401.
+- Exact deployed bytes for `index.html`, `app.js`, `workspace.js`,
+  `scenarios.js`, and `style.css` matching the tested source.
+
+The public checks did not borrow a real login, modify any user's project, or
+call a model. Authenticated create/import, persistence, Reset, custom-scenario
+AI context, and MCP integration are covered by the source CI evidence above.
+No new small manual acceptance gate is required. Users can refresh the public
+page and select **New / Open** when ready to try their own scenario.
+
+The compatible previous image remains recorded in the
+[September 6 layout checkpoint](conference-layout-20260906.md). Historical
+numbered gates must not be replayed against the new release. Future routine
+updates use the [agent-driven handoff](agent-driven-deployment.md); Azure
+session expiry may require renewed operator sign-in, not a new deployment
+architecture or a copy of credentials in chat.
