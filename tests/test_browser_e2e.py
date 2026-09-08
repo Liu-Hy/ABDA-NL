@@ -2100,6 +2100,11 @@ def test_project_save_waits_for_an_in_flight_state_computation(live_browser_serv
             page.locator("#dev-login-email").fill("compute-before-save@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
+            # Finish the asynchronous login refresh before installing the
+            # computation fixture and asserting a later global status message.
+            expect(page.locator("#global-status")).to_contain_text(
+                "Signed in to the local development workspace."
+            )
 
             page.evaluate(
                 """() => {
