@@ -1,6 +1,6 @@
 # ABDA-NL operations
 
-Start with the [current public release record](public-release-20260906.md)
+Start with the [current public release record](community-examples-20260908.md)
 and [agent-driven deployment handoff](agent-driven-deployment.md). The operator's
 Delta Azure login now allows the agent to execute approved routine work directly.
 The [final operator batch](final-operator-batch.md) records the completed cloud
@@ -11,15 +11,21 @@ checksum in Cloud Shell.
 
 ## Current release sequence
 
+- [Reviewed community examples](community-examples-20260908.md) is the latest
+  healthy public image. It adds consented submissions, scoped curator review,
+  direct publication, and additive database revision 20260908_0005. After this
+  migration, use the same image with the catalog disabled or a newer compatible
+  image for rollback. Older v4 images reject the new schema head. Do not replay
+  historical image rollback gates or downgrade the database.
 - [Create and open scenarios](scenario-library-20260908.md) records the new
   builder, checked file import, portable export, and custom-project AI support.
-  This is the latest healthy public image. The renewed Azure session, image-only
-  deployment, exact asset checks, release checks, and public browser acceptance
-  are verified. Public limits and routing are unchanged.
+  Those features and the unchanged public limits and routing are retained in
+  the current community-example image. Its prior image is historical evidence,
+  not a rollback target for the new database head.
 - [Conference layout repair](conference-layout-20260906.md) identifies the
-  compatible previous image, the fixed conclusion-text clipping, and the
+  previous layout image, the fixed conclusion-text clipping, and the
   verified offline screenshot pack. Its layout fix is retained in the current
-  scenario-library release.
+  release.
 - [September 6 public release](public-release-20260906.md) records the live
   100-user configuration, bounded outage fallback, completed rollback and
   restoration, final audit, external release check, and browser and capacity
