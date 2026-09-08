@@ -298,15 +298,28 @@ def build_system_prompt(
     af: dict[str, Any],
     diff_ops: list[dict[str, Any]],
     *,
-    scenario_dir: Path,
+    scenario_dir: Path | None,
 ) -> str:
     corpus_block = build_corpus_block(
         scenario_dir,
         list((scenario.corpus or [])),
-        getattr(scenario, "title", "") or scenario_dir.name,
+        getattr(scenario, "title", "") or (scenario_dir.name if scenario_dir else "Custom scenario"),
     )
     scenario_block = build_scenario_block(scenario)
     state_block = build_state_block(scenario, af, diff_ops)
+    if scenario_dir is None:
+        # A new scenario has no example documents to supply the meanings of
+        # its identifiers. Include every authored statement and rule, rather
+        # than leaving the assistant to guess what "statement_1" denotes.
+        state_block += "\n\n" + _format_edit_vocabulary(scenario)
+        state_block += "\n\n### Rule activation\n" + "\n".join(
+            f"- `{rule_id}`: {'active' if rule.type == 'strict' or rule.active else 'inactive'}"
+            for rule_id, rule in scenario.rules.items()
+        )
+        state_block += "\n\n### All computed proposition labels\n" + "\n".join(
+            f"- `{identifier}`: {label}"
+            for identifier, label in af.get("labels_by_proposition", {}).items()
+        )
     return load_prompt(
         "chat_system",
         scenario_block=scenario_block,
@@ -425,7 +438,7 @@ def run_turn(
     diff_ops: list[dict[str, Any]],
     messages: list[dict[str, Any]],
     *,
-    scenario_dir: Path,
+    scenario_dir: Path | None,
     client: LLMClient,
 ) -> ChatTurnResult:
     """Run one chat turn through the Proposer (+ one corrective

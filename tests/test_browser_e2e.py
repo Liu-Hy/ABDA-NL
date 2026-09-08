@@ -31,10 +31,12 @@ def _available_port() -> int:
         return int(probe.getsockname()[1])
 
 
-@pytest.fixture(scope="module")
-def live_browser_server(tmp_path_factory):
+@pytest.fixture
+def live_browser_server(tmp_path):
     root = Path(__file__).resolve().parents[1]
-    state_root = tmp_path_factory.mktemp("browser-state")
+    # Accounts and rate-limit windows belong to one test, not to the suite.
+    # Fast CI browsers otherwise exhaust the real login limit across tests.
+    state_root = tmp_path
     log_path = state_root / "server.log"
     port = _available_port()
     environment = os.environ.copy()
@@ -210,6 +212,19 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             expect(page.locator("#conclusions-list")).to_contain_text("Accepted")
             assert project["source_scenario_id"] is None
             assert page.request.get(f"{live_browser_server}/api/trial").json()["active"] is False
+            page.locator("input.rule-active-toggle").uncheck()
+            page.locator("#suspend-impact-apply-btn").click()
+            expect(page.locator("#conclusions-list")).to_contain_text("Absent")
+            page.locator("#scenario-library-btn").click()
+            with page.expect_download() as modified_download:
+                page.locator("#scenario-download-current").click()
+            modified = json.loads(Path(modified_download.value.path()).read_text())
+            assert modified["scenario"]["rules"]["rule_1"]["active"] is False
+            assert page.request.get(f"{live_browser_server}/api/projects/{project['id']}").json()["scenario"]["rules"]["rule_1"]["active"] is True
+            page.locator("#scenario-library-cancel").click()
+            page.locator("#reset-btn").click()
+            expect(page.locator("#conclusions-list")).to_contain_text("Accepted")
+            expect(page.locator("#modified-indicator")).to_be_hidden()
             page.locator("#scenario-library-btn").click()
             with page.expect_download() as download:
                 page.locator("#scenario-download-current").click()

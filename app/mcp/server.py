@@ -317,7 +317,7 @@ def _load_project_for_llm(project_id: str) -> tuple[User, Project, Any, dict[str
         )
         project = get_project_record(session, user, project_id)
         source_id = project.source_scenario_id
-        if not source_id or not (EXAMPLES_ROOT / source_id).is_dir():
+        if source_id and not (EXAMPLES_ROOT / source_id).is_dir():
             raise MCPToolUserError(
                 "This project has no bundled source corpus for language model tools."
             )
@@ -590,7 +590,7 @@ def ask_project(
                 bundle["af"],
                 [],
                 [{"role": "user", "content": question}],
-                scenario_dir=EXAMPLES_ROOT / str(project.source_scenario_id),
+                scenario_dir=EXAMPLES_ROOT / project.source_scenario_id if project.source_scenario_id else None,
                 client=client,
             )
         except HANDLED_LLM_ERRORS as exc:
@@ -641,7 +641,7 @@ def propose_project_edit(
                 task=task,
                 instruction=instruction,
                 existing_id=existing_id,
-                scenario_dir=EXAMPLES_ROOT / str(project.source_scenario_id),
+                scenario_dir=EXAMPLES_ROOT / project.source_scenario_id if project.source_scenario_id else None,
                 client=client,
             )
         except ProposerRetryExhausted as exc:

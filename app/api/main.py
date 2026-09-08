@@ -624,7 +624,7 @@ def _run_chat_request(
     scenario,
     bundle: dict,
     ops: list[dict],
-    scenario_dir: Path,
+    scenario_dir: Path | None,
     context_kind: str,
 ) -> ChatResponse:
     from app.llm.chat_service import run_turn
@@ -687,7 +687,7 @@ def _run_propose_request(
     scenario,
     bundle: dict,
     ops: list[dict],
-    scenario_dir: Path,
+    scenario_dir: Path | None,
     context_kind: str,
 ) -> ProposeResponse:
     from app.llm.edit_service import ProposerRetryExhausted, run_propose
@@ -790,8 +790,10 @@ def _load_project_working_context(
     return project, scenario, _compute_state_bundle(scenario), ops
 
 
-def _project_scenario_dir(project) -> Path:
+def _project_scenario_dir(project) -> Path | None:
     source_id = (project.source_scenario_id or "").strip()
+    if not source_id and not project.scenario_json.get("corpus"):
+        return None
     candidate = (EXAMPLES_ROOT / source_id).resolve()
     examples_root = EXAMPLES_ROOT.resolve()
     if not source_id or examples_root not in candidate.parents or not candidate.is_dir():

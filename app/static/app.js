@@ -464,7 +464,7 @@ async function loadScenario(id) {
 }
 
 async function resetToBaseline() {
-  if (!state.scenario_id) return;
+  if (state.readOnly || (!state.scenario_id && !state.activeProject)) return;
   if (blockStateMutationDuringSave()) return;
   const ctrl = beginRequest();
   state.diff_ops = state.renderedDiffOps.slice();

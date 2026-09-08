@@ -10,6 +10,19 @@ from app.llm import corpus
 from app.llm.corpus import CorpusLoadError
 
 
+def test_custom_scenario_context_never_reads_the_filesystem(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("custom scenario attempted a filesystem read")
+
+    monkeypatch.setattr(corpus.Path, "is_file", forbidden)
+    monkeypatch.setattr(corpus.Path, "read_text", forbidden)
+    block = corpus.build_corpus_block(None, [], "Custom idea")
+    assert "No external source documents" in block
+    assert "Do not invent document citations" in block
+    with pytest.raises(CorpusLoadError, match="cannot read local"):
+        corpus.build_corpus_block(None, ["../../.env"], "Untrusted")
+
+
 def test_pdf_extraction_requires_a_resolved_executable(tmp_path, monkeypatch):
     document = tmp_path / "paper.pdf"
     document.write_bytes(b"%PDF-1.4\n")

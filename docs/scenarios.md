@@ -29,6 +29,11 @@ preferences, and save changes. The existing AI-assisted editing tools are
 available when you configure model access. The builder is for creating a new
 scenario, not replacing a saved project's entire structure.
 
+For scenarios without bundled source documents, AI chat and edit proposals
+use your authored statements, rules, and computed argumentation state. They
+do not borrow another example's corpus. The same applies to MCP project tools.
+These optional AI requests use the usual funded or BYOK billing route.
+
 Closing the dialog keeps its unfinished builder draft in this tab. Refreshing,
 closing the tab, or signing out discards it. Private projects persist and can
 be reopened through **New / Open > My projects**.

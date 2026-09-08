@@ -87,7 +87,7 @@ def _render_concat_corpus(scenario_title: str, raw_texts: dict[str, str]) -> str
 
 
 def build_corpus_block(
-    scenario_dir: Path,
+    scenario_dir: Path | None,
     corpus_files: list[str],
     scenario_title: str,
     *,
@@ -100,6 +100,15 @@ def build_corpus_block(
     `CorpusLoadError` if no yaml exists and the raw corpus exceeds the
     budget.
     """
+    if scenario_dir is None:
+        if corpus_files:
+            raise CorpusLoadError("a custom scenario cannot read local source documents")
+        return (
+            "# Source context\n\nNo external source documents are attached to this "
+            "user-authored scenario. Ground answers and edits in the supplied "
+            "statements, rules, user instructions, and computed argumentation state. "
+            "Do not invent document citations or claim to have consulted sources.\n"
+        )
     yaml_path = scenario_dir / "corpus_summary.yaml"
     if yaml_path.is_file():
         try:

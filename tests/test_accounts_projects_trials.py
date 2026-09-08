@@ -559,6 +559,38 @@ def test_reopened_project_chat_and_propose_use_saved_state(
     assert "`recent_burn` (ACTIVE)" in fake.tool_systems[0]
 
 
+def test_custom_project_chat_and_propose_need_no_bundled_corpus(client: TestClient, monkeypatch):
+    from app.api import main as main_module
+
+    _login(client, "custom-project-llm@example.edu")
+    project = client.post("/api/projects/import", json={
+        "name": "An original idea", "scenario": {
+            "title": "An original idea", "facts": {"sunny": {"description": "It is sunny"}},
+            "conclusions": {"picnic": {"description": "Hold a picnic"}},
+            "rules": {"r": {"type": "defeasible", "premises": ["sunny"], "conclusion": "picnic"}},
+        },
+    }).json()
+    assert project["source_scenario_id"] is None
+    fake = _ProjectLLM()
+    monkeypatch.setattr(main_module, "ENABLE_LLM", True)
+    monkeypatch.setattr(main_module, "_llm_client", fake)
+    chat = client.post(f"/api/projects/{project['id']}/chat", json={
+        "expected_version": 1, "diff_ops": [],
+        "messages": [{"role": "user", "content": "Should we have a picnic?"}],
+    })
+    assert chat.status_code == 200, chat.text
+    assert "No external source documents" in fake.complete_systems[0]
+    assert "It is sunny" in fake.complete_systems[0]
+    proposed = client.post(f"/api/projects/{project['id']}/propose", json={
+        "expected_version": 1, "diff_ops": [], "task": "add-fact",
+        "instruction": "The field check is complete.",
+    })
+    assert proposed.status_code == 200, proposed.text
+    assert proposed.json()["op"]["id"] == "field_check_complete"
+    assert "No external source documents" in fake.tool_systems[0]
+    assert client.get(f"/api/projects/{project['id']}").json()["version"] == 1
+
+
 def test_share_token_is_returned_once_hashed_and_revocable(client: TestClient):
     user = _login(client, "sharing@example.edu")
     created = client.post(

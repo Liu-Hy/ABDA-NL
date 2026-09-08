@@ -148,12 +148,12 @@ def build_proposer_system_prompt(
     af: dict[str, Any],
     diff_ops: list[dict[str, Any]],
     *,
-    scenario_dir: Path,
+    scenario_dir: Path | None,
 ) -> str:
     corpus_block = build_corpus_block(
         scenario_dir,
         list(scenario.corpus or []),
-        getattr(scenario, "title", "") or scenario_dir.name,
+        getattr(scenario, "title", "") or (scenario_dir.name if scenario_dir else "Custom scenario"),
     )
     return load_prompt(
         "proposer_system",
@@ -168,14 +168,14 @@ def build_reviewer_system_prompt(
     af: dict[str, Any],
     diff_ops: list[dict[str, Any]],
     *,
-    scenario_dir: Path,
+    scenario_dir: Path | None,
     user_instruction: str,
     proposed_edit: dict[str, Any],
 ) -> str:
     corpus_block = build_corpus_block(
         scenario_dir,
         list(scenario.corpus or []),
-        getattr(scenario, "title", "") or scenario_dir.name,
+        getattr(scenario, "title", "") or (scenario_dir.name if scenario_dir else "Custom scenario"),
     )
     return load_prompt(
         "reviewer_system",
@@ -427,7 +427,7 @@ def run_review(
     *,
     user_instruction: str,
     proposed_edit: dict[str, Any],
-    scenario_dir: Path,
+    scenario_dir: Path | None,
     client: LLMClient,
 ) -> ReviewResult:
     """Run one Reviewer turn. Never blocks; returns advisory issues."""
@@ -622,7 +622,7 @@ def run_propose(
     task: str,
     instruction: str,
     existing_id: str | None = None,
-    scenario_dir: Path,
+    scenario_dir: Path | None,
     client: LLMClient,
 ) -> ProposeResult:
     """Run the end-to-end edit pipeline for one user instruction.

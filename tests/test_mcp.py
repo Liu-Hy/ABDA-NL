@@ -493,13 +493,17 @@ def test_mcp_scopes_optimistic_writes_and_cross_user_isolation(client: TestClien
     assert after_revoke.status_code == 401
 
 
+@pytest.mark.parametrize("custom", [False, True])
 def test_mcp_proposal_is_metered_and_never_applied_implicitly(
-    client: TestClient, monkeypatch
+    client: TestClient, monkeypatch, custom
 ):
-    user = _login(client, "mcp-llm@example.edu")
+    user = _login(client, f"mcp-llm-{custom}@example.edu")
     project = client.post(
-        "/api/projects",
-        json={
+        "/api/projects/import" if custom else "/api/projects",
+        json={"name": "Custom MCP scenario", "scenario": {
+            "title": "Custom MCP scenario", "facts": {"fact": {"description": "An observation"}},
+            "conclusions": {}, "rules": {},
+        }} if custom else {
             "name": "LLM project",
             "source_scenario_id": "fire_prevention",
             "diff_ops": [],
@@ -529,6 +533,7 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
         return selected_client
 
     def fake_propose(*args, **kwargs):
+        captured["scenario_dir"] = kwargs["scenario_dir"]
         return SimpleNamespace(
             op={
                 "op": "add-fact",
@@ -568,6 +573,24 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
     assert captured["user_id"] == user["id"]
     assert captured["request_kind"] == "mcp-propose"
     assert selected_client.closed is True
+    assert (captured["scenario_dir"] is None) is custom
+
+    def fake_chat(*args, **kwargs):
+        captured["chat_scenario_dir"] = kwargs["scenario_dir"]
+        return SimpleNamespace(
+            text="Grounded in this scenario.", stop_reason="end_turn", model="test-model",
+            provider="test-provider", billing_source="trial", route="test-route",
+            cost_microusd=42, usage={"input_tokens": 10, "output_tokens": 5},
+            latency_ms=12, retried=False,
+        )
+
+    monkeypatch.setattr(mcp_module, "run_turn", fake_chat)
+    answer = _call_tool(client, token, "ask_project", {
+        "project_id": project["id"], "question": "What is known?",
+    })["structuredContent"]
+    assert answer["message"] == "Grounded in this scenario."
+    assert (captured["chat_scenario_dir"] is None) is custom
+    assert captured["request_kind"] == "mcp-chat"
 
     unchanged = client.get(f"/api/projects/{project['id']}").json()
     assert unchanged["version"] == 1
