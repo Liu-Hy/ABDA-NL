@@ -85,3 +85,10 @@ Initial CodeQL review flagged the filename regular expression's unbounded
 repetition. Added explicit start anchoring and a repetition bound matching the
 filename limit in the validator, schema, and browser. The security gate remains
 enabled and the candidate must pass it before deployment.
+
+Browser CI also exposed a timing-dependent download defect: opening New / Open
+during a scenario request left Download current scenario disabled after the
+request ended. Request start/completion now refreshes those controls, without
+letting an older cancelled request enable them during a newer request. Two
+deterministic browser cases hold the request while opening the dialog and
+verify recovery and the exported scenario after both success and failure.

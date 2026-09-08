@@ -364,6 +364,37 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
             browser.close()
 
 
+@pytest.mark.parametrize('failed_load', [False, True])
+def test_download_recovers_when_library_opens_during_scenario_load(live_browser_server, failed_load):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.wait_for_function('!hasPendingStateRequest()')
+            previous = page.locator('#scenario-select').input_value()
+            target = 'nba_rebuild' if previous != 'nba_rebuild' else 'fire_prevention'
+            pending = []
+            page.route('**/state', lambda route: pending.append(route))
+            page.locator('#scenario-select').select_option(target)
+            page.locator('#scenario-library-btn').click()
+            expect(page.locator('#scenario-download-current')).to_be_disabled()
+            assert len(pending) == 1
+            if failed_load:
+                pending[0].fulfill(status=503, content_type='application/json', body='{"detail":"Test outage"}')
+            else:
+                pending[0].continue_()
+            expect(page.locator('#scenario-download-current')).to_be_enabled()
+            with page.expect_download() as downloaded:
+                page.locator('#scenario-download-current').click()
+            portable = json.loads(Path(downloaded.value.path()).read_text())
+            assert portable['source_scenario_id'] == (previous if failed_load else target)
+        finally:
+            browser.close()
+
+
 def test_reviewed_community_examples_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

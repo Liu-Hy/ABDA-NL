@@ -143,6 +143,7 @@ function beginRequest() {
   if (currentRequest) currentRequest.abort();
   const ctrl = new AbortController();
   currentRequest = ctrl;
+  renderScenarioLibraryAccess();
   return ctrl;
 }
 function isCurrent(ctrl) {
@@ -152,7 +153,11 @@ function isAbortError(e) {
   return e && (e.name === 'AbortError' || e.code === 20);
 }
 function finishRequest(ctrl) {
-  if (ctrl === currentRequest) currentRequest = null;
+  if (ctrl !== currentRequest) return;
+  currentRequest = null;
+  // A library opened during a load must recover after success or failure.
+  // A superseded request must not enable controls for a newer pending one.
+  renderScenarioLibraryAccess();
 }
 function hasPendingStateRequest() {
   return currentRequest !== null;
