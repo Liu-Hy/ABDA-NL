@@ -102,6 +102,20 @@ class AspicPreviewRequest(BaseModel):
     conclusions: str = Field(default="", max_length=5000)
 
 
+class ScenarioEditorPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scenario: dict = Field(repr=False)
+    source_scenario_id: Optional[str] = Field(default=None, max_length=100)
+    rules: Optional[str] = Field(default=None, max_length=100_000, repr=False)
+    glossary: str = Field(default="", max_length=200_000, repr=False)
+
+
+class ScenarioExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scenario: dict = Field(repr=False)
+    source_scenario_id: Optional[str] = Field(default=None, max_length=100)
+
+
 class SourcePreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     filename: str = Field(min_length=1, max_length=255)

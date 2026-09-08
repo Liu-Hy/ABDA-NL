@@ -3026,6 +3026,7 @@ function buildAspicText(scn) {
       lines.push(`# ${cat}`);
       for (const id of ids) {
         const data = scn.assumptions[id];
+        lines.push(`# Block ${data.block ?? 1}`);
         const mark = (data.active === false) ? '# [suspended] ' : '';
         lines.push(`${mark}=> ${id} [${id}]`);
       }

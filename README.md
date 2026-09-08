@@ -107,19 +107,18 @@ kept out of the public list until they pass the repository evaluation gate.
 
 Use **New / Open**, beside the example selector, to work with your own scenario:
 
-- **New scenario** lets you write facts, assumptions, and conclusions, then
-  connect them with guided if/then rules. Choose **Create & open** to save a
-  private project and explore its computed arguments. No model call or trial
-  credit is needed.
-- **Open file** accepts an ABDA-NL scenario YAML or JSON file (up to 1 MB).
-  Check the preview, choose a name, and select **Import & open**. This always
-  creates a separate project. It never overwrites an example or existing work.
-- **ASPIC-** accepts propositional rule text and a separate glossary. Attach
-  optional text, Markdown, or text-based PDF references in any tab. Documents
-  provide AI context without automatically becoming facts or rules.
+- **New scenario** and **Import scenario** lead into one common editor.
+  Write statements and rules in **Guided**, or switch to **Rule text** for
+  ASPIC-. Statement descriptions are the linked glossary. Import a complete
+  YAML/JSON scenario, or rules, glossary, and reference documents together.
+- Add optional text, Markdown, or text-based PDF references, then **Preview**
+  the actual ABDA results and **Save & open**. No model call or trial credit
+  is needed. References provide AI context without becoming logical facts.
 - **My projects** reopens saved work. **Download current scenario** exports
-  rules, statement meanings, and attached reference text, including unsaved
-  rule edits, for later import. **Sources & glossary** edits saved project materials.
+  rules, meanings, and full reference text, including bundled corpus content,
+  in one self-contained JSON file. Import does not need the original server.
+  PDF content uses extracted text, not page layout. **Edit scenario** opens
+  the same editor for a saved private project.
   Downloads do not include chat, account identifiers, share links, or API keys.
 
 Sign in before creating or importing private work. The builder draft stays in

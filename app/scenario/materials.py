@@ -8,9 +8,9 @@ import re
 from urllib.parse import urlsplit
 
 MAX_SOURCE_BYTES = 1_000_000
-MAX_SOURCE_TEXT = 100_000
-MAX_TOTAL_SOURCE_BYTES = 400_000
-MAX_SOURCES = 10
+MAX_SOURCE_TEXT = 250_000
+MAX_TOTAL_SOURCE_BYTES = 750_000
+MAX_SOURCES = 20
 FILENAME = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_. -]{0,116}\.(?:txt|md|pdf)\Z")
 LITERAL = re.compile(r"-?[A-Za-z_][A-Za-z0-9_]{0,99}\Z")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -22,7 +22,7 @@ class MaterialError(ValueError):
 
 def validate_sources(sources: list[dict], corpus: list[str] = ()) -> None:
     if len(sources) > MAX_SOURCES:
-        raise MaterialError("Use at most 10 reference documents per scenario.")
+        raise MaterialError("Use at most 20 reference documents per scenario, including bundled documents.")
     names = {name.casefold() for name in corpus}
     total = 0
     for item in sources:
@@ -36,7 +36,7 @@ def validate_sources(sources: list[dict], corpus: list[str] = ()) -> None:
         names.add(name.casefold())
         if not text.strip() or len(text) > MAX_SOURCE_TEXT or _CONTROL.search(text):
             raise MaterialError(
-                "Each reference must contain readable text of at most 100,000 characters."
+                "Each reference must contain readable text of at most 250,000 characters."
             )
         total += len(text.encode("utf-8"))
         url = item.get("url", "")
@@ -60,7 +60,7 @@ def validate_sources(sources: list[dict], corpus: list[str] = ()) -> None:
                 )
     if total > MAX_TOTAL_SOURCE_BYTES:
         raise MaterialError(
-            "Reference text exceeds 400 KB in total. Use relevant excerpts or summaries."
+            "Reference text exceeds 750 KB in total. Use relevant excerpts or summaries."
         )
 
 

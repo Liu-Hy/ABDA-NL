@@ -1178,7 +1178,29 @@ body.llm-disabled .rule-info { display: none; }
 
 /* Personal scenario library */
 .scenario-launcher { white-space: nowrap; color: var(--accent); border-color: #b9cee6; }
-.scenario-library-content { width: min(760px, 94vw); max-height: 92vh; }
+.scenario-library-content { width: min(880px, 94vw); max-height: 92vh; }
+.scenario-editor-section { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.scenario-editor-section h4 { margin: 1.1rem 0 .4rem; }
+.scenario-mode-switch { display: flex; gap: .25rem; }
+.scenario-mode-switch [aria-pressed="true"] { background: var(--accent); color: #fff; }
+.scenario-statement-card { padding: .5rem .7rem; margin-bottom: .6rem; border: 1px solid var(--border); border-radius: 8px; }
+.scenario-key { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; }
+.scenario-statement-details, .scenario-rule-details { margin: .4rem 0; font-size: .8rem; color: var(--text-dim); }
+.scenario-statement-details label, .scenario-rule-details label { display: flex; align-items: center; gap: .5rem; margin: .5rem 0; }
+.scenario-statement-details input:not([type="checkbox"]) { flex: 1; min-width: 0; }
+.scenario-rule-details input[type="number"], .scenario-assumption-settings input[type="number"] { width: 5rem; }
+.scenario-import-row { display: grid; grid-template-columns: minmax(0, 1fr) 12rem; align-items: center; gap: .7rem; margin: .6rem 0; text-align: left; }
+.scenario-import-row span { overflow-wrap: anywhere; }
+.scenario-import-row select { width: 100%; }
+.scenario-preview-claim { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px solid var(--border); }
+.scenario-preview-label { font-size: .8rem; font-weight: 600; color: var(--text-dim); }
+#scenario-preview-results li { margin: .6rem 0; }
+@media (max-width: 600px) {
+  .scenario-mode-switch { flex-wrap: wrap; }
+  .scenario-import-row { grid-template-columns: minmax(0, 1fr); }
+  .scenario-statement-details label { flex-wrap: wrap; }
+  .scenario-library-footer { flex-wrap: wrap; }
+}
 .material-section { margin: 1rem 0; padding-top: .85rem; border-top: 1px solid var(--border); }
 .material-section h3 { font-size: .95rem; margin-bottom: .45rem; }
 .material-section > summary, #scenario-panel-aspic summary { cursor: pointer; font-weight: 600; font-size: .85rem; min-height: 32px; padding: .3rem 0; }

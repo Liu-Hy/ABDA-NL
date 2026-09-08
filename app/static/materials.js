@@ -2,8 +2,6 @@
 const scenarioMaterials = { draft: null, generation: 0, busy: false, loading: false, dirty: false, account: null };
 const librarySources = {};
 let projectSources;
-let aspicPreview = null;
-let aspicGeneration = 0;
 
 class SourceEditor {
   constructor(host, changed) {
@@ -19,13 +17,13 @@ class SourceEditor {
     let total = 0;
     const names = new Set();
     return this.sources.map(source => {
-      const filename = source.filename.trim(), text = source.text.trim(), url = (source.url || '').trim();
+      const filename = source.filename.trim(), text = source.text, url = (source.url || '').trim();
       if (filename.length > 120 || !/^[A-Za-z0-9][A-Za-z0-9_. -]{0,116}\.(txt|md|pdf)$/.test(filename)) throw new Error('Give each source a simple, distinct .txt, .md or .pdf filename.');
       if (names.has(filename.toLowerCase())) throw new Error('Each reference needs a distinct filename.');
       names.add(filename.toLowerCase());
-      if (!text || text.length > 100000) throw new Error('Each reference needs text, up to 100,000 characters.');
+      if (!text.trim() || text.length > 250000) throw new Error('Each reference needs text, up to 250,000 characters.');
       total += new TextEncoder().encode(text).length;
-      if (total > 400000) throw new Error('Reference text exceeds 400 KB in total. Use relevant excerpts or summaries.');
+      if (total > 750000) throw new Error('Reference text exceeds 750 KB in total. Use relevant excerpts or summaries.');
       if (url) {
         let parsed;
         try { parsed = new URL(url); } catch (_) { throw new Error('Source links must be complete HTTPS URLs.'); }
@@ -40,14 +38,14 @@ class SourceEditor {
       <details class="source-card" ${this.editable ? 'open' : ''}>
         <summary>${escapeHtml(source.filename || 'Untitled document')}</summary>
         ${this.editable ? `<div class="form-field"><label for="${prefix}-name-${i}">Citation filename</label><input id="${prefix}-name-${i}" data-source-index="${i}" data-source-field="filename" maxlength="120" value="${escapeAttr(source.filename)}"></div>
-          <div class="form-field"><label for="${prefix}-text-${i}">Document text</label><textarea id="${prefix}-text-${i}" data-source-index="${i}" data-source-field="text" rows="5" maxlength="100000">${escapeHtml(source.text)}</textarea></div>
+          <div class="form-field"><label for="${prefix}-text-${i}">Document text</label><textarea id="${prefix}-text-${i}" data-source-index="${i}" data-source-field="text" rows="5" maxlength="250000">${escapeHtml(source.text)}</textarea></div>
           <div class="form-field"><label for="${prefix}-url-${i}">Source URL <span class="optional-label">optional, citation only</span></label><input id="${prefix}-url-${i}" data-source-index="${i}" data-source-field="url" type="url" maxlength="2000" placeholder="https://..." value="${escapeAttr(source.url || '')}"></div>
           <button class="btn btn-small" type="button" data-remove-source="${i}">Remove document</button>`
         : `<p class="scenario-hint">${escapeHtml(source.url || '')}</p><pre tabindex="0">${escapeHtml(source.text)}</pre>`}
       </details>`).join('') + (this.editable ? `
       <div class="form-field"><label for="${prefix}-upload">Add documents (.txt, .md or .pdf)</label><input id="${prefix}-upload" type="file" accept=".txt,.md,.pdf" multiple></div>
       <button class="btn btn-small" type="button" data-paste-source>+ Paste document text</button>
-      <p class="scenario-hint">${this.sources.length}/10 documents. Up to 1 MB per file, 40 PDF pages, and 400 KB of extracted text in total. URLs are not fetched. Original PDFs are not stored.</p>`
+      <p class="scenario-hint">${this.sources.length}/20 documents. Up to 1 MB per file, 40 PDF pages, and 750 KB of extracted text in total. URLs are not fetched. Original PDFs are not stored.</p>`
       : this.sources.length ? '' : '<p class="scenario-hint">No uploaded reference documents.</p>') +
       '<div class="source-status workspace-status" role="status" aria-live="polite"></div>';
     this.host.oninput = event => {
@@ -61,7 +59,7 @@ class SourceEditor {
       const remove = event.target.closest('[data-remove-source]');
       if (remove) { this.sources.splice(Number(remove.dataset.removeSource), 1); this.render(); this.changed(); }
       if (event.target.closest('[data-paste-source]')) {
-        if (this.sources.length >= 10) { this.message('Use at most 10 reference documents.'); return; }
+        if (this.sources.length >= 20) { this.message('Use at most 20 reference documents.'); return; }
         let number = 1;
         while (this.sources.some(s => s.filename === `reference-${number}.txt`)) number++;
         this.sources.push({ filename: `reference-${number}.txt`, text: '' });
@@ -75,7 +73,7 @@ class SourceEditor {
   message(text) { this.host.querySelector('.source-status').textContent = text; }
   controls() {
     const disabled = !this.editable || this.busy || !state.authSession.authenticated
-      || scenarioLibrary.busy || scenarioMaterials.busy;
+      || scenarioLibrary.busy || scenarioLibrary.reading || scenarioMaterials.busy;
     for (const input of this.host.querySelectorAll('input,textarea,button')) input.disabled = disabled;
   }
   async upload(files) {
@@ -84,18 +82,11 @@ class SourceEditor {
     this.busy = true; this.controls(); this.changed();
     const messages = [];
     try {
-      if (this.sources.length + files.length > 10) throw new Error('Use at most 10 reference documents.');
+      if (this.sources.length + files.length > 20) throw new Error('Use at most 20 reference documents.');
       for (const file of files) {
         if (file.size > 1000000) throw new Error('Each reference document must be at most 1 MB.');
         this.message(`Checking ${file.name}...`);
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        if (generation !== this.generation || state.authSession.user?.id !== account) return;
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-        const result = await apiRequest('/api/projects/materials/source-preview', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: file.name, data_base64: btoa(binary) }),
-        });
+        const result = await previewSourceUpload(file);
         if (generation !== this.generation || state.authSession.user?.id !== account) return;
         this.sources.push(result.source);
         messages.push(...result.warnings);
@@ -117,22 +108,11 @@ async function readMaterialText(file, limit) {
   catch (_) { throw new Error('Save the file as UTF-8 text before loading.'); }
 }
 
-function invalidateAspic() {
-  aspicPreview = null; aspicGeneration++;
-  byId('aspic-import-result').textContent = '';
-  scenarioLibrary.dirty = true;
-  // The footer is updated by the next access render or after validation.
-  if (scenarioLibrary.tab === 'aspic') byId('scenario-library-submit').textContent = 'Check & preview';
-}
-
 function initScenarioMaterials() {
   const host = byId('scenario-source-editor');
-  for (const tab of ['new', 'file', 'aspic']) {
-    const element = document.createElement('div'); element.id = `library-sources-${tab}`;
-    element.hidden = tab !== scenarioLibrary.tab; host.append(element);
-    librarySources[tab] = new SourceEditor(element, () => { scenarioLibrary.dirty = true; renderScenarioLibraryAccess(); });
-    librarySources[tab].reset();
-  }
+  const element = document.createElement('div'); element.id = 'library-sources-new'; host.append(element);
+  librarySources.new = new SourceEditor(element, scenarioDraftChanged);
+  librarySources.new.reset();
   projectSources = new SourceEditor(byId('materials-source-editor'), () => { scenarioMaterials.dirty = true; renderMaterialAccess(); });
   byId('scenario-materials-btn').addEventListener('click', openScenarioMaterials);
   byId('materials-save').addEventListener('click', saveScenarioMaterials);
@@ -146,53 +126,10 @@ function initScenarioMaterials() {
     } catch (error) { if (generation === scenarioMaterials.generation) setWorkspaceStatus('materials-status', error.message, 'error'); }
     finally { if (generation === scenarioMaterials.generation) { scenarioMaterials.loading = false; renderMaterialAccess(); } }
   });
-  byId('scenario-aspic-fields').addEventListener('input', invalidateAspic);
-  for (const [fileId, target, limit] of [['aspic-rules-file', 'aspic-import-rules', 100000], ['aspic-glossary-file', 'aspic-import-glossary', 200000]]) {
-    byId(fileId).addEventListener('change', async event => {
-      invalidateAspic(); const generation = aspicGeneration;
-      scenarioLibrary.reading = true; renderScenarioLibraryAccess();
-      try {
-        const text = await readMaterialText(event.target.files[0], limit);
-        if (text !== null && generation === aspicGeneration) byId(target).value = text;
-      } catch (error) { if (generation === aspicGeneration) setWorkspaceStatus('scenario-library-status', error.message, 'error'); }
-      finally { if (generation === aspicGeneration) { scenarioLibrary.reading = false; renderScenarioLibraryAccess(); } }
-    });
-  }
-  byId('aspic-import-preview').addEventListener('click', () => previewAspic());
-  byId('aspic-starter').addEventListener('click', () => {
-    if (byId('aspic-import-rules').value && !window.confirm('Replace the ASPIC- draft with the small example?')) return;
-    byId('aspic-import-title').value = 'Planning a picnic';
-    byId('aspic-import-rules').value = '-> sunny\n-> windy\nsunny => outside [sunshine]\nwindy => -outside [wind]';
-    byId('aspic-import-glossary').value = 'sunny = The forecast is sunny\nwindy = A strong wind is expected\noutside = We should hold the picnic outside\n-outside = We should not hold the picnic outside';
-    byId('aspic-import-conclusions').value = 'outside'; invalidateAspic();
-  });
-}
-
-async function previewAspic() {
-  if (!state.authSession.authenticated || scenarioLibrary.reading) return null;
-  const generation = ++aspicGeneration, account = state.authSession.user?.id;
-  scenarioLibrary.reading = true; renderScenarioLibraryAccess();
-  try {
-    const result = await apiRequest('/api/projects/import/aspic', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: byId('aspic-import-title').value, rules: byId('aspic-import-rules').value,
-        glossary: byId('aspic-import-glossary').value, conclusions: byId('aspic-import-conclusions').value }),
-    });
-    if (generation !== aspicGeneration || account !== state.authSession.user?.id) return null;
-    aspicPreview = result;
-    const scenario = result.scenario;
-    byId('aspic-import-result').textContent = `Validated: ${Object.keys(scenario.rules).length} rules. Key conclusions: ${Object.keys(scenario.conclusions).join(', ') || 'none'}.\n${result.warnings.join('\n')}`;
-    setWorkspaceStatus('scenario-library-status', 'Rules and glossary validated. Add reference documents below if needed, then import.', 'success');
-    return result;
-  } catch (error) {
-    if (generation === aspicGeneration) { aspicPreview = null; setWorkspaceStatus('scenario-library-status', error.message, 'error'); }
-    return null;
-  } finally {
-    if (generation === aspicGeneration) { scenarioLibrary.reading = false; renderScenarioLibraryAccess(); }
-  }
 }
 
 function renderMaterialAccess() {
+  byId('scenario-materials-btn').textContent = state.activeProject ? 'Edit scenario' : 'Sources & glossary';
   const account = state.authSession.authenticated ? state.authSession.user?.id : null;
   if (scenarioMaterials.account !== account) {
     scenarioMaterials.account = account;
@@ -218,8 +155,7 @@ function clearScenarioMaterials() {
   byId('materials-access-note').textContent = ''; setWorkspaceStatus('materials-status');
   projectSources?.reset();
   for (const editor of Object.values(librarySources)) editor.reset();
-  for (const input of byId('scenario-aspic-fields').querySelectorAll('input,textarea')) input.value = '';
-  invalidateAspic(); scenarioLibrary.dirty = false;
+  resetScenarioBuilder(); scenarioLibrary.dirty = false;
 }
 
 function closeScenarioMaterials() {
@@ -243,6 +179,7 @@ function glossaryText(scenario) {
 }
 
 async function openScenarioMaterials() {
+  if (state.activeProject) { await openPrivateScenarioEditor(); return; }
   if (!state.bundle || hasPendingStateRequest() || state.projectSavePending) { showGlobalStatus('Wait for the current change to finish.', 'info'); return; }
   if (state.activeProject && state.diff_ops.length) {
     const projectId = state.activeProject.id;
@@ -298,4 +235,15 @@ async function saveScenarioMaterials() {
     if (generation === scenarioMaterials.generation) setWorkspaceStatus('materials-status', error.code === 'project_version_conflict'
       ? 'This project changed elsewhere. Reopen it before saving; your draft has not replaced newer work.' : error.message, 'error');
   } finally { scenarioMaterials.busy = false; state.projectSavePending = false; renderMaterialAccess(); }
+}
+
+async function previewSourceUpload(file) {
+  if (file.size > 1000000) throw new Error('Each reference document must be at most 1 MB.');
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  return apiRequest('/api/projects/materials/source-preview', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: file.name, data_base64: btoa(binary) }),
+  });
 }

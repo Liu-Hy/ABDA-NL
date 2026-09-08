@@ -28,6 +28,8 @@ from app.api.account_models import (
     ProjectSummaryResponse,
     ProjectUpdateRequest,
     ScenarioFilePreviewRequest,
+    ScenarioEditorPreviewRequest,
+    ScenarioExportRequest,
     ScenarioFilePreviewResponse,
     ShareLinkCreateRequest,
     ShareLinkCreatedResponse,
@@ -528,13 +530,46 @@ def preview_aspic_file(payload: AspicPreviewRequest, request: Request,
     return ScenarioFilePreviewResponse(scenario=scenario, warnings=warnings)
 
 
+@router.post("/api/scenarios/export", dependencies=[Depends(require_same_origin)])
+def export_scenario_file(payload: ScenarioExportRequest, request: Request,
+                         session: Session = Depends(get_db),
+                         settings: Settings = Depends(get_settings)) -> dict:
+    from app.scenario.portable import export_scenario
+    # No private database lookup: the caller supplies only the scenario already
+    # visible in their browser. Server reads are confined to public bundled data.
+    enforce_rate_limit(request, session, settings, scope="state_compute",
+                       limit=settings.anonymous_requests_per_minute)
+    try:
+        normalized = normalize_project_scenario(payload.scenario, payload.source_scenario_id)
+        return export_scenario(normalized, payload.source_scenario_id)
+    except ValueError as exc:
+        raise _project_error(exc)
+
+
+@router.post("/api/projects/editor/preview", dependencies=[Depends(require_same_origin)])
+def preview_scenario_editor(payload: ScenarioEditorPreviewRequest, request: Request,
+                            user: User = Depends(require_verified_user),
+                            session: Session = Depends(get_db),
+                            settings: Settings = Depends(get_settings)) -> dict:
+    from app.scenario.editor import edit_scenario
+    enforce_rate_limit(request, session, settings, scope="state_compute",
+                       limit=settings.anonymous_requests_per_minute, user_id=user.id)
+    try:
+        raw, warnings = edit_scenario(payload.scenario, payload.rules, payload.glossary)
+        normalized = normalize_project_scenario(raw, payload.source_scenario_id)
+        bundle = compute_state_bundle(scenario_from_dict(normalized))
+    except ValueError as exc:
+        raise _project_error(exc)
+    return {**bundle, "warnings": warnings, "source_scenario_id": payload.source_scenario_id}
+
+
 @router.post("/api/projects/materials/source-preview", dependencies=[Depends(require_same_origin)])
 def preview_source_file(payload: SourcePreviewRequest, request: Request,
                         user: User = Depends(require_verified_user),
                         session: Session = Depends(get_db),
                         settings: Settings = Depends(get_settings)) -> dict:
     from app.scenario.source_upload import preview_source
-    enforce_rate_limit(request, session, settings, scope="source_preview", limit=10, user_id=user.id)
+    enforce_rate_limit(request, session, settings, scope="source_preview", limit=40, user_id=user.id)
     try:
         source, warnings = preview_source(payload.filename, payload.data_base64)
     except ValueError as exc:

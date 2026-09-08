@@ -16,9 +16,15 @@ def import_aspic(title: str, text: str, glossary: str, conclusions: str) -> tupl
         raise MaterialError("Provide a title and at most 100 KB of ASPIC- rules.")
     parsed, embedded = [], []
     block = 1
+    # Explicit viewer markers take precedence over visual blank lines. Native
+    # ABDA files separate successive defeasible preference blocks with blanks.
+    explicit_blocks = bool(re.search(r"^\s*#\s*Block \d+", text, re.MULTILINE))
+    defeasible_seen = False
+    separator = False
     for index, line in enumerate(text.splitlines(), 1):
         line = line.strip()
         if not line:
+            separator = defeasible_seen
             continue
         active = not line.startswith("# [suspended]")
         if not active:
@@ -38,6 +44,13 @@ def import_aspic(title: str, text: str, glossary: str, conclusions: str) -> tupl
                 f"Check ASPIC- line {index}. Use premises -> conclusion or premises => conclusion [rule_id]."
             )
         left, arrow, right, name = match.groups()
+        if arrow == "=>":
+            if separator and not explicit_blocks:
+                block += 1
+            defeasible_seen = True
+            separator = False
+            if block > 1000:
+                raise MaterialError("Rule blocks must be between 1 and 1000.")
         premises = [p.strip() for p in left.split(",")] if left.strip() else []
         if len(premises) > 50 or any(not re.fullmatch(_LIT, p) for p in premises):
             raise MaterialError(
@@ -114,7 +127,7 @@ def import_aspic(title: str, text: str, glossary: str, conclusions: str) -> tupl
         warnings.append(
             "No glossary meaning for: "
             + ", ".join(missing[:20])
-            + ". Their symbols are used as labels; add meanings in Sources & glossary."
+            + ". Their symbols are used as labels; edit their meanings in Statements & glossary."
         )
     if not requested:
         warnings.append(

@@ -52,9 +52,9 @@ class _ScenarioFileLoader(yaml.SafeLoader):
 def parse_scenario_file(text: str) -> tuple[dict, str | None, list[str]]:
     """Return scenario data and safe provenance, without reading any source files.
 
-    Files exported by this app retain only a bundled example identifier, never
-    private project identifiers or credentials. Standalone scenario.yaml files
-    may refer to a local corpus, which is explicitly excluded from the import.
+    Version 3 exports contain actual reference text and no source dependency.
+    Legacy exports may retain a bundled example identifier. Standalone YAML
+    can name a local corpus, which must be attached separately during import.
     The project validator separately proves schema, references, source corpus
     integrity, and deterministic analyzability before preview or persistence.
     """
@@ -75,18 +75,23 @@ def parse_scenario_file(text: str) -> tuple[dict, str | None, list[str]]:
     if not isinstance(raw, dict):
         raise ScenarioFileError("Choose a scenario YAML or JSON file, not a document, list, or empty file.")
     source_id = None
+    version = None
     if "format" in raw:
-        if raw.get("format") != EXCHANGE_FORMAT or type(raw.get("version")) is not int or raw["version"] not in {1, 2}:
+        if raw.get("format") != EXCHANGE_FORMAT or type(raw.get("version")) is not int or raw["version"] not in {1, 2, 3}:
             raise ScenarioFileError("This scenario export format or version is not supported.")
         if set(raw) - {"format", "version", "scenario", "source_scenario_id"}:
             raise ScenarioFileError("This export contains unexpected fields. Download a new scenario file.")
         source_id = raw.get("source_scenario_id")
+        version = raw["version"]
         if source_id is not None and (not isinstance(source_id, str) or not 1 <= len(source_id) <= 100):
             raise ScenarioFileError("The source example identifier is invalid.")
         raw = raw.get("scenario")
         if not isinstance(raw, dict):
             raise ScenarioFileError("The export does not contain a scenario object.")
     warnings = []
+    if version == 3:
+        if source_id is not None or raw.get("corpus"):
+            raise ScenarioFileError("A portable version 3 file must embed its references, not depend on a source server.")
     if source_id is None and raw.get("corpus"):
         raw = dict(raw, corpus=[])
         warnings.append(

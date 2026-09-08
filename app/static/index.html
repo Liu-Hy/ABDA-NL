@@ -421,17 +421,14 @@
   <div class="modal-backdrop" id="modal-scenario-library">
     <div class="modal-content scenario-library-content">
       <div class="modal-header">
-        <div>
-          <span class="modal-title">Create or open a scenario</span>
-          <p class="scenario-lead">Create a scenario or bring one with you. Your work stays private.</p>
-        </div>
+        <div><span class="modal-title" id="scenario-editor-heading">Your scenario</span>
+          <p class="scenario-lead">Statements and rules define the reasoning. Reference documents give AI context.</p></div>
         <button class="modal-close" type="button" aria-label="Close scenario library">×</button>
       </div>
       <div class="scenario-library-nav">
         <div class="scenario-tabs" role="tablist" aria-label="Start a scenario">
           <button class="scenario-tab active" id="scenario-tab-new" type="button" role="tab" aria-selected="true" aria-controls="scenario-panel-new" data-scenario-tab="new">New scenario</button>
-          <button class="scenario-tab" id="scenario-tab-file" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-file" data-scenario-tab="file" tabindex="-1">Open file</button>
-          <button class="scenario-tab" id="scenario-tab-aspic" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-aspic" data-scenario-tab="aspic" tabindex="-1">ASPIC-</button>
+          <button class="scenario-tab" id="scenario-tab-file" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-file" data-scenario-tab="file" tabindex="-1">Import scenario</button>
         </div>
         <button class="btn btn-small" id="scenario-my-projects" type="button">My projects</button>
         <button class="btn btn-small" id="scenario-example-submissions" type="button" hidden>Example submissions</button>
@@ -442,85 +439,84 @@
           <button class="btn btn-primary" id="scenario-signin-btn" type="button">Sign in</button>
         </div>
         <section id="scenario-panel-new" role="tabpanel" aria-labelledby="scenario-tab-new">
-          <form id="scenario-builder-form">
-            <fieldset id="scenario-builder-fields" class="scenario-fields">
-              <div class="form-field">
-                <label for="scenario-builder-title">Scenario title</label>
-                <input id="scenario-builder-title" type="text" required maxlength="120" placeholder="What would you like to explore?">
-              </div>
-              <details class="scenario-description">
-                <summary>Add background <span class="optional-label">optional</span></summary>
-                <div class="form-field">
-                  <label class="visually-hidden" for="scenario-builder-description">Scenario background</label>
-                  <textarea id="scenario-builder-description" rows="2" maxlength="4000" placeholder="A little context for this scenario"></textarea>
-                </div>
-              </details>
-              <div class="scenario-section-heading">
-                <h3><span class="scenario-step" aria-hidden="true">1</span> Write your statements</h3>
-                <button class="btn btn-small" id="scenario-starter-btn" type="button">Try a small example</button>
-              </div>
-              <p class="scenario-hint" id="scenario-statements-help">Facts are given. Assumptions can be challenged. Conclusions are claims you want to test.</p>
-              <div id="scenario-statements" aria-describedby="scenario-statements-help"></div>
-              <button class="btn btn-small" id="scenario-add-statement" type="button">+ Statement</button>
-              <div class="scenario-section-heading">
-                <h3><span class="scenario-step" aria-hidden="true">2</span> Connect them with rules</h3>
-              </div>
-              <p class="scenario-hint">Select what must hold, then what follows. “Usually” allows competing arguments; “always” makes a strict rule.</p>
-              <div id="scenario-builder-rules"></div>
-              <button class="btn btn-small" id="scenario-add-rule" type="button">+ Rule</button>
-            </fieldset>
-          </form>
+          <p class="scenario-hint">Start below, or <button class="btn btn-small" id="scenario-starter-btn" type="button">Try a small example</button>
+            <button class="btn btn-small" id="scenario-reset-btn" type="button">Clear draft</button></p>
         </section>
         <section id="scenario-panel-file" role="tabpanel" aria-labelledby="scenario-tab-file" hidden>
           <div class="scenario-file-card" id="scenario-drop-zone">
-            <h3>Bring an existing scenario</h3>
-            <p>Drop a file here, or choose one below.</p>
-            <label for="scenario-file-input">Scenario file</label>
-            <input id="scenario-file-input" type="file" accept=".yaml,.yml,.json" aria-describedby="scenario-file-help">
-            <p class="scenario-hint" id="scenario-file-help">ABDA-NL YAML or JSON, up to 1 MB. Files are checked before saving. For rule text and a separate glossary, use ASPIC-. Attach reference documents below.</p>
+            <h3>Bring your scenario materials</h3>
+            <label for="scenario-file-input">Choose files or drop them here</label>
+            <input id="scenario-file-input" type="file" accept=".yaml,.yml,.json,.txt,.aspic,.md,.pdf" multiple aria-describedby="scenario-file-help">
+            <p class="scenario-hint" id="scenario-file-help">A complete ABDA-NL YAML/JSON file, or ASPIC- rules with an optional glossary and reference documents. Check each file's role below. Up to 1 MB per file.</p>
+            <div id="scenario-import-files"></div>
+            <button class="btn" id="scenario-load-files" type="button" hidden>Load into editor</button>
             <button class="btn btn-small" id="scenario-template-btn" type="button">Download a starter file</button>
           </div>
-          <div id="scenario-file-preview" hidden>
-            <div class="scenario-preview-heading"><span class="verified-badge">Ready to import</span><span id="scenario-file-name"></span></div>
-            <div class="form-field">
-              <label for="scenario-import-name">Save as</label>
-              <input id="scenario-import-name" type="text" maxlength="120" required>
-            </div>
-            <div class="scenario-counts" id="scenario-file-counts"></div>
-            <p class="scenario-hint" id="scenario-file-description"></p>
-            <div id="scenario-file-warnings" class="scenario-file-warnings"></div>
-            <p class="scenario-hint">This creates a new private project. It does not replace an example, an existing project, or your original file.</p>
-          </div>
         </section>
-        <section id="scenario-panel-aspic" role="tabpanel" aria-labelledby="scenario-tab-aspic" hidden>
-          <fieldset id="scenario-aspic-fields" class="scenario-fields">
-            <div class="scenario-section-heading"><h3>Bring rules and their meaning</h3><button class="btn btn-small" id="aspic-starter" type="button">Try a small ASPIC- example</button></div>
-            <p class="scenario-hint">Propositional ASPIC- notation, as in Show ASPIC-. No model call or automatic rule generation.</p>
-            <div class="form-field"><label for="aspic-import-title">Scenario title</label><input id="aspic-import-title" maxlength="120" required></div>
-            <div class="form-field"><label for="aspic-import-rules">Rules</label><textarea id="aspic-import-rules" class="material-code" rows="6" maxlength="100000" placeholder="-> sunny&#10;sunny => outside [r1]"></textarea></div>
-            <div class="form-field"><label for="aspic-rules-file">Or load rule text (.txt or .aspic)</label><input id="aspic-rules-file" type="file" accept=".txt,.aspic"></div>
-            <div class="form-field"><label for="aspic-import-glossary">Glossary <span class="optional-label">recommended</span></label><textarea id="aspic-import-glossary" class="material-code" rows="4" maxlength="200000" placeholder="sunny = The forecast is sunny&#10;outside = We should hold the picnic outside"></textarea></div>
-            <div class="form-field"><label for="aspic-glossary-file">Or load a glossary (.txt, .yaml or .json)</label><input id="aspic-glossary-file" type="file" accept=".txt,.yaml,.yml,.json"></div>
-            <details><summary>Choose key conclusions <span class="optional-label">optional</span></summary><div class="form-field"><label for="aspic-import-conclusions">Symbols, separated by commas</label><input id="aspic-import-conclusions" maxlength="5000" placeholder="outside"><p class="scenario-hint">Leave blank to infer them from rule heads. Strict rules use -&gt;; defeasible rules use =&gt;. Empty premises declare facts or assumptions.</p></div></details>
-            <button class="btn" id="aspic-import-preview" type="button">Check rules &amp; glossary</button>
+        <form id="scenario-builder-form">
+          <fieldset id="scenario-builder-fields" class="scenario-fields">
+            <div class="form-field"><label for="scenario-builder-title">Scenario title</label>
+              <input id="scenario-builder-title" type="text" required maxlength="120" placeholder="What would you like to explore?"></div>
+            <details class="scenario-description"><summary>Background <span class="optional-label">optional</span></summary>
+              <div class="form-field"><label class="visually-hidden" for="scenario-builder-description">Scenario background</label>
+                <textarea id="scenario-builder-description" rows="2" maxlength="4000" placeholder="A little context for this scenario"></textarea></div>
+            </details>
+            <section class="scenario-editor-section">
+              <div class="scenario-section-heading">
+                <h3><span class="scenario-step" aria-hidden="true">1</span> Knowledge base</h3>
+                <div class="scenario-mode-switch" role="group" aria-label="Knowledge base editor">
+                  <button class="btn btn-small" id="scenario-mode-guided" type="button" aria-pressed="true">Guided</button>
+                  <button class="btn btn-small" id="scenario-mode-text" type="button" aria-pressed="false">Rule text</button>
+                </div>
+              </div>
+              <p class="scenario-hint">Both views edit the same knowledge base. The glossary below supplies the words you see here.</p>
+              <div id="scenario-guided">
+                <h4>Statements &amp; glossary</h4>
+                <p class="scenario-hint" id="scenario-statements-help">Write each statement in plain English. Facts are given, assumptions are defeasible, and claims follow from rules. Mark the claims you want to feature as key conclusions.</p>
+                <div id="scenario-statements" aria-describedby="scenario-statements-help"></div>
+                <button class="btn btn-small" id="scenario-add-statement" type="button">+ Statement</button>
+                <h4>Rules</h4>
+                <p class="scenario-hint">Select what must hold and what follows. Usually allows competing arguments. Always makes a strict rule.</p>
+                <div id="scenario-builder-rules"></div>
+                <button class="btn btn-small" id="scenario-add-rule" type="button">+ Rule</button>
+              </div>
+              <div id="scenario-rule-text-panel" hidden>
+                <div class="form-field"><label for="scenario-rule-text">ASPIC- rules</label>
+                  <textarea id="scenario-rule-text" class="material-code" rows="9" maxlength="100000" spellcheck="false" placeholder="-> sunny&#10;sunny => outside [r1]"></textarea></div>
+                <p class="scenario-hint">Use -&gt; for strict rules, =&gt; for defeasible rules, and -p for negation. In native ABDA files, blank lines separate defeasible preference blocks, with later blocks stronger. Explicit # Block N markers override blank-line grouping. Keep identifiers to preserve their meanings.</p>
+                <p class="scenario-hint">Switch back to Guided to edit meanings and choose key conclusions. Invalid text never replaces the last valid draft.</p>
+              </div>
+              <details class="material-section" id="scenario-glossary-panel"><summary>Load or paste a glossary <span class="optional-label">optional</span></summary>
+                <p class="scenario-hint">The meanings already written above are the glossary. Import definitions only if you have a separate glossary. Matching symbols update those same statements.</p>
+                <div class="form-field"><label for="scenario-glossary-text">Symbol meanings</label><textarea id="scenario-glossary-text" class="material-code" rows="4" maxlength="200000" placeholder="sunny = The forecast is sunny&#10;outside = We should hold the picnic outside"></textarea></div>
+                <div class="form-field"><label for="scenario-glossary-file">Glossary file (.txt, .yaml or .json)</label><input id="scenario-glossary-file" type="file" accept=".txt,.yaml,.yml,.json"></div>
+                <button class="btn btn-small" id="scenario-apply-glossary" type="button">Apply meanings</button>
+              </details>
+            </section>
+            <section class="scenario-editor-section">
+              <h3><span class="scenario-step" aria-hidden="true">2</span> Reference documents <span class="optional-label">optional</span></h3>
+              <p class="scenario-hint">The corpus supplies context and citations to AI. It does not add logical facts or rules. Attach text, Markdown or text-based PDFs, then review the extracted text.</p>
+              <p class="scenario-hint" id="scenario-bundled-references"></p>
+              <details id="scenario-sources-panel" class="material-section"><summary id="scenario-sources-summary">Add reference documents</summary><div id="scenario-source-editor"></div></details>
+            </section>
           </fieldset>
-          <div id="aspic-import-result" class="scenario-file-warnings" role="status"></div>
+        </form>
+        <section id="scenario-editor-preview" class="scenario-editor-section" hidden aria-labelledby="scenario-preview-heading">
+          <h3 id="scenario-preview-heading"><span class="scenario-step" aria-hidden="true">3</span> Preview</h3>
+          <p class="scenario-hint">Computed by ABDA, without an LLM call. Review the reasoning and materials before saving.</p>
+          <div id="scenario-file-counts" class="scenario-counts"></div>
+          <div id="scenario-preview-results"></div>
+          <div id="scenario-file-warnings" class="scenario-file-warnings"></div>
         </section>
-        <details id="scenario-sources-panel" class="material-section">
-          <summary>Reference documents <span class="optional-label">optional, for AI context</span></summary>
-          <p class="scenario-hint">Attach text, Markdown or a text-based PDF. Review the extracted text before saving. Documents provide context, not additional logical facts or rules.</p>
-          <div id="scenario-source-editor"></div>
-        </details>
       </div>
       <div class="workspace-status" id="scenario-library-status" role="status" aria-live="polite" tabindex="0"></div>
       <div class="scenario-library-footer">
-        <div class="scenario-download">
-          <button class="btn btn-small" id="scenario-download-current" type="button">Download current scenario</button>
-          <span class="scenario-hint">Includes unsaved edits. No chat or credentials.</span>
-        </div>
+        <div class="scenario-download"><button class="btn btn-small" id="scenario-download-current" type="button">Download current scenario</button>
+          <span class="scenario-hint">Includes unsaved edits. No chat or credentials.</span></div>
         <div class="scenario-footer-actions">
           <button class="btn" id="scenario-library-cancel" type="button">Cancel</button>
-          <button class="btn btn-primary" id="scenario-library-submit" type="button">Create &amp; open</button>
+          <button class="btn" id="scenario-preview-btn" type="button">Preview</button>
+          <button class="btn btn-primary" id="scenario-library-submit" type="button">Save &amp; open</button>
         </div>
       </div>
     </div>

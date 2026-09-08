@@ -122,13 +122,13 @@ def test_glossary_merge_preserves_logic_and_other_definitions():
         [SOURCE, SOURCE],
         [{**SOURCE, "text": ""}],
         [{**SOURCE, "text": "x\x00"}],
-        [{**SOURCE, "text": "x" * 100001}],
-        [SOURCE] * 11,
+        [{**SOURCE, "text": "x" * 250001}],
+        [{**SOURCE, "filename": f"{i}.txt"} for i in range(21)],
         [{**SOURCE, "url": "http://127.0.0.1"}],
         [{**SOURCE, "url": "https://user:password@example.org"}],
         [{**SOURCE, "url": "https://example.org\n"}],
         [{**SOURCE, "hidden": "field"}],
-        [{**SOURCE, "filename": f"{i}.txt", "text": "x" * 100000} for i in range(5)],
+        [{**SOURCE, "filename": f"{i}.txt", "text": "x" * 100000} for i in range(8)],
     ],
 )
 def test_material_validation_limits(sources):

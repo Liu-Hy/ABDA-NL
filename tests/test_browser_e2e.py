@@ -207,6 +207,7 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             _axe_report(page, "new scenario builder")
             _save_browser_evidence(page, "scenario-builder")
             with page.expect_response(lambda response: response.url.endswith("/api/projects/import") and response.request.method == "POST") as created:
+                _preview_editor(page)
                 page.locator("#scenario-library-submit").click()
             project = created.value.json()
             expect(page.locator("#scenario-name")).to_have_text("My own picnic")
@@ -221,8 +222,8 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             with page.expect_download() as modified_download:
                 page.locator("#scenario-download-current").click()
             modified = json.loads(Path(modified_download.value.path()).read_text())
-            assert modified["scenario"]["rules"]["rule_1"]["active"] is False
-            assert page.request.get(f"{live_browser_server}/api/projects/{project['id']}").json()["scenario"]["rules"]["rule_1"]["active"] is True
+            assert modified["scenario"]["rules"]["rule_3"]["active"] is False
+            assert page.request.get(f"{live_browser_server}/api/projects/{project['id']}").json()["scenario"]["rules"]["rule_3"]["active"] is True
             page.locator("#scenario-library-cancel").click()
             page.locator("#reset-btn").click()
             expect(page.locator("#conclusions-list")).to_contain_text("Accepted")
@@ -237,15 +238,16 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             page.locator("#scenario-file-input").set_input_files({
                 "name": "picnic.abda.json", "mimeType": "application/json", "buffer": json.dumps(downloaded).encode(),
             })
-            expect(page.locator("#scenario-file-preview")).to_be_visible()
-            page.locator("#scenario-import-name").fill("Picnic imported copy")
+            _load_editor_files(page)
+            page.locator("#scenario-builder-title").fill("Picnic imported copy")
             _axe_report(page, "validated scenario import")
             _save_browser_evidence(page, "scenario-import")
             with page.expect_response(lambda response: response.url.endswith("/api/projects/import") and response.request.method == "POST") as imported:
+                _preview_editor(page)
                 page.locator("#scenario-library-submit").click()
             copy = imported.value.json()
             assert copy["id"] != project["id"]
-            assert copy["scenario"] == project["scenario"]
+            assert copy["scenario"] == {**project["scenario"], "title": "Picnic imported copy"}
             expect(page.locator("#context-indicator")).to_have_text("Private project")
             _reload_ready_demo(page)
             page.locator("#scenario-library-btn").click()
@@ -269,6 +271,14 @@ def test_exported_aspic_preserves_bundled_argumentation(live_browser_server):
             _goto_ready_demo(page, live_browser_server)
             for item in page.request.get(f'{live_browser_server}/scenarios').json()['scenarios']:
                 original = page.request.get(f'{live_browser_server}/scenarios/{item["id"]}').json()
+                draft = page.evaluate('scenario => { loadScenarioDraft(scenario); return {scenario: scenarioFromBuilder(), rules: scenarioRuleText(scenario)}; }', original['scenario'])
+                assert draft['scenario'] == original['scenario'], item['id']
+                edited = page.request.post(f'{live_browser_server}/api/projects/editor/preview', data={
+                    **draft, 'source_scenario_id': item['id'],
+                })
+                assert edited.ok, edited.text()
+                assert edited.json()['scenario'] == original['scenario'], item['id']
+                assert edited.json()['af'] == original['af'], item['id']
                 syntax = page.evaluate('scenario => buildAspicText(scenario)', original['scenario'])
                 imported = page.request.post(f'{live_browser_server}/api/projects/import/aspic', data={
                     'title': original['scenario']['title'], 'rules': syntax,
@@ -285,13 +295,26 @@ def test_exported_aspic_preserves_bundled_argumentation(live_browser_server):
             browser.close()
 
 
+def _preview_editor(page):
+    from playwright.sync_api import expect
+    page.locator('#scenario-preview-btn').click()
+    expect(page.locator('#scenario-editor-preview')).to_be_visible()
+    expect(page.locator('#scenario-library-submit')).to_be_enabled()
+
+
+def _load_editor_files(page):
+    from playwright.sync_api import expect
+    page.locator('#scenario-load-files').click()
+    expect(page.locator('#scenario-library-status')).to_contain_text('Materials loaded together')
+
+
 def test_three_part_scenario_import_materials_and_portable_export(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 
     with sync_playwright() as playwright:
         browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
-        page = browser.new_page(viewport={"width": 1440, "height": 900})
-        reader = browser.new_page(viewport={"width": 390, "height": 844})
+        page = browser.new_page(viewport={'width': 1440, 'height': 900})
+        reader = browser.new_page(viewport={'width': 390, 'height': 844})
         errors = []
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.on('dialog', lambda dialog: dialog.accept())
@@ -299,51 +322,62 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
             assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'materials@example.org'}).ok
             _goto_ready_demo(page, live_browser_server)
             page.locator('#scenario-library-btn').click()
-            page.locator('#scenario-tab-aspic').click()
-            page.locator('#aspic-starter').click()
-            page.locator('#aspic-import-preview').click()
-            expect(page.locator('#aspic-import-result')).to_contain_text('Validated: 2 rules')
-            page.locator('#scenario-sources-panel summary').click()
-            page.locator('#library-sources-aspic-upload').set_input_files({
-                'name': 'weather.md', 'mimeType': 'text/markdown', 'buffer': b'The picnic forecast is valid only before noon. <script>bad()</script>',
-            })
-            expect(page.locator('#library-sources-aspic-text-0')).to_have_value(re.compile('before noon'))
-            page.locator('#library-sources-aspic-url-0').fill('https://example.org/weather')
-            _axe_report(page, 'ASPIC rules glossary and corpus import')
-            _save_browser_evidence(page, 'aspic-materials')
+            assert page.locator('#scenario-tab-aspic').count() == 0
+            page.locator('#scenario-tab-file').click()
+            page.locator('#scenario-file-input').set_input_files([
+                {'name': 'Picnic.aspic', 'mimeType': 'text/plain', 'buffer': b'-> sunny\n-> windy\n\nsunny => outside [sunshine]\n\nwindy => -outside [wind]'},
+                {'name': 'glossary.txt', 'mimeType': 'text/plain', 'buffer': b'sunny = The forecast is sunny\nwindy = A strong wind is expected\noutside = We should hold the picnic outside'},
+                {'name': 'weather.md', 'mimeType': 'text/markdown', 'buffer': b'The picnic forecast is valid only before noon. <script>bad()</script>'},
+            ])
+            _load_editor_files(page)
+            expect(page.locator('#scenario-builder-title')).to_have_value('Picnic')
+            expect(page.locator('#sunny-text')).to_have_value('The forecast is sunny')
+            page.locator('#scenario-sources-summary').click()
+            expect(page.locator('#library-sources-new-text-0')).to_have_value(re.compile('before noon'))
+            page.locator('#library-sources-new-url-0').fill('https://example.org/weather')
+            # Entry and representation changes retain all three parts of one draft.
+            page.locator('#scenario-tab-new').click()
+            page.locator('#scenario-mode-text').click()
+            expect(page.locator('#scenario-rule-text')).to_have_value(re.compile('# Block 2'))
+            page.locator('#scenario-rule-text').fill(page.locator('#scenario-rule-text').input_value() + '\n# A harmless comment')
+            page.locator('#scenario-mode-guided').click()
+            expect(page.locator('#sunny-text')).to_have_value('The forecast is sunny')
+            expect(page.locator('#library-sources-new-text-0')).to_have_value(re.compile('before noon'))
+            _preview_editor(page)
+            expect(page.locator('#scenario-preview-results')).to_contain_text('rejected')
+            _axe_report(page, 'unified scenario and complete materials preview')
+            _save_browser_evidence(page, 'unified-scenario-preview')
             page.set_viewport_size({'width': 390, 'height': 844})
-            _axe_report(page, 'mobile ASPIC and documents')
+            _axe_report(page, 'mobile unified scenario preview')
             assert page.locator('#modal-scenario-library .modal-content').evaluate('el => el.scrollWidth <= el.clientWidth')
-            _save_browser_evidence(page, 'mobile-aspic-materials')
+            _save_browser_evidence(page, 'mobile-unified-scenario')
             with page.expect_response(lambda r: r.url.endswith('/api/projects/import') and r.request.method == 'POST') as created:
                 page.locator('#scenario-library-submit').click()
             project = created.value.json()
             assert project['scenario']['sources'][0]['filename'] == 'weather.md'
-            expect(page.locator('#scenario-name')).to_have_text('Planning a picnic')
+            expect(page.locator('#scenario-name')).to_have_text('Picnic')
             page.set_viewport_size({'width': 1440, 'height': 900})
             page.locator('#scenario-materials-btn').click()
-            assert 'sunny = "The forecast is sunny"' in page.locator('#materials-glossary').input_value()
-            glossary = page.locator('#materials-glossary').input_value().replace('The forecast is sunny', 'The morning forecast is sunny')
-            page.locator('#materials-glossary').fill(glossary)
-            page.locator('#materials-source-editor-text-0').fill('Corrected forecast: dry until noon.')
-            _axe_report(page, 'editable sources and glossary')
-            _save_browser_evidence(page, 'materials-editor')
+            expect(page.locator('#scenario-editor-heading')).to_have_text('Edit private scenario')
+            page.locator('#sunny-text').fill('The morning forecast is sunny')
+            page.locator('#library-sources-new-text-0').fill('Corrected forecast: dry until noon.')
+            _preview_editor(page)
             with page.expect_response(lambda r: r.url.endswith('/api/projects/' + project['id']) and r.request.method == 'PUT') as saved:
-                page.locator('#materials-save').click()
+                page.locator('#scenario-library-submit').click()
             updated = saved.value.json()
             assert updated['version'] == 2
             assert updated['scenario']['facts']['sunny']['description'] == 'The morning forecast is sunny'
             assert updated['af']['labels_by_proposition'] == project['af']['labels_by_proposition']
-            expect(page.locator('#modal-scenario-materials')).not_to_have_class(re.compile('visible'))
             page.locator('#scenario-library-btn').click()
             with page.expect_download() as downloaded:
                 page.locator('#scenario-download-current').click()
             document = json.loads(Path(downloaded.value.path()).read_text())
-            assert document['version'] == 2
+            assert document['version'] == 3 and document['source_scenario_id'] is None
             assert document['scenario']['sources'] == updated['scenario']['sources']
             page.locator('#scenario-tab-file').click()
             page.locator('#scenario-file-input').set_input_files({'name': 'scenario.json', 'mimeType': 'application/json', 'buffer': json.dumps(document).encode()})
-            expect(page.locator('#library-sources-file-text-0')).to_have_value('Corrected forecast: dry until noon.')
+            _load_editor_files(page)
+            expect(page.locator('#library-sources-new-text-0')).to_have_value('Corrected forecast: dry until noon.')
             page.locator('#scenario-library-cancel').click()
             shared = page.request.post(f'{live_browser_server}/api/projects/{project["id"]}/shares', data={}).json()
             _goto_ready_demo(reader, shared['url'])
@@ -353,12 +387,9 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
             reader.locator('#materials-source-editor summary').click()
             expect(reader.locator('#materials-source-editor pre')).to_have_text('Corrected forecast: dry until noon.')
             _axe_report(reader, 'read-only shared reference documents')
-            page.locator('#scenario-materials-btn').click()
-            page.locator('#materials-glossary').fill('sunny = unsaved private draft')
             page.evaluate('clearScenarioMaterials()')
-            assert not page.locator('#materials-glossary').input_value()
-            assert not page.locator('#aspic-import-rules').input_value()
-            assert page.locator('#library-sources-file textarea').count() == 0
+            assert page.evaluate('scenarioLibrary.target === null && !scenarioLibrary.dirty')
+            assert page.locator('#library-sources-new textarea').count() == 0
             assert not errors
         finally:
             browser.close()
@@ -390,7 +421,10 @@ def test_download_recovers_when_library_opens_during_scenario_load(live_browser_
             with page.expect_download() as downloaded:
                 page.locator('#scenario-download-current').click()
             portable = json.loads(Path(downloaded.value.path()).read_text())
-            assert portable['source_scenario_id'] == (previous if failed_load else target)
+            assert portable['source_scenario_id'] is None
+            expected = page.request.get(f'{live_browser_server}/scenarios/{previous if failed_load else target}').json()['scenario']
+            assert portable['scenario']['rules'] == expected['rules']
+            assert {entry['filename'] for entry in portable['scenario']['sources']} >= set(expected['corpus'])
         finally:
             browser.close()
 
@@ -529,6 +563,7 @@ def test_scenario_library_signed_out_and_small_screen(live_browser_server):
                 assert page.locator("#modal-scenario-library .scenario-library-content").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
             page.set_viewport_size({"width": 390, "height": 844})
             _save_browser_evidence(page, "scenario-builder-mobile")
+            _preview_editor(page)
             page.locator("#scenario-library-submit").click()
             expect(page.locator("#scenario-name")).to_have_text("Planning a picnic")
             expect(page.locator("#conclusions-list")).to_contain_text("Undecided")
@@ -554,13 +589,16 @@ def test_scenario_import_failures_leave_current_work_untouched(live_browser_serv
             page.locator("#scenario-tab-file").click()
             picker = page.locator("#scenario-file-input")
             picker.set_input_files({"name": "bad.yaml", "mimeType": "text/yaml", "buffer": b"title: ["})
+            page.locator("#scenario-load-files").click()
             expect(page.locator("#scenario-library-status")).to_contain_text("Cannot read")
             expect(page.locator("#scenario-library-submit")).to_be_disabled()
             picker.set_input_files({"name": "huge.json", "mimeType": "application/json", "buffer": b"x" * 1_000_001})
-            expect(page.locator("#scenario-library-status")).to_contain_text("smaller than 1 MB")
+            expect(page.locator("#scenario-library-status")).to_contain_text("at most 1 MB")
             picker.set_input_files({"name": "bad-utf8.yaml", "mimeType": "text/yaml", "buffer": b"\xff\xfe"})
+            page.locator("#scenario-load-files").click()
             expect(page.locator("#scenario-library-status")).to_contain_text("UTF-8")
             picker.set_input_files({"name": "unknown.yaml", "mimeType": "text/yaml", "buffer": b"title: Unknown\nconclusions: {}\nrules:\n  r1: {type: defeasible, premises: [missing], conclusion: missing}"})
+            page.locator("#scenario-load-files").click()
             expect(page.locator("#scenario-library-status")).to_contain_text("unknown identifier")
             expect(page.locator("#scenario-name")).to_have_text(before)
             assert page.request.get(f"{live_browser_server}/api/projects").json()["projects"] == []
@@ -582,13 +620,13 @@ def test_builder_deleted_statement_does_not_rebind_a_rule(live_browser_server):
             _goto_ready_demo(page, live_browser_server)
             page.locator("#scenario-library-btn").click()
             page.locator("#scenario-starter-btn").click()
-            row = page.locator(".scenario-statement-row").first
+            row = page.locator(".scenario-statement-card").first
             removed_id = row.get_attribute("data-statement-id")
             row.get_by_role("button").click()
             page.locator("#scenario-add-statement").click()
             page.locator(".scenario-statement-row input").last.fill("An unrelated new statement")
             assert page.locator(".scenario-rule-card [data-literal]").first.input_value() == removed_id
-            page.locator("#scenario-library-submit").click()
+            page.locator("#scenario-preview-btn").click()
             expect(page.locator("#scenario-library-status")).to_contain_text("Choose an existing statement")
             expect(page.locator("#context-indicator")).to_have_text("Example")
             page.locator("#scenario-library-cancel").click()
@@ -612,8 +650,9 @@ def test_scenario_library_late_create_does_not_replace_another_view(live_browser
             page.route("**/api/projects/import", lambda route: pending.append(route))
             page.locator("#scenario-library-btn").click()
             page.locator("#scenario-starter-btn").click()
+            _preview_editor(page)
             page.locator("#scenario-library-submit").click()
-            expect(page.locator("#scenario-library-submit")).to_have_text("Opening...")
+            expect(page.locator("#scenario-library-submit")).to_have_text("Saving...")
             page.locator("#scenario-library-cancel").click()
             options = page.locator("#scenario-select option").evaluate_all("items => items.map(item => ({id: item.value, name: item.textContent}))")
             target = next(item for item in options if item["id"] != "popov_v_hayashi")
@@ -630,7 +669,7 @@ def test_scenario_library_late_create_does_not_replace_another_view(live_browser
             browser.close()
 
 
-def test_scenario_file_preview_clears_old_data_and_escapes_text(live_browser_server):
+def test_scenario_file_failure_preserves_draft_and_escapes_text(live_browser_server):
     from uuid import uuid4
     from playwright.sync_api import expect, sync_playwright
 
@@ -640,19 +679,81 @@ def test_scenario_file_preview_clears_old_data_and_escapes_text(live_browser_ser
         try:
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _goto_ready_demo(page, live_browser_server)
+            page.on("dialog", lambda dialog: dialog.accept())
             page.locator("#scenario-library-btn").click()
             page.locator("#scenario-tab-file").click()
             payload = {"title": "<svg onload=alert(1)>", "description": "<img src=x onerror=alert(1)>", "conclusions": {}, "rules": {}}
             picker = page.locator("#scenario-file-input")
             picker.set_input_files({"name": "safe.json", "mimeType": "application/json", "buffer": json.dumps(payload).encode()})
-            expect(page.locator("#scenario-file-preview")).to_be_visible()
-            expect(page.locator("#scenario-import-name")).to_have_value(payload["title"])
-            expect(page.locator("#scenario-file-description")).to_have_text(payload["description"])
-            assert page.locator("#scenario-file-preview img, #scenario-file-preview svg").count() == 0
+            _load_editor_files(page)
+            expect(page.locator("#scenario-builder-title")).to_have_value(payload["title"])
+            expect(page.locator("#scenario-builder-description")).to_have_value(payload["description"])
+            assert page.locator("#scenario-builder-form img, #scenario-builder-form svg").count() == 0
             picker.set_input_files({"name": "bad.yaml", "mimeType": "text/yaml", "buffer": b"title: ["})
+            page.locator("#scenario-load-files").click()
             expect(page.locator("#scenario-library-status")).to_contain_text("Cannot read")
-            expect(page.locator("#scenario-file-preview")).to_be_hidden()
+            expect(page.locator("#scenario-builder-title")).to_have_value(payload["title"])
             expect(page.locator("#scenario-library-submit")).to_be_disabled()
+        finally:
+            browser.close()
+
+
+def test_unified_editor_raw_validation_stale_save_and_atomic_files(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        page.on('dialog', lambda dialog: dialog.accept())
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        try:
+            assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'editor-races@example.org'}).ok
+            _goto_ready_demo(page, live_browser_server)
+            page.locator('#scenario-library-btn').click()
+            page.locator('#scenario-mode-text').click()
+            expect(page.locator('#scenario-rule-text')).to_have_value('')
+            page.locator('#scenario-builder-title').fill('Text-first scenario')
+            page.locator('#scenario-rule-text').fill('-> evidence\nevidence => claim [reason]')
+            page.locator('#scenario-glossary-panel summary').click()
+            page.locator('#scenario-glossary-text').fill('evidence = Available evidence\nclaim = Our claim')
+            page.locator('#scenario-mode-guided').click()
+            expect(page.locator('#claim-text')).to_have_value('Our claim')
+            expect(page.locator('#scenario-library-submit')).to_be_disabled()
+            page.locator('#scenario-mode-text').click()
+            syntax = page.locator('#scenario-rule-text').input_value()
+            page.locator('#scenario-rule-text').fill('this is not ASPIC')
+            page.locator('#scenario-mode-guided').click()
+            expect(page.locator('#scenario-library-status')).to_contain_text('Check ASPIC- line')
+            expect(page.locator('#scenario-rule-text-panel')).to_be_visible()
+            assert page.evaluate('scenarioLibrary.statements.find(s => s.id === "claim").description') == 'Our claim'
+            page.locator('#scenario-rule-text').fill(syntax)
+            page.locator('#scenario-mode-guided').click()
+            expect(page.locator('#claim-text')).to_be_visible()
+            # A document failure after a valid KB must leave the whole draft intact.
+            page.locator('#scenario-tab-file').click()
+            page.locator('#scenario-file-input').set_input_files([
+                {'name': 'replacement.json', 'mimeType': 'application/json', 'buffer': b'{"title":"Replacement","rules":{},"conclusions":{}}'},
+                {'name': 'bad.pdf', 'mimeType': 'application/pdf', 'buffer': b'not a PDF'},
+            ])
+            page.locator('#scenario-load-files').click()
+            expect(page.locator('#scenario-library-status')).to_contain_text('Your previous draft is unchanged')
+            expect(page.locator('#scenario-builder-title')).to_have_value('Text-first scenario')
+            _preview_editor(page)
+            with page.expect_response(lambda r: r.url.endswith('/api/projects/import') and r.request.method == 'POST') as response:
+                page.locator('#scenario-library-submit').click()
+            project = response.value.json()
+            expect(page.locator('#scenario-name')).to_have_text('Text-first scenario')
+            page.locator('#scenario-materials-btn').click()
+            page.locator('#claim-text').fill('My unsaved wording')
+            _preview_editor(page)
+            changed = page.request.put(f'{live_browser_server}/api/projects/{project["id"]}', data={'expected_version': 1, 'name': 'Concurrent save'})
+            assert changed.ok
+            page.locator('#scenario-library-submit').click()
+            expect(page.locator('#scenario-library-status')).to_contain_text('has not replaced newer work')
+            expect(page.locator('#claim-text')).to_have_value('My unsaved wording')
+            assert page.request.get(f'{live_browser_server}/api/projects/{project["id"]}').json()['name'] == 'Concurrent save'
+            assert not errors
         finally:
             browser.close()
 
