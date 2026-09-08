@@ -259,11 +259,117 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
 
 
 
+def test_exported_aspic_preserves_bundled_argumentation(live_browser_server):
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'aspic-roundtrip@example.org'}).ok
+            _goto_ready_demo(page, live_browser_server)
+            for item in page.request.get(f'{live_browser_server}/scenarios').json()['scenarios']:
+                original = page.request.get(f'{live_browser_server}/scenarios/{item["id"]}').json()
+                syntax = page.evaluate('scenario => buildAspicText(scenario)', original['scenario'])
+                imported = page.request.post(f'{live_browser_server}/api/projects/import/aspic', data={
+                    'title': original['scenario']['title'], 'rules': syntax,
+                    'conclusions': ','.join(original['scenario']['conclusions']),
+                })
+                assert imported.ok, (item['id'], imported.text())
+                # Inspect through a disposable private project in the isolated test database.
+                saved = page.request.post(f'{live_browser_server}/api/projects/import', data={
+                    'name': 'Roundtrip', 'scenario': imported.json()['scenario'],
+                })
+                assert saved.ok, saved.text()
+                assert saved.json()['af']['labels_by_proposition'] == original['af']['labels_by_proposition'], item['id']
+        finally:
+            browser.close()
+
+
+def test_three_part_scenario_import_materials_and_portable_export(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        reader = browser.new_page(viewport={"width": 390, "height": 844})
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.on('dialog', lambda dialog: dialog.accept())
+        try:
+            assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'materials@example.org'}).ok
+            _goto_ready_demo(page, live_browser_server)
+            page.locator('#scenario-library-btn').click()
+            page.locator('#scenario-tab-aspic').click()
+            page.locator('#aspic-starter').click()
+            page.locator('#aspic-import-preview').click()
+            expect(page.locator('#aspic-import-result')).to_contain_text('Validated: 2 rules')
+            page.locator('#scenario-sources-panel summary').click()
+            page.locator('#library-sources-aspic-upload').set_input_files({
+                'name': 'weather.md', 'mimeType': 'text/markdown', 'buffer': b'The picnic forecast is valid only before noon. <script>bad()</script>',
+            })
+            expect(page.locator('#library-sources-aspic-text-0')).to_have_value(re.compile('before noon'))
+            page.locator('#library-sources-aspic-url-0').fill('https://example.org/weather')
+            _axe_report(page, 'ASPIC rules glossary and corpus import')
+            _save_browser_evidence(page, 'aspic-materials')
+            page.set_viewport_size({'width': 390, 'height': 844})
+            _axe_report(page, 'mobile ASPIC and documents')
+            assert page.locator('#modal-scenario-library .modal-content').evaluate('el => el.scrollWidth <= el.clientWidth')
+            _save_browser_evidence(page, 'mobile-aspic-materials')
+            with page.expect_response(lambda r: r.url.endswith('/api/projects/import') and r.request.method == 'POST') as created:
+                page.locator('#scenario-library-submit').click()
+            project = created.value.json()
+            assert project['scenario']['sources'][0]['filename'] == 'weather.md'
+            expect(page.locator('#scenario-name')).to_have_text('Planning a picnic')
+            page.set_viewport_size({'width': 1440, 'height': 900})
+            page.locator('#scenario-materials-btn').click()
+            assert 'sunny = "The forecast is sunny"' in page.locator('#materials-glossary').input_value()
+            glossary = page.locator('#materials-glossary').input_value().replace('The forecast is sunny', 'The morning forecast is sunny')
+            page.locator('#materials-glossary').fill(glossary)
+            page.locator('#materials-source-editor-text-0').fill('Corrected forecast: dry until noon.')
+            _axe_report(page, 'editable sources and glossary')
+            _save_browser_evidence(page, 'materials-editor')
+            with page.expect_response(lambda r: r.url.endswith('/api/projects/' + project['id']) and r.request.method == 'PUT') as saved:
+                page.locator('#materials-save').click()
+            updated = saved.value.json()
+            assert updated['version'] == 2
+            assert updated['scenario']['facts']['sunny']['description'] == 'The morning forecast is sunny'
+            assert updated['af']['labels_by_proposition'] == project['af']['labels_by_proposition']
+            expect(page.locator('#modal-scenario-materials')).not_to_have_class(re.compile('visible'))
+            page.locator('#scenario-library-btn').click()
+            with page.expect_download() as downloaded:
+                page.locator('#scenario-download-current').click()
+            document = json.loads(Path(downloaded.value.path()).read_text())
+            assert document['version'] == 2
+            assert document['scenario']['sources'] == updated['scenario']['sources']
+            page.locator('#scenario-tab-file').click()
+            page.locator('#scenario-file-input').set_input_files({'name': 'scenario.json', 'mimeType': 'application/json', 'buffer': json.dumps(document).encode()})
+            expect(page.locator('#library-sources-file-text-0')).to_have_value('Corrected forecast: dry until noon.')
+            page.locator('#scenario-library-cancel').click()
+            shared = page.request.post(f'{live_browser_server}/api/projects/{project["id"]}/shares', data={}).json()
+            _goto_ready_demo(reader, shared['url'])
+            reader.locator('#scenario-materials-btn').click()
+            expect(reader.locator('#materials-save')).to_be_hidden()
+            expect(reader.locator('#materials-glossary')).to_have_attribute('readonly', '')
+            reader.locator('#materials-source-editor summary').click()
+            expect(reader.locator('#materials-source-editor pre')).to_have_text('Corrected forecast: dry until noon.')
+            _axe_report(reader, 'read-only shared reference documents')
+            page.locator('#scenario-materials-btn').click()
+            page.locator('#materials-glossary').fill('sunny = unsaved private draft')
+            page.evaluate('clearScenarioMaterials()')
+            assert not page.locator('#materials-glossary').input_value()
+            assert not page.locator('#aspic-import-rules').input_value()
+            assert page.locator('#library-sources-file textarea').count() == 0
+            assert not errors
+        finally:
+            browser.close()
+
+
 def test_reviewed_community_examples_in_browser(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 
     scenario = {
         "title": "Picnic", "description": "A useful public teaching example.",
+        "sources": [{"filename": "reference.txt", "text": "Shareable reference text. <script>bad()</script>"}],
         "facts": {"sunny": {"description": "It is sunny"}},
         "conclusions": {"outside": {"description": "Hold the picnic outside"}},
         "rules": {"r1": {"type": "defeasible", "premises": ["sunny"], "conclusion": "outside"}},
@@ -291,6 +397,9 @@ def test_reviewed_community_examples_in_browser(live_browser_server):
             author.locator("#scenario-my-projects").click()
             author.get_by_role("button", name="Suggest as example", exact=True).click()
             expect(author.locator("#example-review-snapshot")).not_to_contain_text("Private research note")
+            expect(author.locator("#example-review-snapshot")).to_contain_text('Reference documents (published in full)')
+            author.locator('#example-review-snapshot .source-card summary').click()
+            expect(author.locator('#example-review-snapshot .source-card pre')).to_contain_text('Shareable reference text.')
             expect(author.get_by_role("button", name="Submit for review", exact=True)).to_be_disabled()
             _axe_report(author, "author public snapshot consent")
             _save_browser_evidence(author, "example-consent")
@@ -327,6 +436,7 @@ def test_reviewed_community_examples_in_browser(live_browser_server):
             portable = json.loads(Path(downloaded.value.path()).read_text())
             assert portable["source_scenario_id"] is None
             assert portable["scenario"]["title"] == "Community picnic"
+            assert portable['scenario']['sources'] == scenario['sources']
             assert "Private research note" not in str(portable)
             reader.locator("#scenario-library-cancel").click()
             _axe_report(reader, "mobile community example")
@@ -385,7 +495,7 @@ def test_scenario_library_signed_out_and_small_screen(live_browser_server):
             for width in [390, 780, 1440]:
                 page.set_viewport_size({"width": width, "height": 900})
                 _axe_report(page, f"scenario builder at {width}px")
-                assert page.locator(".scenario-library-content").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+                assert page.locator("#modal-scenario-library .scenario-library-content").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
             page.set_viewport_size({"width": 390, "height": 844})
             _save_browser_evidence(page, "scenario-builder-mobile")
             page.locator("#scenario-library-submit").click()

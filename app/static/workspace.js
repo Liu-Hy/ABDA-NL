@@ -133,6 +133,8 @@ function requestCloseModal(id) {
     closeModal(id);
   } else if (id === 'modal-example-review') {
     closeExampleReview();
+  } else if (id === 'modal-scenario-materials') {
+    closeScenarioMaterials();
   } else {
     closeModal(id);
   }
@@ -314,6 +316,7 @@ async function handleLogout(event) {
   resetScenarioBuilder();
   clearScenarioPreview();
   clearCurationState();
+  clearScenarioMaterials();
   try {
     const result = await apiRequest('/api/auth/logout', { method: 'POST' });
     if (!result?.logout_url) throw new Error('The sign-out destination is unavailable.');

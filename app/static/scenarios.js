@@ -9,6 +9,7 @@ const SCENARIO_FILE_LIMIT = 1000000;
 
 function initScenarioLibrary() {
   initCurationUI();
+  initScenarioMaterials();
   byId('scenario-library-btn').addEventListener('click', openScenarioLibrary);
   byId('scenario-library-cancel').addEventListener('click', () => requestCloseModal('modal-scenario-library'));
   byId('scenario-my-projects').addEventListener('click', () => {
@@ -24,8 +25,9 @@ function initScenarioLibrary() {
     tab.addEventListener('keydown', event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
-      const next = event.key === 'Home' ? 'new' : event.key === 'End' ? 'file'
-        : scenarioLibrary.tab === 'new' ? 'file' : 'new';
+      const tabs = ['new', 'file', 'aspic'];
+      const next = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[2]
+        : tabs[(tabs.indexOf(scenarioLibrary.tab) + (event.key === 'ArrowLeft' ? 2 : 1)) % 3];
       switchScenarioLibraryTab(next);
       byId(`scenario-tab-${next}`).focus();
     });
@@ -71,7 +73,7 @@ function initScenarioLibrary() {
 function openScenarioLibrary() {
   renderScenarioLibraryAccess();
   openModal('modal-scenario-library', state.authSession.authenticated
-    ? scenarioLibrary.tab === 'new' ? '#scenario-builder-title' : '#scenario-file-input'
+    ? { new: '#scenario-builder-title', file: '#scenario-file-input', aspic: '#aspic-import-title' }[scenarioLibrary.tab]
     : '#scenario-signin-btn');
 }
 
@@ -81,24 +83,28 @@ function renderScenarioLibraryAccess() {
   byId('scenario-builder-fields').disabled = !authenticated || scenarioLibrary.busy;
   byId('scenario-file-input').disabled = !authenticated || scenarioLibrary.busy;
   byId('scenario-import-name').disabled = !authenticated || scenarioLibrary.busy;
+  byId('scenario-aspic-fields').disabled = !authenticated || scenarioLibrary.busy || scenarioLibrary.reading;
   const submit = byId('scenario-library-submit');
-  submit.disabled = !authenticated || scenarioLibrary.busy || scenarioLibrary.reading
+  submit.disabled = !authenticated || scenarioLibrary.busy || scenarioLibrary.reading || librarySources[scenarioLibrary.tab]?.busy
     || (scenarioLibrary.tab === 'file' && !scenarioLibrary.preview);
   submit.textContent = scenarioLibrary.busy ? 'Opening...'
-    : scenarioLibrary.tab === 'new' ? 'Create & open' : 'Import & open';
+    : scenarioLibrary.tab === 'new' ? 'Create & open'
+    : scenarioLibrary.tab === 'aspic' && !aspicPreview ? 'Check & preview' : 'Import & open';
   byId('scenario-download-current').disabled = !state.bundle || hasPendingStateRequest();
+  renderMaterialAccess();
 }
 
 function switchScenarioLibraryTab(tab) {
-  if (scenarioLibrary.busy) return;
+  if (scenarioLibrary.busy || scenarioLibrary.reading) return;
   scenarioLibrary.tab = tab;
-  for (const name of ['new', 'file']) {
+  for (const name of ['new', 'file', 'aspic']) {
     const active = name === tab;
     const button = byId(`scenario-tab-${name}`);
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
     button.tabIndex = active ? 0 : -1;
     byId(`scenario-panel-${name}`).hidden = !active;
+    librarySources[name].host.hidden = !active;
   }
   setWorkspaceStatus('scenario-library-status');
   renderScenarioLibraryAccess();
@@ -321,6 +327,7 @@ function clearScenarioPreview() {
   scenarioLibrary.fileController = null;
   scenarioLibrary.fileGeneration += 1;
   scenarioLibrary.preview = null;
+  librarySources.file?.reset();
   scenarioLibrary.reading = false;
   byId('scenario-file-preview').hidden = true;
   renderScenarioLibraryAccess();
@@ -355,6 +362,8 @@ async function previewScenarioFile(file) {
     if (generation !== scenarioLibrary.fileGeneration) return;
     scenarioLibrary.preview = preview;
     const scenario = preview.scenario;
+    librarySources.file.reset(scenario.sources || []);
+    if (scenario.sources?.length) byId('scenario-sources-panel').open = true;
     byId('scenario-import-name').value = scenario.title.slice(0, 120);
     byId('scenario-file-name').textContent = file.name;
     byId('scenario-file-description').textContent = scenario.description || '';
@@ -393,6 +402,10 @@ async function submitScenarioLibrary() {
     if (tab === 'new') {
       if (!byId('scenario-builder-form').reportValidity()) return;
       scenario = scenarioFromBuilder(); sourceId = null; name = scenario.title;
+    } else if (tab === 'aspic') {
+      if (!aspicPreview) { await previewAspic(); return; }
+      const preview = aspicPreview;
+      scenario = preview.scenario; sourceId = null; name = scenario.title;
     } else {
       if (!scenarioLibrary.preview || !byId('scenario-import-name').reportValidity()) return;
       scenario = scenarioLibrary.preview.scenario;
@@ -400,6 +413,7 @@ async function submitScenarioLibrary() {
       name = byId('scenario-import-name').value.trim();
       if (!name) throw new Error('Give the imported scenario a name.');
     }
+    scenario = { ...scenario, sources: librarySources[tab].value() };
   } catch (error) {
     setWorkspaceStatus('scenario-library-status', error.message, 'error');
     return;
@@ -420,7 +434,12 @@ async function submitScenarioLibrary() {
     });
     if (state.authSession.user?.id !== previousUser) return;
     if (tab === 'new') resetScenarioBuilder();
-    else { clearScenarioPreview(); byId('scenario-file-input').value = ''; }
+    else if (tab === 'file') { clearScenarioPreview(); byId('scenario-file-input').value = ''; }
+    else {
+      for (const input of byId('scenario-aspic-fields').querySelectorAll('input,textarea')) input.value = '';
+      invalidateAspic();
+    }
+    librarySources[tab].reset(); scenarioLibrary.dirty = false;
     const changed = state.bundle !== previousBundle || state.diff_ops !== previousOps
       || state.activeProject !== previousProject || currentRequest !== previousRequest;
     if (!changed) {
@@ -449,7 +468,7 @@ async function submitScenarioLibrary() {
 }
 
 function downloadScenarioFile(scenario, sourceId) {
-  const payload = { format: 'abda-nl-scenario', version: 1, source_scenario_id: sourceId || null, scenario };
+  const payload = { format: 'abda-nl-scenario', version: scenario.sources?.length ? 2 : 1, source_scenario_id: sourceId || null, scenario };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2) + '\n'], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;

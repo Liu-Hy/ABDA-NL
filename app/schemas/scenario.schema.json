@@ -46,6 +46,19 @@
       "propertyNames": { "$ref": "#/$defs/identifier" },
       "additionalProperties": { "$ref": "#/$defs/rule" }
     },
+    "sources": {
+      "description": "User-supplied source text, stored with the scenario, never executable or fetched by URL.",
+      "type": "array", "maxItems": 10,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["filename", "text"],
+        "properties": {
+          "filename": {"type": "string", "maxLength": 120, "pattern": "^[A-Za-z0-9][A-Za-z0-9_. -]*\\.(txt|md|pdf)(?![\\s\\S])"},
+          "text": {"type": "string", "minLength": 1, "maxLength": 100000},
+          "url": {"type": "string", "maxLength": 2000}
+        }
+      }
+    },
     "corpus": {
       "type": "array",
       "maxItems": 100,

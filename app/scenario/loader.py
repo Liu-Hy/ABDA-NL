@@ -8,6 +8,7 @@ instances directly (no text-format roundtrip).
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Union
 
@@ -80,6 +81,11 @@ def scenario_from_dict(raw: dict[str, Any]) -> Scenario:
         raise ScenarioValidationError(msgs)
 
     scenario = _build_scenario(raw)
+    from app.scenario.materials import validate_sources
+    try:
+        validate_sources(scenario.sources, scenario.corpus)
+    except ValueError as exc:
+        raise ScenarioValidationError([str(exc)]) from exc
     check_reference_integrity(scenario)
     return scenario
 
@@ -106,6 +112,7 @@ def _build_scenario(raw: dict[str, Any]) -> Scenario:
         conclusions=conclusions,
         rules=rules,
         corpus=list(raw.get("corpus") or []),
+        sources=deepcopy(raw.get("sources") or []),
     )
 
 

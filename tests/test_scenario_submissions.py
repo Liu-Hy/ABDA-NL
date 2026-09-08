@@ -24,6 +24,7 @@ AUTHOR = "author@example.org"
 PICNIC = {
     "title": "Outdoor picnic",
     "description": "A public teaching example.",
+    "sources": [{"filename": "public-note.txt", "text": "A source the author has approved for public sharing."}],
     "facts": {"sunny": {"description": "It is sunny"}},
     "conclusions": {"outside": {"description": "Hold the picnic outside"}},
     "rules": {"r1": {"type": "defeasible", "premises": ["sunny"], "conclusion": "outside"}},
@@ -217,6 +218,7 @@ def test_privacy_export_suspend_delete_include_snapshots(client):
     with get_session_factory()() as session:
         exported = export_privacy_account(session, ADMIN)
         assert len(exported["scenario_submissions"]) == 1
+        assert 'A source the author has approved' in str(exported['scenario_submissions'])
         prepare_privacy_deletion(session, ADMIN, request_reference="curation-test")
     assert client.get(f"/scenarios/{public_id}").status_code == 404
     with get_session_factory()() as session:

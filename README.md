@@ -114,14 +114,18 @@ Use **New / Open**, beside the example selector, to work with your own scenario:
 - **Open file** accepts an ABDA-NL scenario YAML or JSON file (up to 1 MB).
   Check the preview, choose a name, and select **Import & open**. This always
   creates a separate project. It never overwrites an example or existing work.
+- **ASPIC-** accepts propositional rule text and a separate glossary. Attach
+  optional text, Markdown, or text-based PDF references in any tab. Documents
+  provide AI context without automatically becoming facts or rules.
 - **My projects** reopens saved work. **Download current scenario** exports
-  the current rules and statements, including unsaved edits, for later import.
+  rules, statement meanings, and attached reference text, including unsaved
+  rule edits, for later import. **Sources & glossary** edits saved project materials.
   Downloads do not include chat, account identifiers, share links, or API keys.
 
 Sign in before creating or importing private work. The builder draft stays in
 the current tab when you close the dialog, but is not saved until creation;
-refreshing or signing out discards it. File import does not translate prose
-documents or upload attached source documents. See the
+refreshing or signing out discards it. Document text is reviewed before saving;
+original PDFs are not retained and source URLs are not fetched. See the
 [scenario guide](docs/scenarios.md) for a short example and supported formats.
 
 The webpage keeps anonymous example exploration available while placing private

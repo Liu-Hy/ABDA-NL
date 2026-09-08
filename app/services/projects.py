@@ -71,6 +71,12 @@ def normalize_project_scenario(raw: dict, source_scenario_id: str | None) -> dic
         raise ValueError(
             f"project scenario cannot exceed {MAX_PROJECT_SCENARIO_BYTES} encoded bytes"
         )
+    if scenario.sources:
+        # Keep new material-bearing projects portable through the 1 MB file
+        # importer. Leave headroom for the envelope and a renamed project title.
+        portable_size = len(json.dumps(normalized, ensure_ascii=False, indent=2).encode("utf-8"))
+        if portable_size > 996_000:
+            raise ValueError("Scenario and references exceed the portable file limit. Use shorter document excerpts or glossary definitions.")
     project_corpus = list(normalized.get("corpus") or [])
     if source_scenario_id:
         source = load_bundled_scenario(source_scenario_id)

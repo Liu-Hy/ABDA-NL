@@ -149,11 +149,13 @@ def build_proposer_system_prompt(
     diff_ops: list[dict[str, Any]],
     *,
     scenario_dir: Path | None,
+    query: str = "",
 ) -> str:
     corpus_block = build_corpus_block(
         scenario_dir,
         list(scenario.corpus or []),
         getattr(scenario, "title", "") or (scenario_dir.name if scenario_dir else "Custom scenario"),
+        sources=getattr(scenario, "sources", []), query=query,
     )
     return load_prompt(
         "proposer_system",
@@ -176,6 +178,7 @@ def build_reviewer_system_prompt(
         scenario_dir,
         list(scenario.corpus or []),
         getattr(scenario, "title", "") or (scenario_dir.name if scenario_dir else "Custom scenario"),
+        sources=getattr(scenario, "sources", []), query=user_instruction,
     )
     return load_prompt(
         "reviewer_system",
@@ -636,7 +639,7 @@ def run_propose(
         raise ValueError("instruction must be a non-empty string")
 
     proposer_system = build_proposer_system_prompt(
-        scenario, af, diff_ops, scenario_dir=scenario_dir
+        scenario, af, diff_ops, scenario_dir=scenario_dir, query=instruction
     )
     user_message = _build_user_message(task, instruction, existing_id)
     tool = tool_for(task)

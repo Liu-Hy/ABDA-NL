@@ -94,6 +94,26 @@ class ScenarioFilePreviewResponse(BaseModel):
     warnings: List[str]
 
 
+class AspicPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(min_length=1, max_length=120)
+    rules: str = Field(min_length=1, max_length=100_000, repr=False)
+    glossary: str = Field(default="", max_length=200_000, repr=False)
+    conclusions: str = Field(default="", max_length=5000)
+
+
+class SourcePreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    filename: str = Field(min_length=1, max_length=255)
+    data_base64: str = Field(min_length=1, max_length=1_333_336, repr=False)
+
+
+class GlossaryPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scenario: dict = Field(repr=False)
+    glossary: str = Field(max_length=200_000, repr=False)
+
+
 class ProjectWorkingStateRequest(BaseModel):
     """Apply temporary operations to the saved project version."""
 

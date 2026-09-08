@@ -8,6 +8,7 @@ representation so the same AF always serializes identically.
 from __future__ import annotations
 
 from typing import Any, Iterable, Mapping
+from copy import deepcopy
 
 from app.abda_bridge import Argument, Attack, DefeasibleRule
 from app.abda.ArgumentationSystem.ArgumentationGraph import ArgumentationGraph
@@ -85,6 +86,7 @@ def scenario_to_dict(scenario: Scenario) -> dict[str, Any]:
             for k, v in scenario.rules.items()
         },
         "corpus": list(scenario.corpus),
+        **({"sources": deepcopy(scenario.sources)} if scenario.sources else {}),
     }
 
 

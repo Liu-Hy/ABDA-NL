@@ -48,7 +48,7 @@ def test_frontend_ids_labels_and_assets_are_self_contained():
     duplicates = [value for value, count in Counter(inventory.ids).items() if count > 1]
     assert duplicates == []
     assert set(inventory.label_targets) <= set(inventory.ids)
-    assert inventory.scripts[-4:] == ["app.js", "workspace.js", "scenarios.js", "curation.js"]
+    assert inventory.scripts[-5:] == ["app.js", "workspace.js", "scenarios.js", "materials.js", "curation.js"]
     assert all("://" not in source for source in inventory.scripts)
     assert all("://" not in source for source in inventory.stylesheets)
 

@@ -1179,6 +1179,16 @@ body.llm-disabled .rule-info { display: none; }
 /* Personal scenario library */
 .scenario-launcher { white-space: nowrap; color: var(--accent); border-color: #b9cee6; }
 .scenario-library-content { width: min(760px, 94vw); max-height: 92vh; }
+.material-section { margin: 1rem 0; padding-top: .85rem; border-top: 1px solid var(--border); }
+.material-section h3 { font-size: .95rem; margin-bottom: .45rem; }
+.material-section > summary, #scenario-panel-aspic summary { cursor: pointer; font-weight: 600; font-size: .85rem; min-height: 32px; padding: .3rem 0; }
+.material-code { display: block; width: 100%; resize: vertical; padding: .65rem; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); background: var(--surface); font: .8rem/1.6 monospace; }
+.source-card { margin: .75rem 0; padding: .75rem; border: 1px solid var(--border); border-radius: 9px; background: #fafbfd; }
+.source-card summary { cursor: pointer; font-size: .85rem; font-weight: 600; overflow-wrap: anywhere; }
+.source-card .form-field { margin-top: .7rem; }
+.source-card pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; margin-top: .6rem; font: .81rem/1.6 inherit; }
+.source-status { white-space: pre-line; overflow-wrap: anywhere; }
+#materials-status { margin: 0; padding: .6rem 1.2rem; max-height: 6rem; overflow: auto; }
 .scenario-lead { margin-top: .2rem; color: var(--text-dim); font-size: .83rem; font-weight: 400; }
 .scenario-library-nav {
   display: flex; align-items: center; justify-content: space-between; gap: .65rem;

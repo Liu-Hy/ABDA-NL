@@ -153,7 +153,9 @@ def test_operations_index_links_current_release_and_authorized_handoff():
     index = index_path.read_text(encoding="utf-8")
     normalized_index = " ".join(index.split())
 
-    assert "[current public release record](public-release-20260906.md)" in index
+    current = re.search(r"\[current public release record\]\(([^)]+\.md)\)", index)
+    assert current
+    assert (index_path.parent / current.group(1)).is_file()
     assert "[agent-driven deployment handoff](agent-driven-deployment.md)" in index
     assert "[final operator batch](final-operator-batch.md)" in index
     assert "execute approved routine work directly" in normalized_index

@@ -11,6 +11,9 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.account_models import (
+    AspicPreviewRequest,
+    GlossaryPreviewRequest,
+    SourcePreviewRequest,
     AuthSessionResponse,
     DevelopmentLoginRequest,
     LogoutResponse,
@@ -507,6 +510,52 @@ def preview_project_file(
     return ScenarioFilePreviewResponse(
         scenario=scenario, source_scenario_id=source_id, warnings=warnings,
     )
+
+
+@router.post("/api/projects/import/aspic", response_model=ScenarioFilePreviewResponse,
+             dependencies=[Depends(require_same_origin)])
+def preview_aspic_file(payload: AspicPreviewRequest, request: Request,
+                       user: User = Depends(require_verified_user),
+                       session: Session = Depends(get_db),
+                       settings: Settings = Depends(get_settings)) -> ScenarioFilePreviewResponse:
+    from app.scenario.aspic_import import import_aspic
+    _limit_user_mutation(request, session, settings, user)
+    try:
+        raw, warnings = import_aspic(payload.title, payload.rules, payload.glossary, payload.conclusions)
+        scenario = normalize_project_scenario(raw, None)
+    except ValueError as exc:
+        raise _project_error(exc)
+    return ScenarioFilePreviewResponse(scenario=scenario, warnings=warnings)
+
+
+@router.post("/api/projects/materials/source-preview", dependencies=[Depends(require_same_origin)])
+def preview_source_file(payload: SourcePreviewRequest, request: Request,
+                        user: User = Depends(require_verified_user),
+                        session: Session = Depends(get_db),
+                        settings: Settings = Depends(get_settings)) -> dict:
+    from app.scenario.source_upload import preview_source
+    enforce_rate_limit(request, session, settings, scope="source_preview", limit=10, user_id=user.id)
+    try:
+        source, warnings = preview_source(payload.filename, payload.data_base64)
+    except ValueError as exc:
+        raise _project_error(exc)
+    return {"source": source, "warnings": warnings}
+
+
+@router.post("/api/projects/materials/glossary-preview", dependencies=[Depends(require_same_origin)])
+def preview_glossary(payload: GlossaryPreviewRequest, request: Request,
+                      user: User = Depends(require_verified_user),
+                      session: Session = Depends(get_db),
+                      settings: Settings = Depends(get_settings)) -> dict:
+    from app.scenario.materials import apply_glossary, parse_glossary
+    _limit_user_mutation(request, session, settings, user)
+    try:
+        original = scenario_to_dict(scenario_from_dict(payload.scenario))
+        scenario = scenario_from_dict(apply_glossary(original, parse_glossary(payload.glossary)))
+        compute_state_bundle(scenario)
+    except ValueError as exc:
+        raise _project_error(exc)
+    return {"scenario": scenario_to_dict(scenario)}
 
 
 @router.get("/api/projects/{project_id}", response_model=ProjectDetailResponse)

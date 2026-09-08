@@ -1584,6 +1584,10 @@ pyparsing==3.3.2 \
     # via
     #   matplotlib
     #   pip-requirements-parser
+pypdf==6.18.0 \
+    --hash=sha256:05b762b77bcb9dcb4a7c91fcf5dded585b25bee7269ab3d3001d7c55fa1b324b \
+    --hash=sha256:ae58b7d93c22c169ffb02c3b06321c45c4f223b4916536568adb57d789d95d01
+    # via abda-nl (pyproject.toml)
 pyproject-hooks==1.2.0 \
     --hash=sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8 \
     --hash=sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913
@@ -2001,6 +2005,7 @@ typing-extensions==4.16.0 \
     #   pydantic-core
     #   pyee
     #   pyjwt
+    #   pypdf
     #   referencing
     #   sqlalchemy
     #   starlette

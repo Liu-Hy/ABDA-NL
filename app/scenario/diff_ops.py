@@ -171,6 +171,7 @@ def _copy_scenario(s: Scenario) -> Scenario:
         conclusions={k: replace(v) for k, v in s.conclusions.items()},
         rules={k: replace(v, premises=list(v.premises)) for k, v in s.rules.items()},
         corpus=list(s.corpus),
+        sources=[dict(source) for source in s.sources],
     )
 
 

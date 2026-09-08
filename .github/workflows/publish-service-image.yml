@@ -168,6 +168,21 @@ jobs:
           docker exec "$ABDA_IMAGE_CONTAINER_ID" \
             python -c \
             'import importlib.util; assert importlib.util.find_spec("pip") is None'
+          python - <<'PY' | docker exec -i "$ABDA_IMAGE_CONTAINER_ID" /opt/venv/bin/python -c 'import base64, sys; from app.scenario.source_upload import preview_source; source, _ = preview_source("smoke.pdf", base64.b64encode(sys.stdin.buffer.read()).decode()); assert "Synthetic source context" in source["text"]; print("container_pdf_extraction: passed")'
+          import io, sys
+          from pypdf import PdfWriter
+          from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+          writer = PdfWriter()
+          page = writer.add_blank_page(width=300, height=300)
+          font = DictionaryObject({NameObject('/Type'): NameObject('/Font'), NameObject('/Subtype'): NameObject('/Type1'), NameObject('/BaseFont'): NameObject('/Helvetica')})
+          page[NameObject('/Resources')] = DictionaryObject({NameObject('/Font'): DictionaryObject({NameObject('/F1'): font})})
+          stream = DecodedStreamObject()
+          stream.set_data(b'BT /F1 12 Tf 20 260 Td (Synthetic source context) Tj ET')
+          page[NameObject('/Contents')] = writer._add_object(stream)
+          buffer = io.BytesIO()
+          writer.write(buffer)
+          sys.stdout.buffer.write(buffer.getvalue())
+          PY
           curl --fail --silent --show-error \
             http://127.0.0.1:18000/health/live >/dev/null
           curl --fail --silent --show-error \

@@ -118,6 +118,8 @@ function exampleSnapshotHTML(scenario) {
     ${scenario.description ? `<p class="example-background">${escapeHtml(scenario.description)}</p>` : ''}
     <div class="example-snapshot-statements">${statements}</div>
     ${rules ? `<h4>Rules</h4><ol class="example-rules">${rules}</ol>` : ''}
+    ${scenario.sources?.length ? `<h4>Reference documents (published in full)</h4>${scenario.sources.map(source =>
+      `<details class="source-card"><summary>${escapeHtml(source.filename)}</summary><p class="scenario-hint">${escapeHtml(source.url || '')}</p><pre tabindex="0">${escapeHtml(source.text)}</pre></details>`).join('')}` : ''}
     <details class="example-raw"><summary>Inspect complete snapshot data</summary><pre tabindex="0">${escapeHtml(JSON.stringify(scenario, null, 2))}</pre></details>`;
 }
 

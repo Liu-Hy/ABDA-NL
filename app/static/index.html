@@ -26,6 +26,7 @@
       <label class="visually-hidden" for="scenario-select">Choose an example scenario</label>
       <select class="scenario-select" id="scenario-select"></select>
       <button class="btn scenario-launcher" id="scenario-library-btn" type="button" title="Create a scenario, open a file, or return to your projects">New / Open</button>
+      <button class="btn" id="scenario-materials-btn" type="button">Sources &amp; glossary</button>
       <label class="compact-switch" title="Compact view: flat list with category badges instead of category headers">
         <input type="checkbox" id="compact-toggle" checked>
         <span class="compact-switch-slider"></span>
@@ -430,6 +431,7 @@
         <div class="scenario-tabs" role="tablist" aria-label="Start a scenario">
           <button class="scenario-tab active" id="scenario-tab-new" type="button" role="tab" aria-selected="true" aria-controls="scenario-panel-new" data-scenario-tab="new">New scenario</button>
           <button class="scenario-tab" id="scenario-tab-file" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-file" data-scenario-tab="file" tabindex="-1">Open file</button>
+          <button class="scenario-tab" id="scenario-tab-aspic" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-aspic" data-scenario-tab="aspic" tabindex="-1">ASPIC-</button>
         </div>
         <button class="btn btn-small" id="scenario-my-projects" type="button">My projects</button>
         <button class="btn btn-small" id="scenario-example-submissions" type="button" hidden>Example submissions</button>
@@ -475,7 +477,7 @@
             <p>Drop a file here, or choose one below.</p>
             <label for="scenario-file-input">Scenario file</label>
             <input id="scenario-file-input" type="file" accept=".yaml,.yml,.json" aria-describedby="scenario-file-help">
-            <p class="scenario-hint" id="scenario-file-help">ABDA-NL YAML or JSON, up to 1 MB. Files are checked before saving. PDFs, Word documents, and attached source files are not supported.</p>
+            <p class="scenario-hint" id="scenario-file-help">ABDA-NL YAML or JSON, up to 1 MB. Files are checked before saving. For rule text and a separate glossary, use ASPIC-. Attach reference documents below.</p>
             <button class="btn btn-small" id="scenario-template-btn" type="button">Download a starter file</button>
           </div>
           <div id="scenario-file-preview" hidden>
@@ -490,6 +492,25 @@
             <p class="scenario-hint">This creates a new private project. It does not replace an example, an existing project, or your original file.</p>
           </div>
         </section>
+        <section id="scenario-panel-aspic" role="tabpanel" aria-labelledby="scenario-tab-aspic" hidden>
+          <fieldset id="scenario-aspic-fields" class="scenario-fields">
+            <div class="scenario-section-heading"><h3>Bring rules and their meaning</h3><button class="btn btn-small" id="aspic-starter" type="button">Try a small ASPIC- example</button></div>
+            <p class="scenario-hint">Propositional ASPIC- notation, as in Show ASPIC-. No model call or automatic rule generation.</p>
+            <div class="form-field"><label for="aspic-import-title">Scenario title</label><input id="aspic-import-title" maxlength="120" required></div>
+            <div class="form-field"><label for="aspic-import-rules">Rules</label><textarea id="aspic-import-rules" class="material-code" rows="6" maxlength="100000" placeholder="-> sunny&#10;sunny => outside [r1]"></textarea></div>
+            <div class="form-field"><label for="aspic-rules-file">Or load rule text (.txt or .aspic)</label><input id="aspic-rules-file" type="file" accept=".txt,.aspic"></div>
+            <div class="form-field"><label for="aspic-import-glossary">Glossary <span class="optional-label">recommended</span></label><textarea id="aspic-import-glossary" class="material-code" rows="4" maxlength="200000" placeholder="sunny = The forecast is sunny&#10;outside = We should hold the picnic outside"></textarea></div>
+            <div class="form-field"><label for="aspic-glossary-file">Or load a glossary (.txt, .yaml or .json)</label><input id="aspic-glossary-file" type="file" accept=".txt,.yaml,.yml,.json"></div>
+            <details><summary>Choose key conclusions <span class="optional-label">optional</span></summary><div class="form-field"><label for="aspic-import-conclusions">Symbols, separated by commas</label><input id="aspic-import-conclusions" maxlength="5000" placeholder="outside"><p class="scenario-hint">Leave blank to infer them from rule heads. Strict rules use -&gt;; defeasible rules use =&gt;. Empty premises declare facts or assumptions.</p></div></details>
+            <button class="btn" id="aspic-import-preview" type="button">Check rules &amp; glossary</button>
+          </fieldset>
+          <div id="aspic-import-result" class="scenario-file-warnings" role="status"></div>
+        </section>
+        <details id="scenario-sources-panel" class="material-section">
+          <summary>Reference documents <span class="optional-label">optional, for AI context</span></summary>
+          <p class="scenario-hint">Attach text, Markdown or a text-based PDF. Review the extracted text before saving. Documents provide context, not additional logical facts or rules.</p>
+          <div id="scenario-source-editor"></div>
+        </details>
       </div>
       <div class="workspace-status" id="scenario-library-status" role="status" aria-live="polite" tabindex="0"></div>
       <div class="scenario-library-footer">
@@ -506,6 +527,22 @@
   </div>
 
   <!-- Save-as-new-scenario modal -->
+  <div class="modal-backdrop" id="modal-scenario-materials">
+    <div class="modal-content scenario-library-content">
+      <div class="modal-header"><div><span class="modal-title">Sources &amp; glossary</span><p class="scenario-lead" id="materials-scenario-title"></p></div><button class="modal-close" type="button" aria-label="Close sources and glossary">×</button></div>
+      <div class="scenario-library-body">
+        <p class="scenario-hint" id="materials-access-note"></p>
+        <section class="material-section"><h3>Glossary</h3><p class="scenario-hint">One symbol = definition per line. These are the labels already used by the scenario. Changing a definition does not change its rules.</p>
+          <label class="visually-hidden" for="materials-glossary">Scenario glossary</label><textarea id="materials-glossary" class="material-code" rows="8" maxlength="200000"></textarea>
+          <div class="form-field" id="materials-glossary-upload"><label for="materials-glossary-file">Load glossary (.txt, .yaml or .json)</label><input id="materials-glossary-file" type="file" accept=".txt,.yaml,.yml,.json"></div>
+        </section>
+        <section class="material-section"><h3>Reference documents</h3><p class="scenario-hint" id="materials-bundled"></p><div id="materials-source-editor"></div></section>
+      </div>
+      <div class="workspace-status" id="materials-status" role="status" aria-live="polite"></div>
+      <div class="scenario-library-footer"><span class="scenario-hint">AI uses relevant excerpts, not necessarily every passage.</span><button class="btn btn-primary" id="materials-save" type="button">Save to project</button></div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="modal-save">
     <div class="modal-content modal-save-content">
       <div class="modal-header">
@@ -616,7 +653,7 @@
       <div class="modal-body">
         <div id="example-review-snapshot"></div>
         <div class="example-consent" id="example-consent-panel">
-          <p>This snapshot can become a public, downloadable example. Your account email, chat history, API keys, share links, and private project description are not included automatically. Check the scenario itself for sensitive information.</p>
+          <p>This snapshot can become a public, downloadable example, including the glossary and full text of attached reference documents. Your account email, chat history, API keys, share links, and private project description are not included automatically. Check the scenario and documents for sensitive information and permission to share.</p>
           <label><input id="example-public-consent" type="checkbox"> I have permission to share this content publicly and have checked the snapshot.</label>
           <p class="field-hint">Later project edits or archiving will not change this snapshot.</p>
         </div>
@@ -636,6 +673,7 @@
   <script src="app.js"></script>
   <script src="workspace.js"></script>
   <script src="scenarios.js"></script>
+  <script src="materials.js"></script>
   <script src="curation.js"></script>
 </body>
 </html>

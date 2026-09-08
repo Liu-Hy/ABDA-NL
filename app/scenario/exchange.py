@@ -76,7 +76,7 @@ def parse_scenario_file(text: str) -> tuple[dict, str | None, list[str]]:
         raise ScenarioFileError("Choose a scenario YAML or JSON file, not a document, list, or empty file.")
     source_id = None
     if "format" in raw:
-        if raw.get("format") != EXCHANGE_FORMAT or type(raw.get("version")) is not int or raw["version"] != 1:
+        if raw.get("format") != EXCHANGE_FORMAT or type(raw.get("version")) is not int or raw["version"] not in {1, 2}:
             raise ScenarioFileError("This scenario export format or version is not supported.")
         if set(raw) - {"format", "version", "scenario", "source_scenario_id"}:
             raise ScenarioFileError("This export contains unexpected fields. Download a new scenario file.")

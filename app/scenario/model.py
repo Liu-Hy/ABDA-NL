@@ -74,6 +74,7 @@ class Scenario:
     conclusions: dict[str, Proposition] = field(default_factory=dict)
     rules: dict[str, Rule] = field(default_factory=dict)
     corpus: list[str] = field(default_factory=list)
+    sources: list[dict[str, str]] = field(default_factory=list)
 
     def all_ids(self) -> set[str]:
         """All declared identifiers across every section (used for

@@ -299,15 +299,17 @@ def build_system_prompt(
     diff_ops: list[dict[str, Any]],
     *,
     scenario_dir: Path | None,
+    query: str = "",
 ) -> str:
     corpus_block = build_corpus_block(
         scenario_dir,
         list((scenario.corpus or [])),
         getattr(scenario, "title", "") or (scenario_dir.name if scenario_dir else "Custom scenario"),
+        sources=getattr(scenario, "sources", []), query=query,
     )
     scenario_block = build_scenario_block(scenario)
     state_block = build_state_block(scenario, af, diff_ops)
-    if scenario_dir is None:
+    if scenario_dir is None or getattr(scenario, "sources", []):
         # A new scenario has no example documents to supply the meanings of
         # its identifiers. Include every authored statement and rule, rather
         # than leaving the assistant to guess what "statement_1" denotes.
@@ -331,7 +333,7 @@ def build_system_prompt(
 # --- Deterministic validator ----------------------------------------------
 
 
-_CITED_FILE_RE = re.compile(r"\[([A-Za-z0-9_\-]+\.(?:txt|pdf|md))\]")
+_CITED_FILE_RE = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9_. -]{0,119}\.(?:txt|pdf|md))\]")
 _CITED_ID_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`")
 
 
@@ -361,6 +363,7 @@ def validate_response(response: str, scenario: Any, af: dict[str, Any]) -> list[
     """
     issues: list[str] = []
     corpus = set(scenario.corpus or [])
+    corpus.update(source["filename"] for source in getattr(scenario, "sources", []))
     declared = _declared_ids(scenario)
     labels = {k.lower() for k in (af.get("labels_by_proposition") or {}).keys()}
 
@@ -443,7 +446,8 @@ def run_turn(
 ) -> ChatTurnResult:
     """Run one chat turn through the Proposer (+ one corrective
     retry)."""
-    system_prompt = build_system_prompt(scenario, af, diff_ops, scenario_dir=scenario_dir)
+    query = next((str(item.get("content", "")) for item in reversed(messages) if item.get("role") == "user"), "")
+    system_prompt = build_system_prompt(scenario, af, diff_ops, scenario_dir=scenario_dir, query=query)
     conversation = _coerce_messages(messages)
 
     first: LLMResponse = client.complete(
