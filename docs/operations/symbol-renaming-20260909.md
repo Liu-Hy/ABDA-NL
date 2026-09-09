@@ -1,8 +1,8 @@
 # Safe scenario symbol renaming
 
-Status: implemented, tested, and published on the personal development branch
-on September 9, 2026. Not deployed. The previous unified-editor image remains
-live because the dedicated Azure management session requires renewed login.
+Status: deployed and verified at https://demo.abda-nl.org on September 9,
+2026 (America/Chicago). The renewed Azure session allowed an agent-operated
+image-only update. No manual deployment step remains for this change.
 
 ## Scope and user experience
 
@@ -58,7 +58,7 @@ symbols on a narrow screen. Ruff, application security lint, JavaScript syntax,
 and whitespace checks passed. CI runs the complete three-engine browser and
 PostgreSQL suites separately before deployment.
 
-## Published candidate
+## Published release
 
 - Source: `c6123d125c1a8310fb92867b390893e3bb191584`.
 - Tag: `service-image-symbols-20260909-c6123d1`.
@@ -80,29 +80,47 @@ PostgreSQL suites separately before deployment.
 - Stable main remains unchanged on both public remotes at
   `e4be41c72f34dd555147a2de221d84b3fd735c9f`.
 
-## Deployment hold and resume
+## Live deployment and acceptance
 
-A real read-only Container Apps query returned `AADSTS700082`, an expired
-management refresh token. Cached account metadata is not treated as proof
-of an authorized live session. No Azure mutation was attempted.
+The earlier `AADSTS700082` management-token expiry was resolved by the
+operator's renewed login. The agent verified the exact account, tenant,
+subscription, and a real Container Apps read before changing anything.
+The previous healthy revision was `abda-nl-stg-web--editor-7b0b9fd`.
 
-Public liveness and readiness both returned HTTP 200. The live editor asset
-still matched `7b0b9fd7a7a6fdf21577a6963cac60905fa82dde` byte for byte, and
-the live interface still marked reference documents optional. The
-[previous release record](unified-scenario-editor-20260908.md) identifies its
-image and last verified revision, `abda-nl-stg-web--editor-7b0b9fd`.
+- New healthy revision: `abda-nl-stg-web--symbols-c6123d1`, with one ready
+  replica and zero restarts at acceptance. Single-revision mode retained
+  the old revision until the replacement was ready.
+- Structural before/after comparison proved that only the container image
+  and revision suffix changed. Application configuration, environment,
+  workload profile, identity, secret references, and saved migration-job
+  properties were unchanged. No migration ran.
+- All three changed public assets, HTML, scenario JavaScript, and CSS,
+  matched the reviewed source bytes. Canonical HTTP payload hashes for
+  all six bundled scenarios were unchanged.
+- The external release checker passed at `2026-09-09T20:12:18Z`: TLS, HTTP
+  redirection, liveness, readiness, policies, security headers, public config,
+  protected metrics, database pool, and budget invariants. Both the custom
+  and generated Azure origins were ready.
+- Trial settings remain 100 users, $5 each, $500 total. OpenRouter failover
+  remains enabled with its $500 cap. The database pool reported one checked-out
+  connection out of five. No provider call was made for deployment acceptance.
+- Chromium and Firefox each passed six general accessibility scans, three
+  viewport checks, and three keyboard checks. An initial Chromium pass
+  reported one unspecified console error. An instrumented repeat passed
+  all the same checks with no console, page, HTTP, or failed-request errors;
+  the error was not reproduced and no application change was made for it.
+- Both browsers also passed three additional editor/import accessibility
+  scans, mobile overflow checks, keyboard focus return, and anonymous
+  rename/save restrictions. The served rename transform correctly updated
+  positive references and negative rule undercuts, rejected four invalid or
+  colliding names, and preserved document prose and its input. These checks
+  reported no browser errors.
+- Live acceptance used public data and isolated anonymous browser contexts.
+  No authentication was bypassed and no real private project was changed.
+  Authenticated create, rename, save, conflict, and portable round-trip
+  behavior were already covered by the exact-source three-browser CI suite.
 
-The sole operator prerequisite is to run this command in a regular Delta
-terminal and complete the Microsoft browser sign-in and MFA:
-
-```bash
-bash /u/haoyang/ABDA-NL/deploy/azure/agent-azure-session.sh login
-```
-
-Do not send a password, token, or MFA code to the agent. After renewal, the
-agent must recheck the exact identity and settled live state, deploy the
-published digest as an image-only update, compare configuration and saved
-job properties, and run the automated public acceptance checks. No schema
-migration, Auth0 edit, provider call, or separate manual browser gate is
-required for this change. The site must not be described as upgraded until
-those live checks pass.
+The [previous unified-editor image](unified-scenario-editor-20260908.md)
+remains the compatible rollback target. No separate manual browser gate is
+required for this UI-only release. Corpus remains optional, and administrator
+publication behavior is unchanged.

@@ -1,6 +1,6 @@
 # ABDA-NL operations
 
-Start with the [current public release record](unified-scenario-editor-20260908.md)
+Start with the [current public release record](symbol-renaming-20260909.md)
 and [agent-driven deployment handoff](agent-driven-deployment.md). The operator's
 Delta Azure login now allows the agent to execute approved routine work directly.
 The [final operator batch](final-operator-batch.md) records the completed cloud
@@ -9,18 +9,16 @@ evidence records. Do not reconstruct a current command from a
 historical checkpoint or edit an immutable commit, image digest, revision, or
 checksum in Cloud Shell.
 
-## Verified candidate awaiting deployment
-
-[Safe symbol renaming](symbol-renaming-20260909.md) is tested and published.
-Its image is not live yet: the dedicated Azure session requires renewed login.
-The record includes the exact candidate digest, CI evidence, and the single
-operator prerequisite. The current public release below remains unchanged.
-
 ## Current release sequence
 
-- [Unified scenario editor](unified-scenario-editor-20260908.md) is the latest
-  healthy public image. New and imported scenarios share one editor for rules,
-  glossary, and documents. Version 3 exports embed all reference text, including
+- [Safe symbol renaming](symbol-renaming-20260909.md) is the latest healthy
+  public image. Statements and rules can be renamed from the unified editor,
+  with exact logical references updated and meanings, priorities, and documents
+  preserved. This was an image-only update. Corpus remains optional and
+  administrator publication is unchanged.
+- [Unified scenario editor](unified-scenario-editor-20260908.md) records the
+  preceding release and compatible rollback image. New and imported scenarios
+  share one editor for rules, glossary, and documents. Version 3 exports embed all reference text, including
   built-in corpus files, and round-trip without the original server. The
   database schema is unchanged. Once references exceed the previous parser's
   limits, use this image or a newer compatible image for recovery.
