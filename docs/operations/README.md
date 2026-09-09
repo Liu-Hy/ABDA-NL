@@ -1,6 +1,6 @@
 # ABDA-NL operations
 
-Start with the [current public release record](scenario-materials-20260908.md)
+Start with the [current public release record](unified-scenario-editor-20260908.md)
 and [agent-driven deployment handoff](agent-driven-deployment.md). The operator's
 Delta Azure login now allows the agent to execute approved routine work directly.
 The [final operator batch](final-operator-batch.md) records the completed cloud
@@ -11,21 +11,26 @@ checksum in Cloud Shell.
 
 ## Current release sequence
 
-- [Three-part scenario materials](scenario-materials-20260908.md) is the latest
-  healthy public image. It adds ASPIC- rule-text and glossary import, editable
-  private reference documents, bounded PDF extraction, and portable exports
-  carrying those materials. It requires no database migration. Once a project
-  contains `sources`, use this image or a newer compatible image for recovery;
-  older parsers cannot read that field even at the same database schema head.
+- [Unified scenario editor](unified-scenario-editor-20260908.md) is the latest
+  healthy public image. New and imported scenarios share one editor for rules,
+  glossary, and documents. Version 3 exports embed all reference text, including
+  built-in corpus files, and round-trip without the original server. The
+  database schema is unchanged. Once references exceed the previous parser's
+  limits, use this image or a newer compatible image for recovery.
+- [Three-part scenario materials](scenario-materials-20260908.md) records the
+  preceding release. It added rule-text and glossary import, private reference
+  documents, and bounded PDF extraction. Those capabilities are integrated
+  into the current editor. Its earlier source-linked export format remains
+  importable, but only version 3 guarantees complete server independence.
 - [Reviewed community examples](community-examples-20260908.md) records the
   preceding release. It added consented submissions, scoped curator review,
   direct publication, and additive database revision 20260908_0005. That schema
-  head is retained by the materials release. Older v4 images reject it. Do not replay
+  head is retained by the current release. Older v4 images reject it. Do not replay
   historical image rollback gates or downgrade the database.
 - [Create and open scenarios](scenario-library-20260908.md) records the new
   builder, checked file import, portable export, and custom-project AI support.
   Those features and the unchanged public limits and routing are retained in
-  the current materials image. Its prior image is historical evidence,
+  the current image. Its prior image is historical evidence,
   not a rollback target for the new database head.
 - [Conference layout repair](conference-layout-20260906.md) identifies the
   previous layout image, the fixed conclusion-text clipping, and the

@@ -1,7 +1,7 @@
 # Unified scenario editor and self-contained exchange
 
-Status: implementation and local acceptance completed; image publication and
-live rollout evidence will be recorded below after verification.
+Status: deployed and verified at https://demo.abda-nl.org on September 8,
+2026 (America/Chicago). No manual deployment step remains for this change.
 
 ## Design and correctness
 
@@ -77,4 +77,54 @@ See [the scenario guide](../scenarios.md) for user-facing instructions.
 
 ## Publication and live receipt
 
-Pending verification of the source-bound image and healthy replacement revision.
+- Application source: `7b0b9fd7a7a6fdf21577a6963cac60905fa82dde`.
+- Image: `ghcr.io/liu-hy/abda-nl@sha256:142e19069253fc629fa0b5ee2ef4c54f40374ba0ad1fdeb688c4efd527debced`.
+- Healthy revision: `abda-nl-stg-web--editor-7b0b9fd`, one ready replica,
+  zero restarts at acceptance. Previous revision:
+  `abda-nl-stg-web--materials-995c83c`.
+- [Source CI](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34292771963)
+  and [tag CI](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34292789727)
+  passed. Python acceptance recorded 984 passed and 42 opt-in tests skipped;
+  separate Chromium, Firefox, and WebKit jobs each passed all 41 browser tests.
+  Restricted-role PostgreSQL acceptance also passed independently.
+- [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34292772054)
+  and [image publication](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34292789775)
+  passed. Dependency audits reported no known vulnerabilities. Exact-container
+  smoke included PDF extraction. Container security, SBOM, and signed
+  provenance checks passed.
+- Anonymous registry access verified the image and configuration hashes,
+  Linux/amd64 platform, source commit, and GPL-3.0-only label. Independent
+  attestation verification required this exact source, the expected publisher
+  workflow, and a hosted runner.
+- Structural before/after comparison proved that only the web image and
+  revision suffix changed. The environment, identity, application configuration,
+  and saved migration-job properties were identical. No migration ran.
+- All nine checked public application assets matched the reviewed source
+  bytes. Canonical HTTP payload hashes for all six bundled scenarios remained
+  unchanged.
+- Exported all six scenarios through the live HTTPS API, then imported each
+  into an empty local catalog with original-source lookups prohibited. All
+  facts, rules, meanings, full reference text, and computed AFs matched.
+  Re-export produced the identical version 3 envelope. The Popov export
+  contained five documents and 195,065 bytes of reference text, including
+  the full extracted text of its longer PDF.
+- Live private-preview endpoints rejected anonymous requests with 401.
+  Cross-origin editor and export requests were rejected with 403. Export
+  responses used no-store caching. Both public HTTPS origins remained ready.
+- Live Chromium and Firefox each passed the existing six accessibility scans,
+  three viewport checks, and three keyboard checks. Each also passed three
+  new editor/import scans, a real version 3 browser download, mobile overflow
+  checks, anonymous editing restrictions, and read-only public glossaries.
+  Neither browser reported a page or console error.
+- The external release checker passed at `2026-09-09T00:06:52Z`: TLS, HTTP
+  redirection, readiness, liveness, security headers, policies, public config,
+  protected metrics, database pool, and budget invariants. Trial settings remain
+  100 users, $5 each, $500 total. OpenRouter failover remains enabled with a
+  $500 cap. No model provider was called during live rollout verification.
+- No real account, private project, or identity-provider setting was modified
+  by these checks. Stable main was verified unchanged on both public remotes
+  at `e4be41c72f34dd555147a2de221d84b3fd735c9f`.
+
+Authenticated creation, import, edit, save conflicts, sharing, and offline
+HTTP persistence were exercised against isolated test accounts in CI. Live
+checks did not impersonate an operator or require another email sign-in.
