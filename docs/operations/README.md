@@ -9,6 +9,13 @@ evidence records. Do not reconstruct a current command from a
 historical checkpoint or edit an immutable commit, image digest, revision, or
 checksum in Cloud Shell.
 
+## Verified candidate awaiting deployment
+
+[Safe symbol renaming](symbol-renaming-20260909.md) is tested and published.
+Its image is not live yet: the dedicated Azure session requires renewed login.
+The record includes the exact candidate digest, CI evidence, and the single
+operator prerequisite. The current public release below remains unchanged.
+
 ## Current release sequence
 
 - [Unified scenario editor](unified-scenario-editor-20260908.md) is the latest

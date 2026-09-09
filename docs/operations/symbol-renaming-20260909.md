@@ -1,8 +1,8 @@
 # Safe scenario symbol renaming
 
-Status: implementation and local verification complete on the development
-branch. Publication checks are pending. The previous unified-editor image
-remains the live baseline until a verified replacement is deployed.
+Status: implemented, tested, and published on the personal development branch
+on September 9, 2026. Not deployed. The previous unified-editor image remains
+live because the dedicated Azure management session requires renewed login.
 
 ## Scope and user experience
 
@@ -58,9 +58,51 @@ symbols on a narrow screen. Ruff, application security lint, JavaScript syntax,
 and whitespace checks passed. CI runs the complete three-engine browser and
 PostgreSQL suites separately before deployment.
 
-## Publication and deployment
+## Published candidate
 
-The existing Azure management refresh token expired before this change.
-Publishing a tested image does not require that token. The final image-only
-deployment requires the operator to renew the dedicated Delta Azure session.
-No credential is copied into the repository or requested in chat.
+- Source: `c6123d125c1a8310fb92867b390893e3bb191584`.
+- Tag: `service-image-symbols-20260909-c6123d1`.
+- Image: `ghcr.io/liu-hy/abda-nl@sha256:a5edbbae91c9eb0ed2afcba2e4e179b9388ea858d75c71f14206d04425c50d59`.
+- [Source CI](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34397909333)
+  and [tag CI](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34397926312)
+  passed. Python 3.10 and 3.13 each recorded 1,017 passed and 45 opt-in
+  tests skipped. Chromium, Firefox, and WebKit each passed all 44 browser
+  tests. Restricted-role PostgreSQL and deployment-artifact checks passed.
+- [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34397909239)
+  and [image publication](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34397926357)
+  passed. Runtime and development dependency audits found no known
+  vulnerabilities. Exact-container smoke, PDF extraction, security scanning,
+  SBOM generation, and provenance signing passed.
+- Independent anonymous registry verification checked manifest and config
+  hashes, Linux/amd64, the exact source revision, source repository, and
+  GPL-3.0-only label. Independent attestation verification required the
+  exact source digest and tag, expected publishing workflow, and hosted runner.
+- Stable main remains unchanged on both public remotes at
+  `e4be41c72f34dd555147a2de221d84b3fd735c9f`.
+
+## Deployment hold and resume
+
+A real read-only Container Apps query returned `AADSTS700082`, an expired
+management refresh token. Cached account metadata is not treated as proof
+of an authorized live session. No Azure mutation was attempted.
+
+Public liveness and readiness both returned HTTP 200. The live editor asset
+still matched `7b0b9fd7a7a6fdf21577a6963cac60905fa82dde` byte for byte, and
+the live interface still marked reference documents optional. The
+[previous release record](unified-scenario-editor-20260908.md) identifies its
+image and last verified revision, `abda-nl-stg-web--editor-7b0b9fd`.
+
+The sole operator prerequisite is to run this command in a regular Delta
+terminal and complete the Microsoft browser sign-in and MFA:
+
+```bash
+bash /u/haoyang/ABDA-NL/deploy/azure/agent-azure-session.sh login
+```
+
+Do not send a password, token, or MFA code to the agent. After renewal, the
+agent must recheck the exact identity and settled live state, deploy the
+published digest as an image-only update, compare configuration and saved
+job properties, and run the automated public acceptance checks. No schema
+migration, Auth0 edit, provider call, or separate manual browser gate is
+required for this change. The site must not be described as upgraded until
+those live checks pass.
