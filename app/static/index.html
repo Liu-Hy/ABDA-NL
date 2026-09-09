@@ -470,6 +470,16 @@
                 </div>
               </div>
               <p class="scenario-hint">Both views edit the same knowledge base. The glossary below supplies the words you see here.</p>
+              <details id="scenario-symbol-renamer" class="material-section">
+                <summary>Rename symbol <span class="optional-label">optional</span></summary>
+                <p class="scenario-hint" id="scenario-rename-note">Renaming updates every logical reference, including negation and rule undercuts. Meanings and reference documents are preserved.</p>
+                <div class="scenario-rename-fields">
+                  <div class="form-field"><label for="scenario-rename-from">Existing symbol</label><select id="scenario-rename-from"></select></div>
+                  <div class="form-field"><label for="scenario-rename-to">New symbol</label><input id="scenario-rename-to" type="text" maxlength="100" spellcheck="false" autocomplete="off" autocapitalize="off" aria-describedby="scenario-rename-help scenario-library-status"></div>
+                </div>
+                <p class="scenario-hint" id="scenario-rename-help">Letters, digits and underscores only, starting with a letter or underscore. Up to 100 characters. Symbols must be unique across statements and rules.</p>
+                <div class="scenario-rename-actions"><button class="btn btn-small" id="scenario-rename-apply" type="button">Rename</button><button class="btn btn-small" id="scenario-rename-cancel" type="button">Cancel rename</button></div>
+              </details>
               <div id="scenario-guided">
                 <h4>Statements &amp; glossary</h4>
                 <p class="scenario-hint" id="scenario-statements-help">Write each statement in plain English. Facts are given, assumptions are defeasible, and claims follow from rules. Mark the claims you want to feature as key conclusions.</p>

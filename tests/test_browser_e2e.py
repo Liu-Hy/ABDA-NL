@@ -308,6 +308,200 @@ def _load_editor_files(page):
     expect(page.locator('#scenario-library-status')).to_contain_text('Materials loaded together')
 
 
+def _rename_editor_symbol(page, old, new):
+    from playwright.sync_api import expect
+    if page.locator('#scenario-symbol-renamer').get_attribute('open') is None:
+        page.locator('#scenario-symbol-renamer > summary').click()
+    page.locator('#scenario-rename-from').select_option(old)
+    page.locator('#scenario-rename-to').fill(new)
+    page.locator('#scenario-rename-apply').click()
+    expect(page.locator('#scenario-library-status')).to_contain_text(f'Renamed {old} to {new}')
+    expect(page.locator('#scenario-rename-to')).to_have_value(new)
+
+
+def test_symbol_rename_incomplete_creation_validation_and_cancel(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page(viewport={'width': 1440, 'height': 900})
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            page.locator('#scenario-library-btn').click()
+            page.locator('#scenario-symbol-renamer > summary').click()
+            expect(page.locator('#scenario-rename-to')).to_be_disabled()
+            expect(page.locator('#scenario-rename-apply')).to_be_disabled()
+            page.locator('#scenario-library-cancel').click()
+            assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'rename-new@example.org'}).ok
+            _reload_ready_demo(page)
+            page.locator('#scenario-library-btn').click()
+            # Symbols can be chosen before the title, meanings or rule are complete.
+            page.locator('.scenario-statement-details').first.locator('summary').click()
+            page.get_by_role('button', name='Rename symbol statement_1', exact=True).click()
+            page.locator('#scenario-rename-to').fill('forecast')
+            page.locator('#scenario-rename-to').press('Enter')
+            expect(page.locator('#forecast-text')).to_be_visible()
+            page.locator('#forecast-text').fill('The forecast is sunny')
+            page.locator('#statement_2-text').fill('We should hold the picnic outside')
+            page.locator('#scenario-builder-title').fill('Readable symbols')
+            _rename_editor_symbol(page, 'statement_2', 'picnic')
+            rule = page.locator('.scenario-rule-card').first
+            rule.locator('[data-literal]').nth(0).select_option('forecast')
+            rule.locator('[data-literal]').nth(1).select_option('picnic')
+            rule.locator('summary').click()
+            page.get_by_role('button', name='Rename symbol rule_3', exact=True).click()
+            page.locator('#scenario-rename-to').fill('weather_rule')
+            page.locator('#scenario-rename-apply').click()
+            _preview_editor(page)
+            baseline = page.evaluate('scenarioFromBuilder(false)')
+            page.locator('#scenario-symbol-renamer > summary').click()
+            page.locator('#scenario-rename-from').select_option('forecast')
+            for invalid in ['weather_rule', '-sunny', '__proto__']:
+                page.locator('#scenario-rename-to').fill(invalid)
+                page.locator('#scenario-rename-apply').click()
+                assert page.evaluate('scenarioFromBuilder(false)') == baseline
+                expect(page.locator('#scenario-rename-to')).to_have_attribute('aria-invalid', 'true')
+                expect(page.locator('#scenario-library-submit')).to_be_disabled()
+                expect(page.locator('#scenario-preview-btn')).to_be_disabled()
+            page.locator('#scenario-rename-to').press('Escape')
+            expect(page.locator('#scenario-rename-to')).not_to_have_attribute('aria-invalid', 'true')
+            expect(page.locator('#modal-scenario-library')).to_have_class(re.compile('visible'))
+            expect(page.locator('#scenario-library-submit')).to_be_enabled()
+            _rename_editor_symbol(page, 'forecast', 'sunny')
+            expect(page.locator('#scenario-library-submit')).to_be_disabled()
+            expect(page.locator('#scenario-editor-preview')).to_be_hidden()
+            _rename_editor_symbol(page, 'sunny', 's' * 100)
+            page.locator('.scenario-statement-details').first.locator('summary').click()
+            for width in [1440, 390]:
+                page.set_viewport_size({'width': width, 'height': 900})
+                _axe_report(page, f'symbol rename at {width}px')
+                assert page.locator('#modal-scenario-library .modal-content').evaluate('el => el.scrollWidth <= el.clientWidth + 1')
+            _save_browser_evidence(page, 'symbol-rename-mobile')
+            _rename_editor_symbol(page, 's' * 100, 'sunny')
+            _preview_editor(page)
+            with page.expect_response(lambda r: r.url.endswith('/api/projects/import') and r.request.method == 'POST') as created:
+                page.locator('#scenario-library-submit').click()
+            project = created.value.json()
+            assert project['scenario']['rules']['weather_rule']['premises'] == ['sunny']
+            assert project['scenario']['rules']['weather_rule']['conclusion'] == 'picnic'
+            assert project['af']['labels_by_proposition']['picnic'] == 'accepted'
+            assert not errors
+        finally:
+            browser.close()
+
+
+def test_symbol_rename_private_metadata_undercuts_and_portability(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+    original = {
+        'title': 'Private rename', 'description': 'p and r in this text are not rewritten.',
+        'facts': {'p': {'description': 'Evidence', 'category': 'Record', 'source': 'note.txt'}, 'p1': {'description': 'Other evidence'}},
+        'assumptions': {'a': {'description': 'Reliable', 'negated_description': 'Unreliable', 'block': 3, 'active': False}},
+        'propositions': {'q': {'description': 'Intermediate', 'negated_description': 'No intermediate'}},
+        'conclusions': {'c': {'description': 'Decision', 'negated_description': 'No decision'}},
+        'rules': {
+            'r': {'type': 'defeasible', 'premises': ['p'], 'conclusion': 'q', 'block': 2, 'active': False,
+                  'negated_description': 'r is defeated', 'category': 'Record', 'source': 'note.txt'},
+            'u': {'type': 'defeasible', 'premises': ['p1', '-a'], 'conclusion': '-r', 'block': 3},
+            's': {'type': 'strict', 'premises': ['q'], 'conclusion': '-c'},
+        },
+        'sources': [{'filename': 'note.txt', 'text': 'Reference p and r.\n', 'url': 'https://example.org/p'}],
+    }
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        try:
+            assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'rename-private@example.org'}).ok
+            created = page.request.post(f'{live_browser_server}/api/projects/import', data={'name': original['title'], 'scenario': original})
+            assert created.ok, created.text()
+            project = created.json()
+            _goto_ready_demo(page, live_browser_server)
+            page.locator('#workspace-btn').click()
+            page.locator('#workspace-tab-projects').click()
+            page.locator('#project-list').get_by_role('button', name='Open', exact=True).click()
+            expect(page.locator('#scenario-name')).to_have_text(original['title'])
+            page.locator('#scenario-materials-btn').click()
+            page.locator('#scenario-glossary-panel > summary').click()
+            page.locator('#scenario-glossary-text').fill('p = Updated evidence')
+            expect(page.locator('#scenario-rename-to')).to_be_disabled()
+            page.locator('#scenario-apply-glossary').click()
+            expect(page.locator('#p-text')).to_have_value('Updated evidence')
+            page.locator('#scenario-sources-summary').click()
+            page.locator('#library-sources-new-text-0').fill('Pending reference p and -r.\n')
+            changes = [('p', 'evidence'), ('a', 'reliable'), ('q', 'intermediate'), ('c', 'decision'), ('r', 'inference'), ('s', 'strict_rule')]
+            for old, new in changes:
+                _rename_editor_symbol(page, old, new)
+            draft = page.evaluate('scenarioFromBuilder(false)')
+            assert draft['facts']['p1']['description'] == 'Other evidence'
+            assert draft['facts']['evidence']['description'] == 'Updated evidence'
+            assert draft['facts']['evidence']['source'] == 'note.txt'
+            assert draft['assumptions']['reliable'] == project['scenario']['assumptions']['a']
+            assert draft['propositions']['intermediate'] == project['scenario']['propositions']['q']
+            assert draft['conclusions']['decision'] == project['scenario']['conclusions']['c']
+            assert draft['rules']['u']['premises'] == ['p1', '-reliable']
+            assert draft['rules']['u']['conclusion'] == '-inference'
+            assert draft['rules']['strict_rule']['conclusion'] == '-decision'
+            for field in ['active', 'block', 'negated_description', 'category', 'source']:
+                assert draft['rules']['inference'][field] == project['scenario']['rules']['r'][field]
+            expect(page.locator('#library-sources-new-text-0')).to_have_value('Pending reference p and -r.\n')
+            # Renaming is local until Save & open, and both editor views agree.
+            assert page.request.get(f'{live_browser_server}/api/projects/{project["id"]}').json()['version'] == 1
+            page.locator('#scenario-mode-text').click()
+            expect(page.locator('#scenario-rule-text')).to_have_value(re.compile('-inference'))
+            page.locator('#scenario-rule-text').fill(page.locator('#scenario-rule-text').input_value() + '\n# Preserve metadata')
+            expect(page.locator('#scenario-rename-to')).to_be_disabled()
+            page.locator('#scenario-mode-guided').click()
+            _preview_editor(page)
+            with page.expect_response(lambda r: r.url.endswith('/api/projects/' + project['id']) and r.request.method == 'PUT') as updated:
+                page.locator('#scenario-library-submit').click()
+            saved = updated.value.json()
+            assert saved['version'] == 2
+            mapping = dict(changes)
+            assert saved['af']['labels_by_proposition'] == {
+                ('-' if key.startswith('-') else '') + mapping.get(key.removeprefix('-'), key.removeprefix('-')): label
+                for key, label in project['af']['labels_by_proposition'].items()
+            }
+            page.locator('#scenario-library-btn').click()
+            with page.expect_download() as download:
+                page.locator('#scenario-download-current').click()
+            envelope = json.loads(Path(download.value.path()).read_text())
+            assert envelope['version'] == 3 and envelope['scenario'] == saved['scenario']
+            assert envelope['scenario']['sources'][0]['text'] == 'Pending reference p and -r.\n'
+            page.locator('#scenario-tab-file').click()
+            page.locator('#scenario-file-input').set_input_files({'name': 'renamed.json', 'mimeType': 'application/json', 'buffer': json.dumps(envelope).encode()})
+            _load_editor_files(page)
+            assert page.evaluate('scenarioFromBuilder(false)') == saved['scenario']
+            assert not errors
+        finally:
+            browser.close()
+
+
+def test_symbol_rename_in_large_rule_text_editor(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+    raw = {'title': 'Large symbol catalog', 'facts': {f'p{i}': {'description': f'Evidence {i}'} for i in range(101)},
+           'conclusions': {'c': {'description': 'Decision'}}, 'rules': {'r': {'type': 'defeasible', 'premises': ['p0'], 'conclusion': 'c'}}}
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        try:
+            assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'rename-large@example.org'}).ok
+            _goto_ready_demo(page, live_browser_server)
+            page.locator('#scenario-library-btn').click()
+            page.locator('#scenario-tab-file').click()
+            page.locator('#scenario-file-input').set_input_files({'name': 'large.json', 'mimeType': 'application/json', 'buffer': json.dumps(raw).encode()})
+            _load_editor_files(page)
+            expect(page.locator('#scenario-mode-guided')).to_be_disabled()
+            expect(page.locator('#scenario-rule-text')).to_be_visible()
+            _rename_editor_symbol(page, 'p0', 'evidence_zero')
+            expect(page.locator('#scenario-rule-text')).to_have_value(re.compile('evidence_zero => c'))
+            _preview_editor(page)
+            expect(page.locator('#scenario-preview-results')).to_contain_text('accepted')
+        finally:
+            browser.close()
+
+
 def test_three_part_scenario_import_materials_and_portable_export(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

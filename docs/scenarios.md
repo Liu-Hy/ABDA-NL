@@ -32,6 +32,32 @@ identifiers, categories, attribution, and explicit negative meanings.
 **Priority & details** exposes defeasible priority and active state. Higher
 numbered priorities are stronger.
 
+### Choose or rename symbols
+
+Automatic names work without any extra setup. To choose a readable identifier,
+open **Symbol & details** on a statement, or **Priority & details** on a rule,
+and select **Rename**. Alternatively, expand **Rename symbol** inside the
+knowledge base in either Guided or Rule text view. Select the existing symbol,
+enter its new name, and select **Rename** (or press Enter in the name field).
+
+Names use 1 to 100 letters, digits, or underscores, beginning with a letter or
+underscore. They are case-sensitive and must be unique across all statements
+and rules. Reserved object-property names are rejected. A leading minus is
+negation, not part of the name you enter.
+
+This changes the symbol everywhere it is used by the logic, including negative
+literals and rule undercuts. It preserves meanings, key-conclusion choices,
+priorities, active states, and attribution. Background and reference-document
+text are not searched or rewritten. The change stays in this draft until
+**Preview**, then **Save & open**. Published examples retain their snapshots.
+
+Invalid names leave the draft unchanged. **Cancel rename**, or Escape while
+typing the name, cancels that pending change. Preview and saving wait until
+the pending name is applied or cancelled. Apply a pasted glossary or preview
+changed rule text before renaming, so the symbol list represents that content.
+Renaming also works in an unfinished guided draft and in larger scenarios
+that use Rule text instead of the guided rows.
+
 Closing the editor keeps its draft in this browser tab. Refreshing or signing
 out clears it. Saved projects persist under **My projects**.
 

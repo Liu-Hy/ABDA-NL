@@ -7,6 +7,97 @@ const scenarioLibrary = {
 const SCENARIO_FILE_LIMIT = 1000000;
 const STATEMENT_SECTIONS = { fact: 'facts', assumption: 'assumptions', proposition: 'propositions', conclusion: 'conclusions' };
 
+function renameScenarioSymbol(scenario, from, to) {
+  if (typeof to !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]{0,99}$/.test(to) || /\s/.test(to))
+    throw new Error('Use 1 to 100 letters, digits or underscores, starting with a letter or underscore. Do not include a minus sign.');
+  if (Object.hasOwn(Object.prototype, to) || to === 'prototype')
+    throw new Error('This symbol is reserved. Choose a different name.');
+  const sections = [...Object.values(STATEMENT_SECTIONS), 'rules'];
+  const owners = sections.filter(section => Object.hasOwn(scenario[section] || {}, from));
+  if (owners.length !== 1) throw new Error('Choose one existing statement or rule to rename.');
+  if (to !== from && sections.some(section => Object.hasOwn(scenario[section] || {}, to)))
+    throw new Error('That symbol is already used by a statement or rule. Choose a distinct name.');
+  const result = structuredClone(scenario);
+  result[owners[0]] = Object.fromEntries(Object.entries(result[owners[0]]).map(([id, value]) => [id === from ? to : id, value]));
+  const literal = value => value === from ? to : value === '-' + from ? '-' + to : value;
+  for (const rule of Object.values(result.rules || {})) {
+    rule.premises = rule.premises.map(literal);
+    rule.conclusion = literal(rule.conclusion);
+  }
+  return result;
+}
+
+function pendingSymbolRename() {
+  const select = byId('scenario-rename-from'), input = byId('scenario-rename-to');
+  return !!select?.value && input.value !== select.value;
+}
+
+function renderSymbolChoices(preferred = null) {
+  const select = byId('scenario-rename-from'), input = byId('scenario-rename-to');
+  const previous = select.value, candidate = input.value;
+  select.replaceChildren();
+  for (const item of [...scenarioLibrary.statements, ...scenarioLibrary.rules]) {
+    const kind = item.kind === 'conclusion' ? 'key conclusion' : item.kind || 'rule';
+    select.add(new Option(item.id + ' (' + kind + ')' + (item.description ? ': ' + item.description.slice(0, 70) : ''), item.id));
+  }
+  const desired = preferred || previous;
+  if ([...select.options].some(option => option.value === desired)) select.value = desired;
+  input.value = !preferred && previous === select.value ? candidate : select.value;
+}
+
+function openSymbolRename(id) {
+  if (!state.authSession.authenticated || scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new.busy) return;
+  if (pendingSymbolRename() && byId('scenario-rename-from').value !== id) {
+    setWorkspaceStatus('scenario-library-status', 'Rename or cancel the current symbol change first.', 'info');
+  } else { renderSymbolChoices(id); }
+  byId('scenario-symbol-renamer').open = true;
+  renderScenarioLibraryAccess();
+  byId('scenario-rename-to').focus(); byId('scenario-rename-to').select();
+}
+
+function symbolRenameShortcut(id) {
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'btn btn-small scenario-rename-shortcut'; button.textContent = 'Rename';
+  button.setAttribute('aria-label', 'Rename symbol ' + id);
+  button.addEventListener('click', () => openSymbolRename(id));
+  return button;
+}
+
+function cancelSymbolRename() {
+  byId('scenario-rename-to').value = byId('scenario-rename-from').value;
+  byId('scenario-rename-to').removeAttribute('aria-invalid');
+  setWorkspaceStatus('scenario-library-status'); renderScenarioLibraryAccess();
+}
+
+function commitSymbolRename() {
+  if (!state.authSession.authenticated || scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new.busy) return;
+  if (scenarioLibrary.rawChanged || byId('scenario-glossary-text').value.trim()) {
+    setWorkspaceStatus('scenario-library-status', 'Cancel this rename, then Preview rule text or Apply meanings before renaming.', 'info'); return;
+  }
+  const from = byId('scenario-rename-from').value, to = byId('scenario-rename-to').value;
+  if (from === to) return;
+  try {
+    // Work on a copy, so rejected names never partly update the draft. Sources
+    // and pending document fields remain untouched in their existing editor.
+    const renamed = renameScenarioSymbol(scenarioFromBuilder(false), from, to);
+    scenarioLibrary.base = renamed;
+    scenarioLibrary.statements = Object.entries(STATEMENT_SECTIONS).flatMap(([kind, section]) =>
+      Object.entries(renamed[section]).map(([id, data]) => ({ id, kind, ...data })));
+    scenarioLibrary.rules = Object.entries(renamed.rules).map(([id, data]) => ({ id, ...data }));
+    scenarioLibrary.generation++;
+    byId('scenario-rule-text').value = scenarioRuleText(renamed);
+    renderBuilderStatements(); renderBuilderRules(); renderSymbolChoices(to);
+    byId('scenario-rename-to').removeAttribute('aria-invalid');
+    scenarioDraftChanged();
+    setWorkspaceStatus('scenario-library-status', 'Renamed ' + from + ' to ' + to + '. Logical references and meanings were preserved. Preview again before saving.', 'success');
+    byId('scenario-rename-to').focus();
+  } catch (error) {
+    byId('scenario-rename-to').setAttribute('aria-invalid', 'true');
+    setWorkspaceStatus('scenario-library-status', error.message, 'error');
+    byId('scenario-rename-to').focus();
+  }
+}
+
 function scenarioDraftChanged() {
   scenarioLibrary.dirty = true;
   scenarioLibrary.preview = null;
@@ -43,7 +134,22 @@ function initScenarioLibrary() {
     resetScenarioBuilder(); renderScenarioLibraryAccess();
   });
   byId('scenario-builder-form').addEventListener('submit', event => { event.preventDefault(); previewScenarioDraft(); });
-  byId('scenario-builder-form').addEventListener('input', scenarioDraftChanged);
+  byId('scenario-builder-form').addEventListener('input', event => {
+    if (!event.target.closest('#scenario-symbol-renamer')) scenarioDraftChanged();
+  });
+  byId('scenario-rename-from').addEventListener('change', cancelSymbolRename);
+  byId('scenario-rename-to').addEventListener('input', () => {
+    byId('scenario-rename-to').removeAttribute('aria-invalid');
+    if (pendingSymbolRename()) scenarioLibrary.dirty = true;
+    renderScenarioLibraryAccess();
+  });
+  byId('scenario-rename-to').addEventListener('keydown', event => {
+    if (!['Enter', 'Escape'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    if (event.key === 'Enter') commitSymbolRename(); else cancelSymbolRename();
+  });
+  byId('scenario-rename-apply').addEventListener('click', commitSymbolRename);
+  byId('scenario-rename-cancel').addEventListener('click', cancelSymbolRename);
   byId('scenario-preview-btn').addEventListener('click', () => previewScenarioDraft());
   byId('scenario-library-submit').addEventListener('click', submitScenarioLibrary);
   byId('scenario-mode-guided').addEventListener('click', () => switchScenarioMode('guided'));
@@ -90,12 +196,25 @@ function openScenarioLibrary() {
 
 function renderScenarioLibraryAccess() {
   const disabled = !state.authSession.authenticated || scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new?.busy;
+  const pendingRename = pendingSymbolRename();
+  const uncheckedText = scenarioLibrary.rawChanged || !!byId('scenario-glossary-text').value.trim();
   byId('scenario-signin-required').hidden = state.authSession.authenticated;
   byId('scenario-builder-fields').disabled = disabled;
   for (const id of ['scenario-file-input', 'scenario-load-files', 'scenario-preview-btn', 'scenario-starter-btn', 'scenario-reset-btn']) byId(id).disabled = disabled;
   for (const input of byId('scenario-import-files').querySelectorAll('select,button')) input.disabled = disabled;
-  byId('scenario-mode-guided').disabled = disabled || !guidedEditorAvailable();
-  byId('scenario-library-submit').disabled = disabled || !scenarioLibrary.preview;
+  byId('scenario-mode-guided').disabled = disabled || pendingRename || !guidedEditorAvailable();
+  byId('scenario-mode-text').disabled = disabled || pendingRename;
+  byId('scenario-preview-btn').disabled = disabled || pendingRename;
+  byId('scenario-library-submit').disabled = disabled || pendingRename || !scenarioLibrary.preview;
+  byId('scenario-rename-from').disabled = disabled || uncheckedText;
+  byId('scenario-rename-to').disabled = disabled || uncheckedText || !byId('scenario-rename-from').value;
+  byId('scenario-rename-apply').disabled = disabled || uncheckedText || !pendingRename;
+  byId('scenario-rename-cancel').disabled = disabled || !pendingRename;
+  byId('scenario-rename-note').textContent = uncheckedText
+    ? 'Preview changed rule text or Apply meanings from the pasted glossary before renaming.'
+    : 'Renaming updates every logical reference, including negation and rule undercuts. Meanings and reference documents are preserved.';
+  for (const id of ['scenario-rule-text', 'scenario-glossary-text', 'scenario-glossary-file', 'scenario-apply-glossary'])
+    byId(id).disabled = disabled || pendingRename;
   byId('scenario-library-submit').textContent = scenarioLibrary.busy ? 'Saving...' : 'Save & open';
   byId('scenario-preview-btn').textContent = scenarioLibrary.reading ? 'Checking...' : 'Preview';
   byId('scenario-editor-heading').textContent = scenarioLibrary.target ? 'Edit private scenario' : 'Your scenario';
@@ -174,6 +293,9 @@ function loadScenarioDraft(scenario, sourceId = null, target = null) {
   byId('scenario-builder-description').value = scenario.description || '';
   byId('scenario-rule-text').value = scenarioRuleText(scenario);
   byId('scenario-glossary-text').value = ''; byId('scenario-glossary-file').value = '';
+  byId('scenario-symbol-renamer').open = false;
+  byId('scenario-rename-from').replaceChildren(); byId('scenario-rename-to').value = '';
+  byId('scenario-rename-to').removeAttribute('aria-invalid');
   byId('scenario-bundled-references').textContent = scenario.corpus?.length
     ? 'Included with this example: ' + scenario.corpus.join(', ') + '. Export embeds their content.' : '';
   librarySources.new.reset(scenario.sources || []);
@@ -229,6 +351,7 @@ function renderBuilderStatements() {
     select.value = item.kind === 'conclusion' ? 'proposition' : item.kind;
     key.checked = item.kind === 'conclusion'; key.parentElement.hidden = !['conclusion', 'proposition'].includes(item.kind);
     row.querySelector('.scenario-hint').textContent = 'Symbol: ' + item.id + (item.category ? ' | Category: ' + item.category : '') + (item.source ? ' | Source: ' + item.source : '');
+    row.querySelector('.scenario-hint').append(symbolRenameShortcut(item.id));
     const negation = row.querySelector('.scenario-negation'); negation.value = item.negated_description || '';
     negation.addEventListener('input', () => { item.negated_description = negation.value || undefined; refreshBuilderChoices(); });
     if (item.kind === 'assumption') addPreferenceControls(row.querySelector('.scenario-assumption-settings'), item);
@@ -244,6 +367,7 @@ function renderBuilderStatements() {
     });
     list.append(row);
   });
+  renderSymbolChoices();
 }
 
 function addPreferenceControls(host, item) {
@@ -285,10 +409,12 @@ function builderChoice(select, selected) {
 
 function refreshBuilderChoices() {
   for (const select of document.querySelectorAll('#scenario-builder-rules [data-literal]')) builderChoice(select, select.value);
+  renderSymbolChoices();
 }
 
 function renderBuilderRules() {
   const list = byId('scenario-builder-rules'); list.replaceChildren();
+  renderSymbolChoices();
   if (!guidedEditorAvailable()) return;
   scenarioLibrary.rules.forEach((rule, index) => {
     const card = document.createElement('fieldset'); card.className = 'scenario-rule-card';
@@ -318,6 +444,7 @@ function renderBuilderRules() {
     card.append(add, strength); choose('Conclude', rule.conclusion, value => { rule.conclusion = value; });
     const details = document.createElement('details'); details.className = 'scenario-rule-details';
     const summary = document.createElement('summary'); summary.textContent = 'Priority & details (' + rule.id + ')'; details.append(summary);
+    details.append(symbolRenameShortcut(rule.id));
     if (rule.type === 'defeasible') addPreferenceControls(details, rule);
     if (rule.category || rule.source) {
       const note = document.createElement('p'); note.textContent = [rule.category, rule.source].filter(Boolean).join(' | '); details.append(note);
@@ -382,6 +509,7 @@ function scenarioRuleText(scenario) {
 
 async function previewScenarioDraft(showPreview = true) {
   if (scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new.busy || !state.authSession.authenticated) return null;
+  if (pendingSymbolRename()) { setWorkspaceStatus('scenario-library-status', 'Rename or cancel the pending symbol change before previewing.', 'info'); return null; }
   const generation = scenarioLibrary.generation, account = state.authSession.user?.id;
   let completionGeneration = generation;
   scenarioLibrary.reading = true; renderScenarioLibraryAccess();
@@ -523,7 +651,7 @@ async function openPrivateScenarioEditor() {
 }
 
 async function submitScenarioLibrary() {
-  if (!scenarioLibrary.preview || scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new.busy || !state.authSession.authenticated) return;
+  if (!scenarioLibrary.preview || scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new.busy || !state.authSession.authenticated || pendingSymbolRename()) return;
   if (hasPendingStateRequest() || state.projectSavePending) { setWorkspaceStatus('scenario-library-status', 'Wait for the current change or save to finish.', 'info'); return; }
   const target = scenarioLibrary.target, scenario = scenarioLibrary.preview.scenario;
   if (!target && hasUnsavedChanges() && !window.confirm('Open the new project and discard unsaved edits in the current view? Download or save them first if you want to keep them.')) return;
