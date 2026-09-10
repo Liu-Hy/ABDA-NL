@@ -6,11 +6,13 @@ import json
 import os
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
 from app.evals.budget import MAX_CLOUDBANK_EVALUATION_MICROUSD, PersistentSpendCap
+from app.evals.pacing import parse_rate_limits
 from app.llm.catalog import load_model_catalog
 
 
@@ -25,11 +27,22 @@ def main() -> int:
     parser.add_argument("--phase", choices=("baseline", "tuning", "regression"), default="baseline")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--case", action="append", default=[])
+    parser.add_argument("--rate-limit", action="append", default=[])
+    parser.add_argument("--max-runtime-seconds", type=int, default=3000)
     args = parser.parse_args()
     if not os.getenv("SLURM_JOB_ID"):
         parser.error("full evaluation batches must run in a Slurm allocation")
     if not 1 <= args.workers <= min(4, int(os.getenv("SLURM_CPUS_PER_TASK", "1"))):
         parser.error("workers must fit the allocated CPUs and cannot exceed four")
+    if args.max_runtime_seconds < 1:
+        parser.error("runtime limit must be positive")
+    try:
+        rates = parse_rate_limits(args.rate_limit)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if rates and not set(args.route).issubset(rates):
+        parser.error("pacing needs a configured limit for every selected route")
+    stop_after_unix = time.time() + args.max_runtime_seconds
     catalog = load_model_catalog()
     for route_id in args.route:
         route = catalog.routes.get(route_id)
@@ -50,7 +63,12 @@ def main() -> int:
             "--repetitions", str(args.repetitions), "--phase", args.phase,
             "--paid-run-cap-microusd", str(MAX_CLOUDBANK_EVALUATION_MICROUSD),
             "--output", str(output), "--no-fail-on-gate",
+            "--stop-after-unix", str(stop_after_unix),
+            "--stop-file", str(directory / f"{route_id}.stop"),
         ]
+        if route_id in rates:
+            rate = rates[route_id]
+            command.extend(("--rate-limit", f"{route_id}:{rate.requests_per_minute}:{rate.tokens_per_minute}"))
         for case_id in args.case:
             command.extend(("--case", case_id))
         if output.with_suffix(".checkpoint.jsonl").exists():
@@ -62,7 +80,11 @@ def main() -> int:
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         jobs = list(executor.map(run_route, list(dict.fromkeys(args.route))))
-    receipt = {"jobs": jobs, "cloudbank_budget": budget.snapshot(), "directory": str(directory)}
+    receipt = {
+        "jobs": jobs, "cloudbank_budget": budget.snapshot(), "directory": str(directory),
+        "stop_after_unix": stop_after_unix, "max_runtime_seconds": args.max_runtime_seconds,
+        "case_boundary_stop": True,
+    }
     (directory / "batch.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(receipt, indent=2, sort_keys=True))
     return 0 if all(job["returncode"] == 0 for job in jobs) else 1

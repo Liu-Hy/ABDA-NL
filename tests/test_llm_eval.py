@@ -335,6 +335,17 @@ def test_route_summary_does_not_fail_unselected_case_kinds():
     assert summary["gate_passed"] is True
 
 
+def test_latency_gate_excludes_recorded_pacing_but_keeps_wall_time():
+    result = {"case_id": "paced", "kind": "chat", "passed": True, "error": None,
+              "wall_time_ms": 65000, "application_time_ms": 5000, "pacing_time_ms": 60000,
+              "audit": {"cost_microusd": 10, "provider_calls": 1}}
+    summary = summarize_route("funded", [result], {"max_p95_latency_ms": 10000})
+    assert summary["p95_wall_time_ms"] == 65000
+    assert summary["p95_application_time_ms"] == 5000
+    assert summary["pacing_time_ms"] == 60000
+    assert summary["gate_checks"]["p95_application_time_ms"]
+
+
 def test_evaluate_case_closes_its_route_client(monkeypatch):
     client = _FakeClient(
         completions=[
@@ -393,6 +404,7 @@ def test_evaluation_paid_cap_reserves_each_call_and_stops_remaining_cases(
         repetition,
         allow_emergency_spend,
         spend_cap,
+        pacer=None,
     ):
         nonlocal calls
         del router, allow_emergency_spend
@@ -495,3 +507,49 @@ def test_smoke_sub_budget_is_shared_by_both_funded_models(monkeypatch, tmp_path)
     assert dispatches == ["cloudbank-gpt-5.6-terra"]
     assert report["paid_spend_microusd"] == 2_500_000
     assert report["results"][1]["audit"]["provider_calls"] == 0
+
+
+@pytest.mark.parametrize("stop_mode", ["runtime", "operator"])
+def test_case_boundary_stop_settles_current_case_and_resumes_only_remaining_cases(monkeypatch, tmp_path, stop_mode):
+    router = LLMRouter(settings=get_settings())
+    cap = PersistentSpendCap(path=tmp_path / "budget.sqlite3", run_limit_microusd=100)
+    checkpoint = tmp_path / "run.checkpoint.jsonl"
+    stop_file = tmp_path / "route.stop"
+    clock = [0.0]
+    dispatched = []
+    monkeypatch.setattr("app.evals.llm_eval.time.time", lambda: clock[0])
+
+    def fake_case(case, *, route_id, repetition, spend_cap, **kwargs):
+        dispatched.append(case["id"])
+        spend_cap.settle(spend_cap.reserve(20), 5)
+        clock[0] += 20
+        if stop_mode == "operator" and case["id"] == "first":
+            stop_file.write_text("pause this model after inspected failures\n")
+        return {"case_id": case["id"], "kind": "chat", "route_id": route_id,
+                "repetition": repetition, "passed": True, "error": None,
+                "audit": {"cost_microusd": 5, "provider_calls": 1}, "wall_time_ms": 1}
+
+    monkeypatch.setattr("app.evals.llm_eval.evaluate_case", fake_case)
+    kwargs = dict(
+        suite_hash="synthetic", route_ids=["cloudbank-gpt-5.6-terra"], router=router,
+        repetitions=1, smoke=False, case_ids=set(), allow_emergency_spend=False,
+        paid_run_cap_microusd=100, spend_cap=cap, checkpoint_path=checkpoint,
+        stop_file=stop_file,
+    )
+    suite = {"cases": [{"id": "first", "kind": "chat"}, {"id": "second", "kind": "chat"}]}
+    first = run_evaluation(suite, **kwargs, stop_after_unix=190 if stop_mode == "runtime" else None)
+    assert dispatched == ["first"]
+    assert first["stopped_reason"]
+    assert first["remaining_observations"] == 1
+    assert not first["automated_gate_passed"]
+    assert cap.snapshot()["reserved_microusd"] == 0
+    assert cap.snapshot()["spent_microusd"] == 5
+    if stop_file.exists():
+        stop_file.rename(tmp_path / "preserved-stop-receipt.txt")
+    resumed = run_evaluation(suite, **kwargs, resume=True, stop_after_unix=1000)
+    assert dispatched == ["first", "second"]
+    assert resumed["run_id"] == first["run_id"]
+    assert resumed["remaining_observations"] == 0
+    assert resumed["automated_gate_passed"]
+    assert cap.snapshot()["spent_microusd"] == 10
+    assert len(_read_checkpoint(checkpoint)[1]) == 2

@@ -1,0 +1,190 @@
+{
+  "started_utc": "2026-09-10T03:10:34.162952+00:00",
+  "operation": "pin only three new deployments with NoAutoUpgrade",
+  "deployments": [
+    {
+      "before": {
+        "deployment": "abda-gpt-5-6-terra",
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-terra",
+          "version": "2026-07-09"
+        },
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable",
+        "state": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ]
+      },
+      "update_started_utc": "2026-09-10T03:10:38.128016+00:00",
+      "after": {
+        "deployment": "abda-gpt-5-6-terra",
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-terra",
+          "version": "2026-07-09"
+        },
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade",
+        "state": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ]
+      },
+      "verified_utc": "2026-09-10T03:10:40.160780+00:00",
+      "only_policy_changed": true
+    },
+    {
+      "before": {
+        "deployment": "abda-gpt-5-6-sol",
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-sol",
+          "version": "2026-07-09"
+        },
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable",
+        "state": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ]
+      },
+      "update_started_utc": "2026-09-10T03:10:40.161380+00:00",
+      "after": {
+        "deployment": "abda-gpt-5-6-sol",
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-sol",
+          "version": "2026-07-09"
+        },
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade",
+        "state": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ]
+      },
+      "verified_utc": "2026-09-10T03:10:41.990638+00:00",
+      "only_policy_changed": true
+    },
+    {
+      "before": {
+        "deployment": "abda-deepseek-v4-flash-0731",
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "model": {
+          "format": "DeepSeek",
+          "name": "DeepSeek-V4-Flash-0731",
+          "version": "2026-07-31"
+        },
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable",
+        "state": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ]
+      },
+      "update_started_utc": "2026-09-10T03:10:41.991323+00:00",
+      "after": {
+        "deployment": "abda-deepseek-v4-flash-0731",
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "model": {
+          "format": "DeepSeek",
+          "name": "DeepSeek-V4-Flash-0731",
+          "version": "2026-07-31"
+        },
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade",
+        "state": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ]
+      },
+      "verified_utc": "2026-09-10T03:10:44.166011+00:00",
+      "only_policy_changed": true
+    }
+  ],
+  "api_inference_calls": 0,
+  "source_changes": false,
+  "policy_source": "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/working-with-models",
+  "maintenance_implication": "Monitor model retirement dates and qualify a replacement before manual deployment update; a retired pinned deployment stops working.",
+  "other_deployments_including_opus_unchanged": true,
+  "completed_utc": "2026-09-10T03:10:44.742964+00:00",
+  "success": true
+}

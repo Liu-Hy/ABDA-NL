@@ -53,6 +53,7 @@ class LLMProviderError(RuntimeError):
         provider_cost_microusd: int | None = None,
         billing_uncertain: bool = False,
         retry_after_seconds: float | None = None,
+        diagnostics: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.provider = provider
@@ -65,6 +66,9 @@ class LLMProviderError(RuntimeError):
         self.provider_cost_microusd = provider_cost_microusd
         self.billing_uncertain = billing_uncertain
         self.retry_after_seconds = retry_after_seconds
+        # Synthetic evaluation may explicitly capture this allowlisted record.
+        # It is deliberately absent from the public exception message and logs.
+        self.diagnostics = dict(diagnostics or {})
 
 
 def provider_error_is_terminal(error: LLMProviderError) -> bool:
@@ -359,6 +363,33 @@ def _text_content(value: Any) -> str:
     return "".join(parts)
 
 
+def _parse_diagnostics(
+    *, finish_reason: Any, max_tokens: int, model: Any, visible_content: str,
+    tool_calls: Any, usage: dict[str, int], reasoning_tokens: Any,
+) -> dict[str, Any]:
+    """Keep visible model output for synthetic replay, never transport or thoughts."""
+    calls = []
+    for call in tool_calls if isinstance(tool_calls, list) else []:
+        function = _mapping(_mapping(call).get("function"))
+        if not function:
+            continue
+        calls.append({"function": {
+            "name": str(function.get("name") or ""),
+            "arguments": function.get("arguments"),
+        }})
+    return {
+        "finish_reason": finish_reason if isinstance(finish_reason, str) else None,
+        "requested_max_tokens": max_tokens,
+        "actual_model": str(model),
+        "visible_content": visible_content,
+        "tool_calls": calls,
+        "usage": dict(usage),
+        "reasoning_tokens": (
+            _nonnegative_int(reasoning_tokens) if reasoning_tokens is not None else None
+        ),
+    }
+
+
 class OpenAICompatibleClient:
     """Chat Completions adapter for Azure Foundry, OpenAI, and OpenRouter."""
 
@@ -425,15 +456,39 @@ class OpenAICompatibleClient:
         if self.provider_preferences:
             payload["provider"] = self.provider_preferences
         payload[self.model_spec.max_token_field] = max_tokens
+        effort = self.model_spec.reasoning_effort
+        if effort and self.provider == "openrouter" and self.model_spec.family in {
+            "openai", "google", "z-ai", "moonshotai",
+        }:
+            payload["reasoning"] = {"effort": effort}
+        elif effort and self.provider == "azure-foundry" and self.model_spec.family in {
+            "z-ai", "moonshotai",
+        }:
+            # Fireworks exposes its OpenAI-compatible effort field on Foundry.
+            # Do not send OpenRouter's reasoning object or a numeric budget here.
+            payload["reasoning_effort"] = effort
         return payload
 
-    @staticmethod
-    def _first_choice(data: dict[str, Any], provider: str) -> dict[str, Any]:
+    def _diagnostics(self, data: dict[str, Any], max_tokens: int) -> dict[str, Any]:
+        choices = data.get("choices")
+        choice = _mapping(choices[0]) if isinstance(choices, list) and choices else {}
+        message = _mapping(choice.get("message"))
+        details = _mapping(_mapping(data.get("usage")).get("completion_tokens_details"))
+        return _parse_diagnostics(
+            finish_reason=choice.get("finish_reason"), max_tokens=max_tokens,
+            model=data.get("model") or self.model,
+            visible_content=_text_content(message.get("content")),
+            tool_calls=message.get("tool_calls"), usage=_usage_envelope(data.get("usage")),
+            reasoning_tokens=details.get("reasoning_tokens"),
+        )
+
+    def _first_choice(self, data: dict[str, Any], max_tokens: int) -> dict[str, Any]:
+        provider = self.provider
         provider_error = _provider_error_from_payload(data, provider=provider)
         if provider_error is not None:
             raise provider_error
         choices = data.get("choices") or []
-        if not choices or not isinstance(choices[0], dict):
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
             usage, provider_cost, billing_uncertain = _response_billing_fields(data)
             raise LLMProviderError(
                 f"{provider} returned no completion candidate",
@@ -442,6 +497,7 @@ class OpenAICompatibleClient:
                 usage=usage,
                 provider_cost_microusd=provider_cost,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         choice_error = choices[0].get("error")
         if isinstance(choice_error, dict):
@@ -470,7 +526,7 @@ class OpenAICompatibleClient:
         start = time.monotonic()
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
-        choice = self._first_choice(data, self.provider)
+        choice = self._first_choice(data, max_tokens)
         message = _mapping(choice.get("message"))
         usage = _usage_envelope(data.get("usage"))
         text = _text_content(message.get("content"))
@@ -487,6 +543,7 @@ class OpenAICompatibleClient:
                 usage=usage,
                 provider_cost_microusd=provider_cost,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         return LLMResponse(
             text=text,
@@ -526,26 +583,33 @@ class OpenAICompatibleClient:
                 },
             }
         ]
-        payload["tool_choice"] = {"type": "function", "function": {"name": tool_name}}
+        # Kimi K3 always reasons and its native provider rejects named choice
+        # while thinking. A single advertised function plus required is portable.
+        payload["tool_choice"] = (
+            "required" if self.model_spec.id == "kimi-k3"
+            else {"type": "function", "function": {"name": tool_name}}
+        )
         if self.provider != "openrouter":
             payload["parallel_tool_calls"] = False
 
         start = time.monotonic()
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
-        choice = self._first_choice(data, self.provider)
+        choice = self._first_choice(data, max_tokens)
         message = _mapping(choice.get("message"))
         calls = message.get("tool_calls") or []
         usage, provider_cost, billing_uncertain = _response_billing_fields(data)
-        if not calls or not isinstance(calls[0], dict):
+        if not isinstance(calls, list) or len(calls) != 1 or not isinstance(calls[0], dict):
             raise LLMProviderError(
-                f"{self.provider} did not return the required tool call",
+                f"{self.provider} did not return exactly one required tool call",
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 provider_cost_microusd=provider_cost,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         function = _mapping(calls[0].get("function"))
         returned_name = str(function.get("name") or "")
@@ -555,9 +619,11 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 provider_cost_microusd=provider_cost,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         arguments = function.get("arguments")
         try:
@@ -568,9 +634,11 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 provider_cost_microusd=provider_cost,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             ) from exc
         if not isinstance(tool_input, dict):
             raise LLMProviderError(
@@ -578,9 +646,11 @@ class OpenAICompatibleClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 provider_cost_microusd=provider_cost,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         return ToolCallResponse(
             tool_name=returned_name,
@@ -664,6 +734,23 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
             return str(details.get("reason") or status)
         return status
 
+    def _diagnostics(self, data: dict[str, Any], max_tokens: int) -> dict[str, Any]:
+        output = data.get("output")
+        items = (
+            [item for item in output if isinstance(item, dict)]
+            if isinstance(output, list) else []
+        )
+        details = _mapping(_mapping(data.get("usage")).get("output_tokens_details"))
+        return _parse_diagnostics(
+            finish_reason=self._responses_stop_reason(data), max_tokens=max_tokens,
+            model=data.get("model") or self.model,
+            visible_content="".join(
+                _text_content(item.get("content")) for item in items if item.get("type") == "message"
+            ),
+            tool_calls=[{"function": item} for item in items if item.get("type") == "function_call"],
+            usage=self._responses_usage(data), reasoning_tokens=details.get("reasoning_tokens"),
+        )
+
     def complete(
         self,
         *,
@@ -704,8 +791,10 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 billing_uncertain=not any(value > 0 for value in usage.values()),
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         return LLMResponse(
             text=text,
@@ -764,8 +853,10 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         arguments = function_call.get("arguments")
         try:
@@ -776,8 +867,10 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             ) from exc
         if not isinstance(tool_input, dict):
             raise LLMProviderError(
@@ -785,8 +878,10 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 billing_uncertain=billing_uncertain,
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         return ToolCallResponse(
             tool_name=tool_name,
@@ -850,9 +945,9 @@ class GeminiClient:
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
         return _post_json(self, f"models/{self.model}:generateContent", payload)
 
-    def _candidate(self, data: dict[str, Any]) -> dict[str, Any]:
+    def _candidate(self, data: dict[str, Any], max_tokens: int) -> dict[str, Any]:
         candidates = data.get("candidates") or []
-        if not candidates or not isinstance(candidates[0], dict):
+        if not isinstance(candidates, list) or not candidates or not isinstance(candidates[0], dict):
             usage = GeminiClient._usage(data)
             prompt_feedback = _mapping(data.get("promptFeedback"))
             blocked = bool(str(prompt_feedback.get("blockReason") or "").strip())
@@ -868,6 +963,7 @@ class GeminiClient:
                 error_type="content_blocked" if blocked else "invalid_response",
                 usage=usage,
                 billing_uncertain=not any(value > 0 for value in usage.values()),
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         return candidates[0]
 
@@ -891,6 +987,29 @@ class GeminiClient:
             "cache_read_input_tokens": cache_read,
             "cache_creation_input_tokens": 0,
         }
+
+    def _diagnostics(self, data: dict[str, Any], max_tokens: int) -> dict[str, Any]:
+        candidates = data.get("candidates")
+        candidate = _mapping(candidates[0]) if isinstance(candidates, list) and candidates else {}
+        raw_parts = _mapping(candidate.get("content")).get("parts")
+        parts = (
+            [part for part in raw_parts if isinstance(part, dict) and part.get("thought") is not True]
+            if isinstance(raw_parts, list) else []
+        )
+        calls = [_mapping(part.get("functionCall")) for part in parts if part.get("functionCall")]
+        return _parse_diagnostics(
+            finish_reason=candidate.get("finishReason"), max_tokens=max_tokens,
+            model=data.get("modelVersion") or self.model,
+            visible_content="".join(
+                part["text"] for part in parts if isinstance(part.get("text"), str)
+            ),
+            tool_calls=[
+                {"function": {"name": call.get("name"), "arguments": call.get("args")}}
+                for call in calls
+            ],
+            usage=self._usage(data),
+            reasoning_tokens=_mapping(data.get("usageMetadata")).get("thoughtsTokenCount"),
+        )
 
     def _base_payload(
         self,
@@ -934,12 +1053,13 @@ class GeminiClient:
         start = time.monotonic()
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
-        candidate = self._candidate(data)
+        candidate = self._candidate(data, max_tokens)
         parts = _mapping(candidate.get("content")).get("parts") or []
         text = "".join(
             str(part.get("text"))
             for part in parts
-            if isinstance(part, dict) and isinstance(part.get("text"), str)
+            if isinstance(part, dict) and part.get("thought") is not True
+            and isinstance(part.get("text"), str)
         )
         usage = self._usage(data)
         if not text.strip():
@@ -951,6 +1071,7 @@ class GeminiClient:
                 error_type="invalid_response",
                 usage=usage,
                 billing_uncertain=not any(value > 0 for value in usage.values()),
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         return LLMResponse(
             text=text,
@@ -999,7 +1120,7 @@ class GeminiClient:
         start = time.monotonic()
         data = self._post(payload)
         latency_ms = int((time.monotonic() - start) * 1000)
-        candidate = self._candidate(data)
+        candidate = self._candidate(data, max_tokens)
         parts = _mapping(candidate.get("content")).get("parts") or []
         usage = self._usage(data)
         call = next(
@@ -1016,8 +1137,10 @@ class GeminiClient:
                 provider=self.provider,
                 retryable=False,
                 outage_candidate=False,
+                error_type="invalid_response",
                 usage=usage,
                 billing_uncertain=not any(value > 0 for value in usage.values()),
+                diagnostics=self._diagnostics(data, max_tokens),
             )
         return ToolCallResponse(
             tool_name=tool_name,

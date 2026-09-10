@@ -122,3 +122,79 @@ tests after the provenance change. Every affected model and feature still needs
 the planned complete qualification under the corrected shared sources. Passing
 source translation, narrow metadata preservation, and reviewer inversion checks
 do not justify additional prompt rewrites.
+
+## GLM and Kimi follow-up
+
+Slurm job `21932609` repeated the same six availability cases once per route after
+both Fireworks deployments reached capacity 100. The serial run had one $2 cap
+within the existing ledger. It completed successfully in 4 minutes 34 seconds,
+with source fingerprint
+`b19aab6551107546fb93813e5803115460e7247def1a649671f92515b7e06575`
+unchanged throughout. All 12 observations, comprising 11 distinct complete
+semantic payload groups, received inspection annotations. The original and
+reviewed reports are `artifacts/evals/fireworks-availability-20260909.json` and
+`artifacts/evals/fireworks-availability-reviewed-20260909.json`.
+
+GLM passed 2 of 6 cases. Its chat correctly keeps the opposing Popov decisions
+distinct, and its narrow NBA modification and corresponding reviewer preserve
+all unrequested fields. The add-rule, add-fact, and add-assumption calls fail
+after consuming 2,048 output tokens each. The inverted-rule reviewer fails at
+1,024 output tokens. These are the respective request limits.
+
+Kimi passed 4 of 6 cases. Its new fact and patient assumption correctly use user
+origin, and it preserves the existing NBA rule and detects the reversed fire
+rule. Its Popov proposal is faithful, but the subsequent reviewer fails at
+1,024 output tokens. Its chat is a separate semantic failure: it calls Popov
+clearly stronger by inventing an ordering from his accepted qualified right.
+The actual scenario accepts both legitimate claims and defeats both one-sided
+decision rules through the even-handedness undercuts.
+
+The compatible adapter does not forward the catalog's configured low reasoning
+effort for either model. The output-limit pattern warrants verifying that
+provider contract and correcting the adapter before judging whether additional
+prompt tuning is needed. The saved failure records include normalized provider
+usage but lack the rejected completion and finish reason, so truncation is a
+supported hypothesis rather than a verified explanation. A later bounded replay
+must preserve safe parser diagnostics and retain these original failures.
+
+There were no HTTP 429 responses. GLM made 7 physical attempts, with 3 successes
+and 4 parsing failures, costing $0.249213. Kimi made 8 attempts, with 7 successes
+and 1 parsing failure, costing $0.461881. Failed responses supplied usage, so
+their recorded costs were settled from that usage rather than retaining the
+larger reserved maximum. The run consumed $0.711094. The lifetime ledger now
+records $4.281444 spent, zero pending reservations, and $95.718556 remaining.
+All 15 physical attempts used CloudBank Azure routes. No OpenRouter generation
+occurred.
+
+The next capacity increase was verified after this run, at 02:58:33 UTC:
+GLM and Kimi each have 250 requests and 250,000 tokens per minute, while Terra,
+Sol, Sonnet 5, and DeepSeek each have 500 requests and 500,000 tokens per minute.
+The source, model versions, and other deployment settings did not change. The
+receipt is
+[moderate-throughput-20260910.json](model-deployment-plan-20260909/moderate-throughput-20260910.json).
+
+## Adapter replay with unchanged output limits
+
+The provider patch forwards the configured low reasoning effort and uses Kimi's
+supported required-tool mode with exactly one advertised and returned function.
+It also exposes safe parser diagnostics to the synthetic evaluator. No chat or
+proposer prompt changed between the two Fireworks runs, and their proposal and
+review limits stayed at 2,048 and 1,024 tokens.
+
+Slurm job `21932865` completed the bounded $2 replay in 1 minute 38 seconds. All
+12 automatic cases and all 12 complete visible-payload inspections pass. GLM
+made 8 successful physical calls, costing $0.230179. Kimi made 9 successful
+physical calls, including one application repair of a raw identifier in chat,
+costing $0.389515. It no longer claims Popov is clearly stronger. Both models
+now complete the previously failing proposer and reviewer stages within the
+unchanged limits, so no cap increase or additional prompt tuning is justified.
+
+The original and separately reviewed reports are
+`artifacts/evals/fireworks-low-effort-20260909.json` and
+`artifacts/evals/fireworks-low-effort-reviewed-20260909.json`. Their implementation
+fingerprint is
+`e1134180fc5cf4da8540d625f746b6cc65764283cf46528c0556f57cafa272b6`,
+unchanged during the run. The replay used $0.619694. The lifetime ledger now
+records $4.901138 spent, zero pending reservations, and $95.098862 remaining.
+All calls used CloudBank Azure; no OpenRouter generation occurred. These smoke
+passes still require full feature qualification before public admission.

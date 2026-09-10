@@ -4,6 +4,47 @@ Status: Accepted
 
 Date: 2026-08-17
 
+## Current policy, September 9, 2026
+
+The approved [September 9 revision](../demo-revision-review-20260909.md)
+supersedes the historical model selection and evaluation procedure below.
+The current implementation uses these rules:
+
+- Funded access starts with the selected model on CloudBank Azure or GCP
+  Vertex AI. A qualifying provider failure permits at most one CloudBank
+  retry, then that same model on OpenRouter. A short circuit cooldown records
+  the preceding provider failure and allows a later primary recovery probe.
+- A previously verified deployment's credential or deployment-access failure
+  can use its qualified backup. User credit exhaustion, invalid input,
+  semantic validation failures, safety refusals, and accounting failures do
+  not authorize backup spending.
+- The public profiles in [models.yaml](../../app/llm/models.yaml) define one
+  qualified model pool for funded access, BYOK, and MCP. Provider-specific
+  BYOK menus expose the corresponding subset. Superseded and unqualified
+  models remain unavailable to public requests.
+- Each physical call has its own reservation and settlement. Public credit,
+  the five named administrator allocations, and the OpenRouter emergency
+  budget retain separate accounting. Loss of both providers preserves the
+  scenario, editable draft, and deterministic/manual workflow.
+- One persistent $100 evaluation ledger covers all CloudBank model tests,
+  retries, tuning, and resumed processes. Live evaluations exclude OpenRouter
+  credentials and generation traffic. Public provider metadata and simulated
+  failures verify backup eligibility and routing contracts; live conformance
+  of the new OpenRouter routes remains unverified under this authorization.
+- Public benchmarks guide general model selection. The full application
+  feature matrix and inspection of actual responses determine prompt changes
+  and model admission. Passing prompts stay unchanged.
+
+The [implementation record](../operations/demo-revision-implementation-20260909.md)
+tracks current qualification and hosted rollout status. New Azure deployments
+use explicit model versions and disable automatic upgrades where supported.
+Their retirement dates require a qualified replacement before a manual update.
+The [deployment record](../operations/model-deployment-plan-20260909.md)
+preserves the exact versions and policy receipts.
+
+The remaining sections record the August 17 decision and its evidence. Their
+cross-model fallback table and in-process evaluation cap are historical.
+
 ## Context
 
 ABDA-NL needs three ways to pay for model calls:

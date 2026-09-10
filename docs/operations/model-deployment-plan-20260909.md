@@ -5,6 +5,51 @@ September 10). No feature registration, terms acceptance, cloud deployment,
 billing change, key retrieval, or inference call was performed in that initial
 inspection. Its findings below are retained as a dated decision record.
 
+## Pinned versions, September 10 at 03:10 UTC
+
+The authorized policy update completed at 03:10:44 UTC. GPT-5.6 Terra,
+GPT-5.6 Sol, and DeepSeek V4 Flash 0731 now report `NoAutoUpgrade` and
+`Succeeded`. Their exact models, versions, GlobalStandard capacity 500,
+500 requests and 500,000 tokens per minute, and `Microsoft.DefaultV2`
+guardrail are unchanged. All other deployments, including the scoped Opus
+resource, are unchanged. The [policy receipt](model-deployment-plan-20260909/version-policy-20260910.json)
+records the complete sanitized before/after comparison. No inference call
+was made for this update.
+
+This prevents a provider's new default version from bypassing application
+qualification. The operator must monitor retirement dates, qualify a
+replacement, and update the deployment explicitly before retirement.
+Microsoft documents that a pinned deployment stops serving when its model
+[retires](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/working-with-models).
+
+## Current throughput, September 10 at 02:58 UTC
+
+The approved moderate increase completed at 02:58:33 UTC. Every changed
+deployment reports `Succeeded`, with its exact model, version, Standard SKU,
+guardrail, and version-upgrade setting preserved. The
+[before/after receipt](model-deployment-plan-20260909/moderate-throughput-20260910.json)
+records the changes and quota readback. The
+[preceding seven-model inventory](model-deployment-plan-20260909/model-throughput-20260910.json)
+records the individual quota names and per-unit limits.
+
+| Model | Requests per minute | Tokens per minute | Allocated capacity / quota |
+| --- | ---: | ---: | ---: |
+| GPT-5.6 Terra | 500 | 500,000 | 500 / 10,000 |
+| GPT-5.6 Sol | 500 | 500,000 | 500 / 10,000 |
+| Claude Sonnet 5 | 500 | 500,000 | 500 / 10,000 |
+| DeepSeek V4 Flash 0731 | 500 | 500,000 | 500 / 10,000 |
+| GLM 5.3 | 250 | 250,000 | 500 / 2,000 shared with Kimi |
+| Kimi K3 | 250 | 250,000 | 500 / 2,000 shared with GLM |
+| Claude Opus 5, unchanged | 5,000 | 5,000,000 | 5,000 / 10,000 |
+
+The four smaller GlobalStandard deployments have separate model quota pools,
+with 9,500 units still available in each. Fireworks has 1,500 shared units
+available. Opus and all other deployments kept their previous allocations.
+These Standard deployments use [token-based billing](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/deployment-types);
+no provisioned capacity or fixed hosting reservation was purchased. Tests
+still need pacing based on input plus reserved output tokens. A high request
+limit does not make a lower token limit irrelevant.
+
 ## Approved and completed enablement, September 9, 2026
 
 Following the user's authorization, the release agent registered
@@ -25,7 +70,8 @@ SKU `DataZoneStandard`, `Microsoft.DefaultV2`, and `NoAutoUpgrade`:
 | `abda-glm-5-3` | `FW-GLM-5.3` | 100 | 100 | 100,000 |
 | `abda-kimi-k3` | `FW-Kimi-K3` | 100 | 100 | 100,000 |
 
-Their shared `eastus2` Standard allocation is now 200 of 2,000 capacity units.
+At 02:47 UTC their shared `eastus2` Standard allocation was 200 of 2,000 units;
+the later increase is recorded above.
 Each unit provides one request and 1,000 tokens per minute. This changes rate
 limits within the existing allocation. Microsoft explicitly identifies this
 SKU as [pay per token](https://learn.microsoft.com/en-us/azure/foundry/how-to/fireworks/enable-fireworks-models),

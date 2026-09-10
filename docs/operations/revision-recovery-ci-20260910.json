@@ -1,0 +1,78 @@
+{
+  "recorded_at_utc": "2026-09-10T03:13:19.672858+00:00",
+  "source_commit": "2f1483f59d03bb40d9a5839cf9d493ab5a982931",
+  "source_tag": "service-image-demo-revision-base-20260909",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:456b822783825924cde464031d231c4dc73c1ff158f833a6541623a62c1f22c3",
+  "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34431523617",
+  "publication_result": "success",
+  "full_ci_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34431523706",
+  "full_ci_result": "failure",
+  "hosted_rollout_cleared": false,
+  "publication_gates": {
+    "license": true,
+    "ruff_and_security_ruff": true,
+    "runtime_and_dev_pip_audit": true,
+    "pytest": true,
+    "immutable_tag_check": true,
+    "exact_digest_container_smoke": true,
+    "trivy_policy_and_sbom": true,
+    "provenance_publication": true
+  },
+  "provenance_verification": {
+    "tool": "gh attestation verify",
+    "predicate": "https://slsa.dev/provenance/v1",
+    "exact_subject_digest_verified": true,
+    "source_commit_and_signer_commit_pinned": true,
+    "source_ref_pinned": "refs/tags/service-image-demo-revision-base-20260909",
+    "signer_workflow": "Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml",
+    "runner_environment": "github-hosted",
+    "verified_timestamp_count": 1
+  },
+  "container_policy": {
+    "high_or_critical_vulnerabilities": 60,
+    "reviewed_unfixed_high_or_critical": 60,
+    "unreviewed_unfixed_high_or_critical": 0,
+    "actionable_high_or_critical": 0,
+    "stale_baseline_entries": 0,
+    "secret_findings": 0,
+    "misconfiguration_failures": 0,
+    "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+  },
+  "captured_ci_failures": [
+    {
+      "job": "Python 3.10",
+      "cause": "The native compiler changed only lockfile command and dependency-provenance comments."
+    },
+    {
+      "job": "Chromium, Firefox, WebKit",
+      "cause": "The stale-chat text locator also matched its new saved-conversation option."
+    },
+    {
+      "job": "Chromium, Firefox, WebKit",
+      "cause": "The workspace test selected a removed hardcoded Gemini model instead of the approved catalog."
+    }
+  ],
+  "repairs": {
+    "python310_lock_blob_matches_native_ci": {
+      "requirements.py310.lock": "94118fcd237c22a00b94e034fdef915e32dfde90",
+      "requirements.runtime.py310.lock": "40dde755c0125302070d1d84745e95df0a5eb1ac"
+    },
+    "dependency_versions_or_hashes_changed": false,
+    "browser_assertion_scoped_to_chat_messages": true,
+    "browser_catalog_and_selection_checked_against_config": true,
+    "browser_fixture_strips_provider_environment_and_disables_dotenv": true,
+    "focused_chromium": {
+      "passed": 2,
+      "seconds": 27.46
+    },
+    "focused_firefox": {
+      "passed": 2,
+      "seconds": 35.24
+    },
+    "scoped_ruff": "passed",
+    "local_webkit": "unavailable because required host libraries are missing; rerun in CI"
+  },
+  "next_gate": "Commit the completed fixes and publish a repaired recovery candidate; require its full CI and exact-image gates before rollout.",
+  "hosted_mutations_performed": false,
+  "paid_inference_calls": 0
+}

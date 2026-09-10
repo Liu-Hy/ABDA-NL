@@ -40,8 +40,14 @@ def live_browser_server(tmp_path):
     log_path = state_root / "server.log"
     port = _available_port()
     environment = os.environ.copy()
+    for name in tuple(environment):
+        if name.startswith(("AZURE_", "ANTHROPIC_", "OPENAI_", "OPENROUTER_", "GOOGLE_", "GCP_")):
+            environment.pop(name)
     environment.update(
         {
+            # Local operator dotfiles must not override the disposable test
+            # database or make provider credentials available to browser checks.
+            "PYTHON_DOTENV_DISABLED": "1",
             "XDG_STATE_HOME": str(state_root),
             "ABDA_ENVIRONMENT": "development",
             "ABDA_AUTH_MODE": "dev",
@@ -1683,7 +1689,9 @@ def test_switching_scenarios_discards_an_in_flight_chat_response(
                 }"""
             )
             page.wait_for_function("() => window.__resolveStaleChat !== null")
-            expect(page.get_by_text("Question that belongs only to the old scenario")).to_be_attached()
+            expect(page.locator("#chat-messages").get_by_text(
+                "Question that belongs only to the old scenario", exact=True,
+            )).to_be_attached()
 
             page.locator("#scenario-select").select_option("fire_prevention")
             expect(page.locator("#scenario-name")).to_have_text("Prescribed Burn")
@@ -3047,12 +3055,22 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(page.locator("#workspace-panel-ai")).to_be_visible()
             page.locator('input[name="ai-mode"][value="byok"]').check()
             page.locator("#byok-provider-select").select_option("openrouter")
-            page.locator("#byok-model-select").select_option("gemini-3.7-flash")
+            configuration = page.request.get(f"{live_browser_server}/config").json()
+            provider = next(item for item in configuration["byok_providers"] if item["id"] == "openrouter")
+            approved_models = [item["id"] for item in provider["models"]]
+            assert approved_models
+            model_select = page.locator("#byok-model-select")
+            assert model_select.locator("option").evaluate_all(
+                "options => options.map(option => option.value)",
+            ) == approved_models
+            model_select.select_option(approved_models[0])
             page.locator("#byok-api-key").fill("browser-only-placeholder-key")
             page.locator("#ai-access-form button[type=submit]").click()
             expect(page.locator("#ai-access-status")).to_contain_text(
                 "applied to this browser tab"
             )
+            assert page.evaluate("state.llmAccess.provider") == "openrouter"
+            assert page.evaluate("state.llmAccess.model") == approved_models[0]
             expect(page.locator("#byok-api-key")).to_have_attribute("type", "password")
             _axe_report(page, "signed-in AI access workspace")
 

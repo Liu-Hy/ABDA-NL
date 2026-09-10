@@ -96,6 +96,44 @@ def test_recording_client_keeps_rejected_drafts_and_request_parameters():
     assert recorder.calls[0]["response_sha256"] == digest(recorder.calls[0]["response"])
 
 
+def test_recording_client_preserves_safe_truncation_evidence_without_transport_or_reasoning_text():
+    class ParseFailure(RuntimeError):
+        diagnostics = {
+            "finish_reason": "length", "requested_max_tokens": 2048,
+            "actual_model": "FW-GLM-5.3", "visible_content": "incomplete visible answer",
+            "reasoning_tokens": 2010, "reasoning_content": "private reasoning text",
+            "endpoint": "https://private.example", "headers": {"Authorization": "private-key"},
+            "usage": {"input_tokens": 12000, "output_tokens": 2048, "api_key": "private-key"},
+            "tool_calls": [{"function": {"name": "propose_add_fact", "arguments": '{"fact":',
+                                          "headers": {"Authorization": "private-key"}},
+                            "request_url": "https://private.example"}],
+        }
+
+    class Client:
+        def tool_call(self, **kwargs):
+            raise ParseFailure("Do not save raw exception strings: private-key")
+
+    recorder = RecordingClient(Client())
+    with pytest.raises(ParseFailure):
+        recorder.tool_call(system="synthetic prompt", messages=[], tool={"name": "propose_add_fact"}, max_tokens=2048)
+    entry = recorder.calls[0]
+    diagnostics = entry["error_diagnostics"]
+    assert diagnostics["finish_reason"] == "length"
+    assert diagnostics["reasoning_tokens"] == 2010
+    assert diagnostics["tool_calls"] == [{"function": {"name": "propose_add_fact", "arguments": '{"fact":'}}]
+    assert diagnostics["usage"] == {"input_tokens": 12000, "output_tokens": 2048}
+    assert entry["diagnostics_sha256"] == digest(diagnostics)
+    assert "private-key" not in str(entry)
+    assert "private.example" not in str(entry)
+    assert "private reasoning text" not in str(entry)
+    assert "finished_at" in entry
+
+    ParseFailure.diagnostics["tool_calls"][0]["function"]["arguments"] = ["not an object"]
+    with pytest.raises(ParseFailure):
+        recorder.tool_call(system="synthetic prompt", messages=[], tool={"name": "propose_add_fact"}, max_tokens=2048)
+    assert recorder.calls[1]["error_diagnostics"]["tool_calls"][0]["function"]["arguments"] == ["not an object"]
+
+
 def _small_report():
     cases = [{"id": kind, "kind": "chat", "features": ["grounded_chat"], "case_type": kind} for kind in ("routine", "ambiguous", "adversarial", "edge")]
     suite = {"cases": cases, "required_features": ["grounded_chat"], "required_case_types": [case["case_type"] for case in cases]}

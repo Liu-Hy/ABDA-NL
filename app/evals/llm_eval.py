@@ -8,6 +8,7 @@ import math
 import os
 import re
 import sys
+import time
 from copy import deepcopy
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ from app.db.session import initialize_database
 from app.evals.budget import MAX_CLOUDBANK_EVALUATION_MICROUSD, PersistentSpendCap
 from app.evals.evidence import RecordingClient, coverage_matrix, digest, implementation_fingerprint
 from app.evals.isolation import assert_no_openrouter_credentials, funded_network_only
+from app.evals.pacing import DeploymentRate, EvaluationPacer, parse_rate_limits
 from app.llm.catalog import load_model_catalog, reset_model_catalog_cache
 from app.llm.chat_service import MAX_TOKENS_PER_RESPONSE, run_turn
 from app.llm.client import close_llm_client
@@ -40,6 +42,7 @@ from app.scenario.state import compute_state_bundle
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SUITE = REPOSITORY_ROOT / "evals" / "llm_suite.yaml"
 DEFAULT_PAID_RUN_CAP_MICROUSD = MAX_CLOUDBANK_EVALUATION_MICROUSD
+CASE_REQUEST_SECONDS = 180.0
 
 
 class EvaluationConfigurationError(RuntimeError):
@@ -429,6 +432,7 @@ def evaluate_case(
     repetition: int,
     allow_emergency_spend: bool,
     spend_cap: PersistentSpendCap | None = None,
+    pacer: EvaluationPacer | None = None,
 ) -> dict[str, Any]:
     assert_no_openrouter_credentials()
     if allow_emergency_spend:
@@ -455,7 +459,7 @@ def evaluate_case(
             ),
             allow_emergency_spend=allow_emergency_spend,
             spend_cap=spend_cap,
-        ))
+        ), pacer=pacer, request_timeout_seconds=CASE_REQUEST_SECONDS)
         with funded_network_only():
             if case["kind"] == "chat":
                 payload = evaluate_chat(case, client)
@@ -483,6 +487,8 @@ def evaluate_case(
     audit = _audit_totals(router, request_id)
     finished = datetime.now(timezone.utc)
     evidence = getattr(client, "calls", [])
+    wall_time_ms = int((finished - started).total_seconds() * 1000)
+    pacing_time_ms = round(getattr(client, "pacing_seconds", 0.0) * 1000)
     return {
         "case_id": case["id"],
         "kind": case["kind"],
@@ -494,7 +500,9 @@ def evaluate_case(
         "request_id": request_id,
         "started_at": started.isoformat(),
         "finished_at": finished.isoformat(),
-        "wall_time_ms": int((finished - started).total_seconds() * 1000),
+        "wall_time_ms": wall_time_ms,
+        "pacing_time_ms": pacing_time_ms,
+        "application_time_ms": max(0, wall_time_ms - pacing_time_ms),
         "error": error,
         "audit": audit,
         "calls": evidence,
@@ -539,6 +547,7 @@ def summarize_route(
     total_cost = sum(result["audit"]["cost_microusd"] for result in results)
     average_cost = total_cost / len(results) if results else 0.0
     p95_latency = _p95([int(result["wall_time_ms"]) for result in results])
+    p95_application_latency = _p95([int(result.get("application_time_ms", result["wall_time_ms"])) for result in results])
     error_count = sum(result.get("error") is not None for result in results)
     metrics = {
         "route_id": route_id,
@@ -559,6 +568,8 @@ def summarize_route(
         "total_cost_microusd": total_cost,
         "average_cost_microusd": average_cost,
         "p95_wall_time_ms": p95_latency,
+        "p95_application_time_ms": p95_application_latency,
+        "pacing_time_ms": sum(result.get("pacing_time_ms", 0) for result in results),
         "provider_calls": sum(
             result["audit"]["provider_calls"] for result in results
         ),
@@ -577,7 +588,7 @@ def summarize_route(
         "minimum_case_pass_rate": minimum_case_pass_rate
         >= float(gates.get("min_case_pass_rate", 0)),
         "error_count": error_count <= int(gates.get("max_error_count", 0)),
-        "p95_wall_time_ms": p95_latency
+        "p95_application_time_ms": p95_application_latency
         <= int(gates.get("max_p95_latency_ms", 2**31 - 1)),
         "average_cost_microusd": average_cost
         <= float(gates.get("max_average_cost_microusd", 2**63 - 1)),
@@ -640,6 +651,9 @@ def run_evaluation(
     phase: str = "baseline",
     checkpoint_path: Path | None = None,
     resume: bool = False,
+    rate_limits: dict[str, DeploymentRate] | None = None,
+    stop_after_unix: float | None = None,
+    stop_file: Path | None = None,
 ) -> dict[str, Any]:
     assert_no_openrouter_credentials()
     if allow_emergency_spend:
@@ -647,6 +661,9 @@ def run_evaluation(
     if not 0 < paid_run_cap_microusd <= MAX_CLOUDBANK_EVALUATION_MICROUSD:
         raise EvaluationConfigurationError("evaluation cap must be within the authorized $100")
     cases = _selected_cases(suite, smoke=smoke, case_ids=case_ids)
+    rate_limits = rate_limits or {}
+    if rate_limits and not set(route_ids).issubset(rate_limits):
+        raise EvaluationConfigurationError("pacing needs a configured limit for every selected route")
     gates = _mapping(suite.get("gates") or {}, "gates")
     catalog = router.catalog
     unknown_routes = sorted(set(route_ids) - set(catalog.routes))
@@ -681,6 +698,7 @@ def run_evaluation(
         "case_ids": [case["id"] for case in cases], "phase": phase,
         "implementation_sha256": fingerprint["sha256"], "run_limit_microusd": paid_run_cap_microusd,
         "model_configuration_sha256": digest(model_evidence),
+        "rate_limits": {route: asdict(rate_limits[route]) for route in route_ids if route in rate_limits},
     }
     if resume:
         if checkpoint_path is None or not checkpoint_path.is_file():
@@ -711,12 +729,25 @@ def run_evaluation(
                 os.fsync(handle.fileno())
 
     completed = {(result["route_id"], result["case_id"], result["repetition"]) for result in results}
+    stopped_reason = None
     with funded_network_only():
         for route_id in route_ids:
+            route = catalog.routes[route_id]
+            pacer = EvaluationPacer(
+                budget=spend_cap,
+                deployment=f"{route.provider}:{model_evidence[route_id]['deployment'] or route.model}",
+                rate=rate_limits[route_id], physical_attempts=router.settings.llm_retry_attempts,
+            ) if route_id in rate_limits else None
             for repetition in range(1, repetitions + 1):
                 for case in cases:
                     if (route_id, case["id"], repetition) in completed:
                         continue
+                    if stop_file is not None and stop_file.exists():
+                        stopped_reason = "operator stop requested at a case boundary"
+                    elif stop_after_unix is not None and time.time() + CASE_REQUEST_SECONDS >= stop_after_unix:
+                        stopped_reason = "runtime limit reached at a case boundary"
+                    if stopped_reason:
+                        break
                     if spend_cap.reached:
                         record(
                             {
@@ -731,8 +762,13 @@ def run_evaluation(
                     result = evaluate_case(
                         case, router=router, route_id=route_id, repetition=repetition,
                         allow_emergency_spend=False, spend_cap=spend_cap,
+                        pacer=pacer,
                     )
                     record(result)
+                if stopped_reason:
+                    break
+            if stopped_reason:
+                break
 
     budget_snapshot = spend_cap.snapshot()
 
@@ -744,6 +780,8 @@ def run_evaluation(
         )
         for route_id in route_ids
     }
+    expected_observations = len(route_ids) * repetitions * len(cases)
+    all_observations_recorded = len(results) == expected_observations
     return {
         "schema_version": 3,
         "usage_contract": "exclusive-input-cache-v1",
@@ -759,6 +797,10 @@ def run_evaluation(
         "catalog_updated": catalog.updated,
         "routes": route_ids,
         "repetitions": repetitions,
+        "stopped_reason": stopped_reason,
+        "expected_observations": expected_observations,
+        "remaining_observations": max(0, expected_observations - len(results)),
+        "pacing": metadata["rate_limits"],
         "smoke": smoke,
         "allow_emergency_spend": False,
         "paid_run_cap_microusd": paid_run_cap_microusd,
@@ -767,6 +809,7 @@ def run_evaluation(
         "route_configuration": {route_id: asdict(catalog.routes[route_id]) for route_id in route_ids},
         "model_evidence": model_evidence,
         "decoding_configuration": {
+            "case_request_timeout_seconds": CASE_REQUEST_SECONDS,
             "chat_max_output_tokens": MAX_TOKENS_PER_RESPONSE, "propose_max_output_tokens": MAX_TOKENS_PER_PROPOSE,
             "review_max_output_tokens": MAX_TOKENS_PER_REVIEW, "physical_retry_attempts": router.settings.llm_retry_attempts,
             "cache_requested": True,
@@ -777,8 +820,8 @@ def run_evaluation(
         "coverage_matrix": coverage_matrix(suite, results, route_ids, repetitions=repetitions, configurations=model_evidence),
         "application_accepted": False,
         "prompt_tuning_policy": "Tune when and only when reviewed application failures demonstrate a need. Passing prompts remain unchanged.",
-        "automated_gate_passed": all(summary["gate_passed"] for summary in summaries.values()),
-        "gate_passed": all(summary["gate_passed"] for summary in summaries.values()) and not suite.get("requires_answer_review", False),
+        "automated_gate_passed": all_observations_recorded and all(summary["gate_passed"] for summary in summaries.values()),
+        "gate_passed": all_observations_recorded and all(summary["gate_passed"] for summary in summaries.values()) and not suite.get("requires_answer_review", False),
     }
 
 
@@ -801,6 +844,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--phase", choices=("availability", "baseline", "tuning", "regression"), default="baseline")
     parser.add_argument("--resume", action="store_true", help="resume the checkpoint beside --output without resetting spend")
+    parser.add_argument("--rate-limit", action="append", default=[], help="ROUTE:RPM:TPM evaluation pacing target")
+    parser.add_argument("--stop-after-unix", type=float, help="finish the current case after this UTC timestamp, then checkpoint")
+    parser.add_argument("--stop-file", type=Path, help="finish the current case if this operator stop file exists")
     parser.add_argument("--no-fail-on-gate", action="store_true")
     return parser
 
@@ -836,6 +882,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         assert_no_openrouter_credentials()
+        try:
+            rate_limits = parse_rate_limits(args.rate_limit)
+        except ValueError as exc:
+            raise EvaluationConfigurationError(str(exc)) from exc
         suite, suite_hash = load_suite(args.suite.resolve())
         repetitions = args.repetitions or int(suite.get("default_repetitions", 1))
         initialize_database()
@@ -856,6 +906,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             phase=args.phase,
             checkpoint_path=output.with_suffix(".checkpoint.jsonl"),
             resume=args.resume,
+            rate_limits=rate_limits,
+            stop_after_unix=args.stop_after_unix,
+            stop_file=args.stop_file,
         )
     except (EvaluationConfigurationError, RuntimeError, OSError) as exc:
         print(f"Evaluation could not start: {exc}", file=sys.stderr)

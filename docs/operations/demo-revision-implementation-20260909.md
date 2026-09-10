@@ -79,12 +79,19 @@ qualification remains required; the smoke alone does not admit a model.
 The repeated baseline was stopped after inspection found application defects in
 quotation whitespace matching, narrow rule edits, and the formal state supplied
 to the reviewer and chat model. The 81 attempted observations were inspected.
-After an audited $0.079019 correction for Sol cache-write prices, aggregate
-recorded evaluation cost is $1.597855 before the next availability batch, with
-no pending reservations and $98.402145 remaining. The original receipts are
-preserved. All 136 recorded physical attempts in those first two runs used
-Azure; none used GCP or OpenRouter. Focused correction tests passed, and the
-next seven-model smoke run uses a separate $6 cap within the same $100 ledger.
+After an audited $0.079019 correction for Sol cache-write prices, those first
+two runs cost $1.597855. Their 136 physical attempts used Azure; none used GCP
+or OpenRouter. The original receipts are preserved. Subsequent availability
+checks exercised all seven additional candidates, including successful calls
+to both Gemini models through the funded Vertex project. The GLM and Kimi
+replay passed all 12 inspected cases after the adapter began forwarding the
+configured low reasoning effort and Kimi's supported required-tool setting.
+Their prompts and output allowances stayed unchanged during that replay.
+After the completed availability runs, the lifetime ledger records $4.901138
+spent, no pending reservations, and $95.098862 remaining. Full repeated feature
+qualification remains pending. The detailed, dated findings are in the
+[evaluation record](evaluation-baseline-20260909.md). Costs use reported token
+usage and conservative tariffs; they are not reconciled cloud invoices.
 
 The credential sanity check following
 [Haoyang's setup tutorial](https://github.com/Liu-Hy/cloudbank-llm-setup)
@@ -106,7 +113,8 @@ to default to the legacy direct Anthropic client for requests without explicit
 model options. The private local override now selects Foundry, all prior fields
 are preserved in place and in a protected backup, and `demo restart` passed.
 Hosted managed routing and isolated paid evaluations already selected CloudBank.
-Gemini's per-model availability and feature qualification still require paid tests.
+Gemini's funded availability is confirmed; its full repeated feature
+qualification remains pending.
 
 The shared Delta launcher was serving JURA at the start. It now serves ABDA-NL
 for the real subscribed-client MCP checks. The local database was backed up
@@ -114,6 +122,17 @@ with SQLite's backup API and passed an integrity check before migration.
 Paid inference tests use an isolated database and Slurm allocation, independent
 of the demo's account and credit records.
 
+The subscribed-client MCP acceptance is complete for actual Codex and Claude
+Code sessions, including creation, editing, application, readback, account
+isolation, token revocation, and unchanged ABDA credit. See the
+[acceptance record](mcp-client-acceptance-20260909.md).
+
+The hosted service has not yet received this revision or the administrator
+credit migration. A compatible recovery image is being built from `2f1483f`
+before the two-phase rollout described in the
+[rollout plan](revision-rollout-20260909.md). That image retains the previously
+qualified public model while new candidates undergo qualification.
+
 Sanitized, dated provider inventory and deployment receipts are stored under
-`artifacts/model-qualification-20260909/`. Paid evaluation receipts will use
+`artifacts/model-qualification-20260909/`. Paid evaluation receipts use
 `artifacts/evals/`; these are separate from public trial and administrator grants.

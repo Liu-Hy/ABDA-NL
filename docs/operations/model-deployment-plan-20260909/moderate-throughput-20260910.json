@@ -1,0 +1,447 @@
+{
+  "started_utc": "2026-09-10T02:58:11.199368+00:00",
+  "operation": "approved moderate pay-per-token throughput increase",
+  "deployments": [
+    {
+      "before": {
+        "name": "abda-gpt-5-6-terra",
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-terra",
+          "version": "2026-07-09"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100.0,
+            "key": "request",
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 100000.0,
+            "key": "token",
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable"
+      },
+      "desired_capacity": 500,
+      "patch_started_utc": "2026-09-10T02:58:16.679596+00:00",
+      "after": {
+        "name": "abda-gpt-5-6-terra",
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-terra",
+          "version": "2026-07-09"
+        },
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable"
+      },
+      "verified_utc": "2026-09-10T02:58:19.136541+00:00",
+      "model_sku_guardrail_preserved": true
+    },
+    {
+      "before": {
+        "name": "abda-gpt-5-6-sol",
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-sol",
+          "version": "2026-07-09"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100.0,
+            "key": "request",
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 100000.0,
+            "key": "token",
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable"
+      },
+      "desired_capacity": 500,
+      "patch_started_utc": "2026-09-10T02:58:19.138233+00:00",
+      "after": {
+        "name": "abda-gpt-5-6-sol",
+        "model": {
+          "format": "OpenAI",
+          "name": "gpt-5.6-sol",
+          "version": "2026-07-09"
+        },
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable"
+      },
+      "verified_utc": "2026-09-10T02:58:22.036716+00:00",
+      "model_sku_guardrail_preserved": true
+    },
+    {
+      "before": {
+        "name": "abda-claude-sonnet-5",
+        "model": {
+          "format": "Anthropic",
+          "name": "claude-sonnet-5",
+          "version": "2"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100.0,
+            "key": "request",
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 100000.0,
+            "key": "token",
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "desired_capacity": 500,
+      "patch_started_utc": "2026-09-10T02:58:22.037427+00:00",
+      "after": {
+        "name": "abda-claude-sonnet-5",
+        "model": {
+          "format": "Anthropic",
+          "name": "claude-sonnet-5",
+          "version": "2"
+        },
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "verified_utc": "2026-09-10T02:58:24.444849+00:00",
+      "model_sku_guardrail_preserved": true
+    },
+    {
+      "before": {
+        "name": "abda-deepseek-v4-flash-0731",
+        "model": {
+          "format": "DeepSeek",
+          "name": "DeepSeek-V4-Flash-0731",
+          "version": "2026-07-31"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100.0,
+            "key": "request",
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 100000.0,
+            "key": "token",
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable"
+      },
+      "desired_capacity": 500,
+      "patch_started_utc": "2026-09-10T02:58:24.445617+00:00",
+      "after": {
+        "name": "abda-deepseek-v4-flash-0731",
+        "model": {
+          "format": "DeepSeek",
+          "name": "DeepSeek-V4-Flash-0731",
+          "version": "2026-07-31"
+        },
+        "sku": {
+          "capacity": 500,
+          "name": "GlobalStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 500,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 500000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "OnceNewDefaultVersionAvailable"
+      },
+      "verified_utc": "2026-09-10T02:58:26.931563+00:00",
+      "model_sku_guardrail_preserved": true
+    },
+    {
+      "before": {
+        "name": "abda-glm-5-3",
+        "model": {
+          "format": "Fireworks",
+          "name": "FW-GLM-5.3",
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "DataZoneStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100.0,
+            "key": "request",
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 100000.0,
+            "key": "token",
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "desired_capacity": 250,
+      "patch_started_utc": "2026-09-10T02:58:26.932348+00:00",
+      "after": {
+        "name": "abda-glm-5-3",
+        "model": {
+          "format": "Fireworks",
+          "name": "FW-GLM-5.3",
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 250,
+          "name": "DataZoneStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 250,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 250000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "verified_utc": "2026-09-10T02:58:29.477191+00:00",
+      "model_sku_guardrail_preserved": true
+    },
+    {
+      "before": {
+        "name": "abda-kimi-k3",
+        "model": {
+          "format": "Fireworks",
+          "name": "FW-Kimi-K3",
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "DataZoneStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100.0,
+            "key": "request",
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 100000.0,
+            "key": "token",
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "desired_capacity": 250,
+      "patch_started_utc": "2026-09-10T02:58:29.478221+00:00",
+      "after": {
+        "name": "abda-kimi-k3",
+        "model": {
+          "format": "Fireworks",
+          "name": "FW-Kimi-K3",
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 250,
+          "name": "DataZoneStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 250,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 250000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "verified_utc": "2026-09-10T02:58:31.581661+00:00",
+      "model_sku_guardrail_preserved": true
+    }
+  ],
+  "api_inference_calls": 0,
+  "source_changed": false,
+  "billing_type": "pay-per-token",
+  "billing_source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/deployment-types",
+  "quota_before": {
+    "OpenAI.GlobalStandard.gpt-5.6-terra": {
+      "used": 100.0,
+      "limit": 10000.0,
+      "remaining": 9900.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    },
+    "OpenAI.GlobalStandard.gpt-5.6-sol": {
+      "used": 100.0,
+      "limit": 10000.0,
+      "remaining": 9900.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    },
+    "AIServices.GlobalStandard.claude-sonnet-5.Azure": {
+      "used": 100.0,
+      "limit": 10000.0,
+      "remaining": 9900.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    },
+    "AIServices.DataZoneStandard.Fireworks": {
+      "used": 200.0,
+      "limit": 2000.0,
+      "remaining": 1800.0,
+      "scope_id": "eastus2",
+      "scope_type": "Classic"
+    },
+    "AIServices.GlobalStandard.DeepSeek-V4-Flash-0731": {
+      "used": 100.0,
+      "limit": 10000.0,
+      "remaining": 9900.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    }
+  },
+  "opus_and_other_deployments_unchanged": true,
+  "quota_after": {
+    "OpenAI.GlobalStandard.gpt-5.6-terra": {
+      "used": 500.0,
+      "limit": 10000.0,
+      "remaining": 9500.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    },
+    "OpenAI.GlobalStandard.gpt-5.6-sol": {
+      "used": 500.0,
+      "limit": 10000.0,
+      "remaining": 9500.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    },
+    "AIServices.GlobalStandard.claude-sonnet-5.Azure": {
+      "used": 500.0,
+      "limit": 10000.0,
+      "remaining": 9500.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    },
+    "AIServices.DataZoneStandard.Fireworks": {
+      "used": 500.0,
+      "limit": 2000.0,
+      "remaining": 1500.0,
+      "scope_id": "eastus2",
+      "scope_type": "Classic"
+    },
+    "AIServices.GlobalStandard.DeepSeek-V4-Flash-0731": {
+      "used": 500.0,
+      "limit": 10000.0,
+      "remaining": 9500.0,
+      "scope_id": "global",
+      "scope_type": "Global"
+    }
+  },
+  "completed_utc": "2026-09-10T02:58:32.971796+00:00",
+  "success": true
+}

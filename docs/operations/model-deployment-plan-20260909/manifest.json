@@ -66,7 +66,7 @@
   ],
   "record_type": "historical pre-enablement inspection; see current_status_addendum",
   "current_status_addendum": {
-    "verified_at_utc": "2026-09-10T02:47:15Z",
+    "verified_at_utc": "2026-09-10T02:58:33Z",
     "user_authorization_received": true,
     "fireworks_feature_state": "Registered",
     "fireworks_deployments": [
@@ -75,7 +75,7 @@
         "model": "FW-GLM-5.3",
         "version": "1",
         "sku": "DataZoneStandard",
-        "capacity": 100,
+        "capacity": 250,
         "status": "Succeeded"
       },
       {
@@ -83,14 +83,30 @@
         "model": "FW-Kimi-K3",
         "version": "1",
         "sku": "DataZoneStandard",
-        "capacity": 100,
+        "capacity": 250,
         "status": "Succeeded"
       }
     ],
-    "quota_used": 200,
+    "quota_used": 500,
     "quota_limit": 2000,
     "cloudbank_award_reimbursement_independently_proven": false,
     "paid_feature_qualification_separate": true,
-    "receipt": "fireworks-capacity-20260910.json"
+    "receipt": "moderate-throughput-20260910.json",
+    "initial_enablement_receipt": "fireworks-capacity-20260910.json"
+  },
+  "version_policy_addendum": {
+    "verified_at_utc": "2026-09-10T03:10:44Z",
+    "authorized_deployments": [
+      "abda-gpt-5-6-terra",
+      "abda-gpt-5-6-sol",
+      "abda-deepseek-v4-flash-0731"
+    ],
+    "version_upgrade_option": "NoAutoUpgrade",
+    "all_succeeded": true,
+    "only_policy_changed": true,
+    "other_deployments_including_opus_unchanged": true,
+    "inference_calls": 0,
+    "receipt": "version-policy-20260910.json",
+    "maintenance_implication": "Qualify and explicitly deploy a replacement before model retirement."
   }
 }

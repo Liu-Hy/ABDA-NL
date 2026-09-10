@@ -80,17 +80,48 @@ only to obtain a permitted Slurm slot for this network workload. Check current
 allocation availability before another run; never use an exhausted allocation.
 
 The batch runs at most two model processes by default, sharing the same ledger.
+It supports up to four workers when the Slurm allocation has four CPUs. Set
+`--rate-limit ROUTE:RPM:TPM` for each selected route to pace its logical calls
+against a shared deployment schedule in the existing ledger. The schedule uses
+an input estimate plus the output allowance, reserves for both possible physical
+attempts, and targets 80 percent of the supplied rate. This is throughput
+planning; the stricter byte-based financial reservation remains unchanged.
+Use verified Azure limits and an explicitly chosen conservative target for
+Vertex dynamic quotas. Rates do not guarantee provider availability.
+
+The batch computes one absolute cutoff for all workers, including queued model
+processes. By default it allows 3,000 seconds and leaves the final ten minutes
+of a one-hour allocation for settlement. A worker starts no new case unless
+180 seconds remain before that cutoff. Each case uses the existing public
+180-second request deadline across its calls, extended only by recorded
+evaluation pacing. Reports preserve wall time, pacing time, and application
+time separately; latency gates use application time. A cutoff finishes the
+current case and leaves remaining observations unrecorded for exact resume.
+
+To pause only a failing model, create `ROUTE.stop` in the batch output directory.
+The worker settles and checkpoints its current case before stopping. Preserve
+that stop file as a receipt before clearing it for an authorized resume. Other
+models keep running. Do not terminate an in-flight provider request to stop a
+repeated failure.
+
 Each evaluator saves an incremental `.checkpoint.jsonl` beside its JSON report.
 To resume, keep the same output path, routes, cases, repetitions, phase, model
 settings, and code/prompt/suite hashes and pass `--resume`. Changing those inputs
 requires a new report, while lifetime spend remains shared. A batch can resume by
-using its existing `--output-dir`. A successful process exit means the evidence
+using its existing `--output-dir` and pacing targets. A successful process exit means the evidence
 was collected; it does not imply application acceptance.
 
 Reports contain full synthetic requests and returned drafts, including drafts
 that application validation rejected. They include code, prompt, suite and catalog
 hashes, model/deployment configuration, output/reasoning settings, usage events for
 every physical retry, total cost, request duration, and a model-by-feature matrix.
+For parser failures, the evaluator also preserves an allowlisted diagnostic
+record containing the visible returned answer or tool arguments, finish reason,
+requested output limit, model, normalized usage, and reasoning-token count when
+the provider supplies it. It excludes reasoning text and transport metadata.
+Inspect this evidence before treating an exhausted output allowance as a prompt
+failure. Configured settings in the catalog also need adapter parity checks;
+their presence alone does not prove the provider received them.
 `automated_gate_passed` describes deterministic checks.
 `application_accepted` requires complete feature coverage and answer inspection.
 If the budget stops a run, remaining cases stay incomplete.
