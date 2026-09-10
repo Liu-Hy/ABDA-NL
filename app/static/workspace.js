@@ -2,11 +2,15 @@
 
 let globalStatusTimer = null;
 const modalOpeners = new Map();
+const modalStack = [];
+const modalBackgroundState = new Map();
+let globalStatusGeneration = 0;
 let externalLoginRefreshPending = false;
 let trialRefreshGeneration = 0;
 let projectRefreshGeneration = 0;
 let mcpTokenRefreshGeneration = 0;
 const projectShareRefreshGenerations = new Map();
+const workspaceProjects = { archived: false, archivedProjects: [], shareProject: null, shareExpiry: '7', renameProject: null, account: null };
 const accountView = { busy: false, revision: 0, refreshGeneration: 0, refreshNeeded: false };
 const accountViewChannel = typeof BroadcastChannel === 'function'
   ? new BroadcastChannel('abda-account-view-updates') : null;
@@ -19,17 +23,42 @@ function byId(id) {
   return document.getElementById(id);
 }
 
-function showGlobalStatus(message, kind = 'info') {
+function dismissGlobalStatus(generation = globalStatusGeneration) {
+  if (generation !== globalStatusGeneration) return;
+  if (globalStatusTimer) window.clearTimeout(globalStatusTimer);
+  globalStatusTimer = null;
+  const status = byId('global-status');
+  if (status) { status.hidden = true; status.replaceChildren(); }
+}
+
+function showGlobalStatus(message, kind = 'info', action = null) {
   const status = byId('global-status');
   if (!status) return;
-  status.textContent = message;
+  const generation = ++globalStatusGeneration;
+  status.replaceChildren();
+  const text = document.createElement('span');
+  text.textContent = message;
+  status.append(text);
   status.className = `global-status status-${kind}`;
+  status.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  if (action?.label && typeof action.onClick === 'function') {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'btn btn-small'; button.textContent = action.label;
+    button.addEventListener('click', action.onClick);
+    status.append(button);
+  }
+  const dismiss = document.createElement('button');
+  dismiss.type = 'button'; dismiss.className = 'status-dismiss'; dismiss.textContent = '×';
+  dismiss.setAttribute('aria-label', 'Dismiss notification');
+  dismiss.addEventListener('click', () => dismissGlobalStatus(generation));
+  status.append(dismiss);
   status.hidden = false;
   if (globalStatusTimer) window.clearTimeout(globalStatusTimer);
-  globalStatusTimer = window.setTimeout(() => {
-    status.hidden = true;
-    globalStatusTimer = null;
-  }, kind === 'error' ? 9000 : 6000);
+  globalStatusTimer = null;
+  if (kind !== 'error' && !action) {
+    globalStatusTimer = window.setTimeout(() => dismissGlobalStatus(generation), kind === 'success' ? 5000 : 6000);
+  }
+  return () => dismissGlobalStatus(generation);
 }
 
 function setWorkspaceStatus(id, message = '', kind = 'info') {
@@ -51,19 +80,22 @@ function initModalAccessibility() {
       content.setAttribute('aria-labelledby', title.id);
     }
     backdrop.setAttribute('aria-hidden', 'true');
+    backdrop.inert = true;
     const closeButton = content.querySelector('.modal-close');
     if (closeButton && !closeButton.getAttribute('aria-label')) closeButton.setAttribute('aria-label', 'Close dialog');
     backdrop.addEventListener('mousedown', event => {
-      if (event.target === backdrop) requestCloseModal(backdrop.id);
+      if (event.target === backdrop && topModal() === backdrop) requestCloseModal(backdrop.id);
     });
   }
 
   document.addEventListener('keydown', event => {
-    const visible = [...document.querySelectorAll('.modal-backdrop.visible')];
-    const top = visible[visible.length - 1];
+    // Editors and comboboxes may consume Escape before it reaches the dialog.
+    if (event.defaultPrevented) return;
+    const top = topModal();
     if (!top) return;
     if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
       requestCloseModal(top.id);
       return;
     }
@@ -76,7 +108,10 @@ function initModalAccessibility() {
     }
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
+    if (!focusable.includes(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -84,6 +119,59 @@ function initModalAccessibility() {
       first.focus();
     }
   });
+  document.addEventListener('focusin', event => {
+    const top = topModal();
+    if (top && !top.contains(event.target)) focusModal(top);
+  });
+}
+
+function topModal() { return byId(modalStack[modalStack.length - 1]); }
+
+function syncModalStack() {
+  const top = topModal();
+  for (const [index, id] of modalStack.entries()) {
+    const modal = byId(id);
+    modal.style.zIndex = String(100 + index);
+    modal.inert = modal !== top;
+    modal.setAttribute('aria-hidden', modal === top ? 'false' : 'true');
+    modal.querySelector('.modal-content')?.setAttribute('aria-modal', modal === top ? 'true' : 'false');
+  }
+  for (const element of document.body.children) {
+    if (element.matches('.modal-backdrop, script, style, link')) continue;
+    if (top) {
+      if (!modalBackgroundState.has(element)) modalBackgroundState.set(element, {
+        inert: element.inert, hidden: element.getAttribute('aria-hidden'),
+      });
+      element.inert = true;
+      element.setAttribute('aria-hidden', 'true');
+    } else if (modalBackgroundState.has(element)) {
+      const original = modalBackgroundState.get(element);
+      element.inert = original.inert;
+      if (original.hidden === null) element.removeAttribute('aria-hidden');
+      else element.setAttribute('aria-hidden', original.hidden);
+      modalBackgroundState.delete(element);
+    }
+  }
+  document.body.classList.toggle('modal-open', Boolean(top));
+}
+
+function focusModal(modal, selector = null) {
+  const requested = selector ? [...modal.querySelectorAll(selector)]
+    .find(modalControlIsVisible) : null;
+  const content = modal.querySelector('.modal-content');
+  if (content && !content.hasAttribute('tabindex')) content.tabIndex = -1;
+  (requested || modalFocusableElements(modal)[0] || content)?.focus();
+}
+
+function modalControlIsVisible(element) {
+  if (!element || element.disabled || element.closest('[hidden], [inert]')
+      || !element.getClientRects().length || window.getComputedStyle(element).visibility !== 'visible') return false;
+  // Closed details can retain descendant geometry. Only their summary is shown.
+  for (let details = element.closest('details:not([open])'); details;
+    details = details.parentElement?.closest('details:not([open])')) {
+    if (details !== element && !details.querySelector(':scope > summary')?.contains(element)) return false;
+  }
+  return true;
 }
 
 function modalFocusableElements(root) {
@@ -93,37 +181,46 @@ function modalFocusableElements(root) {
     'input:not([disabled]):not([hidden])',
     'select:not([disabled]):not([hidden])',
     'textarea:not([disabled]):not([hidden])',
+    '[contenteditable="true"]:not([hidden])',
+    'summary:not([hidden]):not([tabindex="-1"])',
     '[tabindex]:not([tabindex="-1"]):not([hidden])',
   ].join(',');
-  return [...root.querySelectorAll(selector)].filter(element => element.offsetParent !== null);
+  return [...root.querySelectorAll(selector)].filter(element => element.tabIndex >= 0 && modalControlIsVisible(element));
 }
 
 function openModal(id, focusSelector = null) {
   const modal = byId(id);
   if (!modal) return;
-  if (!modal.classList.contains('visible')) modalOpeners.set(id, document.activeElement);
+  if (!modal.classList.contains('visible')) modalOpeners.set(id,
+    typeof shellModalOpener === 'function' ? shellModalOpener() : document.activeElement);
+  const oldIndex = modalStack.indexOf(id);
+  if (oldIndex !== -1) modalStack.splice(oldIndex, 1);
+  modalStack.push(id);
   modal.classList.add('visible');
+  modal.inert = false;
   modal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
+  focusModal(modal, focusSelector);
+  syncModalStack();
   window.setTimeout(() => {
-    const requested = focusSelector
-      ? [...modal.querySelectorAll(focusSelector)].find(element => (
-        !element.disabled && element.offsetParent !== null
-      ))
-      : null;
-    const target = requested || modalFocusableElements(modal)[0];
-    const content = modal.querySelector('.modal-content');
-    if (content && !content.hasAttribute('tabindex')) content.setAttribute('tabindex', '-1');
-    (target || content)?.focus();
+    if (topModal() === modal && !modal.contains(document.activeElement)) focusModal(modal, focusSelector);
   }, 0);
 }
 
 function restoreModalFocus(id) {
-  const anyVisible = document.querySelector('.modal-backdrop.visible');
-  if (!anyVisible) document.body.classList.remove('modal-open');
+  const wasTop = topModal()?.id === id;
+  const index = modalStack.indexOf(id);
+  if (index !== -1) modalStack.splice(index, 1);
+  const closed = byId(id);
+  if (closed) { closed.inert = true; closed.style.removeProperty('z-index'); }
   const opener = modalOpeners.get(id);
   modalOpeners.delete(id);
-  if (!anyVisible && opener && document.contains(opener)) opener.focus();
+  syncModalStack();
+  if (!wasTop) return;
+  const top = topModal();
+  if (opener?.isConnected && opener !== document.body && modalControlIsVisible(opener)
+      && (!top || top.contains(opener))) opener.focus();
+  else if (top) focusModal(top);
+  else byId('workspace-btn')?.focus();
 }
 
 function requestCloseModal(id) {
@@ -144,9 +241,6 @@ function requestCloseModal(id) {
 }
 
 function initWorkspaceUI() {
-  byId('workspace-btn')?.addEventListener('click', () => openWorkspace('account'));
-  byId('ai-access-btn')?.addEventListener('click', () => openWorkspace('ai'));
-  byId('chat-access-button')?.addEventListener('click', () => openWorkspace('ai'));
   byId('save-btn')?.addEventListener('click', saveCurrentWork);
 
   for (const tab of document.querySelectorAll('[data-workspace-tab]')) {
@@ -162,7 +256,22 @@ function initWorkspaceUI() {
   byId('projects-refresh-btn')?.addEventListener('click', () => refreshProjects());
   byId('project-create-form')?.addEventListener('submit', createProjectFromCurrentView);
   byId('project-list')?.addEventListener('click', handleProjectAction);
+  byId('project-list')?.addEventListener('submit', renameProject);
   byId('current-project-card')?.addEventListener('click', handleProjectAction);
+  byId('current-project-card')?.addEventListener('change', event => {
+    if (event.target.id === 'project-share-expiry') workspaceProjects.shareExpiry = event.target.value;
+  });
+  for (const id of ['project-list', 'current-project-card']) {
+    byId(id)?.addEventListener('keydown', event => {
+      const menu = event.target.closest('.project-menu[open]');
+      if (event.key !== 'Escape' || !menu) return;
+      event.preventDefault(); event.stopPropagation();
+      menu.open = false; menu.querySelector('summary').focus();
+    });
+  }
+  for (const [id, archived] of [['projects-active-filter', false], ['projects-archived-filter', true]]) {
+    byId(id)?.addEventListener('click', () => { workspaceProjects.archived = archived; refreshProjects(); });
+  }
 
   byId('ai-access-form')?.addEventListener('submit', applyAISettings);
   for (const radio of document.querySelectorAll('input[name="ai-mode"]')) {
@@ -207,6 +316,10 @@ function openWorkspace(tab = 'account', options = {}) {
 }
 
 function switchWorkspaceTab(name) {
+  byId('workspace-modal-title').textContent = {
+    account: 'Account', projects: 'Manage projects', examples: 'Community examples',
+    ai: 'AI access', mcp: 'Agent access',
+  }[name] || 'Account';
   if (name === 'examples') refreshExampleSubmissions();
   for (const tab of document.querySelectorAll('[data-workspace-tab]')) {
     const active = tab.dataset.workspaceTab === name;
@@ -281,6 +394,7 @@ function renderAccountUI() {
   renderChatAccess();
   renderScenarioLibraryAccess();
   renderCurationAccess();
+  if (typeof renderShellControls === 'function') renderShellControls();
 }
 
 async function authSessionForCurrentView(session, revision) {
@@ -303,12 +417,11 @@ function renderAccountView() {
   byId('restore-admin-view-btn').hidden = !normal;
   byId('restore-admin-view-btn').disabled = accountView.busy;
   byId('account-view-toggle-btn').disabled = accountView.busy;
-  byId('account-view-toggle-btn').textContent = normal ? 'Restore administrator view' : 'Use normal user view';
+  byId('account-view-toggle-btn').textContent = normal ? 'Restore administrator view' : 'Demonstrate as a normal user';
   byId('account-view-heading').textContent = normal ? 'Normal user view' : 'Administrator view';
-  byId('account-view-description').textContent = normal
-    ? 'Administrator actions are disabled in this browser. Your projects and credit stay the same.'
-    : 'Use the normal user experience without administrator privileges. Your projects and credit stay the same.';
+  byId('account-view-description').textContent = 'The review queue and Publish as example are hidden in normal user view. Your suggestions go through review. Projects, credit, and conversations are unchanged.';
   if (restoreHadFocus && !normal) byId('workspace-btn').focus();
+  if (typeof renderShellControls === 'function') renderShellControls();
 }
 
 function suppressAdministratorView() {
@@ -379,7 +492,8 @@ async function toggleAccountView(event) {
     if (accountView.refreshNeeded) { accountView.refreshNeeded = false; await refreshAccountView(); }
     if (trigger && state.authSession.user?.id === account
         && (document.activeElement === trigger || document.activeElement === document.body)) {
-      (trigger.hidden ? byId('workspace-btn') : trigger).focus();
+      (trigger.isConnected && modalControlIsVisible(trigger)
+        ? trigger : byId('workspace-btn')).focus();
     }
   }
 }
@@ -459,9 +573,10 @@ async function refreshAuthenticatedWorkspace(options = {}) {
   }
   const trialGeneration = ++trialRefreshGeneration;
   const projectGeneration = ++projectRefreshGeneration;
+  const account = state.authSession.user?.id;
   const trialRequest = apiRequest('/api/trial').then(
     trial => {
-      if (trialGeneration !== trialRefreshGeneration) return null;
+      if (trialGeneration !== trialRefreshGeneration || account !== state.authSession.user?.id) return null;
       state.trial = trial;
       renderAccountUI();
       renderAccessSummary();
@@ -471,7 +586,7 @@ async function refreshAuthenticatedWorkspace(options = {}) {
   );
   const projectsRequest = apiRequest('/api/projects').then(
     projects => {
-      if (projectGeneration !== projectRefreshGeneration) return null;
+      if (projectGeneration !== projectRefreshGeneration || account !== state.authSession.user?.id) return null;
       state.projects = projects.projects || [];
       renderAccountUI();
       renderAccessSummary();
@@ -483,6 +598,7 @@ async function refreshAuthenticatedWorkspace(options = {}) {
     trialRequest,
     projectsRequest,
   ]);
+  if (account !== state.authSession.user?.id) return;
   const currentFailures = [];
   if (trialError && trialGeneration === trialRefreshGeneration) currentFailures.push(trialError);
   if (projectsError && projectGeneration === projectRefreshGeneration) currentFailures.push(projectsError);
@@ -699,19 +815,8 @@ function llmAccessIssue() {
 
 function renderAccessSummary() {
   if (!state.config) return;
-  let label;
-  if (state.llmAccess.mode === 'byok') {
-    const provider = (state.config.byok_providers || []).find(item => item.id === state.llmAccess.provider);
-    const model = provider?.models?.find(item => item.id === state.llmAccess.model);
-    label = `Own key: ${model?.display_name || provider?.display_name || 'Provider'}`;
-  } else {
-    const profile = (state.config.profiles || []).find(item => item.id === state.llmAccess.profile);
-    label = `Funded: ${profile?.display_name || 'Default'}`;
-  }
-  byId('ai-access-btn').textContent = `AI: ${label.replace(/^Funded: /, '')}`;
-  byId('chat-access-button').textContent = label;
-  byId('chat-access-button').setAttribute('aria-label', `AI access setting, ${label}. Open settings.`);
   renderChatAccess();
+  if (typeof renderShellControls === 'function') renderShellControls();
 }
 
 function renderChatAccess() {
@@ -722,7 +827,7 @@ function renderChatAccess() {
   const issue = llmAccessIssue();
   // A user can draft questions before obtaining access and while an answer
   // is pending. Only explicit submission depends on access or availability.
-  input.disabled = false;
+  input.setAttribute('aria-disabled', 'false');
   button.disabled = Boolean(issue) || state.chatPending;
   if (!issue) {
     note.classList.remove('visible');
@@ -773,51 +878,92 @@ function clearBYOKKey() {
 async function refreshProjects(options = {}) {
   if (!state.authSession.authenticated) return;
   const requestGeneration = ++projectRefreshGeneration;
+  const account = state.authSession.user?.id;
   if (!options.quiet) setWorkspaceStatus('projects-status', 'Refreshing projects...', 'info');
   try {
-    const body = await apiRequest('/api/projects');
-    if (requestGeneration !== projectRefreshGeneration) return;
+    const [body, archivedBody] = await Promise.all([
+      apiRequest('/api/projects'),
+      workspaceProjects.archived ? apiRequest('/api/projects?archived=true') : Promise.resolve(null),
+    ]);
+    if (requestGeneration !== projectRefreshGeneration || account !== state.authSession.user?.id) return;
     state.projects = body.projects || [];
+    if (archivedBody) workspaceProjects.archivedProjects = archivedBody.projects || [];
     renderProjectsUI();
     if (!options.quiet) setWorkspaceStatus('projects-status', '', 'info');
   } catch (error) {
-    if (requestGeneration !== projectRefreshGeneration) return;
+    if (requestGeneration !== projectRefreshGeneration || account !== state.authSession.user?.id) return;
     setWorkspaceStatus('projects-status', error.message, 'error');
   }
 }
 
 function renderProjectsUI() {
   const authenticated = state.authSession.authenticated;
+  if (workspaceProjects.account !== state.authSession.user?.id) {
+    workspaceProjects.account = state.authSession.user?.id;
+    workspaceProjects.archived = false;
+    workspaceProjects.archivedProjects = [];
+    workspaceProjects.shareProject = null;
+    workspaceProjects.renameProject = null;
+  }
   byId('projects-signin-required').hidden = authenticated;
   byId('projects-authenticated').hidden = !authenticated;
-  if (!authenticated) return;
+  if (!authenticated) { byId('project-list').replaceChildren(); return; }
 
   const current = byId('current-project-card');
   current.hidden = !state.activeProject;
   if (state.activeProject) current.innerHTML = currentProjectHTML();
 
-  const projects = state.projects || [];
+  const projects = workspaceProjects.archived ? workspaceProjects.archivedProjects : state.projects || [];
+  byId('projects-active-filter').setAttribute('aria-pressed', String(!workspaceProjects.archived));
+  byId('projects-archived-filter').setAttribute('aria-pressed', String(workspaceProjects.archived));
+  byId('projects-archive-hint').hidden = !workspaceProjects.archived;
   byId('project-count').textContent = `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`;
   const list = byId('project-list');
   if (projects.length === 0) {
-    list.innerHTML = '<div class="empty-list">No private projects yet. Use New / Open to create a scenario or import a file, or save the current example below.</div>';
+    list.innerHTML = workspaceProjects.archived ? '<div class="empty-list">No archived projects.</div>'
+      : '<div class="empty-list">No private projects yet. Create a scenario or save a copy of the current example.</div>';
+    if (typeof renderShellControls === 'function') renderShellControls();
     return;
   }
   list.innerHTML = projects.map(project => `
-    <article class="project-card">
+    <article class="project-card" data-project-card="${escapeAttr(project.id)}">
       <div class="project-card-main">
         <div>
           <div class="project-card-name">${escapeHtml(project.name)}</div>
           ${project.description ? `<div class="project-card-description">${escapeHtml(project.description)}</div>` : ''}
           <div class="project-card-meta">Version ${project.version}, updated ${escapeHtml(formatDate(project.updated_at))}</div>
+          <div class="project-card-meta">${project.source_scenario_id ? `From ${escapeHtml(state.scenarios.find(item => item.id === project.source_scenario_id)?.title || project.source_scenario_id)}` : 'Original scenario'}</div>
+          <div class="project-status-chips">${projectStatusHTML(project)}</div>
         </div>
         <div class="project-card-actions">
-          <button class="btn btn-small" type="button" data-project-action="open" data-project-id="${escapeAttr(project.id)}">Open</button>
-          <button class="btn btn-small" type="button" data-project-action="archive" data-project-id="${escapeAttr(project.id)}" data-project-name="${escapeAttr(project.name)}" data-project-version="${project.version}">Archive</button>
+          ${project.archived_at ? `<button class="btn btn-small" type="button" data-project-action="restore" data-project-id="${escapeAttr(project.id)}" data-project-name="${escapeAttr(project.name)}" data-project-version="${project.version}">Restore privately</button>`
+            : `<button class="btn btn-small" type="button" data-project-action="open" data-project-id="${escapeAttr(project.id)}">Open</button>${projectMenuHTML(project)}`}
         </div>
       </div>
+      ${workspaceProjects.renameProject === project.id ? `<form class="project-rename-form" data-project-id="${escapeAttr(project.id)}" data-project-version="${project.version}"><label>Project name<input name="name" value="${escapeAttr(project.name)}" maxlength="120" required></label><button class="btn btn-small" type="submit">Save name</button><button class="btn btn-small" type="button" data-project-action="rename-cancel">Cancel</button></form>` : ''}
     </article>
   `).join('');
+  if (typeof renderShellControls === 'function') renderShellControls();
+}
+
+function projectStatusHTML(project) {
+  const chips = [];
+  if (project.archived_at) chips.push('<span class="project-status-chip">Archived</span>');
+  if (project.active_share_count) chips.push(`<span class="project-status-chip">Shared · ${project.active_share_count} ${project.active_share_count === 1 ? 'link' : 'links'}</span>`);
+  for (const item of project.submissions || []) {
+    if (!['pending', 'published'].includes(item.status)) continue;
+    chips.push(`<span class="project-status-chip">${item.status === 'published' ? 'Published' : 'Suggested, awaiting review'} · snapshot v${item.project_version}${item.project_version !== project.version ? ' (earlier version)' : ''}</span>`);
+  }
+  return chips.join('');
+}
+
+function projectMenuHTML(project) {
+  const action = (value, label) => `<button class="btn btn-small" type="button" data-project-action="${value}" data-project-id="${escapeAttr(project.id)}" data-project-name="${escapeAttr(project.name)}" data-project-version="${project.version}">${label}</button>`;
+  return `<details class="project-menu"><summary aria-label="Actions for ${escapeAttr(project.name)}">...</summary><div class="project-menu-items">
+    ${action('rename', 'Rename')}${action('share', 'Share')}
+    ${state.authSession.community_catalog_enabled !== false ? action('suggest-example', state.authSession.scenario_admin ? 'Publish as example' : 'Suggest as a community example') : ''}
+    ${action('download', 'Download')}${action('archive', 'Archive')}
+  </div></details>`;
 }
 
 function currentProjectHTML() {
@@ -830,10 +976,10 @@ function currentProjectHTML() {
       <div class="credential-card">
         <div class="credential-card-main">
           <div>
-            <div class="credential-card-name">Read-only link</div>
-            <div class="credential-card-meta">Created ${escapeHtml(formatDate(link.created_at))}${link.expires_at ? `, expires ${escapeHtml(formatDate(link.expires_at))}` : ', no expiration'}${link.revoked_at ? ', revoked' : ''}</div>
+            <div class="credential-card-name">Read-only link ${escapeHtml(link.id.slice(0, 8))}</div>
+            <div class="credential-card-meta">Created ${escapeHtml(formatDate(link.created_at))}${link.expires_at ? `, expires ${escapeHtml(formatDate(link.expires_at))}` : ', no expiration'}${link.revoked_at ? ', revoked' : link.expires_at && new Date(link.expires_at) <= new Date() ? ', expired' : ', active'}</div>
           </div>
-          ${link.active !== false && !link.revoked_at ? `<button class="btn btn-small" type="button" data-project-action="share-revoke" data-share-id="${escapeAttr(link.id)}">Revoke</button>` : ''}
+          ${!link.revoked_at && (!link.expires_at || new Date(link.expires_at) > new Date()) ? `<button class="btn btn-small" type="button" data-project-action="share-revoke" data-share-id="${escapeAttr(link.id)}">Revoke</button>` : ''}
         </div>
       </div>
     `).join('')
@@ -846,11 +992,16 @@ function currentProjectHTML() {
       </div>
       <div class="project-card-actions">
         <button class="btn btn-primary" type="button" data-project-action="save-current" ${unsaved && !state.projectSavePending ? '' : 'disabled'}>${state.projectSavePending ? 'Saving...' : 'Save changes'}</button>
-        <button class="btn" type="button" data-project-action="share-create">Create share link</button>
-        <button class="btn" type="button" data-project-action="share-refresh">Manage links</button>
-        ${state.authSession.community_catalog_enabled !== false ? `<button class="btn" type="button" data-project-action="suggest-example">${state.authSession.scenario_admin ? 'Publish as example' : 'Suggest as example'}</button>` : ''}
+        ${projectMenuHTML(project)}
       </div>
     </div>
+    <div class="project-share-controls" ${workspaceProjects.shareProject === project.id || latest ? '' : 'hidden'}>
+      <h4>Read-only sharing</h4>
+      <p class="field-hint">Anyone with a link can read the latest saved version. Unsaved changes are saved before creating a link.</p>
+      <label for="project-share-expiry">Link expires after</label>
+      <select id="project-share-expiry">${[['1', '1 day'], ['7', '7 days'], ['30', '30 days'], ['never', 'No expiration']].map(([value, label]) => `<option value="${value}" ${workspaceProjects.shareExpiry === value ? 'selected' : ''}>${label}</option>`).join('')}</select>
+      <button class="btn btn-small" type="button" data-project-action="share-create">Create share link</button>
+      <button class="btn btn-small" type="button" data-project-action="share-refresh">Refresh links</button>
     ${latest ? `
       <div class="share-panel">
         <strong>New link, shown until this workspace closes</strong>
@@ -864,12 +1015,14 @@ function currentProjectHTML() {
       <h3>Existing links</h3>
       <div class="credential-list">${shareRows}</div>
     </div>
+    </div>
   `;
 }
 
 function prepareProjectCreateForm() {
   const scenario = state.bundle?.scenario;
   if (!scenario) return;
+  byId('project-copy-panel').open = true;
   const suffix = state.viewKind === 'shared' ? ' copy' : ' exploration';
   byId('project-name-input').value = `${scenario.title || 'Untitled'}${suffix}`.slice(0, 120);
   byId('project-description-input').value = state.viewKind === 'shared'
@@ -1031,9 +1184,29 @@ async function handleProjectAction(event) {
   const button = event.target.closest('[data-project-action]');
   if (!button) return;
   const action = button.dataset.projectAction;
+  const projectId = button.dataset.projectId || state.activeProject?.id;
+  const menu = button.closest('.project-menu');
+  if (menu) { menu.querySelector('summary')?.focus(); menu.removeAttribute('open'); }
   if (action === 'open') return loadProject(button.dataset.projectId);
   if (action === 'archive') return archiveProject(button.dataset.projectId, button.dataset.projectName, Number(button.dataset.projectVersion));
   if (action === 'save-current') return saveProjectChanges();
+  if (action === 'restore') return restoreArchivedProject(button);
+  if (action === 'rename' || action === 'rename-cancel') {
+    if (action === 'rename') workspaceProjects.archived = false;
+    workspaceProjects.renameProject = action === 'rename' ? projectId : null;
+    renderProjectsUI();
+    byId('project-list').querySelector('.project-rename-form input')?.focus();
+    return;
+  }
+  if (action === 'download') return downloadSavedProject(projectId);
+  if (['share', 'suggest-example'].includes(action) && state.activeProject?.id !== projectId) {
+    await loadProject(projectId);
+    if (state.activeProject?.id !== projectId) return;
+    openWorkspace('projects');
+  }
+  if (action === 'share') {
+    return openProjectSharing(projectId);
+  }
   if (action === 'share-create') return createProjectShare();
   if (action === 'share-refresh') return refreshProjectShares();
   if (action === 'share-copy') return copyElementText('latest-share-url', 'Share link copied.');
@@ -1041,20 +1214,92 @@ async function handleProjectAction(event) {
   if (action === 'suggest-example') return beginExampleSubmission();
 }
 
+async function openProjectSharing(projectId = state.activeProject?.id) {
+  if (!projectId) return;
+  if (state.activeProject?.id !== projectId) await loadProject(projectId);
+  if (state.activeProject?.id !== projectId) return;
+  workspaceProjects.shareProject = projectId;
+  openWorkspace('projects');
+  renderProjectsUI();
+  await refreshProjectShares({ quiet: true });
+  if (workspaceProjects.shareProject === state.activeProject?.id) byId('project-share-expiry')?.focus();
+}
+
+async function renameProject(event) {
+  const form = event.target.closest('.project-rename-form');
+  if (!form) return;
+  event.preventDefault();
+  const account = state.authSession.user?.id;
+  const viewRevision = accountView.revision;
+  const project = state.activeProject;
+  try {
+    const updated = await apiRequest(`/api/projects/${encodeURIComponent(form.dataset.projectId)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected_version: Number(form.dataset.projectVersion), name: form.elements.name.value.trim() }),
+    });
+    if (account !== state.authSession.user?.id) return;
+    if (state.activeProject === project && project?.id === updated.id) state.activeProject = updated;
+    workspaceProjects.renameProject = null;
+    await refreshProjects({ quiet: true });
+    if (account !== state.authSession.user?.id || viewRevision !== accountView.revision) return;
+    showGlobalStatus('Project renamed.', 'success');
+  } catch (error) {
+    if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
+  }
+}
+
+async function downloadSavedProject(projectId) {
+  const account = state.authSession.user?.id;
+  try {
+    const project = await apiRequest(`/api/projects/${encodeURIComponent(projectId)}`);
+    if (account !== state.authSession.user?.id) return;
+    await downloadScenarioFile({ ...project.scenario, title: project.name }, project.source_scenario_id);
+  } catch (error) {
+    if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
+  }
+}
+
+async function restoreArchivedProject(button) {
+  const account = state.authSession.user?.id;
+  const viewRevision = accountView.revision;
+  const projectId = button.dataset.projectId;
+  if (!window.confirm(`Restore "${button.dataset.projectName}" privately? All old share links will be revoked. Create new links to share it again.`)) return;
+  button.disabled = true;
+  try {
+    await apiRequest(`/api/projects/${encodeURIComponent(projectId)}/restore`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected_version: Number(button.dataset.projectVersion) }),
+    });
+    if (account !== state.authSession.user?.id) return;
+    await refreshProjects({ quiet: true });
+    if (account !== state.authSession.user?.id || viewRevision !== accountView.revision) return;
+    showGlobalStatus('Project restored privately. Old share links are revoked.', 'success', {
+      label: 'Open project', onClick: () => { if (account === state.authSession.user?.id) loadProject(projectId); },
+    });
+  } catch (error) {
+    if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
+  } finally { button.disabled = false; }
+}
+
 async function archiveProject(projectId, name, version) {
-  if (!window.confirm(`Archive the private project "${name}"? Existing share links will stop working.`)) return;
+  if (!window.confirm(`Archive the private project "${name}"? Existing share links will stop working. You can restore it privately from Archived; any published example snapshot stays public.`)) return;
+  const account = state.authSession.user?.id;
+  const viewRevision = accountView.revision;
   try {
     await apiRequest(`/api/projects/${encodeURIComponent(projectId)}?expected_version=${encodeURIComponent(version)}`, { method: 'DELETE' });
+    if (account !== state.authSession.user?.id) return;
     await refreshProjects({ quiet: true });
+    if (account !== state.authSession.user?.id || viewRevision !== accountView.revision) return;
     if (state.activeProject?.id === projectId) {
       const defaultId = state.scenarios.some(item => item.id === 'popov_v_hayashi')
         ? 'popov_v_hayashi'
         : state.scenarios[0]?.id;
       if (defaultId) await loadScenario(defaultId);
     }
+    if (account !== state.authSession.user?.id || viewRevision !== accountView.revision) return;
     showGlobalStatus(`Archived project "${name}".`, 'success');
   } catch (error) {
-    setWorkspaceStatus('projects-status', error.message, 'error');
+    if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
   }
 }
 
@@ -1065,12 +1310,14 @@ async function createProjectShare() {
     if (!saved || state.activeProject !== saved) return;
   }
   const project = state.activeProject;
+  const days = workspaceProjects.shareExpiry === 'never' ? null : Number(workspaceProjects.shareExpiry);
+  const expiresAt = days ? new Date(Date.now() + days * 86400000).toISOString() : null;
   const secretGeneration = state.oneTimeSecretGeneration;
   try {
     const share = await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/shares`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ expires_at: expiresAt }),
     });
     if (
       state.activeProject !== project
@@ -1084,6 +1331,7 @@ async function createProjectShare() {
       return;
     }
     state.latestShare = { projectId: project.id, url: share.url };
+    workspaceProjects.shareProject = project.id;
     await refreshProjectShares({ quiet: true, project });
     renderProjectsUI();
     setWorkspaceStatus('projects-status', 'A new read-only link is ready. Copy it now.', 'success');
@@ -1095,12 +1343,14 @@ async function createProjectShare() {
 async function refreshProjectShares(options = {}) {
   const project = options.project || state.activeProject;
   if (!project) return;
+  const account = state.authSession.user?.id;
   const requestGeneration = (projectShareRefreshGenerations.get(project.id) || 0) + 1;
   projectShareRefreshGenerations.set(project.id, requestGeneration);
   try {
     const body = await apiRequest(`/api/projects/${encodeURIComponent(project.id)}/shares`);
     if (
       state.activeProject !== project
+      || account !== state.authSession.user?.id
       || projectShareRefreshGenerations.get(project.id) !== requestGeneration
     ) return;
     state.activeShares = body.share_links || [];
@@ -1110,6 +1360,7 @@ async function refreshProjectShares(options = {}) {
   } catch (error) {
     if (
       state.activeProject !== project
+      || account !== state.authSession.user?.id
       || projectShareRefreshGenerations.get(project.id) !== requestGeneration
     ) return;
     setWorkspaceStatus('projects-status', error.message, 'error');

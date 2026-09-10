@@ -397,7 +397,7 @@ jobs:
           ABDA_BROWSER_TESTS: "1"
           ABDA_BROWSER_ENGINE: "${{ matrix.browser }}"
           ABDA_BROWSER_ARTIFACT_DIR: artifacts/browser
-        run: python -m pytest -q tests/test_browser_e2e.py tests/test_exploration_browser.py
+        run: python -m pytest -q tests/test_browser_e2e.py tests/test_exploration_browser.py tests/test_authoring_browser.py tests/test_workspace_revision_browser.py tests/test_ui_shell_browser.py
       - name: Preserve browser evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

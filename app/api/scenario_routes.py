@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, defer
 
 from app.api.abuse import enforce_rate_limit
@@ -20,6 +20,7 @@ from app.services.scenario_submissions import (
     is_scenario_admin,
     public_id,
     review_submission,
+    safe_display_name,
     submit_scenario,
 )
 
@@ -32,6 +33,10 @@ class SubmissionRequest(BaseModel):
     expected_version: int = Field(ge=1)
     publish: bool = False
     public_consent: Literal[True]
+    public_title: str | None = Field(default=None, min_length=1, max_length=120)
+    public_summary: str | None = Field(default=None, max_length=400)
+    author_note: str = Field(default="", max_length=1000)
+    attribute_author: bool = Field(default=False, strict=True)
 
     @field_validator("public_consent", mode="before")
     @classmethod
@@ -61,6 +66,8 @@ def _response(item: ScenarioSubmission, user: User, *, detail: bool = False) -> 
         "id": item.id,
         "title": item.title,
         "description": item.description,
+        "public_summary": item.public_summary,
+        "attribution_name": item.attribution_name,
         "project_version": item.project_version,
         "status": item.status,
         "version": item.version,
@@ -71,7 +78,10 @@ def _response(item: ScenarioSubmission, user: User, *, detail: bool = False) -> 
         "public_scenario_id": public_id(item) if item.status == "published" else None,
     }
     if detail:
-        result.update(scenario=item.scenario_json, source_scenario_id=item.source_scenario_id)
+        from app.scenario.portable import portable_scenario
+        result.update(scenario=item.scenario_json, source_scenario_id=item.source_scenario_id,
+                      author_note=item.author_note,
+                      portable_scenario=portable_scenario(item.scenario_json, item.source_scenario_id))
     return result
 
 
@@ -90,7 +100,8 @@ def list_submissions(
     session: Session = Depends(get_db),
     settings: Settings = Depends(require_catalog),
 ) -> dict:
-    if queue and not is_scenario_admin(user, settings):
+    admin = is_scenario_admin(user, settings)
+    if queue and not admin:
         raise HTTPException(status_code=403, detail="Scenario administrator access required.")
     statement = select(ScenarioSubmission)
     if not queue:
@@ -105,10 +116,24 @@ def list_submissions(
             .limit(51)
         )
     )
-    return {
+    response = {
         "submissions": [_response(item, user) for item in rows[:50]],
         "has_more": len(rows) > 50,
+        "own_count": session.scalar(select(func.count(ScenarioSubmission.id)).where(
+            ScenarioSubmission.submitter_id == user.id)) or 0,
     }
+    if admin:
+        response["counts"] = {name: 0 for name in ("pending", "published", "rejected", "withdrawn")}
+        response["counts"].update(dict(session.execute(select(
+            ScenarioSubmission.status, func.count(ScenarioSubmission.id)
+        ).group_by(ScenarioSubmission.status)).all()))
+        response["counts"]["mine"] = response["own_count"]
+        owners = {owner.id: owner for owner in session.scalars(select(User).where(
+            User.id.in_({item.submitter_id for item in rows[:50]})
+        ))}
+        for item, data in zip(rows[:50], response["submissions"], strict=True):
+            data["submitter_display_name"] = safe_display_name(owners.get(item.submitter_id))
+    return response
 
 
 @router.get("/{submission_id}")
@@ -143,6 +168,10 @@ def create_submission(
             project_id=payload.project_id,
             expected_version=payload.expected_version,
             publish=payload.publish,
+            public_title=payload.public_title,
+            public_summary=payload.public_summary,
+            author_note=payload.author_note,
+            attribute_author=payload.attribute_author,
         )
         return _response(item, user)
     except SubmissionError as exc:

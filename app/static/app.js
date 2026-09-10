@@ -37,13 +37,14 @@ const state = {
   // UI state
   conclusionFilter: 'key',
   factsFilter: 'facts',
+  factsChangedOnly: false,
+  factsSuspendedOnly: false,
   kbTab: 'all',
+  rulesChangedOnly: false,
+  rulesSuspendedOnly: false,
   searchQuery: '',
-  compactView: true,    // when true, Facts & Rules panels render as a flat
-                        // list with per-card category badges instead of
-                        // category headers breaking the list
-  // Stable colour assignment for category badges (populated on bundle load)
-  categoryColors: {},   // category-name -> palette hex
+  factsGrouped: false,
+  rulesGrouped: false,
   // Rendering helpers populated on each bundle load
   descMap: {},          // id -> NL description (facts/assumptions/props/conclusions)
   negDescMap: {},       // id -> authored NL rendering of the negated literal (if any)
@@ -146,6 +147,7 @@ function beginRequest() {
   const ctrl = new AbortController();
   currentRequest = ctrl;
   renderScenarioLibraryAccess();
+  if (typeof renderShellControls === 'function') renderShellControls();
   return ctrl;
 }
 function isCurrent(ctrl) {
@@ -160,6 +162,7 @@ function finishRequest(ctrl) {
   // A library opened during a load must recover after success or failure.
   // A superseded request must not enable controls for a newer pending one.
   renderScenarioLibraryAccess();
+  if (typeof renderShellControls === 'function') renderShellControls();
 }
 function hasPendingStateRequest() {
   return currentRequest !== null;
@@ -173,7 +176,6 @@ function blockStateMutationDuringSave() {
 
 
 function initBaseUI() {
-  document.getElementById('compact-toggle')?.addEventListener('change', toggleCompactView);
   document.getElementById('aspic-btn')?.addEventListener('click', openAspicModal);
   document.getElementById('reset-btn')?.addEventListener('click', resetToBaseline);
   document.getElementById('view-af-btn')?.addEventListener('click', openAFModal);
@@ -194,12 +196,6 @@ function initBaseUI() {
   });
   document.getElementById('kb-search-input')?.addEventListener('input', event => filterKB(event.target.value));
   document.getElementById('chat-send-btn')?.addEventListener('click', () => sendChatMessage());
-  document.getElementById('chat-input')?.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      sendChatMessage();
-    }
-  });
   document.getElementById('edit-instruction')?.addEventListener('keydown', event => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
@@ -241,6 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initModalAccessibility();
   initWorkspaceUI();
   initScenarioLibrary();
+  initShellUI();
   try {
     // Fetch config first so LLM-only DOM is hidden before first paint of
     // scenario content — avoids a flash of chat/save/add buttons on
@@ -295,41 +292,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function populateScenarioSelect() {
-  const sel = document.getElementById('scenario-select');
-  sel.innerHTML = '';
-  if (state.activeProject) {
-    const current = document.createElement('option');
-    current.value = '__current_project__';
-    current.textContent = `Project: ${state.activeProject.name}`;
-    sel.appendChild(current);
-  } else if (state.sharedProject) {
-    const current = document.createElement('option');
-    current.value = '__shared_project__';
-    current.textContent = `Shared: ${state.sharedProject.name}`;
-    sel.appendChild(current);
-  }
-  const exampleGroups = new Map();
-  const grouped = state.scenarios.some(item => item.category === 'community');
-  for (const s of state.scenarios) {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = s.title;
-    if (grouped) {
-      const label = s.category === 'community' ? 'Community examples' : 'Included examples';
-      if (!exampleGroups.has(label)) {
-        const group = document.createElement('optgroup');
-        group.label = label;
-        exampleGroups.set(label, group);
-        sel.appendChild(group);
-      }
-      exampleGroups.get(label).appendChild(opt);
-    } else sel.appendChild(opt);
-  }
-  // Assign rather than addEventListener: save-flow calls
-  // populateScenarioSelect() on every save to refresh the list, which
-  // would stack a new handler each time. `onchange =` idempotently
-  // replaces whatever was there.
-  sel.onchange = e => requestScenarioLoad(e.target.value);
+  renderScenarioChoices();
+  renderShellControls();
 }
 
 function hasUnsavedChanges() {
@@ -371,9 +335,9 @@ function setViewContext(kind, project = null) {
   }
   renderAccountUI();
   const resetButton = document.getElementById('reset-btn');
-  if (resetButton) resetButton.disabled = state.readOnly;
+  if (resetButton) resetButton.disabled = state.readOnly || !state.diff_ops.length;
   const saveButton = document.getElementById('save-btn');
-  if (saveButton) saveButton.textContent = kind === 'project' ? 'Save changes' : 'Save project';
+  if (saveButton) saveButton.textContent = kind === 'shared' ? 'Save a copy' : 'Save';
   renderChatAccess();
 }
 
@@ -439,6 +403,14 @@ function resetViewFilters() {
   state.factsFilter = 'facts';
   state.kbTab = 'all';
   state.searchQuery = '';
+  state.factsChangedOnly = false;
+  state.factsSuspendedOnly = false;
+  state.rulesChangedOnly = false;
+  state.rulesSuspendedOnly = false;
+  for (const id of ['facts-changed', 'facts-suspended', 'rules-changed', 'rules-suspended']) {
+    const control = document.getElementById(id);
+    if (control) control.checked = false;
+  }
   const searchInput = document.getElementById('kb-search-input');
   if (searchInput) searchInput.value = '';
   syncToggleButtons('.concl-filter', 'filter', 'key');
@@ -467,15 +439,10 @@ async function loadScenario(id) {
     setBundle(bundle);
     indexBundle();
     populateScenarioSelect();
-    document.getElementById('scenario-select').value = id;
     renderAll();
   } catch (e) {
     if (isAbortError(e) || !isCurrent(ctrl)) return;
     populateScenarioSelect();
-    const selector = document.getElementById('scenario-select');
-    if (state.viewKind === 'project') selector.value = '__current_project__';
-    else if (state.viewKind === 'shared') selector.value = '__shared_project__';
-    else selector.value = state.scenario_id;
     showGlobalError(`Failed to load scenario ${id}: ${e.message}`);
   } finally {
     finishRequest(ctrl);
@@ -484,17 +451,23 @@ async function loadScenario(id) {
 
 async function resetToBaseline() {
   if (state.readOnly || (!state.scenario_id && !state.activeProject)) return;
+  if (!state.renderedDiffOps.length) return;
   if (blockStateMutationDuringSave()) return;
+  const operations = structuredClone(state.renderedDiffOps);
+  const originalScope = resetScope();
+  const originalBaseline = state.baseline;
   const ctrl = beginRequest();
   state.diff_ops = state.renderedDiffOps.slice();
   try {
     const bundle = await apiPostState(state.scenario_id, [], ctrl.signal);
     if (!isCurrent(ctrl)) return;
+    if (originalScope !== resetScope() || originalBaseline !== state.baseline) return;
     state.diff_ops = [];
-    resetChatConversation();
     setBundle(bundle, { pulseLabels: true });
+    resetUndo = { operations, scope: originalScope, baseline: originalBaseline, bundle };
     indexBundle();
     renderAll();
+    showGlobalStatus('Restored the baseline. Undo reset is available until your next change.', 'success');
   } catch (e) {
     if (isAbortError(e) || !isCurrent(ctrl)) return;
     showGlobalError(`Reset failed: ${e.message}`);
@@ -682,7 +655,6 @@ function indexBundle() {
   state.descMap = map;
   state.negDescMap = negMap;
   state.ruleIds = new Set(Object.keys(scn.rules || {}));
-  rebuildCategoryColors(scn);
 }
 
 
@@ -728,25 +700,13 @@ function isRuleModified(id) {
 function renderAll() {
   renderScenarioName();
   renderModifiedIndicator();
+  renderShellControls();
   renderConclusions();
   renderFacts();
   renderKB();
   renderChat();
   if (state.authSession.authenticated) renderProjectsUI();
-  // If the Explain modal is open, its derivation tree was built against
-  // the pre-update state bundle; refresh it now so edits made through
-  // the Conflicts view (or anywhere else) flow through immediately.
-  const gameModal = document.getElementById('modal-game');
-  if (gameModal && gameModal.classList.contains('visible') && gameConclusionId) {
-    renderArgumentPicker();
-  }
-  if (inspectorState && !inspectorState.historical && inspectorState.bundle !== state.bundle
-      && document.getElementById('modal-derivation')?.classList.contains('visible')) {
-    // Argument IDs belong to one bundle and can be reassigned on recomputation.
-    closeModal('modal-derivation');
-    inspectorState = null;
-    showGlobalStatus('The scenario changed. Inspect a derivation again to see its updated structure.', 'info');
-  }
+  validateArgumentViews();
 }
 
 function renderScenarioName() {
@@ -794,10 +754,12 @@ function renderConclusions() {
   }
 
   if (entries.length === 0) {
+    document.getElementById('conclusions-count').textContent = '0';
     list.innerHTML = `<div class="placeholder-msg">No conclusions match the ${state.conclusionFilter} filter.</div>`;
     return;
   }
 
+  document.getElementById('conclusions-count').textContent = `${entries.length}${state.conclusionFilter === 'key' ? ' key' : ''}`;
   list.innerHTML = entries.map(([id, entry]) => {
     const label = labels[id] || 'absent';
     const badge = label.charAt(0).toUpperCase() + label.slice(1);
@@ -811,12 +773,14 @@ function renderConclusions() {
       ? `<button class="btn-explain" data-explain-id="${escapeAttr(id)}">Explain</button>`
       : `<button class="btn-explain" disabled title="${escapeAttr(title)}">Explain</button>`;
     const changed = state.labelPulseIds.has(id) ? ' label-changed' : '';
-    return `<div class="conclusion-card${changed}" data-element-kind="conclusion" data-element-id="${escapeAttr(id)}">
-      <div class="conclusion-status-bar status-${label}">${badge}</div>
+    return `<div class="conclusion-card status-${label}${changed}" data-element-kind="conclusion" data-element-id="${escapeAttr(id)}">
       <span class="conclusion-label">${escapeHtml(entry.description)}${state.labelChangedIds?.has(id) ? '<span class="label-change-note">Status changed</span>' : ''}</span>
+      <div class="conclusion-meta">
+        <span class="conclusion-status-bar status-${label}">${badge}${label === 'absent' ? ' · No argument' : ''}</span>
+        <button type="button" class="inline-id element-inspect-link" data-inspect-conclusion="${escapeAttr(id)}" title="Inspect this conclusion and its derivations" aria-label="Inspect derivations for ${escapeAttr(entry.description)}">${escapeHtml(id)}</button>
+      </div>
       <div class="conclusion-actions">
         ${explain}
-        ${explainable ? `<button type="button" class="btn-explain" data-inspect-conclusion="${escapeAttr(id)}">Inspect</button>` : ''}
         <button type="button" class="rule-info" data-context-kind="conclusion" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(entry.description)}" title="Add a question about this conclusion" aria-label="Add a question about ${escapeAttr(entry.description)}">?</button>
       </div>
     </div>`;
@@ -844,44 +808,26 @@ function renderFacts() {
   const list = document.getElementById('facts-list');
   const scn = state.bundle.scenario;
 
-  // Build list of [id, entry, kind] per current tab.
-  let items;
-  if (state.factsFilter === 'facts') {
-    items = Object.entries(scn.facts || {}).map(([id, e]) => [id, e, 'fact']);
-  } else if (state.factsFilter === 'assumptions') {
-    items = Object.entries(scn.assumptions || {}).map(([id, e]) => [id, e, 'assumption']);
-  } else if (state.factsFilter === 'modified') {
-    items = [
-      ...Object.entries(scn.facts || {})
-        .filter(([id]) => isFactModified(id))
-        .map(([id, e]) => [id, e, 'fact']),
-      ...Object.entries(scn.assumptions || {})
-        .filter(([id]) => isAssumptionModified(id))
-        .map(([id, e]) => [id, e, 'assumption']),
-    ];
-  } else {  // 'suspended' -- only inactive assumptions (facts can't be suspended)
-    items = Object.entries(scn.assumptions || {})
-      .filter(([, e]) => e.active === false)
-      .map(([id, e]) => [id, e, 'assumption']);
-  }
+  const kind = state.factsFilter === 'assumptions' ? 'assumption' : 'fact';
+  let items = Object.entries(scn[state.factsFilter] || {}).map(([id, entry]) => [id, entry, kind]);
+  if (state.factsChangedOnly) items = items.filter(([id]) => kind === 'fact' ? isFactModified(id) : isAssumptionModified(id));
+  if (state.factsSuspendedOnly) items = items.filter(([, entry, type]) => type === 'assumption' && entry.active === false);
+  document.getElementById('facts-count').textContent = String(items.length);
 
   if (items.length === 0) {
-    const emptyMsg = {
-      modified: 'No facts or assumptions have been modified.',
-      suspended: 'No suspended assumptions in this scenario.',
-    }[state.factsFilter] || `No ${state.factsFilter} in this scenario.`;
+    const emptyMsg = `No ${state.factsFilter} match these filters.`;
     list.innerHTML = `<div class="placeholder-msg">${emptyMsg}</div>`;
     return;
   }
 
-  // Group by category (always — sort order is stable even in compact mode).
+  // Keep category ordering stable with either display preference.
   const groups = {};
   for (const item of items) {
     const cat = item[1].category || 'other';
     (groups[cat] ||= []).push(item);
   }
   const sortedCats = Object.keys(groups).sort();
-  if (state.compactView) {
+  if (!state.factsGrouped) {
     list.innerHTML = sortedCats
       .flatMap(cat => groups[cat].map(([id, e, kind]) => renderFactLikeCard(id, e, kind)))
       .join('');
@@ -915,67 +861,18 @@ function renderFacts() {
   }
 }
 
-// 12-tone palette for category badges. Each entry is {bg, text, border}:
-// a light tint for the background, a dark variant for text, the saturated
-// hue for the outline. Hand-picked to avoid the accepted/rejected/
-// undecided hues.
-const CATEGORY_PALETTE = [
-  { bg: '#dcedee', text: '#2a6a70', border: '#4a9aa0' }, // teal
-  { bg: '#e4dcea', text: '#4a2a5a', border: '#7a5a8a' }, // plum
-  { bg: '#dcecd6', text: '#2a5a20', border: '#6a9a5a' }, // sage
-  { bg: '#f2d8d8', text: '#7a3a3a', border: '#c07878' }, // coral
-  { bg: '#dce2e8', text: '#3a4a5a', border: '#6a8090' }, // slate
-  { bg: '#ecdfd2', text: '#5a3a18', border: '#a07a5a' }, // clay
-  { bg: '#d6ece4', text: '#1a6a55', border: '#5a9a85' }, // seafoam
-  { bg: '#edd9e4', text: '#5a2a4a', border: '#a06a8a' }, // mauve
-  { bg: '#d2e2d6', text: '#1a4a2a', border: '#4a7a5a' }, // forest
-  { bg: '#ecd8d2', text: '#5a2a1a', border: '#9a5a4a' }, // rust
-  { bg: '#d6dde8', text: '#2a3a5a', border: '#5a7095' }, // steel
-  { bg: '#e8e8d2', text: '#4a4a1a', border: '#8a8a4a' }, // olive
-];
-
-// Assign palette slots to the union of categories that appear across facts,
-// assumptions, propositions, conclusions, and rules — sorted alphabetically so
-// that the same category always gets the same colour in a given scenario.
-function rebuildCategoryColors(scn) {
-  const cats = new Set();
-  const collect = (obj) => {
-    for (const v of Object.values(obj || {})) {
-      if (v && v.category) cats.add(v.category);
-    }
-  };
-  collect(scn.facts);
-  collect(scn.assumptions);
-  collect(scn.propositions);
-  collect(scn.conclusions);
-  collect(scn.rules);
-  const sorted = [...cats].sort();
-  const map = {};
-  for (let i = 0; i < sorted.length; i++) {
-    map[sorted[i]] = CATEGORY_PALETTE[i % CATEGORY_PALETTE.length];
-  }
-  state.categoryColors = map;
-}
-
 function categoryBadge(cat) {
   if (!cat) return '';
-  const c = state.categoryColors[cat] || { bg: '#e8e8ec', text: '#5a5a6a', border: '#b0b0c0' };
-  return `<span class="kb-badge" style="background:${c.bg};color:${c.text}">${escapeHtml(cat)}</span>`;
+  return `<span class="kb-badge">${escapeHtml(cat)}</span>`;
 }
 
-function toggleCompactView() {
-  const cb = document.getElementById('compact-toggle');
-  state.compactView = cb ? cb.checked : !state.compactView;
-  renderFacts();
-  renderKB();
-}
 
 function renderFactLikeCard(id, entry, kind) {
   const info = 'Add a question about this ' + kind;
   const desc = escapeAttr(entry.description);
   const inlineId = `<button type="button" class="inline-id element-inspect-link" data-open-element-kind="${kind}" data-open-element-id="${escapeAttr(id)}" title="Inspect formal representation and derivations">[${escapeHtml(id)}]</button>`;
-  const text = `<span class="fact-text">${escapeHtml(entry.description)} ${inlineId}</span>`;
-  const badge = state.compactView ? categoryBadge(entry.category) : '';
+  const badge = !state.factsGrouped ? categoryBadge(entry.category) : '';
+  const text = `<div class="fact-body"><span class="fact-text">${escapeHtml(entry.description)}</span><div class="fact-meta">${badge} ${inlineId}</div></div>`;
   if (kind === 'assumption') {
     const active = entry.active !== false;
     const divergent = isAssumptionModified(id);
@@ -984,17 +881,19 @@ function renderFactLikeCard(id, entry, kind) {
       + (!active ? ' suspended' : '');
     return `<div class="${cls}" data-element-kind="${kind}" data-element-id="${escapeAttr(id)}">
       ${text}
-      ${badge}
+      <div class="fact-actions">
       <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add a question about this ${kind}: ${desc}">?</button>
-      <input type="checkbox" ${active ? 'checked' : ''} ${state.readOnly ? 'disabled' : ''} data-asm-id="${escapeAttr(id)}" aria-label="${active ? 'Suspend' : 'Unsuspend'} assumption ${desc}" title="Active -- uncheck to deactivate this assumption">
+      <label class="active-control"><input type="checkbox" ${active ? 'checked' : ''} ${state.readOnly ? 'disabled' : ''} data-asm-id="${escapeAttr(id)}" aria-label="${active ? 'Suspend' : 'Unsuspend'} assumption ${desc}"> ${active ? 'Active' : 'Suspended'}</label>
+      </div>
     </div>`;
   }
   const divergent = isFactModified(id);
   const cls = 'fact-card' + (divergent ? ' kb-divergent' : '');
   return `<div class="${cls}" data-element-kind="${kind}" data-element-id="${escapeAttr(id)}">
     ${text}
-    ${badge}
+    <div class="fact-actions">
     <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add a question about this ${kind}: ${desc}">?</button>
+    </div>
   </div>`;
 }
 
@@ -1011,15 +910,17 @@ function renderKB() {
   // Conflicts tab takes a distinct code path: we show preference-card
   // pairs rather than the usual rule list.
   if (state.kbTab === 'conflicts') {
+    document.getElementById('rules-count').textContent = '';
     renderConflicts(root);
     return;
   }
 
   let rules = Object.entries(scn.rules || {});
 
-  if (state.kbTab === 'modified') {
+  if (state.rulesChangedOnly) {
     rules = rules.filter(([id]) => isRuleModified(id));
-  } else if (state.kbTab === 'suspended') {
+  }
+  if (state.rulesSuspendedOnly) {
     rules = rules.filter(([, r]) => r.active === false);
   }
   if (state.searchQuery) {
@@ -1036,19 +937,20 @@ function renderKB() {
     });
   }
 
+  document.getElementById('rules-count').textContent = String(rules.length);
   if (rules.length === 0) {
     root.innerHTML = `<div class="placeholder-msg">No rules match.</div>`;
     return;
   }
 
-  // Group by category (always — sort order is stable even in compact mode).
+  // Keep category ordering stable with either display preference.
   const groups = {};
   for (const [id, rule] of rules) {
     const cat = rule.category || 'other';
     (groups[cat] ||= []).push([id, rule]);
   }
   const sortedCats = Object.keys(groups).sort();
-  if (state.compactView) {
+  if (!state.rulesGrouped) {
     root.innerHTML = sortedCats
       .flatMap(cat => groups[cat].map(([id, r]) => renderRuleCard(id, r)))
       .join('');
@@ -1169,7 +1071,7 @@ function renderConflicts(root) {
 function renderConflictCard(conflict, kind) {
   const { a, b } = conflict;
   const ba = a.block, bb = b.block;
-  const state = ba === bb ? 'same' : (ba > bb ? 'a' : 'b');
+  const choiceState = ba === bb ? 'same' : (ba > bb ? 'a' : 'b');
   const cardId = `conf-${kind}-${a.id}-${b.id}`;
   const arrow = '↔ rebuts';
   // Only rebuts are surfaced in the Conflicts view (see detectConflicts
@@ -1187,14 +1089,14 @@ function renderConflictCard(conflict, kind) {
   const bTag = `<span class="inline-id">[${escapeHtml(b.id)}]</span>`;
   return `<div class="pref-conflict-card">
     <div class="pref-conflict-sides">
-      <div class="pref-side pref-side-a ${state==='a' ? 'pref-side-stronger' : ''}">${aSide}</div>
+      <div class="pref-side pref-side-a ${choiceState==='a' ? 'pref-side-stronger' : ''}">${aSide}</div>
       <div class="pref-vs">${arrow}</div>
-      <div class="pref-side pref-side-b ${state==='b' ? 'pref-side-stronger' : ''}">${bSide}</div>
+      <div class="pref-side pref-side-b ${choiceState==='b' ? 'pref-side-stronger' : ''}">${bSide}</div>
     </div>
     <div class="pref-control">
-      ${radio('a',    `${aTag} stronger`,      state === 'a')}
-      ${radio('same', 'Same strength',          state === 'same')}
-      ${radio('b',    `${bTag} stronger`,      state === 'b')}
+      ${radio('a',    `Prefer ${aTag}`,      choiceState === 'a')}
+      ${radio('same', 'Equal priority',          choiceState === 'same')}
+      ${radio('b',    `Prefer ${bTag}`,      choiceState === 'b')}
     </div>
   </div>`;
 }
@@ -1272,29 +1174,32 @@ function renderRuleCard(id, rule) {
   const conclusion = escapeHtml(conclusionLit);
   const connective = rule.type === 'strict' ? 'necessarily' : 'normally';
   const body = premises
-    ? `<span class="kw">If</span> ${premises} <span class="kw">then</span> <span class="kw">${connective}</span> ${conclusion}`
-    : `<span class="kw">${connective}</span> ${conclusion}`;
+    ? `<span class="kw">If</span> ${premises} <span class="kw">then</span> <span class="kw rule-connective" title="${rule.type === 'strict' ? 'Strict: this rule cannot be defeated.' : 'Defeasible: a stronger conflicting argument or an undercut can defeat this rule.'}">${connective}</span> ${conclusion}`
+    : `<span class="kw rule-connective" title="${rule.type === 'strict' ? 'Strict: this rule cannot be defeated.' : 'Defeasible: a stronger conflicting argument or an undercut can defeat this rule.'}">${connective}</span> ${conclusion}`;
   const plainBody = premiseLits.length
     ? `If ${premiseLits.join(' and ')} then ${connective} ${conclusionLit}`
     : `${connective} ${conclusionLit}`;
 
   const checkbox = rule.type === 'defeasible'
-    ? `<input type="checkbox" class="rule-active-toggle" data-rule-id="${escapeAttr(id)}" ${inactive ? '' : 'checked'} ${state.readOnly ? 'disabled' : ''} aria-label="${inactive ? 'Unsuspend' : 'Suspend'} rule ${escapeAttr(id)}" title="Active -- uncheck to deactivate this rule">`
+    ? `<label class="active-control"><input type="checkbox" class="rule-active-toggle" data-rule-id="${escapeAttr(id)}" ${inactive ? '' : 'checked'} ${state.readOnly ? 'disabled' : ''} aria-label="${inactive ? 'Unsuspend' : 'Suspend'} rule ${escapeAttr(id)}"> ${inactive ? 'Suspended' : 'Active'}</label>`
     : '';
   const info = 'Add a question about this rule';
-  const idInline = `<span class="inline-id">[${escapeHtml(id)}]</span>`;
+  const idInline = `<button type="button" class="inline-id element-inspect-link" data-open-element-kind="rule" data-open-element-id="${escapeAttr(id)}" aria-label="Inspect derivations for rule ${escapeAttr(id)}">${escapeHtml(id)}</button>`;
 
-  const badge = state.compactView ? categoryBadge(rule.category) : '';
-  const editBtn = state.readOnly ? '' : `<button class="btn btn-small btn-rule-modify llm-only" data-edit-rule-id="${escapeAttr(id)}" title="Modify this rule via natural-language instruction">Modify</button>`;
+  const badge = !state.rulesGrouped ? categoryBadge(rule.category) : '';
+  const editBtn = state.readOnly ? '' : `<button class="btn btn-small btn-rule-modify llm-only" data-edit-rule-id="${escapeAttr(id)}">Modify with AI</button>`;
   return `<div class="${cls}" data-element-kind="rule" data-element-id="${escapeAttr(id)}">
     <div class="rule-body">
-      <div class="rule-text">${body} ${idInline}</div>
+      <div class="rule-text">${body}</div>
     </div>
     <div class="rule-actions">
-      ${badge}
-      <button type="button" class="btn btn-small" data-open-element-kind="rule" data-open-element-id="${escapeAttr(id)}" title="Inspect this rule and its individual derivations">Inspect</button>
+      <div class="rule-meta">${badge} ${idInline}</div>
       <button type="button" class="rule-info" data-context-kind="rule" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(plainBody)}" title="${info}" aria-label="Add a question about rule ${escapeAttr(id)}">?</button>
-      ${editBtn}
+      <details class="row-options"><summary aria-label="Actions for rule ${escapeAttr(id)}">⋯</summary><div>
+        ${editBtn}
+        <button type="button" class="btn btn-small" data-open-element-kind="rule" data-open-element-id="${escapeAttr(id)}">Inspect derivations</button>
+        <button type="button" class="btn btn-small" data-copy-rule="${escapeAttr(id)}">Copy ASPIC- line</button>
+      </div></details>
       ${checkbox}
     </div>
   </div>`;
@@ -1331,9 +1236,7 @@ function resetChatConversation() {
     conversationStore.restoring = false;
     return;
   }
-  const input = document.getElementById('chat-input');
-  const draft = input?.value || '';
-  const refs = structuredClone(state.chatContextRefs || []);
+  const draft = chatComposer.snapshot();
   saveConversationDraft();
   const previous = activeConversation();
   if (previous && !previous.messages.length && !previous.draft) {
@@ -1341,8 +1244,7 @@ function resetChatConversation() {
     return;
   }
   newConversationRecord();
-  state.chatContextRefs = refs;
-  if (input) input.value = draft;
+  chatComposer.restore(draft);
   saveConversationDraft();
 }
 
@@ -1411,6 +1313,7 @@ function renderChat() {
     example.className = 'rule-info-demo';
     example.textContent = '?';
     empty.append(example, ' next to any item to draft a question, then edit it and choose Ask.');
+    appendScenarioSuggestions(empty);
     container.append(empty);
     renderChatAccess();
     return;
@@ -1421,7 +1324,7 @@ function renderChat() {
     bubble.className = 'chat-bubble';
     if (m.role === 'user') {
       message.className = 'chat-msg chat-msg-user';
-      bubble.textContent = String(m.content ?? '');
+      appendUserQuestion(bubble, m);
     } else {
       message.className = 'chat-msg chat-msg-assistant';
       if (m.earlier_state) {
@@ -1431,6 +1334,7 @@ function renderChat() {
         bubble.append(earlier);
       }
       appendAssistantMarkdown(bubble, m.content);
+      appendInlineReferenceLinks(bubble, m);
       appendVerifiedEvidence(bubble, m);
       if (m.meta) {
         const meta = document.createElement('div');
@@ -1499,7 +1403,7 @@ function announceChat(text) {
 }
 
 async function sendChatMessage(prefilledText) {
-  if (state.chatPending) return;
+  if (state.chatPending || chatComposer.isComposing) return;
   syncConversationIdentity();
   const startingEpoch = conversationStore.epoch;
   await conversationStore.ready;
@@ -1511,14 +1415,14 @@ async function sendChatMessage(prefilledText) {
     showGlobalStatus(accessIssue.message, 'info');
     return;
   }
-  const input = document.getElementById('chat-input');
-  const text = (typeof prefilledText === 'string' ? prefilledText : input?.value || '').trim();
-  if (!text) return;
+  const draft = chatComposer.snapshot();
+  const text = typeof prefilledText === 'string' ? prefilledText : draft.text;
+  if (!text.trim()) return;
   if (hasPendingStateRequest() || !state.bundle) {
     showGlobalStatus('Wait for the scenario to finish updating before sending your question.', 'info');
     return;
   }
-  const selectedContext = structuredClone(state.chatContextRefs || []);
+  const selectedContext = structuredClone(draft.refs);
   if (selectedContext.length > 24) {
     showGlobalStatus('A question can include up to 24 context items. Remove extra items before asking.', 'info');
     return;
@@ -1552,9 +1456,9 @@ async function sendChatMessage(prefilledText) {
     snapshotId = existingSnapshot?.[0] || conversationId();
     if (!existingSnapshot) record.snapshots[snapshotId] = snapshot;
     conversation.push({ role: 'user', content: text, snapshot_id: snapshotId,
+      segments: text === draft.text ? structuredClone(draft.segments) : undefined,
       context_refs: selectedContext.map(({ kind, id }) => ({ kind, id })) });
-    if (input && input.value.trim() === text) input.value = '';
-    state.chatContextRefs = [];
+    if (text === draft.text) chatComposer.clearIfUnchanged(draft);
     saveConversationDraft();
     persistConversations(record);
     renderChat();
@@ -1591,10 +1495,7 @@ async function sendChatMessage(prefilledText) {
       content: `Chat could not finish: ${e.message}.${assessment} Your question is retained. You can keep exploring the scenario and choose Ask to retry.`,
       snapshot_id: snapshotId, local_notice: true });
     if (visible()) {
-      if (input && !input.value.trim()) {
-        input.value = text;
-        state.chatContextRefs = selectedContext;
-      }
+      chatComposer.restoreIfEmpty(text === draft.text ? draft : { text, refs: selectedContext });
       state.chatDegraded = e.status === 502 || e.status === 503 || e.status === 504 || !e.status;
       announceChat(`The answer could not finish.${assessment} Your question was retained.`);
     } else record.unread = true;
@@ -1628,17 +1529,7 @@ document.addEventListener('click', (e) => {
 /* ── Error surface ────────────────────────────────────── */
 
 function showGlobalError(msg) {
-  // Minimal: prepend a banner at the top of the left panel.
-  const left = document.getElementById('left-panel');
-  let banner = document.getElementById('error-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'error-banner';
-    banner.className = 'error-banner';
-    banner.addEventListener('click', () => banner.remove());
-    left.prepend(banner);
-  }
-  banner.textContent = `${msg} (click to dismiss)`;
+  showGlobalStatus(msg, 'error');
 }
 
 
@@ -1871,8 +1762,47 @@ function setupRowResizeFromBottom(handleId, panelId, containerId, minPct, maxPct
 // dialectical neighbourhood of scenario.conclusions; 'all' shows every
 // argument conclusion in the AF.
 let afScope = 'key';
+let afShowIsolated = false;
+
+function wrapGraphLabel(text) {
+  const words = String(text).split(/\s+/u).flatMap(word => word.match(/.{1,32}/gu) || []);
+  const lines = [''];
+  for (const word of words) {
+    let line = lines[lines.length - 1];
+    if (line && line.length + word.length + 1 > 32) {
+      if (lines.length === 3) { lines[2] = lines[2].slice(0, 29) + '...'; break; }
+      lines.push(word);
+    } else lines[lines.length - 1] = line ? `${line} ${word}` : word;
+  }
+  return lines;
+}
+
+function afControlsHtml(isolatedCount = 0) {
+  return `<div class="af-toolbar">
+    <div class="af-scope-control" role="group" aria-label="Conclusion graph scope">
+      <button type="button" class="af-scope-btn ${afScope === 'key' ? 'active' : ''}" data-af-scope="key" aria-pressed="${afScope === 'key'}">Key conclusions</button>
+      <button type="button" class="af-scope-btn ${afScope === 'all' ? 'active' : ''}" data-af-scope="all" aria-pressed="${afScope === 'all'}">All conclusions</button>
+      ${afScope === 'all' ? `<label class="state-filter"><input type="checkbox" id="af-show-isolated" ${afShowIsolated ? 'checked' : ''}> Show ${isolatedCount} conclusions without displayed attacks</label>` : ''}
+    </div>
+    <div class="af-zoom-controls" role="group" aria-label="Conclusion graph zoom">
+      <button type="button" class="btn btn-small" data-af-zoom="out" aria-label="Zoom out">−</button>
+      <button type="button" class="btn btn-small" data-af-zoom="reset" aria-label="Reset zoom to 100 percent">100%</button>
+      <button type="button" class="btn btn-small" data-af-zoom="in" aria-label="Zoom in">+</button>
+      <button type="button" class="btn btn-small" data-af-zoom="fit" aria-label="Fit graph to window">Fit</button>
+      <span class="af-zoom-readout" id="af-zoom-readout" role="status" aria-live="polite" aria-atomic="true">100%</span>
+    </div>
+  </div>`;
+}
+
+function renderEmptyAF(message, isolatedCount = 0) {
+  document.getElementById('af-modal-body').innerHTML = `${afControlsHtml(isolatedCount)}<p class="placeholder-msg">${escapeHtml(message)}</p>`;
+  wireAFZoom();
+}
 
 function openAFModal() {
+  if (!state.bundle) return;
+  argumentNavigation = null;
+  graphContext = newArgumentNavigation(state.bundle);
   renderAFView();
   openModal('modal-af', '.modal-close');
   // Fit the graph to the available viewport once the modal is painted.
@@ -1887,12 +1817,13 @@ function openAFModal() {
 
 function renderAFView() {
   const body = document.getElementById('af-modal-body');
-  const af = state.bundle.af;
-  const scn = state.bundle.scenario;
+  const bundle = graphContext?.bundle || state.bundle;
+  const af = bundle.af;
+  const scn = bundle.scenario;
   let args = af.arguments || [];
   let attacks = af.attacks || [];
   if (args.length === 0) {
-    body.innerHTML = `<div class="placeholder-msg">No arguments in the current state.</div>`;
+    renderEmptyAF('No arguments in this state.');
     return;
   }
 
@@ -1914,7 +1845,7 @@ function renderAFView() {
         .map(a => a.id),
     );
     if (seedIds.size === 0) {
-      body.innerHTML = `<div class="placeholder-msg">No arguments for any key conclusion in this state.</div>`;
+      renderEmptyAF('No arguments for a key conclusion in this state. Select All conclusions to inspect other nodes.');
       return;
     }
     const relevant = new Set();
@@ -1999,31 +1930,19 @@ function renderAFView() {
     edgeMap.set(pair, e.type);
   }
 
-  // Drop conclusion nodes that have no edges (isolated). These are
-  // usually fact / assumption / validity-chain supports that feed into
-  // the closure but don't themselves engage in the dialectic.
-  //
-  // Exempt literals that are explicitly declared as a proposition or
-  // conclusion in the scenario: even when unchallenged (e.g. a newly-
-  // added rule that derives an accepted conclusion with no attackers),
-  // the user expects to see them in the graph because they also appear
-  // in the Conclusions panel's "All" filter.
+  // All scope explicitly exposes every conclusion group, with an optional
+  // counted filter for nodes without displayed attacks. Key scope keeps its
+  // unchallenged conclusions visible.
   const participating = new Set();
   for (const pair of edgeMap.keys()) {
     const [sk, dk] = pair.split('->');
     participating.add(sk);
     participating.add(dk);
   }
-  const exempt = new Set([
-    ...Object.keys(scn.conclusions || {}),
-    ...Object.keys(scn.propositions || {}),
-  ]);
-  for (const k of [...groups.keys()]) {
-    const base = k.startsWith('-') ? k.slice(1) : k;
-    if (!participating.has(k) && !exempt.has(base)) groups.delete(k);
-  }
+  const isolated = [...groups.keys()].filter(key => !participating.has(key));
+  if (afScope === 'all' && !afShowIsolated) isolated.forEach(key => groups.delete(key));
   if (groups.size === 0) {
-    body.innerHTML = `<div class="placeholder-msg">No attacks in the current state: every argument is isolated.</div>`;
+    renderEmptyAF(`All ${isolated.length} conclusions are isolated in this view. Enable the checkbox above to inspect them.`, isolated.length);
     return;
   }
 
@@ -2049,9 +1968,9 @@ function renderAFView() {
   // Dagre handles layered ranking + polyline edge routing. rankdir 'BT'
   // places sources (attackers with no incoming edges) at the bottom and
   // sinks at the top (sources = attackers with no incoming edges).
-  const NODE_W = 170, NODE_H = 36;
+  const NODE_W = 248, NODE_H = 88;
   if (typeof dagre === 'undefined') {
-    body.innerHTML = `<div class="placeholder-msg">Graph layout library failed to load (dagre). Check your network and reload.</div>`;
+    renderEmptyAF('Graph layout is unavailable. Reload to try again.', isolated.length);
     return;
   }
   const dg = new dagre.graphlib.Graph();
@@ -2091,17 +2010,17 @@ function renderAFView() {
   const totalWidth = maxX - minX;
   const totalHeight = maxY - minY;
   const graphSummary = (
-    `Argument graph with ${groups.size} argument groups and ${edgeMap.size} directed attacks. `
-    + 'For a text explanation, close this dialog and use an Explain button.'
+    `Conclusion graph with ${groups.size} conclusion groups and ${edgeMap.size} projected directed attacks. `
+    + 'Activate a node to inspect its individual derivations.'
   );
 
   // --- Rendering ------------------------------------------------------------
   const fillFor = (label) => ({
-    in:    '#3a7ad0',
-    out:   '#e08a3a',
-    undec: '#e6c94e',
+    in:    '#eaf2fd',
+    out:   '#fff0df',
+    undec: '#fff6cf',
   })[label] || '#b0b6c0';
-  const textFor = (label) => label === 'undec' ? '#5a5a5a' : '#fff';
+  const textFor = label => ({ in: '#215491', out: '#85480d', undec: '#6b5604' }[label] || '#354152');
 
   // Build a smooth SVG path from a polyline of points using the classic
   // "quadratic Bezier through midpoints" construction: the curve starts
@@ -2124,11 +2043,8 @@ function renderAFView() {
     return d;
   };
 
-  // A rebut edge is "mutual" (equal-strength, no preference decided it)
-  // when the reverse direction is also in the AF. Anything else that's
-  // solid is preference-decided — and gets the hollow arrowhead that
-  // signals asymmetry in the legend. Undercut stays filled (it's always
-  // one-way by structure, not by preference).
+  // The legend describes projected directions. It does not infer why an
+  // edge is absent, which can depend on more than a rule preference.
   const isMutualRebut = (sk, dk, type) => {
     if (type !== 'rebut') return false;
     return edgeMap.get(dk + '->' + sk) === 'rebut';
@@ -2152,7 +2068,9 @@ function renderAFView() {
     const dash = edge.type === 'undercut' ? '6,4' : '';
     const hollow = edge.type === 'rebut' && !isMutualRebut(e.v, e.w, edge.type);
     const marker = hollow ? 'af-arrow-hollow' : 'af-arrow';
-    edgeSvg += `<path d="${d}" stroke="#5a6a78" stroke-width="1.5" stroke-dasharray="${dash}" fill="none" marker-end="url(#${marker})"/>`;
+    const mutual = isMutualRebut(e.v, e.w, edge.type);
+    edgeSvg += `<path d="${d}" stroke="#5a6a78" stroke-width="${mutual ? 4 : 1.8}" stroke-dasharray="${dash}" fill="none" marker-end="url(#${marker})"/>`;
+    if (mutual) edgeSvg += `<path d="${d}" stroke="#fff" stroke-width="1.5" fill="none" pointer-events="none"/>`;
   }
 
   // A conclusion literal `-<name>` where <name> is a rule id is an
@@ -2161,7 +2079,6 @@ function renderAFView() {
   // node border so it stops looking identical to, say, ¬crispy.
   const ruleIds = new Set(Object.keys(scn.rules || {}));
   const isRuleUndercut = (lit) => lit.startsWith('-') && ruleIds.has(lit.slice(1));
-  const THIN_SP = '\u2009';      // half-width separator for "- atom"
   const NBSP    = '\u00a0';      // keep ✕ and the rule name on the same line
   const formatLiteralLabel = (lit) => {
     if (isRuleUndercut(lit)) return '✕' + NBSP + lit.slice(1);
@@ -2178,64 +2095,35 @@ function renderAFView() {
     const fill = fillFor(g.label);
     const color = textFor(g.label);
     const undercutNode = isRuleUndercut(g.conclusion);
-    // Render the label: for undercut-literal nodes, bump the ✕ glyph two
-    // sizes larger than the rule name via a tspan so the undercut signal
-    // reads strongly even at default zoom. Otherwise render as one run.
-    const labelSvg = undercutNode
-      ? `<tspan font-size="20" font-weight="800">✕</tspan><tspan>${NBSP}${escapeHtml(g.conclusion.slice(1))}</tspan>`
-      : escapeHtml(formatLiteralLabel(g.conclusion));
-    nodeSvg += `<g transform="translate(${x}, ${y})" class="af-node${undercutNode ? ' af-node-undercut' : ''}" data-af-concl="${escapeAttr(g.conclusion_nl)}" data-af-label="${escapeAttr(g.label)}" data-af-lit="${escapeAttr(g.conclusion)}" data-af-rules="${escapeAttr(g.rules.join(', '))}">
-      <rect width="${NODE_W}" height="${NODE_H}" rx="6" ry="6" fill="${fill}" stroke="#203040" stroke-width="0.5"/>
-      <text x="${NODE_W / 2}" y="${NODE_H / 2}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="600" fill="${color}" font-family="SF Mono, Menlo, Consolas, monospace">${labelSvg}</text>
+    const lines = wrapGraphLabel(g.conclusion_nl || g.conclusion);
+    const status = { in: 'Accepted', out: 'Rejected', undec: 'Undecided' }[g.label] || g.label;
+    nodeSvg += `<g transform="translate(${x}, ${y})" class="af-node${undercutNode ? ' af-node-undercut' : ''}" role="button" tabindex="0" aria-label="${escapeAttr(`${g.conclusion_nl}; ${status}; ${g.args.length} derivations. Inspect ${g.conclusion}`)}" data-af-concl="${escapeAttr(g.conclusion_nl)}" data-af-label="${escapeAttr(g.label)}" data-af-lit="${escapeAttr(g.conclusion)}" data-af-rules="${escapeAttr(g.rules.join(', '))}">
+      <title>${escapeHtml(g.conclusion_nl)} [${escapeHtml(g.conclusion)}] · ${escapeHtml(status)}</title>
+      <rect width="${NODE_W}" height="${NODE_H}" rx="6" ry="6" fill="${fill}" stroke="${color}" stroke-width="1"/>
+      <text x="${NODE_W / 2}" text-anchor="middle" font-size="14" fill="${color}">${lines.map((line, index) => `<tspan x="${NODE_W / 2}" y="${20 + index * 16}">${escapeHtml(line)}</tspan>`).join('')}</text>
+      <text x="${NODE_W / 2}" y="74" text-anchor="middle" font-size="12" fill="${color}" font-family="monospace">${escapeHtml(formatLiteralLabel(g.conclusion))}</text>
     </g>`;
   }
 
-  // Legend: labels (fill colors), edges (rebut mutual / rebut preference /
-  // undercut), and undercut-literal node style.
-  const arrowDefs = `
-    <defs>
-      <marker id="lgd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a6a78"/>
-      </marker>
-      <marker id="lgd-arrow-hollow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#5a6a78" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
-      </marker>
-    </defs>`;
-  const legend = `
-    <div class="af-legend">
-      <span class="af-swatch" style="background:#3a7ad0"></span> Accepted
-      <span class="af-swatch" style="background:#e08a3a"></span> Rejected
-      <span class="af-swatch" style="background:#e6c94e"></span> Undecided
-      <span class="af-legend-sep"></span>
-      <span class="af-edge-sample" title="Rebut &mdash; mutual (equal-strength conflict, both sides attack)"><svg width="34" height="10">${arrowDefs}<line x1="2" y1="5" x2="28" y2="5" stroke="#5a6a78" stroke-width="1.5" marker-end="url(#lgd-arrow)"/></svg></span> Rebut (mutual)
-      <span class="af-edge-sample" title="Rebut &mdash; preference decided (stronger side won, one-way)"><svg width="34" height="10">${arrowDefs}<line x1="2" y1="5" x2="28" y2="5" stroke="#5a6a78" stroke-width="1.5" marker-end="url(#lgd-arrow-hollow)"/></svg></span> Rebut (preference)
-      <span class="af-edge-sample" title="Undercut &mdash; the target's rule does not apply here"><svg width="34" height="10">${arrowDefs}<line x1="2" y1="5" x2="28" y2="5" stroke="#5a6a78" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#lgd-arrow)"/></svg></span> Undercut
-      <span class="af-legend-ucnode" title="Rule undercut &mdash; a node asserting that the named rule does not apply here (bold ✕ prefix distinguishes this from a propositional negation)"><span class="af-ucnode-sample"><span class="af-ucnode-x">✕</span>&nbsp;rule</span></span> Rule undercut
-    </div>
-  `;
+  const legend = `<div class="af-legend">
+    <span class="af-swatch" style="background:#3a7ad0"></span> Accepted
+    <span class="af-swatch" style="background:#e08a3a"></span> Rejected
+    <span class="af-swatch" style="background:#e6c94e"></span> Undecided
+    <span class="af-edge-symbol af-edge-mutual" aria-hidden="true">⇉</span> Rebut in both directions
+    <span class="af-edge-symbol" aria-hidden="true">→</span> One-way rebut
+    <span class="af-edge-symbol af-edge-undercut" aria-hidden="true">⇢</span> Undercut
+    <span class="af-ucnode-sample" aria-hidden="true">✕ rule</span> Rule does not apply
+  </div>`;
 
   body.innerHTML = `
     ${legend}
     <p class="derivation-note">This overview groups arguments by conclusion and summarizes attacks. Inspect an individual derivation to see every premise, rule, and attack.</p>
     <p class="visually-hidden" id="af-graph-summary">${escapeHtml(graphSummary)}</p>
-    <div class="af-toolbar">
-      <div class="af-scope-control" role="group" aria-label="Argument graph scope">
-        <span class="af-control-label">Scope:</span>
-        <button type="button" class="af-scope-btn ${afScope==='key' ? 'active' : ''}" data-af-scope="key" aria-controls="af-svg-scroll" aria-pressed="${afScope==='key' ? 'true' : 'false'}" title="Only show arguments relevant to the key conclusions">Key conclusions</button>
-        <button type="button" class="af-scope-btn ${afScope==='all' ? 'active' : ''}" data-af-scope="all" aria-controls="af-svg-scroll" aria-pressed="${afScope==='all' ? 'true' : 'false'}" title="Show every argument in the AF">All conclusions</button>
-      </div>
-      <div class="af-zoom-controls" role="group" aria-label="Argument graph zoom">
-        <button type="button" class="btn btn-small" id="af-inspect-all">Inspect derivations</button>
-        <button type="button" class="btn btn-small" data-af-zoom="out" aria-controls="af-svg-scroll" aria-label="Zoom out" title="Zoom out">−</button>
-        <button type="button" class="btn btn-small" data-af-zoom="reset" aria-controls="af-svg-scroll" aria-label="Reset zoom to 100 percent" title="Reset to 100%">100%</button>
-        <button type="button" class="btn btn-small" data-af-zoom="in" aria-controls="af-svg-scroll" aria-label="Zoom in" title="Zoom in">+</button>
-        <button type="button" class="btn btn-small" data-af-zoom="fit" aria-controls="af-svg-scroll" aria-label="Fit graph to window" title="Fit to window">Fit</button>
-        <span class="af-zoom-readout" id="af-zoom-readout" role="status" aria-live="polite" aria-atomic="true">100%</span>
-      </div>
-    </div>
-    <div class="af-svg-scroll" id="af-svg-scroll" tabindex="0" role="region" aria-label="Scrollable argument graph" aria-describedby="af-graph-summary">
-      <svg width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" data-base-w="${totalWidth}" data-base-h="${totalHeight}" role="img" aria-labelledby="af-svg-title" aria-describedby="af-graph-summary">
-        <title id="af-svg-title">ABDA-NL argument graph</title>
+    ${afControlsHtml(isolated.length)}
+    <p class="derivation-note">${groups.size} conclusion groups shown${afScope === 'all' && !afShowIsolated ? `; ${isolated.length} isolated hidden` : ''}. Activate any node to inspect it.</p>
+    <div class="af-svg-scroll" id="af-svg-scroll" tabindex="0" role="region" aria-label="Scrollable conclusion graph" aria-describedby="af-graph-summary">
+      <svg width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" data-base-w="${totalWidth}" data-base-h="${totalHeight}" role="group" aria-labelledby="af-svg-title" aria-describedby="af-graph-summary">
+        <title id="af-svg-title">ABDA-NL conclusion graph</title>
         <defs>
           <marker id="af-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a6a78"/>
@@ -2254,7 +2142,12 @@ function renderAFView() {
   applyAFZoom();
   wireAFZoom();
   wireAFTooltip();
-  document.getElementById('af-inspect-all')?.addEventListener('click', () => openDerivationInspector(state.bundle.af.arguments[0].id));
+  body.querySelectorAll('.af-node').forEach(node => {
+    node.addEventListener('click', () => inspectGraphConclusion(node.dataset.afLit));
+    node.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); inspectGraphConclusion(node.dataset.afLit); }
+    });
+  });
 }
 
 // Zoom state and controls. Scaling is done by resizing the SVG's width/
@@ -2275,6 +2168,11 @@ function applyAFZoom() {
 function wireAFZoom() {
   const body = document.getElementById('af-modal-body');
   if (!body) return;
+  body.querySelector('#af-show-isolated')?.addEventListener('change', event => {
+    afShowIsolated = event.target.checked; renderAFView();
+    document.getElementById('af-show-isolated')?.focus();
+    requestAnimationFrame(() => { afZoom = computeAFFit(); applyAFZoom(); });
+  });
   const STEP = 0.15, MIN = 0.25, MAX = 3;
   for (const btn of body.querySelectorAll('[data-af-zoom]')) {
     btn.addEventListener('click', () => {
@@ -2294,6 +2192,7 @@ function wireAFZoom() {
       if (next === afScope) return;
       afScope = next;
       renderAFView();
+      body.querySelector(`[data-af-scope="${next}"]`)?.focus();
       requestAnimationFrame(() => { afZoom = computeAFFit(); applyAFZoom(); });
     });
   }
@@ -2384,6 +2283,7 @@ let gameNodeCounter = 0;
 let gameFocusId = null;
 let gameRootId = null;
 let gameConclusionId = null;
+let gameBundle = null;
 // When the conclusion is rejected purely because a strict rule derives its
 // negation (no for-argument at all), there is no Caminada game trace to
 // play -- we render a prose rationale plus the winning argument card, no
@@ -2401,15 +2301,15 @@ function makeGameNode(type, argId, parentId) {
 // --- AF lookups ------------------------------------------------------
 
 function getArgumentById(argId) {
-  return (state.bundle.af.arguments || []).find(a => a.id === argId);
+  return ((gameBundle || state.bundle).af.arguments || []).find(a => a.id === argId);
 }
 
 function getAttackersOf(argId) {
-  return (state.bundle.af.attacks || []).filter(a => a.to === argId);
+  return ((gameBundle || state.bundle).af.attacks || []).filter(a => a.to === argId);
 }
 
-function getArgumentsConcluding(conclusionId) {
-  return (state.bundle.af.arguments || []).filter(a => a.conclusion === conclusionId);
+function getArgumentsConcluding(conclusionId, bundle = state.bundle) {
+  return (bundle.af.arguments || []).filter(a => a.conclusion === conclusionId);
 }
 
 // Explain follows individual engine derivations. Sharing a top rule does not
@@ -2431,28 +2331,32 @@ function getGameAttackerIds(argId) {
 //               "out" arguments when no "in" argument for -X exists --
 //               e.g. Popov's popov_has_poss under the Cartesian fix.)
 //   absent    → no candidates (modal disables Explain upstream)
-function getCandidateRootArguments(conclusionId) {
-  const status = state.bundle.af.labels_by_proposition?.[conclusionId];
+function getCandidateRootArguments(conclusionId, bundle = state.bundle) {
+  const status = bundle.af.labels_by_proposition?.[conclusionId];
   const allowed = {
     accepted: new Set(['in']),
     rejected: new Set(['out']),
     undecided: new Set(['out', 'undec']),
   }[status];
   if (!allowed) return [];
-  let matching = getArgumentsConcluding(conclusionId).filter(a => allowed.has(a.label));
+  let matching = getArgumentsConcluding(conclusionId, bundle).filter(a => allowed.has(a.label));
   // Rejected-via-negation fallback: the conclusion has no for-arguments
   // at all (e.g. reached only through a strict rule on -c). Surface the
   // "in" arguments for -c as explainable roots -- walking one of them
   // shows why -c is warranted, which is why c is rejected.
   if (status === 'rejected' && matching.length === 0) {
-    matching = getArgumentsConcluding('-' + conclusionId).filter(a => a.label === 'in');
+    matching = getArgumentsConcluding('-' + conclusionId, bundle).filter(a => a.label === 'in');
   }
   return matching;
 }
 
 // --- Modal open / close ---------------------------------------------
 
-function openExplainModal(conclusionId) {
+function openExplainModal(conclusionId, bundle = state.bundle, historical = false, argId = null, navigation = null) {
+  if (!bundle) return;
+  gameBundle = bundle;
+  argumentNavigation = navigation || newArgumentNavigation(bundle, historical);
+  if (!navigation) graphContext = null;
   gameConclusionId = conclusionId;
   gameNodes = {};
   gameNodeCounter = 0;
@@ -2460,33 +2364,22 @@ function openExplainModal(conclusionId) {
   gameRootId = null;
   gameExplanationOnly = false;
 
-  const scn = state.bundle.scenario;
+  const scn = bundle.scenario;
   const entry = scn.conclusions?.[conclusionId] || scn.propositions?.[conclusionId];
   document.getElementById('game-modal-title').textContent =
-    'Explain: ' + (entry ? entry.description : conclusionId);
+    'Explain: ' + (entry ? entry.description : literalInScenario(conclusionId, scn));
 
   // Route directly to the explanation view when the conclusion is
   // rejected and has no for-arguments (so nothing to walk). The unique
   // in-argument for -c becomes the explanation root.
-  const af = state.bundle.af;
+  const af = bundle.af;
   const status = af.labels_by_proposition?.[conclusionId];
   const forArgs = (af.arguments || []).filter(a => a.conclusion === conclusionId);
-  if (status === 'rejected' && forArgs.length === 0) {
-    const negIn = (af.arguments || []).find(
-      a => a.conclusion === '-' + conclusionId && a.label === 'in'
-    );
-    if (negIn) {
-      gameExplanationOnly = true;
-      const root = makeGameNode('htb', negIn.id, null);
-      gameRootId = root.id;
-      gameFocusId = root.id;
-      renderGame();
-      openModal('modal-game', '.modal-close');
-      return;
-    }
-  }
-
-  renderArgumentPicker();
+  gameExplanationOnly = status === 'rejected' && forArgs.length === 0;
+  const candidates = getCandidateRootArguments(conclusionId, bundle);
+  const selected = argId ? af.arguments.find(arg => arg.id === argId) : candidates.length === 1 ? candidates[0] : null;
+  if (selected) startGameWithRoot(selected.id);
+  else renderArgumentPicker();
   openModal('modal-game', '.modal-close');
 }
 
@@ -2536,19 +2429,16 @@ function openEditModal(task, existingId = null) {
 
   const ta = document.getElementById('edit-instruction');
   ta.value = '';
+  const currentRule = document.getElementById('edit-current-rule');
+  currentRule.replaceChildren();
+  currentRule.hidden = true;
   if (task === 'modify-rule' && existingId) {
-    // Seed the textarea with the current rule body so the user can edit
-    // it directly or replace with NL.
     const rule = state.bundle?.scenario?.rules?.[existingId];
     if (rule) {
-      const premiseLits = (rule.premises || []).map(p => renderLiteral(p));
-      const conclusionLit = renderLiteral(rule.conclusion);
-      const connective = rule.type === 'strict' ? 'necessarily' : 'normally';
-      const current = premiseLits.length
-        ? `Current rule: If ${premiseLits.join(' and ')} then ${connective} ${conclusionLit}.\n\nChanges I want:\n`
-        : `Current rule: ${connective} ${conclusionLit}.\n\nChanges I want:\n`;
-      ta.placeholder = current;
+      currentRule.innerHTML = `<strong>Current rule</strong><p>${renderRuleText(existingId, rule)}</p><code>${escapeHtml(formalElement(existingId, state.bundle.scenario))}</code>`;
+      currentRule.hidden = false;
     }
+    ta.placeholder = 'Describe the change you want to make.';
   } else {
     ta.placeholder = {
       'add-rule': "e.g. 'Add a rule saying that if X then normally/necessarily Y.'  Use 'normally' for a defeasible rule (can be defeated) or 'necessarily' for a strict rule (cannot be defeated).",
@@ -2741,8 +2631,8 @@ function _renderProposal(body) {
     const nlConclusion = nlFor(rule.conclusion);
     const nlPremisesHtml = nlPremises.map(escapeHtml).join(' <span class="kw">and</span> ');
     const nlBody = nlPremises.length
-      ? `<span class="kw">If</span> ${nlPremisesHtml} <span class="kw">then</span> <span class="kw">${connective}</span> ${escapeHtml(nlConclusion)}`
-      : `<span class="kw">${connective}</span> ${escapeHtml(nlConclusion)}`;
+      ? `<span class="kw">If</span> ${nlPremisesHtml} <span class="kw">then</span> <span class="kw rule-connective" title="${rule.type === 'strict' ? 'Strict: this rule cannot be defeated.' : 'Defeasible: a stronger conflicting argument or an undercut can defeat this rule.'}">${connective}</span> ${escapeHtml(nlConclusion)}`
+      : `<span class="kw rule-connective" title="${rule.type === 'strict' ? 'Strict: this rule cannot be defeated.' : 'Defeasible: a stronger conflicting argument or an undercut can defeat this rule.'}">${connective}</span> ${escapeHtml(nlConclusion)}`;
 
     // --- ASPIC- view (bottom) ---
     const arrow = rule.type === 'strict' ? '->' : '=>';
@@ -3223,11 +3113,13 @@ async function copyAspicToClipboard() {
 
 function renderArgumentPicker() {
   const body = document.getElementById('game-modal-body');
-  const candidates = getCandidateRootArguments(gameConclusionId);
-  const status = state.bundle.af.labels_by_proposition?.[gameConclusionId];
+  const previousFocus = body.contains(document.activeElement) ? document.activeElement : null;
+  const candidates = getCandidateRootArguments(gameConclusionId, gameBundle || state.bundle);
+  const status = (gameBundle || state.bundle).af.labels_by_proposition?.[gameConclusionId];
 
   if (candidates.length === 0) {
     body.innerHTML = `<div class="placeholder-msg">No derivation available for this conclusion.</div>`;
+    restoreGameFocus(previousFocus);
     return;
   }
 
@@ -3247,41 +3139,61 @@ function renderArgumentPicker() {
   };
 
   body.innerHTML = `
+    ${argumentNavigationMarkup('game', null)}
     <div class="game-picker-header">${escapeHtml(headerByStatus[status] || 'Select an argument to explore:')}</div>
     <div class="game-picker-list">
-      ${candidates.map(renderPickerCard).join('')}
+      ${candidates.map((arg, index) => renderPickerCard(arg, index, candidates.length)).join('')}
     </div>
   `;
 
   for (const card of body.querySelectorAll('.game-picker-card')) {
     card.addEventListener('click', () => startGameWithRoot(card.dataset.argId));
   }
+  bindArgumentNavigation(body, 'game', null);
+  restoreGameFocus(previousFocus);
 }
 
-function renderPickerCard(arg) {
-  const rule = state.bundle.scenario.rules?.[arg.top_rule];
+// A chosen move or collapsed branch replaces its controls. Keep keyboard
+// focus on the equivalent control, or on the newly active argument.
+function restoreGameFocus(previous) {
+  if (!previous || previous.isConnected || document.activeElement !== document.body) return;
+  const modal = document.getElementById('modal-game');
+  if (!modal.classList.contains('visible') || modal.inert) return;
+  const body = document.getElementById('game-modal-body');
+  const attribute = previous.hasAttribute('data-toggle-collapse-id') ? 'data-toggle-collapse-id'
+    : previous.matches('.game-node-focus[data-focus-id]') ? 'data-focus-id' : null;
+  const equivalent = attribute
+    ? body.querySelector(`[${attribute}="${CSS.escape(previous.getAttribute(attribute))}"]`) : null;
+  const target = equivalent || body.querySelector(`#gnode-${CSS.escape(gameFocusId || '')}`)
+    || body.querySelector('.game-picker-card') || modal.querySelector('.modal-close');
+  target?.focus({ preventScroll: true });
+}
+
+function renderPickerCard(arg, index = 0, total = 1) {
+  const rule = (gameBundle || state.bundle).scenario.rules?.[arg.top_rule];
   let ruleLine;
   if (rule) {
-    ruleLine = renderRuleText(arg.top_rule, rule);
+    ruleLine = renderRuleText(arg.top_rule, rule, (gameBundle || state.bundle).scenario);
   } else {
     // Fallback for bodyless rules (fact / assumption): render the top rule id only.
     ruleLine = `<span class="inline-id">[${escapeHtml(arg.top_rule)}]</span> ${escapeHtml(arg.conclusion_nl)}`;
   }
   return `<button type="button" class="game-picker-card" data-arg-id="${escapeAttr(arg.id)}">
+    <span class="game-picker-meta">Argument ${index + 1} of ${total} · ${escapeHtml(arg.id)}</span>
     <span class="game-picker-rule">${ruleLine}</span>
-    <span class="game-picker-meta">Derivation ${escapeHtml(arg.id)}</span>
+    <span class="game-picker-premises">${escapeHtml(derivationDescription(arg, gameBundle || state.bundle))}</span>
   </button>`;
 }
 
-function renderRuleText(ruleId, rule) {
-  const premises = (rule.premises || []).map(p => escapeHtml(renderLiteral(p))).join(' <span class="kw">and</span> ');
-  const conclusion = escapeHtml(renderLiteral(rule.conclusion));
+function renderRuleText(ruleId, rule, scenario = state.bundle.scenario) {
+  const premises = (rule.premises || []).map(p => escapeHtml(literalInScenario(p, scenario))).join(' <span class="kw">and</span> ');
+  const conclusion = escapeHtml(literalInScenario(rule.conclusion, scenario));
   const connective = rule.type === 'strict' ? 'necessarily' : 'normally';
   const idTag = `<span class="inline-id">[${escapeHtml(ruleId)}]</span>`;
   if (!premises) {
-    return `<span class="kw">${connective}</span> ${conclusion} ${idTag}`;
+    return `<span class="kw rule-connective" title="${rule.type === 'strict' ? 'Strict: this rule cannot be defeated.' : 'Defeasible: a stronger conflicting argument or an undercut can defeat this rule.'}">${connective}</span> ${conclusion} ${idTag}`;
   }
-  return `<span class="kw">If</span> ${premises} <span class="kw">then</span> <span class="kw">${connective}</span> ${conclusion} ${idTag}`;
+  return `<span class="kw">If</span> ${premises} <span class="kw">then</span> <span class="kw rule-connective" title="${rule.type === 'strict' ? 'Strict: this rule cannot be defeated.' : 'Defeasible: a stronger conflicting argument or an undercut can defeat this rule.'}">${connective}</span> ${conclusion} ${idTag}`;
 }
 
 // --- Tree view -------------------------------------------------------
@@ -3297,21 +3209,28 @@ function startGameWithRoot(argId) {
 
 function renderGame() {
   const body = document.getElementById('game-modal-body');
+  const previousFocus = body.contains(document.activeElement) ? document.activeElement : null;
   const rootNode = gameNodes[gameRootId];
   if (!rootNode) { renderArgumentPicker(); return; }
+  autoResolveTerminalLeaves();
 
   if (gameExplanationOnly) {
     body.innerHTML = `
+      ${argumentNavigationMarkup('game', rootNode.argId)}
       ${renderRejectionRationale(rootNode)}
       <div class="game-tree">${renderGameNode(rootNode)}</div>
     `;
     bindGameTreeHandlers(body);
+    bindArgumentNavigation(body, 'game', rootNode.argId);
+    restoreGameFocus(previousFocus);
     return;
   }
 
   body.innerHTML = `
+    ${argumentNavigationMarkup('game', rootNode.argId)}
     <div class="game-toolbar">
-      <button class="btn btn-small" id="game-back-btn">← Back to arguments</button>
+      ${getCandidateRootArguments(gameConclusionId, gameBundle || state.bundle).length > 1 ? '<button class="btn btn-small" id="game-back-btn">Back to arguments</button>' : ''}
+      <span class="game-role-legend"><span class="game-role-swatch game-bar-htb"></span> Proponent defends the claim. <span class="game-role-swatch game-bar-cb"></span> Opponent challenges it. Labels are computed by ABDA.</span>
     </div>
     <div class="game-main">
       <div class="game-main-left">
@@ -3320,29 +3239,21 @@ function renderGame() {
       </div>
     </div>
   `;
-  document.getElementById('game-back-btn').addEventListener('click', renderArgumentPicker);
+  document.getElementById('game-back-btn')?.addEventListener('click', renderArgumentPicker);
+  bindArgumentNavigation(body, 'game', rootNode.argId);
   bindGameTreeHandlers(body);
   renderGameMoves();
+  restoreGameFocus(previousFocus);
+  requestAnimationFrame(() => document.getElementById(`gnode-${gameFocusId}`)?.scrollIntoView({ block: 'nearest' }));
 }
 
-// Auto-resolve any off-path node that is stuck waiting on Continue --
-// no moves available, no resolution yet. Mirrors what the
-// Continue button does: HTB → conceded, CB → uncontested, then
-// propagate. Running this on focus-change prevents two downstream
-// problems: (a) the stuck-on-"Resolving…" panel when the user backs up
-// past an unresolved leaf, and (b) subtrees never registering as
-// "fully resolved" for auto-collapse, because the leaf was unresolved.
-function autoResolveStuckOffPath() {
-  const ancestors = new Set();
-  let cur = gameFocusId;
-  while (cur) {
-    ancestors.add(cur);
-    cur = gameNodes[cur]?.parentId;
-  }
+// Resolve only terminal leaves. Cycles and unplayed choices remain explicit,
+// and propagation uses the existing grounded-game rules.
+function autoResolveTerminalLeaves() {
   for (const node of Object.values(gameNodes)) {
-    if (ancestors.has(node.id)) continue;
     if (node.resolution) continue;
     if (node.type === 'cycle') continue;
+    if (node.children.length || getGameCycleAttackers(node).length) continue;
     const hasMoves = (node.type === 'htb' && getGameCBs(node).length > 0) ||
                      (node.type === 'cb'  && getGameHTBs(node).length > 0);
     if (hasMoves) continue;  // still has something to play; not stuck
@@ -3358,7 +3269,7 @@ function autoResolveStuckOffPath() {
 // Auto-collapse is intentionally NOT applied -- the user controls
 // collapse manually via the per-node caret.
 function tidyOffPath() {
-  autoResolveStuckOffPath();
+  autoResolveTerminalLeaves();
 }
 
 function toggleGameCollapse(nodeId) {
@@ -3375,7 +3286,7 @@ function toggleGameCollapse(nodeId) {
 function renderRejectionRationale(rootNode) {
   const arg = getArgumentById(rootNode.argId);
   if (!arg) return '';
-  const rule = state.bundle.scenario.rules?.[arg.top_rule];
+  const rule = (gameBundle || state.bundle).scenario.rules?.[arg.top_rule];
   const isStrictTop = rule && rule.type === 'strict';
 
   const ruleRef = `<span class="inline-id">[${escapeHtml(arg.top_rule)}]</span>`;
@@ -3411,8 +3322,8 @@ function renderGameNode(node) {
   }
 
   let moveLabel, barClass;
-  if (node.type === 'htb') { moveLabel = 'Has to be the case:'; barClass = 'game-bar-htb'; }
-  else { moveLabel = 'Can be the case that:'; barClass = 'game-bar-cb'; }
+  if (node.type === 'htb') { moveLabel = 'Proponent: Has to be the case:'; barClass = 'game-bar-htb'; }
+  else { moveLabel = 'Opponent: Can be the case that:'; barClass = 'game-bar-cb'; }
 
   // Inline collapse caret. Always shown when this node has children so
   // the user can fold any subtree they want out of the way -- whether
@@ -3441,8 +3352,8 @@ function renderGameNode(node) {
     : `<span>${moveLabel}</span>`;
 
   const ruleText = (() => {
-    const rule = state.bundle.scenario.rules?.[arg.top_rule];
-    return rule ? renderRuleText(arg.top_rule, rule)
+    const rule = (gameBundle || state.bundle).scenario.rules?.[arg.top_rule];
+    return rule ? renderRuleText(arg.top_rule, rule, (gameBundle || state.bundle).scenario)
                 : `<span class="inline-id">[${escapeHtml(arg.top_rule)}]</span> (fact/assumption)`;
   })();
 
@@ -3457,7 +3368,7 @@ function renderGameNode(node) {
   // should show the derivation itself, even when there are no challenges
   // to play through. Other statuses keep the dialectically relevant subset.
   const showFullDerivation = gameExplanationOnly
-    || state.bundle.af.labels_by_proposition?.[gameConclusionId] === 'accepted';
+    || (gameBundle || state.bundle).af.labels_by_proposition?.[gameConclusionId] === 'accepted';
   const attackableIds = showFullDerivation
     ? new Set([arg.id, ...(arg.sub_arguments || [])])
     : getAttackableSubArgIds(node);
@@ -3484,7 +3395,7 @@ function renderGameNode(node) {
     attackInfoHtml = renderAttackInfo(node);
   }
 
-  let html = `<div class="game-node${resClass}${activeClass}" id="gnode-${node.id}">
+  let html = `<div class="game-node${resClass}${activeClass}" id="gnode-${node.id}" tabindex="-1" role="group" aria-label="${escapeAttr(moveLabel + ' ' + arg.conclusion_nl)}">
     <div class="game-node-inner">
       <div class="game-node-topbar ${barClass}">${focusControl}${caretBtn}</div>
       <div class="game-node-content">
@@ -3495,6 +3406,7 @@ function renderGameNode(node) {
       <div class="game-node-status">${resBadge}</div>
     </div>
     ${resReason}
+    ${node.resolution && node.children.length === 0 ? opposingDerivationsDisclosureFor(node.argId) : ''}
     ${supportHtml}`;
 
   if (node.children.length > 0 && !node.collapsed) {
@@ -3526,7 +3438,7 @@ function countDescendants(node) {
 function renderAttackInfo(cbNode) {
   const parent = gameNodes[cbNode.parentId];
   if (!parent) return '';
-  const edge = (state.bundle.af.attacks || []).find(a => a.from === cbNode.argId && a.to === parent.argId);
+  const edge = ((gameBundle || state.bundle).af.attacks || []).find(a => a.from === cbNode.argId && a.to === parent.argId);
   if (!edge) return '';
   const attacker = getArgumentById(cbNode.argId);
   const parentArg = getArgumentById(parent.argId);
@@ -3545,7 +3457,7 @@ function renderAttackInfo(cbNode) {
 function getAttackableSubArgIds(node) {
   const arg = getArgumentById(node.argId);
   if (!arg) return new Set();
-  const targets = new Set((state.bundle.af.attacks || []).map(edge => edge.to));
+  const targets = new Set(((gameBundle || state.bundle).af.attacks || []).map(edge => edge.to));
   return new Set([arg.id, ...(arg.sub_arguments || [])].filter(id => targets.has(id)));
 }
 
@@ -3562,7 +3474,7 @@ function isRelevantSupport(subArgId, attackableIds) {
 }
 
 function generateSupports(arg, attackableIds) {
-  const rules = state.bundle.scenario.rules || {};
+  const rules = (gameBundle || state.bundle).scenario.rules || {};
   const topRule = rules[arg.top_rule];
   if (!topRule || !topRule.premises || topRule.premises.length === 0) return [];
 
@@ -3576,7 +3488,7 @@ function generateSupports(arg, attackableIds) {
     if (subArg) {
       const subRule = rules[subArg.top_rule];
       rulesHtml = subRule
-        ? `<div class="support-rule-line">${renderRuleText(subArg.top_rule, subRule)}</div>`
+        ? `<div class="support-rule-line">${renderRuleText(subArg.top_rule, subRule, (gameBundle || state.bundle).scenario)}</div>`
         : `<div class="support-rule-line"><span class="inline-id">[${escapeHtml(subArg.top_rule)}]</span> ${escapeHtml(subArg.conclusion_nl)}</div>`;
     }
 
@@ -3595,7 +3507,7 @@ function generateSupports(arg, attackableIds) {
       factsHtml = lines.join('<br>');
     }
 
-    return { label: renderLiteral(premLit), rules: rulesHtml, facts: factsHtml };
+    return { label: literalInScenario(premLit, (gameBundle || state.bundle).scenario), rules: rulesHtml, facts: factsHtml };
   }).filter(Boolean);
 }
 
@@ -3686,10 +3598,10 @@ function renderGameMoves() {
         panel.innerHTML = '<div class="game-moves-header">Resolving…</div>';
         return;
       }
-      const prefNote = preferenceDisclosureFor(node.argId);
+      const opposingNote = opposingDerivationsDisclosureFor(node.argId);
       panel.innerHTML = '<div class="game-moves-header">No challenges available</div>' +
         '<div class="game-moves-empty">This claim has no remaining challenges. It is accepted.</div>' +
-        prefNote +
+        opposingNote +
         otherOpenHtml() +
         `<div style="margin-top:.5rem"><button class="btn btn-small" data-resolve="uncontested" data-node="${escapeAttr(node.id)}">Continue</button></div>`;
       wireMoveCardHandlers(panel);
@@ -3726,10 +3638,10 @@ function renderGameMoves() {
         panel.innerHTML = '<div class="game-moves-header">Resolving…</div>';
         return;
       }
-      const prefNote = preferenceDisclosureFor(node.argId);
+      const opposingNote = opposingDerivationsDisclosureFor(node.argId);
       panel.innerHTML = '<div class="game-moves-header">No defense available</div>' +
         '<div class="game-moves-empty">This challenge cannot be defended against. It stands.</div>' +
-        prefNote +
+        opposingNote +
         otherOpenHtml() +
         `<div style="margin-top:.5rem"><button class="btn btn-small" data-resolve="undefended" data-node="${escapeAttr(node.id)}">Continue</button></div>`;
       wireMoveCardHandlers(panel);
@@ -3855,51 +3767,48 @@ function getGameMoves(node) {
 function getGameCBs(htbNode)  { return getGameMoves(htbNode); }
 function getGameHTBs(cbNode)  { return getGameMoves(cbNode); }
 
-// Find arguments in the AF that would attack `targetArgId` (rebut or
-// undercut) but have no attack edge against it because a rule preference
-// filtered the attack out. Retains each actual derivation.
-function getSuppressedAttackersOf(targetArgId) {
-  const af = state.bundle.af;
+// Find contrary or rule-negating derivations with no incoming engine edge.
+// Edge absence alone does not identify a cause such as a rule preference.
+function getNonAttackingOpposingDerivations(targetArgId) {
+  const af = (gameBundle || state.bundle).af;
   const target = getArgumentById(targetArgId);
   if (!target) return [];
   const negConclusion = target.conclusion.startsWith('-')
     ? target.conclusion.slice(1)
     : '-' + target.conclusion;
   const undercutTarget = '-' + target.top_rule;
-  const wouldAttack = (af.arguments || []).filter(
+  const opposing = (af.arguments || []).filter(
     a => a.conclusion === negConclusion || a.conclusion === undercutTarget
   );
   const actual = new Set(
     (af.attacks || []).filter(e => e.to === targetArgId).map(e => e.from)
   );
-  const suppressed = wouldAttack.filter(a => !actual.has(a.id));
+  const nonAttacking = opposing.filter(a => !actual.has(a.id));
   const seen = new Set();
   const out = [];
-  for (const a of suppressed) {
+  for (const a of nonAttacking) {
     const k = gameArgumentKey(a);
     if (!seen.has(k)) { seen.add(k); out.push(a); }
   }
   return out;
 }
 
-// HTML fragment describing preference-suppressed counter-attackers.
-// Empty string when no preference story applies.
-function preferenceDisclosureFor(argId) {
-  const suppressed = getSuppressedAttackersOf(argId);
-  if (suppressed.length === 0) return '';
-  const items = suppressed.map(a => {
-    const rule = state.bundle.scenario.rules?.[a.top_rule];
+function opposingDerivationsDisclosureFor(argId) {
+  const opposing = getNonAttackingOpposingDerivations(argId);
+  if (opposing.length === 0) return '';
+  const items = opposing.map(a => {
+    const rule = (gameBundle || state.bundle).scenario.rules?.[a.top_rule];
     const body = rule
-      ? renderRuleText(a.top_rule, rule)
+      ? renderRuleText(a.top_rule, rule, (gameBundle || state.bundle).scenario)
       : `<em>"${escapeHtml(a.conclusion_nl)}"</em> <span class="inline-id">[${escapeHtml(a.top_rule)}]</span>`;
     return `<li>${body}</li>`;
   }).join('');
-  const lead = suppressed.length === 1
-    ? 'A rule preference rules out this counter-argument:'
-    : `A rule preference rules out these ${suppressed.length} counter-arguments:`;
-  return `<div class="game-pref-disclosure">
-    <div class="game-pref-lead">${lead}</div>
-    <ul class="game-pref-list">${items}</ul>
+  const lead = opposing.length === 1
+    ? 'This opposing derivation has no attack on this argument in the computed framework:'
+    : `These ${opposing.length} opposing derivations have no attack on this argument in the computed framework:`;
+  return `<div class="game-opposing-disclosure">
+    <div class="game-opposing-lead">${lead}</div>
+    <ul class="game-opposing-list">${items}</ul>
   </div>`;
 }
 

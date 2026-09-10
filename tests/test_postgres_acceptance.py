@@ -28,7 +28,7 @@ from app.db.session import (
 )
 from app.db.models import (
     CreditEligibilityMarker, EmergencyBudget, EmergencyUsageReservation, Identity,
-    LLMUsageEvent, RateLimitBucket, TrialGrant, TrialProgram, UsageReservation, User, utc_now,
+    LLMUsageEvent, Project, RateLimitBucket, ShareLink, TrialGrant, TrialProgram, UsageReservation, User, utc_now,
 )
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.serialize import scenario_to_dict
@@ -595,6 +595,67 @@ def _assert_startup_seeding_and_sign_in_do_not_invert_marker_fk_locks() -> None:
         assert receipt.retained_credit_eligibility_marker_count == 3
 
 
+def _assert_concurrent_private_restores_share_the_owner_capacity_lock() -> None:
+    """Two archived projects cannot both take the last available active slot."""
+    from app.services import projects as service
+
+    suffix = uuid4().hex
+    scenario = {"title": "Restore test", "facts": {"ready": {"description": "Ready"}}}
+    with get_session_factory()() as session:
+        user = upsert_verified_identity(
+            session, issuer="https://identity.example.test", subject=f"restore-{suffix}",
+            email=f"restore-{suffix}@example.edu", email_verified=True,
+        )
+        user_id = user.id
+        projects = [service.create_project(session, user, name=f"Private project {index}",
+                    description="", scenario=scenario, source_scenario_id=None) for index in range(3)]
+        archived_ids = []
+        for project in projects[:2]:
+            service.create_share_link(session, user, project.id)
+            service.archive_project(session, user, project.id, expected_version=1)
+            archived_ids.append(project.id)
+
+    starts = [Event(), Event()]
+    workers = [{}, {}]
+
+    def restore(index):
+        with get_session_factory()() as session:
+            session.execute(text("SET LOCAL lock_timeout = '10s'"))
+            session.execute(text("SET LOCAL statement_timeout = '15s'"))
+            owner = session.get(User, user_id)
+            workers[index]["pid"] = session.scalar(text("SELECT pg_backend_pid()"))
+            starts[index].set()
+            try:
+                service.restore_project(session, owner, archived_ids[index], expected_version=2)
+                return "restored"
+            except service.ProjectLimitError:
+                return "limited"
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(service, "MAX_ACTIVE_PROJECTS", 2)
+        with get_session_factory()() as held, ThreadPoolExecutor(max_workers=2) as executor:
+            held.scalar(select(User).where(User.id == user_id).with_for_update())
+            owner_pid = held.scalar(text("SELECT pg_backend_pid()"))
+            futures = [executor.submit(restore, index) for index in range(2)]
+            try:
+                for index, future in enumerate(futures):
+                    assert starts[index].wait(timeout=5)
+                    _wait_for_blocked_worker(held, owner_pid=owner_pid, worker_pid=workers[index]["pid"], future=future)
+            finally:
+                held.rollback()
+            assert sorted(future.result(timeout=10) for future in futures) == ["limited", "restored"]
+    with get_session_factory()() as session:
+        assert session.scalar(select(func.count(Project.id)).where(
+            Project.owner_user_id == user_id, Project.archived_at.is_(None))) == 2
+        for project_id in archived_ids:
+            project = session.get(Project, project_id)
+            share = session.scalar(select(ShareLink).where(ShareLink.project_id == project_id))
+            if project.archived_at is None:
+                assert project.version == 3 and share.revoked_at is not None
+            else:
+                assert project.version == 2 and share.revoked_at is None
+
+
 def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
     import app.services.rate_limits as rate_limits_module
 
@@ -618,6 +679,7 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
         _assert_concurrent_stale_sweeps_conserve_both_ledgers()
         _assert_finalization_and_privacy_deletion_use_consistent_account_locks()
         _assert_startup_seeding_and_sign_in_do_not_invert_marker_fk_locks()
+        _assert_concurrent_private_restores_share_the_owner_capacity_lock()
         with get_session_factory()() as session:
             user = upsert_verified_identity(
                 session,

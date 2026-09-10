@@ -7,6 +7,9 @@ const conversationChannel = typeof BroadcastChannel === 'function' ? new Broadca
 let inspectorState = null;
 let questionSignatureState = null;
 
+function stateForComposer(refs) { state.chatContextRefs = refs; }
+function questionReferenceStatus(ref) { return ref.kind === 'conclusion' ? state.bundle?.af?.labels_by_proposition?.[ref.id] || '' : ''; }
+
 function conversationId() {
   return typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -26,10 +29,8 @@ function conversationHasContent(record) {
 function useConversation(record) {
   conversationStore.activeId = record.id;
   state.chatMessages = record.messages;
-  state.chatContextRefs = structuredClone(record.context_refs || []);
   state.chatPending = Boolean(record.pending);
-  const input = document.getElementById('chat-input');
-  if (input) input.value = record.draft || '';
+  chatComposer.restore({ text: record.draft || '', segments: record.draft_segments, refs: record.context_refs || [] });
   try { sessionStorage.setItem(`abda-active-conversation:${conversationStore.owner}`, record.id); } catch { /* In-tab history remains usable. */ }
 }
 
@@ -50,6 +51,9 @@ function syncConversationIdentity() {
   conversationStore.versions.clear();
   conversationStore.deleted.clear();
   conversationStore.bytes = 0;
+  try { conversationStore.storageIntroShown = localStorage.getItem(`abda-history-storage-intro:${owner}`) === '1'; }
+  catch { conversationStore.storageIntroShown = false; }
+  sourceReader.clear();
   announceChat('');
   state.chatDegraded = false;
   if (inspectorState?.historical) {
@@ -105,8 +109,8 @@ function newConversationRecord() {
   const unused = conversationStore.records.find(record => !conversationHasContent(record) && !record.pending);
   if (unused) { useConversation(unused); return unused; }
   const record = {
-    id: conversationId(), title: 'New conversation', created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(), messages: [], snapshots: {}, draft: '', context_refs: [],
+    id: conversationId(), title: 'Untitled conversation', created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(), messages: [], snapshots: {}, draft: '', draft_segments: [], context_refs: [],
   };
   conversationStore.records.unshift(record);
   useConversation(record);
@@ -116,8 +120,10 @@ function newConversationRecord() {
 function saveConversationDraft() {
   const record = activeConversation();
   if (!record) return;
-  record.draft = document.getElementById('chat-input')?.value || '';
-  record.context_refs = structuredClone(state.chatContextRefs || []);
+  const draft = chatComposer.snapshot();
+  record.draft = draft.text;
+  record.draft_segments = draft.segments;
+  record.context_refs = draft.refs;
   record.messages = state.chatMessages;
   record.updated_at = new Date().toISOString();
   const firstQuestion = record.messages.find(message => message.role === 'user');
@@ -181,6 +187,11 @@ function flushConversationWrites() {
           }
           conversationStore.versions.set(record.id, result.revision);
           conversationStore.error = '';
+          if (!conversationStore.storageIntroShown) {
+            conversationStore.storageIntroShown = true;
+            try { localStorage.setItem(`abda-history-storage-intro:${owner}`, '1'); } catch { /* Optional one-time explanation. */ }
+            conversationStore.notice ||= 'Saved automatically in this browser for your account. Export to keep a separate copy.';
+          }
         }
         conversationChannel?.postMessage({ owner });
       } catch {
@@ -248,18 +259,25 @@ function renderConversationControls() {
   for (const record of conversationStore.records) {
     const option = document.createElement('option');
     option.value = record.id;
-    option.textContent = record.title + (record.pending ? ' (answer pending)' : record.unread ? ' (new answer)' : '');
+    const latest = [...record.messages].reverse().find(message => message.snapshot_id);
+    const scenarioName = record.snapshots?.[latest?.snapshot_id]?.scenario?.scenario?.title || 'Unsent draft';
+    const date = new Date(record.updated_at || record.created_at).toLocaleDateString();
+    option.textContent = `${record.title} · ${scenarioName} · ${date}` + (record.pending ? ' (answer pending)' : record.unread ? ' (new answer)' : '');
     option.selected = record.id === conversationStore.activeId;
     select.append(option);
   }
   const size = conversationStore.bytes ? ` About ${(conversationStore.bytes / 1048576).toFixed(1)} MB stored.` : '';
-  const status = conversationStore.error || conversationStore.notice || (conversationStore.owner
+  const routine = conversationStore.owner
     ? `Saved automatically in this browser for your account.${size} Delete removes this conversation from this device.`
-    : 'History stays in this tab while signed out. Export to keep a copy.');
+    : 'History stays in this tab while signed out. Export to keep a copy.';
+  select.title = routine;
+  document.getElementById('conversation-storage-description').textContent = routine;
+  const status = conversationStore.error || conversationStore.notice || '';
+  note.hidden = !status;
   if (note.textContent !== status) note.textContent = status;
-  document.getElementById('conversation-retry-save').hidden = !conversationStore.error;
-  document.getElementById('conversation-export-all').hidden = !conversationStore.error;
+  document.getElementById('conversation-recovery').hidden = !conversationStore.error;
   document.getElementById('conversation-export').disabled = !conversationHasContent(activeConversation());
+  document.getElementById('conversation-delete').disabled = !conversationHasContent(activeConversation());
   const degraded = document.getElementById('chat-degraded-note');
   degraded.hidden = !state.chatDegraded;
   degraded.textContent = state.chatDegraded
@@ -356,9 +374,12 @@ function appendConversationTurnControls(messageElement, message, index) {
   const record = activeConversation();
   const snapshot = record?.snapshots?.[message.snapshot_id];
   if (snapshot) {
+    const description = document.createElement('span');
+    description.textContent = `Asked about ${snapshot.scenario?.scenario?.title || 'Scenario'}, ${snapshot.pending_ops?.length ? `${snapshot.pending_ops.length} pending changes` : 'baseline'}`;
+    controls.append(description);
     const details = document.createElement('details');
     const summary = document.createElement('summary');
-    summary.textContent = 'Scenario used for this question';
+    summary.textContent = 'Snapshot';
     const text = document.createElement('p');
     text.textContent = `${snapshot.scenario?.scenario?.title || 'Scenario'}, ${snapshot.pending_ops?.length || 0} pending changes, ${new Date(snapshot.captured_at).toLocaleString()}.`;
     const download = document.createElement('button');
@@ -372,7 +393,8 @@ function appendConversationTurnControls(messageElement, message, index) {
   const fork = document.createElement('button');
   fork.type = 'button';
   fork.className = 'btn btn-small';
-  fork.textContent = 'Edit and fork with current scenario';
+  fork.textContent = 'Fork with current scenario';
+  fork.title = 'Edit this question in a new conversation using the current scenario';
   fork.disabled = state.chatPending;
   fork.addEventListener('click', () => forkConversationAt(index));
   controls.append(fork);
@@ -392,16 +414,17 @@ function forkConversationAt(index) {
   const used = new Set(fork.messages.map(message => message.snapshot_id));
   fork.snapshots = Object.fromEntries(Object.entries(parent.snapshots).filter(([id]) => used.has(id)));
   state.chatMessages = fork.messages;
-  state.chatContextRefs = (turn.context_refs || []).map(ref => {
-    const match = currentQuestionReference(ref.kind, ref.id);
-    return { ...ref, description: match?.description || `${ref.kind} ${ref.id}`,
-      scenario_signature: '', view_key: '', missing: !match };
-  });
-  document.getElementById('chat-input').value = turn.content;
+  const saved = parent.snapshots?.[turn.snapshot_id];
+  const bundle = saved ? { scenario: saved.scenario.scenario, af: saved.af } : null;
+  const refs = (turn.context_refs || []).map(ref => ({ ...ref,
+    description: describeQuestionReference(ref, bundle) || `${ref.kind} ${ref.id}` }));
+  const segments = composerModel.restore({ text: turn.content, segments: turn.segments, refs }).map(segment =>
+    segment.type === 'reference' ? { ...segment, ref: { ...segment.ref, scenario_signature: '', view_key: '' } } : segment);
+  chatComposer.restore({ text: composerModel.text(segments), segments });
   saveConversationDraft();
   renderChat();
   showGlobalStatus('Fork created. Earlier turns retain their snapshots; your edited question will use the current scenario. Refresh or remove any earlier context items before asking.', 'info');
-  document.getElementById('chat-input').focus();
+  chatComposer.focus();
 }
 
 function currentScenarioSignature() {
@@ -410,7 +433,10 @@ function currentScenarioSignature() {
   const entry = { scenario, text: JSON.stringify(scenario), value: null };
   entry.promise = conversationHistory.signature(entry.text).then(value => {
     entry.value = value;
-    if (questionSignatureState === entry) renderQuestionContext();
+    if (questionSignatureState === entry) {
+      chatComposer.compactSignatures(entry.text, value);
+      renderQuestionContext();
+    }
     return value;
   }).catch(() => null); // In-tab context remains usable if browser storage is unavailable.
   questionSignatureState = entry;
@@ -424,12 +450,10 @@ function questionContextIsCurrent(ref) {
 }
 
 function currentQuestionReference(kind, id) {
-  const scenario = state.bundle?.scenario || {};
-  const section = { rule: 'rules', fact: 'facts', assumption: 'assumptions', conclusion: 'conclusions', proposition: 'propositions' }[kind];
-  const entry = scenario[section]?.[id] || (kind === 'conclusion' ? scenario.propositions?.[id] : null);
-  if (!entry) return null;
+  const description = describeQuestionReference({ kind, id }, state.bundle);
+  if (!description) return null;
   const signature = currentScenarioSignature();
-  return { kind, id, description: entry.description || literalInScenario(entry.conclusion || id, scenario),
+  return { kind, id, description,
     scenario_signature: signature.value || signature.text, view_key: conversationViewKey() };
 }
 
@@ -438,126 +462,168 @@ function conversationViewKey() {
 }
 
 function addQuestionDraft(description, kind, id) {
-  const input = document.getElementById('chat-input');
-  if (!input) return;
   syncConversationIdentity();
-  const refs = state.chatContextRefs ||= [];
-  const existing = refs.find(ref => ref.kind === kind && ref.id === id);
-  if (existing && !questionContextIsCurrent(existing)) {
-    const current = currentQuestionReference(kind, id);
-    if (!current) {
-      showGlobalStatus('This context item is no longer present. Remove it before asking.', 'info');
-      return;
-    }
-    Object.assign(existing, current, { description });
-    renderQuestionContext(); saveConversationDraft();
-    showGlobalStatus('Question context refreshed for the current scenario. Your question text is unchanged.', 'info');
-    input.focus();
-    return;
+  const signature = currentScenarioSignature();
+  const ref = { kind, id, description, scenario_signature: signature.value || signature.text, view_key: conversationViewKey() };
+  if (chatComposer.insertReference(ref)) {
+    revealChatForNarrowLayout(); chatComposer.focus();
   }
-  if (kind && id && !existing && refs.length >= 24) {
-    showGlobalStatus('A question can include up to 24 context items. Remove one before adding another.', 'info');
-    return;
-  }
-  const question = `Can you explain "${description}"?`;
-  const start = input.selectionStart ?? input.value.length;
-  const before = input.value.slice(0, start);
-  // Inserting context never removes a selected portion of an existing draft.
-  const after = input.value.slice(start);
-  const inserted = `${before && !/\n\n$/.test(before) ? '\n\n' : ''}${question}${after && !/^\n\n/.test(after) ? '\n\n' : ''}`;
-  input.value = before + inserted + after;
-  input.setSelectionRange(start + inserted.length, start + inserted.length);
-  if (kind && id && !existing) {
-    const signature = currentScenarioSignature();
-    refs.push({ kind, id, description, scenario_signature: signature.value || signature.text, view_key: conversationViewKey() });
-  }
-  renderQuestionContext();
-  saveConversationDraft();
-  revealChatForNarrowLayout();
-  input.focus({ preventScroll: !window.matchMedia('(max-width: 780px)').matches });
 }
 
 function renderQuestionContext() {
-  const container = document.getElementById('chat-context-items');
-  if (!container) return;
-  container.replaceChildren();
-  (state.chatContextRefs || []).forEach((ref, index) => {
-    const chip = document.createElement('span');
-    chip.className = `chat-context-chip${questionContextIsCurrent(ref) ? '' : ' chat-context-stale'}`;
-    const label = document.createElement('span');
-    label.textContent = `${ref.kind} ${ref.id}${questionContextIsCurrent(ref) ? '' : ' (earlier scenario)'}`;
-    label.title = ref.description;
-    const current = currentQuestionReference(ref.kind, ref.id);
-    if (!questionContextIsCurrent(ref) && current) {
-      const refresh = document.createElement('button');
-      refresh.type = 'button';
-      refresh.textContent = 'Refresh';
-      refresh.setAttribute('aria-label', `Refresh ${ref.kind} ${ref.id} for the current scenario`);
-      refresh.addEventListener('click', () => {
-        state.chatContextRefs[index] = currentQuestionReference(ref.kind, ref.id);
-        renderQuestionContext(); saveConversationDraft();
-      });
-      chip.append(refresh);
-    }
-    if (!current) label.textContent += ' (no longer present)';
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.textContent = '×';
-    remove.setAttribute('aria-label', `Remove ${ref.kind} ${ref.id} from question context`);
-    remove.addEventListener('click', () => { state.chatContextRefs.splice(index, 1); renderQuestionContext(); saveConversationDraft(); });
-    chip.append(label, remove);
-    container.append(chip);
+  chatComposer.refreshPresentation();
+  const scenario = state.bundle?.scenario;
+  const note = document.getElementById('chat-no-documents');
+  if (note) note.hidden = !scenario || Boolean(scenario.corpus?.length || scenario.sources?.length);
+}
+
+function describeQuestionReference(ref, bundle) {
+  if (!bundle?.scenario || !['rule', 'fact', 'assumption', 'conclusion', 'argument'].includes(ref.kind)) return null;
+  const scenario = bundle.scenario;
+  if (ref.kind === 'argument') {
+    const arg = bundle.af?.arguments?.find(item => item.id === ref.id);
+    return arg ? `${arg.conclusion_nl || literalInScenario(arg.conclusion, scenario)} (${arg.id})` : null;
+  }
+  if (ref.kind === 'rule') {
+    const rule = Object.hasOwn(scenario.rules || {}, ref.id) ? scenario.rules[ref.id] : null;
+    if (!rule) return null;
+    return rule.description || `${(rule.premises || []).map(id => literalInScenario(id, scenario)).join(' and ')}${rule.premises?.length ? ', therefore ' : ''}${rule.type === 'strict' ? 'necessarily' : 'normally'} ${literalInScenario(rule.conclusion, scenario)}`;
+  }
+  const id = ref.id.startsWith('-') ? ref.id.slice(1) : ref.id;
+  const sections = ref.kind === 'fact' ? ['facts'] : ref.kind === 'assumption' ? ['assumptions'] : ['facts', 'assumptions', 'propositions', 'conclusions'];
+  return sections.some(section => Object.hasOwn(scenario[section] || {}, id)) || Object.hasOwn(bundle.af?.labels_by_proposition || {}, ref.id)
+    ? literalInScenario(ref.id, scenario) : null;
+}
+
+function savedBundleForMessage(message) {
+  const snapshot = activeConversation()?.snapshots?.[message.snapshot_id];
+  return snapshot?.scenario?.scenario && snapshot.af ? { scenario: snapshot.scenario.scenario, af: snapshot.af } : null;
+}
+
+function formalReferenceButton(ref, bundle, label = null) {
+  const button = document.createElement('button'); button.type = 'button'; button.className = 'chat-formal-reference';
+  const description = describeQuestionReference(ref, bundle);
+  button.textContent = label || description || `${ref.kind} ${ref.id}`;
+  button.title = `${ref.kind} ${ref.id}: ${description || 'Unavailable in the saved scenario'}`;
+  button.setAttribute('aria-label', `Inspect ${ref.kind} ${ref.id}: ${description || 'Unavailable in the saved scenario'}`);
+  button.disabled = !description;
+  if (description) button.addEventListener('click', () => {
+    if (ref.kind === 'argument') openDerivationInspector(ref.id, bundle, true);
+    else openElementInspector(ref.kind, ref.id, bundle, true);
   });
+  return button;
+}
+
+function questionReferencesForAnswer(message) {
+  const messages = activeConversation()?.messages || [];
+  const index = messages.indexOf(message);
+  const question = index >= 0 ? messages.slice(0, index).reverse().find(item => item.role === 'user' && item.snapshot_id === message.snapshot_id) : null;
+  // Earlier archives may have only the server's verified reference evidence.
+  return Array.isArray(question?.context_refs) ? question.context_refs
+    : (message.evidence || []).filter(item => item?.verified === true && ['rule', 'argument', 'conclusion'].includes(item.kind));
 }
 
 function appendVerifiedEvidence(bubble, message) {
-  const evidence = (message.evidence || []).filter(item => item && item.verified === true);
-  if (!evidence.length) return;
-  const details = document.createElement('details');
-  details.className = 'chat-evidence';
-  const summary = document.createElement('summary');
-  summary.textContent = `Inspect evidence (${evidence.length})`;
-  details.append(summary);
-  for (const item of evidence) {
-    const block = document.createElement('div');
-    block.className = 'chat-evidence-item';
-    if (item.kind === 'source' && typeof item.quote === 'string') {
-      const citation = document.createElement('p');
-      const role = item.evidence_role === 'quotation'
+  const sources = (message.evidence || []).filter(item => item?.verified === true && item.kind === 'source' && typeof item.quote === 'string');
+  const snapshot = activeConversation()?.snapshots?.[message.snapshot_id];
+  if (sources.length) {
+    const details = document.createElement('details'); details.className = 'chat-evidence'; details.open = true;
+    const summary = document.createElement('summary'); summary.textContent = `Sources (${sources.length})`; details.append(summary);
+    for (const item of sources) {
+      const card = document.createElement('article'); card.className = 'chat-source-card';
+      const heading = document.createElement('div'); heading.className = 'chat-source-heading';
+      const name = document.createElement('strong'); name.textContent = item.source;
+      const assurance = document.createElement('details'); assurance.className = 'source-assurance';
+      const tag = document.createElement('summary'); tag.textContent = item.evidence_role === 'quotation' ? 'Quotation' : item.evidence_role === 'context' ? 'Context' : 'Excerpt';
+      const meaning = item.evidence_role === 'quotation'
         ? 'Quotation matched to this supplied source span. This verifies the wording, not the claim.'
         : item.evidence_role === 'context'
           ? 'Suggested reading context from the supplied source. This is not a matched quotation or verified support for the claim.'
           : 'Supplied source excerpt. This verifies the source span, not quotation matching or support for the claim.';
-      citation.textContent = `${item.source || 'Source'}, characters ${item.start} to ${item.end}. ${role}`;
+      tag.title = meaning; const explanation = document.createElement('p'); explanation.textContent = meaning;
+      assurance.append(tag, explanation); heading.append(name, assurance); card.append(heading);
+      const source = sourceReaderData.sources(snapshot).find(source => source.filename === item.source);
+      const location = sourceReaderData.locate(source, item);
+      const paragraph = sourceReaderData.paragraph(source, location);
       const quote = document.createElement('blockquote');
-      quote.textContent = item.quote;
-      block.append(citation, quote);
-    } else if (['rule', 'argument', 'conclusion'].includes(item.kind) && typeof item.id === 'string') {
-      const link = document.createElement('button');
-      link.type = 'button';
-      link.className = 'btn btn-small';
-      link.textContent = `Inspect ${item.kind} ${item.id}`;
-      link.addEventListener('click', () => {
-        const snapshot = activeConversation()?.snapshots?.[message.snapshot_id];
-        const bundle = snapshot ? { scenario: snapshot.scenario.scenario, af: snapshot.af } : state.bundle;
-        if (item.kind === 'argument') openDerivationInspector(item.id, bundle, Boolean(snapshot));
-        else openElementInspector(item.kind, item.id, bundle, Boolean(snapshot));
-      });
-      block.append(link);
-    } else continue;
-    details.append(block);
+      if (paragraph && sources.length <= 2) sourceReader.markedText(quote, paragraph.text, paragraph);
+      else quote.textContent = item.quote;
+      card.append(quote);
+      if (paragraph && sources.length > 2) {
+        const context = document.createElement('details'); context.className = 'chat-source-context';
+        const label = document.createElement('summary'); label.textContent = 'Surrounding passage';
+        const passage = document.createElement('blockquote'); sourceReader.markedText(passage, paragraph.text, paragraph);
+        context.append(label, passage); card.append(context);
+      }
+      if (!location) { const missing = document.createElement('p'); missing.className = 'source-location-note'; missing.textContent = 'Location in the saved document could not be confirmed.'; card.append(missing); }
+      const open = document.createElement('button'); open.type = 'button'; open.className = 'btn btn-small'; open.textContent = 'Open in Sources';
+      open.setAttribute('aria-label', `Open ${item.source} in Sources`);
+      open.addEventListener('click', () => openSourcesReader({ snapshot, historical: true, evidence: item, selectedSource: item.source }));
+      card.append(open); details.append(card);
+    }
+    bubble.append(details);
   }
-  bubble.append(details);
+  const refs = questionReferencesForAnswer(message), bundle = savedBundleForMessage(message);
+  if (refs.length) {
+    const line = document.createElement('div'); line.className = 'chat-formal-context';
+    const label = document.createElement('span'); label.textContent = 'Referenced items:'; line.append(label);
+    const seen = new Set();
+    for (const ref of refs) {
+      const key = JSON.stringify([ref.kind, ref.id]); if (seen.has(key)) continue; seen.add(key);
+      line.append(formalReferenceButton(ref, bundle));
+    }
+    bubble.append(line);
+  }
+}
+
+function appendUserQuestion(bubble, message) {
+  if (!Array.isArray(message.segments) || composerModel.text(message.segments) !== message.content) {
+    bubble.textContent = String(message.content || ''); return;
+  }
+  const bundle = savedBundleForMessage(message);
+  for (const item of composerModel.normalize(message.segments)) {
+    if (item.type === 'text') bubble.append(document.createTextNode(item.text));
+    else bubble.append(formalReferenceButton(item.ref, bundle, `"${item.ref.description}"`));
+  }
+}
+
+function appendInlineReferenceLinks(container, message) {
+  const bundle = savedBundleForMessage(message); if (!bundle) return;
+  const resolve = id => {
+    const candidates = [];
+    for (const [kind, section] of [['rule', 'rules'], ['fact', 'facts'], ['assumption', 'assumptions'], ['conclusion', 'conclusions']]) {
+      if (Object.hasOwn(bundle.scenario[section] || {}, id)) candidates.push({ kind, id });
+    }
+    const base = id.startsWith('-') ? id.slice(1) : id;
+    const knownNegation = id.startsWith('-') && ['facts', 'assumptions', 'propositions', 'conclusions', 'rules'].some(section => Object.hasOwn(bundle.scenario[section] || {}, base));
+    if (!candidates.length && (knownNegation || Object.hasOwn(bundle.scenario.propositions || {}, id) || Object.hasOwn(bundle.af.labels_by_proposition || {}, id)
+        || bundle.af.arguments?.some(arg => arg.conclusion === id))) candidates.push({ kind: 'conclusion', id });
+    if (bundle.af.arguments?.some(arg => arg.id === id)) candidates.push({ kind: 'argument', id });
+    return candidates.length === 1 ? candidates[0] : null;
+  };
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT); const texts = [];
+  while (walker.nextNode()) if (!walker.currentNode.parentElement.closest('a,button,code,pre,.chat-evidence,.chat-formal-context')) texts.push(walker.currentNode);
+  for (const text of texts) {
+    const matches = [...text.data.matchAll(/\[(-?[A-Za-z_][A-Za-z0-9_]*)\]/g)];
+    if (!matches.length) continue;
+    const fragment = document.createDocumentFragment(); let at = 0;
+    for (const match of matches) {
+      fragment.append(document.createTextNode(text.data.slice(at, match.index)));
+      const ref = resolve(match[1]); fragment.append(ref ? formalReferenceButton(ref, bundle, match[0]) : document.createTextNode(match[0]));
+      at = match.index + match[0].length;
+    }
+    fragment.append(document.createTextNode(text.data.slice(at))); text.replaceWith(fragment);
+  }
 }
 
 function literalInScenario(literal, scenario) {
   const negated = literal.startsWith('-');
   const id = negated ? literal.slice(1) : literal;
   for (const section of ['facts', 'assumptions', 'propositions', 'conclusions']) {
-    const entry = scenario[section]?.[id];
+    const entry = Object.hasOwn(scenario[section] || {}, id) ? scenario[section][id] : null;
     if (entry) return negated ? entry.negated_description || `it is not the case that ${entry.description}` : entry.description;
   }
-  const rule = scenario.rules?.[id];
+  const rule = Object.hasOwn(scenario.rules || {}, id) ? scenario.rules[id] : null;
   if (rule) return negated ? rule.negated_description || `rule ${id} does not apply` : `rule ${id} applies`;
   return literal;
 }
@@ -582,16 +648,23 @@ function preferredElementArgument(kind, id, bundle) {
   return candidates.find(arg => arg.label === preferred) || candidates[0] || null;
 }
 
-function openElementInspector(kind, id, bundle = state.bundle, historical = false) {
+function openElementInspector(kind, id, bundle = state.bundle, historical = false, navigation = null) {
   if (!bundle) return;
-  inspectorState = { bundle, historical, argId: preferredElementArgument(kind, id, bundle)?.id || null, element: { kind, id } };
+  argumentNavigation = navigation || newArgumentNavigation(bundle, historical);
+  if (!navigation) graphContext = null;
+  inspectorState = { bundle, historical, argId: preferredElementArgument(kind, id, bundle)?.id || null,
+    element: { kind, id }, scope: { kind, id }, showAll: false };
   renderDerivationInspector();
   openModal('modal-derivation', '#derivation-argument-select');
 }
 
-function openDerivationInspector(argId, bundle = state.bundle, historical = false) {
+function openDerivationInspector(argId, bundle = state.bundle, historical = false, navigation = null) {
   if (!bundle) return;
-  inspectorState = { bundle, historical, argId, element: null };
+  argumentNavigation = navigation || newArgumentNavigation(bundle, historical);
+  if (!navigation) graphContext = null;
+  const argument = bundle.af?.arguments?.find(arg => arg.id === argId);
+  inspectorState = { bundle, historical, argId, element: null,
+    scope: { kind: 'conclusion', id: argument?.conclusion }, showAll: false };
   renderDerivationInspector();
   openModal('modal-derivation', '#derivation-argument-select');
 }
@@ -613,16 +686,22 @@ function renderDerivationInspector() {
   if (!body || !inspectorState) return;
   const { bundle, argId, historical, element } = inspectorState;
   const args = bundle.af?.arguments || [];
+  const scope = inspectorState.scope || element;
+  const scoped = scope ? args.filter(item => scope.kind === 'rule'
+    ? item.top_rule === scope.id : item.conclusion === scope.id) : args;
+  const options = inspectorState.showAll ? args : scoped;
   const argById = new Map(args.map(arg => [arg.id, arg]));
   const arg = argById.get(argId);
   const attacks = bundle.af?.attacks || [];
   const statusLabel = { in: 'Accepted', out: 'Rejected', undec: 'Undecided' };
   const argumentList = ids => ids.length ? `<ul>${ids.map(id => `<li>${inspectArgumentLink(argById.get(id))}</li>`).join('')}</ul>` : '<p class="derivation-note">None.</p>';
   const attackList = (edges, incoming) => edges.length ? `<ul>${edges.map(edge => `<li><span class="attack-kind">${escapeHtml(edge.type)}</span> ${inspectArgumentLink(argById.get(incoming ? edge.from : edge.to))}</li>`).join('')}</ul>` : '<p class="derivation-note">None. No attack edges in this direction.</p>';
-  body.innerHTML = `<p class="derivation-note">${historical ? 'Saved scenario at the time of this answer. ' : ''}Each ID is one individual derivation. Premise links show construction; attack links show conflicts.</p>
+  body.innerHTML = `${argumentNavigationMarkup('derivation', arg?.id)}
+    <p class="derivation-note">${historical ? 'Saved scenario at the time of this answer. ' : ''}Each ID is one individual derivation. Premise links show construction; attack links show conflicts.</p>
     ${element ? renderInspectorElement(element.kind, element.id, bundle) : ''}
-    <label for="derivation-argument-select">Individual derivation (${args.length} in this scenario)</label>
-    <select id="derivation-argument-select">${!arg ? '<option value="" selected>No matching derivation. Choose another to inspect.</option>' : ''}${args.map(item => `<option value="${escapeAttr(item.id)}"${item.id === argId ? ' selected' : ''}>${escapeHtml(item.id)}: ${escapeHtml(item.conclusion_nl)} [${escapeHtml(item.top_rule)}; ${escapeHtml(statusLabel[item.label] || item.label)}]</option>`).join('')}</select>
+    <label for="derivation-argument-select">${inspectorState.showAll ? 'All derivations in this scenario' : scope?.kind === 'rule' ? 'Derivations using this top rule' : 'Derivations of this exact conclusion'} (${options.length})</label>
+    <select id="derivation-argument-select">${!arg ? '<option value="" selected>No matching derivation.</option>' : ''}${options.map((item, index) => `<option value="${escapeAttr(item.id)}"${item.id === argId ? ' selected' : ''}>${index + 1}. ${escapeHtml(item.id)}: ${escapeHtml(item.conclusion_nl)} [${escapeHtml(item.top_rule)}; ${escapeHtml(statusLabel[item.label] || item.label)}]${item.premises?.length ? ` via ${escapeHtml(item.premises.join(', '))}` : ''}</option>`).join('')}</select>
+    ${scoped.length !== args.length ? `<label class="state-filter"><input type="checkbox" id="derivation-show-all" ${inspectorState.showAll ? 'checked' : ''}> Browse all ${args.length} derivations</label>` : ''}
     ${arg ? `<section class="derivation-summary"><h3>${escapeHtml(arg.id)}: ${escapeHtml(arg.conclusion_nl)}</h3>
       <p><strong>${escapeHtml(statusLabel[arg.label] || arg.label)}</strong>, computed by ABDA. Conclusion: <code>${escapeHtml(arg.conclusion)}</code>.</p>
       <p class="derivation-note">${arg.label === 'undec' ? 'Undecided is a formal label: this argument is neither accepted nor rejected under grounded semantics.' : ''}</p></section>
@@ -634,14 +713,24 @@ function renderDerivationInspector() {
       <h3>Outgoing attacks</h3>${attackList(attacks.filter(edge => edge.from === arg.id), false)}
       <details><summary>Other derivations of this exact conclusion</summary>${argumentList(args.filter(other => other.conclusion === arg.conclusion && other.id !== arg.id).map(other => other.id))}</details>` : '<p>No derivation uses this element in the current state.</p>'}`;
   body.querySelector('#derivation-argument-select')?.addEventListener('change', event => {
-    inspectorState.argId = event.target.value; inspectorState.element = null; renderDerivationInspector();
+    inspectorState.argId = event.target.value; renderDerivationInspector();
     body.querySelector('#derivation-argument-select')?.focus();
   });
+  body.querySelector('#derivation-show-all')?.addEventListener('change', event => {
+    inspectorState.showAll = event.target.checked;
+    if (!inspectorState.showAll && !scoped.some(item => item.id === inspectorState.argId)) inspectorState.argId = scoped[0]?.id || null;
+    renderDerivationInspector(); body.querySelector('#derivation-show-all')?.focus();
+  });
   body.querySelectorAll('[data-inspect-argument]').forEach(button => button.addEventListener('click', () => {
-    inspectorState.argId = button.dataset.inspectArgument; inspectorState.element = null; renderDerivationInspector();
+    const selected = argById.get(button.dataset.inspectArgument);
+    if (!selected) return;
+    inspectorState.argId = selected.id; inspectorState.element = null;
+    inspectorState.scope = { kind: 'conclusion', id: selected.conclusion }; inspectorState.showAll = false;
+    renderDerivationInspector();
     body.scrollTop = 0; body.querySelector('#derivation-argument-select')?.focus();
   }));
   body.querySelectorAll('[data-locate-id]').forEach(button => button.addEventListener('click', () => locateExplorerElement(button.dataset.locateKind, button.dataset.locateId)));
+  bindArgumentNavigation(body, 'derivation', arg?.id);
 }
 
 function locateExplorerElement(kind, id) {
@@ -650,8 +739,14 @@ function locateExplorerElement(kind, id) {
   closeModal('modal-game');
   if (kind === 'rule') {
     state.kbTab = 'all'; state.searchQuery = ''; document.getElementById('kb-search-input').value = '';
+    state.rulesChangedOnly = false; state.rulesSuspendedOnly = false;
+    document.getElementById('rules-changed').checked = false; document.getElementById('rules-suspended').checked = false;
     switchKBTab('all');
-  } else if (kind === 'fact' || kind === 'assumption') switchFactsFilter(kind === 'fact' ? 'facts' : 'assumptions');
+  } else if (kind === 'fact' || kind === 'assumption') {
+    state.factsChangedOnly = false; state.factsSuspendedOnly = false;
+    document.getElementById('facts-changed').checked = false; document.getElementById('facts-suspended').checked = false;
+    switchFactsFilter(kind === 'fact' ? 'facts' : 'assumptions');
+  }
   else switchConclusionFilter('all');
   const target = document.querySelector(`[data-element-kind="${CSS.escape(kind)}"][data-element-id="${CSS.escape(id)}"]`);
   if (!target) return;
@@ -662,27 +757,33 @@ function locateExplorerElement(kind, id) {
   setTimeout(() => target.classList.remove('explorer-highlight'), 3000);
 }
 
+async function exportAllConversations() {
+  const epoch = conversationStore.epoch;
+  saveConversationDraft();
+  await refreshConversationRecords();
+  if (epoch !== conversationStore.epoch) return;
+  downloadConversationJSON({ format: 'abda-conversations', version: 1,
+    conversations: structuredClone(conversationStore.records).map(({ pending, ...record }) => record) }, 'abda-conversations.json');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  chatComposer.init();
   document.getElementById('conversation-new')?.addEventListener('click', startNewConversation);
   document.getElementById('conversation-select')?.addEventListener('change', event => selectConversation(event.target.value));
   document.getElementById('conversation-export')?.addEventListener('click', exportConversation);
   document.getElementById('conversation-delete')?.addEventListener('click', deleteConversation);
   document.getElementById('conversation-retry-save')?.addEventListener('click', () => persistConversations());
-  document.getElementById('conversation-export-all')?.addEventListener('click', async () => {
-    const epoch = conversationStore.epoch;
-    saveConversationDraft();
-    await refreshConversationRecords();
-    if (epoch !== conversationStore.epoch) return;
-    downloadConversationJSON({ format: 'abda-conversations', version: 1,
-      conversations: structuredClone(conversationStore.records).map(({ pending, ...record }) => record) }, 'abda-conversations.json');
-  });
-  document.getElementById('chat-input')?.addEventListener('input', saveConversationDraft);
+  document.getElementById('conversation-export-all')?.addEventListener('click', exportAllConversations);
+  document.getElementById('conversation-recovery-export')?.addEventListener('click', exportAllConversations);
   window.addEventListener('pagehide', () => { saveConversationDraft(); flushConversationWrites(); });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { saveConversationDraft(); flushConversationWrites(); }
     else refreshConversationRecords();
   });
   document.addEventListener('click', event => {
+    if (!event.target.closest('.conversation-actions') || event.target.closest('.conversation-actions button')) {
+      document.querySelectorAll('.conversation-actions[open]').forEach(menu => { menu.open = false; });
+    }
     const button = event.target.closest('[data-inspect-conclusion]');
     if (button) openDerivationForConclusion(button.dataset.inspectConclusion);
     const element = event.target.closest('[data-open-element-kind]');

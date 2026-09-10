@@ -21,6 +21,7 @@ from app.db.models import Base, EmergencyBudget, TrialProgram
 
 log = logging.getLogger(__name__)
 LEGACY_SCHEMA_REVISIONS = (
+    "20260910_0008",
     "20260910_0007",
     "20260909_0006",
     "20260908_0005",

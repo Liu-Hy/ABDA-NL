@@ -203,13 +203,18 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
         try:
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             page.locator("#scenario-builder-title").fill("My own picnic")
-            page.locator("#statement_1-text").fill("The forecast is sunny")
-            page.locator("#statement_2-text").fill("We should hold the picnic outside")
+            page.locator("#scenario-add-statement").click()
+            page.locator(".scenario-statement-row input[type=text]").last.fill("The forecast is sunny")
+            page.locator("#scenario-add-statement").click()
+            page.locator(".scenario-statement-row input[type=text]").last.fill("We should hold the picnic outside")
+            page.locator(".scenario-statement-row select").last.select_option("proposition")
+            page.locator(".scenario-key input").last.check()
+            page.locator("#scenario-add-rule").click()
             rule = page.locator(".scenario-rule-card").first
-            rule.locator("[data-literal]").nth(0).select_option("statement_1")
-            rule.locator("[data-literal]").nth(1).select_option("statement_2")
+            _choose_authoring_literal(rule.locator("[data-literal]").nth(0), "forecast_sunny")
+            _choose_authoring_literal(rule.locator("[data-literal]").nth(1), "hold_picnic_outside")
             _axe_report(page, "new scenario builder")
             _save_browser_evidence(page, "scenario-builder")
             with page.expect_response(lambda response: response.url.endswith("/api/projects/import") and response.request.method == "POST") as created:
@@ -224,23 +229,22 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             page.locator("input.rule-active-toggle").uncheck()
             page.locator("#suspend-impact-apply-btn").click()
             expect(page.locator("#conclusions-list")).to_contain_text("Absent")
-            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-menu-btn").click()
             with page.expect_download() as modified_download:
-                page.locator("#scenario-download-current").click()
+                page.locator("#scenario-download-btn").click()
             modified = json.loads(Path(modified_download.value.path()).read_text())
-            assert modified["scenario"]["rules"]["rule_3"]["active"] is False
-            assert page.request.get(f"{live_browser_server}/api/projects/{project['id']}").json()["scenario"]["rules"]["rule_3"]["active"] is True
-            page.locator("#scenario-library-cancel").click()
+            assert modified["scenario"]["rules"]["rule_forecast_sunny"]["active"] is False
+            assert page.request.get(f"{live_browser_server}/api/projects/{project['id']}").json()["scenario"]["rules"]["rule_forecast_sunny"]["active"] is True
             page.locator("#reset-btn").click()
             expect(page.locator("#conclusions-list")).to_contain_text("Accepted")
             expect(page.locator("#modified-indicator")).to_be_hidden()
-            page.locator("#scenario-library-btn").click()
+            page.locator("#scenario-menu-btn").click()
             with page.expect_download() as download:
-                page.locator("#scenario-download-current").click()
+                page.locator("#scenario-download-btn").click()
             downloaded = json.loads(Path(download.value.path()).read_text())
             assert set(downloaded) == {"format", "version", "source_scenario_id", "scenario"}
             assert downloaded["scenario"] == project["scenario"]
-            page.locator("#scenario-tab-file").click()
+            _open_authoring(page, "file")
             page.locator("#scenario-file-input").set_input_files({
                 "name": "picnic.abda.json", "mimeType": "application/json", "buffer": json.dumps(downloaded).encode(),
             })
@@ -256,10 +260,9 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             assert copy["scenario"] == {**project["scenario"], "title": "Picnic imported copy"}
             expect(page.locator("#context-indicator")).to_have_text("Private project")
             _reload_ready_demo(page)
-            page.locator("#scenario-library-btn").click()
-            page.locator("#scenario-my-projects").click()
-            page.get_by_role("button", name="Open", exact=True).first.click()
-            expect(page.locator("#scenario-select")).to_have_value("__current_project__")
+            _open_authoring_project(page, copy["id"])
+            expect(page.locator("#scenario-name")).to_have_text("Picnic imported copy")
+            expect(page.locator("#context-indicator")).to_have_text("Private project")
             assert not errors
         finally:
             browser.close()
@@ -301,6 +304,39 @@ def test_exported_aspic_preserves_bundled_argumentation(live_browser_server):
             browser.close()
 
 
+def _open_authoring(page, mode='new'):
+    page.locator('#scenario-menu-btn').click()
+    page.locator({'new': '#scenario-library-btn', 'file': '#scenario-import-btn', 'edit': '#scenario-edit-btn'}[mode]).click()
+
+
+def _choose_authoring_literal(picker, text):
+    if picker.locator('.authoring-literal-chip').is_visible():
+        picker.locator('.authoring-literal-chip').click()
+    field = picker.get_by_role('combobox')
+    field.fill(text)
+    field.press('ArrowDown')
+    field.press('Enter')
+
+
+def _expand_authoring_statement(page, symbol):
+    row = page.locator('[data-statement-id="' + symbol + '"]')
+    if row.get_attribute('open') is None:
+        row.locator(':scope > summary').click()
+    return row.locator('input[type=text]')
+
+
+def _edit_authoring_source(page, filename):
+    if page.locator('#scenario-sources-panel').get_attribute('open') is None:
+        page.locator('#scenario-sources-summary').click()
+    page.get_by_role('button', name='Open ' + filename, exact=True).click()
+    page.locator('#source-reader-edit').click()
+
+
+def _open_authoring_project(page, project_id):
+    page.locator('#scenario-menu-btn').click()
+    page.locator('[data-scenario-key="project:' + project_id + '"]').click()
+
+
 def _preview_editor(page):
     from playwright.sync_api import expect
     page.locator('#scenario-preview-btn').click()
@@ -310,8 +346,12 @@ def _preview_editor(page):
 
 def _load_editor_files(page):
     from playwright.sync_api import expect
+    expect(page.locator('#scenario-load-files')).to_be_enabled()
+    while page.locator('#scenario-import-files input[type=checkbox]:not(:checked)').count():
+        page.locator('#scenario-import-files input[type=checkbox]:not(:checked)').first.check()
     page.locator('#scenario-load-files').click()
-    expect(page.locator('#scenario-library-status')).to_contain_text('Materials loaded together')
+    expect(page.locator('#scenario-import-files')).to_contain_text('✓ Loaded into editor')
+    expect(page.locator('#scenario-library-submit')).to_be_enabled()
 
 
 def _rename_editor_symbol(page, old, new):
@@ -334,29 +374,31 @@ def test_symbol_rename_incomplete_creation_validation_and_cancel(live_browser_se
         page.on('pageerror', lambda error: errors.append(str(error)))
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator('#scenario-library-btn').click()
+            _open_authoring(page)
             page.locator('#scenario-symbol-renamer > summary').click()
             expect(page.locator('#scenario-rename-to')).to_be_disabled()
             expect(page.locator('#scenario-rename-apply')).to_be_disabled()
             page.locator('#scenario-library-cancel').click()
             assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'rename-new@example.org'}).ok
             _reload_ready_demo(page)
-            page.locator('#scenario-library-btn').click()
+            _open_authoring(page)
             # Symbols can be chosen before the title, meanings or rule are complete.
-            page.locator('.scenario-statement-details').first.locator('summary').click()
+            page.locator('#scenario-add-statement').click()
             page.get_by_role('button', name='Rename symbol statement_1', exact=True).click()
             page.locator('#scenario-rename-to').fill('forecast')
             page.locator('#scenario-rename-to').press('Enter')
-            expect(page.locator('#forecast-text')).to_be_visible()
-            page.locator('#forecast-text').fill('The forecast is sunny')
-            page.locator('#statement_2-text').fill('We should hold the picnic outside')
+            _expand_authoring_statement(page, 'forecast').fill('The forecast is sunny')
+            page.locator('#scenario-add-statement').click()
+            page.locator('.scenario-statement-row input[type=text]').last.fill('We should hold the picnic outside')
+            page.locator('.scenario-statement-row select').last.select_option('proposition')
+            page.locator('.scenario-key input').last.check()
             page.locator('#scenario-builder-title').fill('Readable symbols')
-            _rename_editor_symbol(page, 'statement_2', 'picnic')
+            _rename_editor_symbol(page, 'hold_picnic_outside', 'picnic')
+            page.locator('#scenario-add-rule').click()
             rule = page.locator('.scenario-rule-card').first
-            rule.locator('[data-literal]').nth(0).select_option('forecast')
-            rule.locator('[data-literal]').nth(1).select_option('picnic')
-            rule.locator('summary').click()
-            page.get_by_role('button', name='Rename symbol rule_3', exact=True).click()
+            _choose_authoring_literal(rule.locator('[data-literal]').nth(0), 'forecast')
+            _choose_authoring_literal(rule.locator('[data-literal]').nth(1), 'picnic')
+            page.get_by_role('button', name='Rename symbol rule_forecast_sunny', exact=True).click()
             page.locator('#scenario-rename-to').fill('weather_rule')
             page.locator('#scenario-rename-apply').click()
             _preview_editor(page)
@@ -375,10 +417,11 @@ def test_symbol_rename_incomplete_creation_validation_and_cancel(live_browser_se
             expect(page.locator('#modal-scenario-library')).to_have_class(re.compile('visible'))
             expect(page.locator('#scenario-library-submit')).to_be_enabled()
             _rename_editor_symbol(page, 'forecast', 'sunny')
-            expect(page.locator('#scenario-library-submit')).to_be_disabled()
+            expect(page.locator('#scenario-library-submit')).to_be_enabled()
+            expect(page.locator('#scenario-library-submit')).to_have_text('Check & save')
             expect(page.locator('#scenario-editor-preview')).to_be_hidden()
             _rename_editor_symbol(page, 'sunny', 's' * 100)
-            page.locator('.scenario-statement-details').first.locator('summary').click()
+            _expand_authoring_statement(page, 's' * 100)
             for width in [1440, 390]:
                 page.set_viewport_size({'width': width, 'height': 900})
                 _axe_report(page, f'symbol rename at {width}px')
@@ -424,18 +467,16 @@ def test_symbol_rename_private_metadata_undercuts_and_portability(live_browser_s
             assert created.ok, created.text()
             project = created.json()
             _goto_ready_demo(page, live_browser_server)
-            page.locator('#workspace-btn').click()
-            page.locator('#workspace-tab-projects').click()
-            page.locator('#project-list').get_by_role('button', name='Open', exact=True).click()
+            _open_authoring_project(page, project['id'])
             expect(page.locator('#scenario-name')).to_have_text(original['title'])
-            page.locator('#scenario-materials-btn').click()
+            _open_authoring(page, 'edit')
             page.locator('#scenario-glossary-panel > summary').click()
             page.locator('#scenario-glossary-text').fill('p = Updated evidence')
             expect(page.locator('#scenario-rename-to')).to_be_disabled()
             page.locator('#scenario-apply-glossary').click()
             expect(page.locator('#p-text')).to_have_value('Updated evidence')
-            page.locator('#scenario-sources-summary').click()
-            page.locator('#library-sources-new-text-0').fill('Pending reference p and -r.\n')
+            _edit_authoring_source(page, 'note.txt')
+            page.locator('#library-sources-new-edit-text').fill('Pending reference p and -r.\n')
             changes = [('p', 'evidence'), ('a', 'reliable'), ('q', 'intermediate'), ('c', 'decision'), ('r', 'inference'), ('s', 'strict_rule')]
             for old, new in changes:
                 _rename_editor_symbol(page, old, new)
@@ -451,7 +492,8 @@ def test_symbol_rename_private_metadata_undercuts_and_portability(live_browser_s
             assert draft['rules']['strict_rule']['conclusion'] == '-decision'
             for field in ['active', 'block', 'negated_description', 'category', 'source']:
                 assert draft['rules']['inference'][field] == project['scenario']['rules']['r'][field]
-            expect(page.locator('#library-sources-new-text-0')).to_have_value('Pending reference p and -r.\n')
+            expect(page.locator('#library-sources-new-edit-text')).to_have_value('Pending reference p and -r.\n')
+            page.get_by_role('button', name='Keep document', exact=True).click()
             # Renaming is local until Save & open, and both editor views agree.
             assert page.request.get(f'{live_browser_server}/api/projects/{project["id"]}').json()['version'] == 1
             page.locator('#scenario-mode-text').click()
@@ -469,13 +511,13 @@ def test_symbol_rename_private_metadata_undercuts_and_portability(live_browser_s
                 ('-' if key.startswith('-') else '') + mapping.get(key.removeprefix('-'), key.removeprefix('-')): label
                 for key, label in project['af']['labels_by_proposition'].items()
             }
-            page.locator('#scenario-library-btn').click()
+            page.locator('#scenario-menu-btn').click()
             with page.expect_download() as download:
-                page.locator('#scenario-download-current').click()
+                page.locator('#scenario-download-btn').click()
             envelope = json.loads(Path(download.value.path()).read_text())
             assert envelope['version'] == 3 and envelope['scenario'] == saved['scenario']
             assert envelope['scenario']['sources'][0]['text'] == 'Pending reference p and -r.\n'
-            page.locator('#scenario-tab-file').click()
+            _open_authoring(page, 'file')
             page.locator('#scenario-file-input').set_input_files({'name': 'renamed.json', 'mimeType': 'application/json', 'buffer': json.dumps(envelope).encode()})
             _load_editor_files(page)
             assert page.evaluate('scenarioFromBuilder(false)') == saved['scenario']
@@ -494,7 +536,7 @@ def test_symbol_rename_in_large_rule_text_editor(live_browser_server):
         try:
             assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'rename-large@example.org'}).ok
             _goto_ready_demo(page, live_browser_server)
-            page.locator('#scenario-library-btn').click()
+            _open_authoring(page)
             page.locator('#scenario-tab-file').click()
             page.locator('#scenario-file-input').set_input_files({'name': 'large.json', 'mimeType': 'application/json', 'buffer': json.dumps(raw).encode()})
             _load_editor_files(page)
@@ -503,7 +545,7 @@ def test_symbol_rename_in_large_rule_text_editor(live_browser_server):
             _rename_editor_symbol(page, 'p0', 'evidence_zero')
             expect(page.locator('#scenario-rule-text')).to_have_value(re.compile('evidence_zero => c'))
             _preview_editor(page)
-            expect(page.locator('#scenario-preview-results')).to_contain_text('accepted')
+            expect(page.locator('#scenario-preview-results')).to_contain_text('Accepted')
         finally:
             browser.close()
 
@@ -521,7 +563,7 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
         try:
             assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'materials@example.org'}).ok
             _goto_ready_demo(page, live_browser_server)
-            page.locator('#scenario-library-btn').click()
+            _open_authoring(page)
             assert page.locator('#scenario-tab-aspic').count() == 0
             page.locator('#scenario-tab-file').click()
             page.locator('#scenario-file-input').set_input_files([
@@ -533,8 +575,10 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
             expect(page.locator('#scenario-builder-title')).to_have_value('Picnic')
             expect(page.locator('#sunny-text')).to_have_value('The forecast is sunny')
             page.locator('#scenario-sources-summary').click()
-            expect(page.locator('#library-sources-new-text-0')).to_have_value(re.compile('before noon'))
-            page.locator('#library-sources-new-url-0').fill('https://example.org/weather')
+            _edit_authoring_source(page, 'weather.md')
+            expect(page.locator('#library-sources-new-edit-text')).to_have_value(re.compile('before noon'))
+            page.locator('#library-sources-new-edit-url').fill('https://example.org/weather')
+            page.get_by_role('button', name='Keep document', exact=True).click()
             # Entry and representation changes retain all three parts of one draft.
             page.locator('#scenario-tab-new').click()
             page.locator('#scenario-mode-text').click()
@@ -542,9 +586,9 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
             page.locator('#scenario-rule-text').fill(page.locator('#scenario-rule-text').input_value() + '\n# A harmless comment')
             page.locator('#scenario-mode-guided').click()
             expect(page.locator('#sunny-text')).to_have_value('The forecast is sunny')
-            expect(page.locator('#library-sources-new-text-0')).to_have_value(re.compile('before noon'))
+            assert 'before noon' in page.evaluate('librarySources.new.value()[0].text')
             _preview_editor(page)
-            expect(page.locator('#scenario-preview-results')).to_contain_text('rejected')
+            expect(page.locator('#scenario-preview-results')).to_contain_text('Rejected')
             _axe_report(page, 'unified scenario and complete materials preview')
             _save_browser_evidence(page, 'unified-scenario-preview')
             page.set_viewport_size({'width': 390, 'height': 844})
@@ -557,10 +601,12 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
             assert project['scenario']['sources'][0]['filename'] == 'weather.md'
             expect(page.locator('#scenario-name')).to_have_text('Picnic')
             page.set_viewport_size({'width': 1440, 'height': 900})
-            page.locator('#scenario-materials-btn').click()
-            expect(page.locator('#scenario-editor-heading')).to_have_text('Edit private scenario')
-            page.locator('#sunny-text').fill('The morning forecast is sunny')
-            page.locator('#library-sources-new-text-0').fill('Corrected forecast: dry until noon.')
+            _open_authoring(page, 'edit')
+            expect(page.locator('#scenario-editor-heading')).to_have_text('Edit: Picnic')
+            _expand_authoring_statement(page, 'sunny').fill('The morning forecast is sunny')
+            _edit_authoring_source(page, 'weather.md')
+            page.locator('#library-sources-new-edit-text').fill('Corrected forecast: dry until noon.')
+            page.get_by_role('button', name='Keep document', exact=True).click()
             _preview_editor(page)
             with page.expect_response(lambda r: r.url.endswith('/api/projects/' + project['id']) and r.request.method == 'PUT') as saved:
                 page.locator('#scenario-library-submit').click()
@@ -568,24 +614,24 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
             assert updated['version'] == 2
             assert updated['scenario']['facts']['sunny']['description'] == 'The morning forecast is sunny'
             assert updated['af']['labels_by_proposition'] == project['af']['labels_by_proposition']
-            page.locator('#scenario-library-btn').click()
+            page.locator('#scenario-menu-btn').click()
             with page.expect_download() as downloaded:
-                page.locator('#scenario-download-current').click()
+                page.locator('#scenario-download-btn').click()
             document = json.loads(Path(downloaded.value.path()).read_text())
             assert document['version'] == 3 and document['source_scenario_id'] is None
             assert document['scenario']['sources'] == updated['scenario']['sources']
-            page.locator('#scenario-tab-file').click()
+            _open_authoring(page, 'file')
             page.locator('#scenario-file-input').set_input_files({'name': 'scenario.json', 'mimeType': 'application/json', 'buffer': json.dumps(document).encode()})
             _load_editor_files(page)
-            expect(page.locator('#library-sources-new-text-0')).to_have_value('Corrected forecast: dry until noon.')
+            assert page.evaluate('librarySources.new.value()[0].text') == 'Corrected forecast: dry until noon.'
             page.locator('#scenario-library-cancel').click()
             shared = page.request.post(f'{live_browser_server}/api/projects/{project["id"]}/shares', data={}).json()
             _goto_ready_demo(reader, shared['url'])
-            reader.locator('#scenario-materials-btn').click()
-            expect(reader.locator('#materials-save')).to_be_hidden()
-            expect(reader.locator('#materials-glossary')).to_have_attribute('readonly', '')
-            reader.locator('#materials-source-editor summary').click()
-            expect(reader.locator('#materials-source-editor pre')).to_have_text('Corrected forecast: dry until noon.')
+            reader.locator('#scenario-menu-btn').click()
+            reader.locator('#scenario-sources-btn').click()
+            expect(reader.locator('#source-reader-edit')).to_be_hidden()
+            expect(reader.locator('#source-reader-text')).to_have_text('Corrected forecast: dry until noon.')
+            assert reader.locator('#source-reader-glossary input, #source-reader-glossary textarea').count() == 0
             _axe_report(reader, 'read-only shared reference documents')
             page.evaluate('clearScenarioMaterials()')
             assert page.evaluate('scenarioLibrary.target === null && !scenarioLibrary.dirty')
@@ -596,7 +642,7 @@ def test_three_part_scenario_import_materials_and_portable_export(live_browser_s
 
 
 @pytest.mark.parametrize('failed_load', [False, True])
-def test_download_recovers_when_library_opens_during_scenario_load(live_browser_server, failed_load):
+def test_download_recovers_when_menu_opens_during_scenario_load(live_browser_server, failed_load):
     from playwright.sync_api import expect, sync_playwright
 
     with sync_playwright() as playwright:
@@ -604,22 +650,22 @@ def test_download_recovers_when_library_opens_during_scenario_load(live_browser_
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.wait_for_function('!hasPendingStateRequest()')
-            previous = page.locator('#scenario-select').input_value()
+            previous = page.evaluate('state.scenario_id')
             target = 'nba_rebuild' if previous != 'nba_rebuild' else 'fire_prevention'
             pending = []
             page.route('**/state', lambda route: pending.append(route))
-            page.locator('#scenario-select').select_option(target)
-            page.locator('#scenario-library-btn').click()
-            expect(page.locator('#scenario-download-current')).to_be_disabled()
+            page.locator('#scenario-menu-btn').click()
+            page.locator('[data-scenario-key="example:' + target + '"]').click()
+            page.locator('#scenario-menu-btn').click()
+            expect(page.locator('#scenario-download-btn')).to_be_disabled()
             assert len(pending) == 1
             if failed_load:
                 pending[0].fulfill(status=503, content_type='application/json', body='{"detail":"Test outage"}')
             else:
                 pending[0].continue_()
-            expect(page.locator('#scenario-download-current')).to_be_enabled()
+            expect(page.locator('#scenario-download-btn')).to_be_enabled()
             with page.expect_download() as downloaded:
-                page.locator('#scenario-download-current').click()
+                page.locator('#scenario-download-btn').click()
             portable = json.loads(Path(downloaded.value.path()).read_text())
             assert portable['source_scenario_id'] is None
             expected = page.request.get(f'{live_browser_server}/scenarios/{previous if failed_load else target}').json()['scenario']
@@ -627,6 +673,21 @@ def test_download_recovers_when_library_opens_during_scenario_load(live_browser_
             assert {entry['filename'] for entry in portable['scenario']['sources']} >= set(expected['corpus'])
         finally:
             browser.close()
+
+
+def _open_workspace(page, tab="account"):
+    """Use the visible account menu, preserving the public keyboard path."""
+    if not page.locator("#modal-workspace").is_visible():
+        page.locator("#workspace-btn").click()
+        page.locator("#account-menu").get_by_role("menuitem", name=re.compile(r"^(Account and credit|Sign in)\.\.\.$")).click()
+    if tab != "account" or not page.locator("#workspace-panel-account").is_visible():
+        page.locator(f"#workspace-tab-{tab}").click()
+
+
+def _project_action(page, action):
+    card = page.locator("#current-project-card")
+    card.locator(".project-menu > summary").click()
+    card.locator(f'[data-project-action="{action}"]').click()
 
 
 def test_reviewed_community_examples_in_browser(live_browser_server):
@@ -654,32 +715,30 @@ def test_reviewed_community_examples_in_browser(live_browser_server):
                 "name": "Community picnic", "description": "Private research note", "scenario": scenario,
             }).json()
             _goto_ready_demo(author, live_browser_server)
-            author.locator("#scenario-library-btn").click()
-            author.locator("#scenario-my-projects").click()
+            _open_workspace(author, "projects")
             author.locator(f'[data-project-id="{created["id"]}"][data-project-action="open"]').click()
             expect(author.locator("#scenario-name")).to_have_text("Community picnic")
-            author.locator("#scenario-library-btn").click()
-            author.locator("#scenario-my-projects").click()
-            author.get_by_role("button", name="Suggest as example", exact=True).click()
+            _open_workspace(author, "projects")
+            _project_action(author, "suggest-example")
             expect(author.locator("#example-review-snapshot")).not_to_contain_text("Private research note")
             expect(author.locator("#example-review-snapshot")).to_contain_text('Reference documents (published in full)')
+            author.locator('#example-full-snapshot > summary').click()
             author.locator('#example-review-snapshot .source-card summary').click()
             expect(author.locator('#example-review-snapshot .source-card pre')).to_contain_text('Shareable reference text.')
-            expect(author.get_by_role("button", name="Submit for review", exact=True)).to_be_disabled()
+            expect(author.get_by_role("button", name="Submit", exact=True)).to_be_disabled()
             _axe_report(author, "author public snapshot consent")
             _save_browser_evidence(author, "example-consent")
             author.locator("#example-public-consent").check()
-            author.get_by_role("button", name="Submit for review", exact=True).click()
+            author.get_by_role("button", name="Submit", exact=True).click()
             expect(author.locator("#examples-list")).to_contain_text("Awaiting review")
             assert reader.request.get(f"{live_browser_server}/scenarios").json()["scenarios"][-1]["category"] != "community"
 
             assert admin.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "curator@example.org"}).ok
             _goto_ready_demo(admin, live_browser_server)
-            admin.locator("#scenario-library-btn").click()
-            admin.locator("#scenario-example-submissions").click()
+            _open_workspace(admin, "examples")
             expect(admin.locator("#examples-list")).to_contain_text("Community picnic")
             _axe_report(admin, "administrator scenario review queue")
-            admin.get_by_role("button", name="Review snapshot", exact=True).click()
+            admin.get_by_role("button", name="Review", exact=True).click()
             expect(admin.locator("#example-review-snapshot")).to_contain_text("It is sunny")
             _axe_report(admin, "administrator snapshot decision")
             _save_browser_evidence(admin, "example-review")
@@ -687,23 +746,24 @@ def test_reviewed_community_examples_in_browser(live_browser_server):
             _axe_report(admin, "mobile administrator snapshot decision")
             assert admin.locator("#modal-example-review .modal-content").evaluate("element => element.scrollWidth <= element.clientWidth")
             admin.set_viewport_size({"width": 1200, "height": 900})
-            admin.get_by_role("button", name="Approve & publish", exact=True).click()
+            admin.get_by_role("button", name="Approve", exact=True).click()
+            admin.locator('[data-example-action="confirm-publish"]').click()
             expect(admin.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
             _goto_ready_demo(reader, live_browser_server)
-            option = reader.locator('#scenario-select optgroup[label="Community examples"] option')
+            option = reader.locator('#scenario-options [role="group"][aria-label="Community examples"] [role="option"]')
             expect(option).to_have_count(1)
-            public_id = option.get_attribute("value")
-            reader.locator("#scenario-select").select_option(public_id)
+            public_id = option.get_attribute("data-scenario-key").split(":", 1)[1]
+            reader.locator("#scenario-menu-btn").click()
+            reader.locator(f'[data-scenario-key="example:{public_id}"]').click()
             expect(reader.locator("#conclusions-list")).to_contain_text("Accepted")
-            reader.locator("#scenario-library-btn").click()
+            reader.locator("#scenario-menu-btn").click()
             with reader.expect_download() as downloaded:
-                reader.locator("#scenario-download-current").click()
+                reader.locator("#scenario-download-btn").click()
             portable = json.loads(Path(downloaded.value.path()).read_text())
             assert portable["source_scenario_id"] is None
             assert portable["scenario"]["title"] == "Community picnic"
             assert portable['scenario']['sources'] == scenario['sources']
             assert "Private research note" not in str(portable)
-            reader.locator("#scenario-library-cancel").click()
             _axe_report(reader, "mobile community example")
 
             # A direct administrator publication uses the same consent preview.
@@ -714,20 +774,19 @@ def test_reviewed_community_examples_in_browser(live_browser_server):
             admin.locator("#projects-refresh-btn").click()
             admin.locator(f'[data-project-id="{own["id"]}"][data-project-action="open"]').click()
             expect(admin.locator("#scenario-name")).to_have_text("Administrator picnic")
-            admin.locator("#scenario-library-btn").click()
-            admin.locator("#scenario-my-projects").click()
-            admin.get_by_role("button", name="Publish as example", exact=True).click()
+            _open_workspace(admin, "projects")
+            _project_action(admin, "suggest-example")
             admin.locator("#example-public-consent").check()
-            admin.get_by_role("button", name="Publish example", exact=True).click()
+            admin.get_by_role("button", name="Publish", exact=True).click()
             expect(admin.locator("#examples-list")).to_contain_text("Published")
 
-            admin.locator("#examples-filter").select_option("published")
+            admin.locator('[data-example-filter="published"]').click()
             card = admin.locator("#examples-list .project-card").filter(has_text="Community picnic")
-            card.get_by_role("button", name="View snapshot", exact=True).click()
-            admin.get_by_role("button", name="Remove from examples", exact=True).click()
+            card.get_by_role("button", name="View suggestion", exact=True).click()
+            admin.get_by_role("button", name="Unpublish", exact=True).click()
             expect(admin.locator("#example-review-status")).to_contain_text("short reason")
             admin.locator("#example-review-note").fill("Updating the teaching example.")
-            admin.get_by_role("button", name="Remove from examples", exact=True).click()
+            admin.get_by_role("button", name="Unpublish", exact=True).click()
             expect(admin.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
             assert reader.request.get(f"{live_browser_server}/scenarios/{public_id}").status == 404
             assert not errors
@@ -767,7 +826,7 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             credit = page.request.get(f"{live_browser_server}/api/trial").json()
             project = _create_view_mode_project(page, live_browser_server, "View mode demonstration")
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#workspace-tab-projects").click()
             page.locator(f'[data-project-action="open"][data-project-id="{project["id"]}"]').click()
             expect(page.locator("#scenario-name")).to_have_text("View mode demonstration")
@@ -781,10 +840,10 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             page.evaluate("flushConversationWrites()")
             capture = """() => ({project: state.activeProject, bundle: state.bundle,
                 diff: state.diff_ops, conversation: activeConversation().id,
-                messages: state.chatMessages, draft: document.querySelector('#chat-input').value})"""
+                messages: state.chatMessages, draft: chatComposer.snapshot().text})"""
             before = page.evaluate(capture)
-            page.locator("#workspace-btn").click()
-            expect(page.locator("#account-view-toggle-btn")).to_have_text("Use normal user view")
+            _open_workspace(page)
+            expect(page.locator("#account-view-toggle-btn")).to_have_text("Demonstrate as a normal user")
             page.locator("#account-view-toggle-btn").click()
             expect(page.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
             expect(page.locator("#account-view-toggle-btn")).to_be_focused()
@@ -802,18 +861,18 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             _save_browser_evidence(page, "normal-user-view-narrow")
             assert page.locator(".topbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             _axe_report(page, "normal user view account controls")
             page.set_viewport_size({"width": 1200, "height": 900})
 
             page.locator("#workspace-tab-projects").click()
             expect(page.get_by_role("button", name="Publish as example", exact=True)).to_have_count(0)
-            page.get_by_role("button", name="Suggest as example", exact=True).click()
+            _project_action(page, "suggest-example")
             page.locator("#example-public-consent").check()
-            page.get_by_role("button", name="Submit for review", exact=True).click()
+            page.get_by_role("button", name="Submit", exact=True).click()
             expect(page.locator("#examples-list")).to_contain_text("Awaiting review")
             expect(page.locator("#examples-filter-field")).to_be_hidden()
-            expect(page.get_by_role("button", name="Approve & publish", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="Approve", exact=True)).to_have_count(0)
             submissions = page.request.get(f"{live_browser_server}/api/scenario-submissions").json()["submissions"]
             assert len(submissions) == 1 and submissions[0]["status"] == "pending"
 
@@ -823,7 +882,7 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             expect(page.locator("#restore-admin-view-btn")).to_be_visible()
             page.evaluate("conversationStore.ready")
             expect(page.locator("#chat-messages")).to_contain_text("A saved teaching answer.")
-            expect(page.locator("#chat-input")).to_have_value("Keep this unfinished question.")
+            expect(page.locator("#chat-input")).to_have_text("Keep this unfinished question.")
             restored_work = page.evaluate(capture)
             page.locator("#restore-admin-view-btn").click()
             page.wait_for_function("() => state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
@@ -859,10 +918,10 @@ def test_normal_user_view_suppresses_late_admin_content_across_tabs(live_browser
             assert context.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "curator@example.org"}).ok
             for page in (controller, reviewer):
                 _goto_ready_demo(page, live_browser_server)
-                page.locator("#workspace-btn").click()
+                _open_workspace(page)
             reviewer.locator("#workspace-tab-examples").click()
             expect(reviewer.locator("#examples-list")).to_contain_text(project["name"])
-            reviewer.get_by_role("button", name="Review snapshot", exact=True).click()
+            reviewer.get_by_role("button", name="Review", exact=True).click()
             expect(reviewer.locator("#example-review-snapshot")).to_contain_text(project["name"])
             reviewer.evaluate("""id => {
                 window.__modeOriginalAPI = apiRequest;
@@ -898,7 +957,7 @@ def test_normal_user_view_suppresses_late_admin_content_across_tabs(live_browser
             controller.locator("#account-view-toggle-btn").click()
             reviewer.wait_for_function("() => state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
             expect(reviewer.locator("#examples-list")).to_contain_text(project["name"])
-            reviewer.get_by_role("button", name="Review snapshot", exact=True).click()
+            reviewer.get_by_role("button", name="Review", exact=True).click()
             expect(reviewer.locator("#example-review-snapshot")).to_contain_text(project["name"])
             reviewer.evaluate("""() => {
                 window.__resolveAdminDecision = null;
@@ -943,7 +1002,7 @@ def test_normal_user_view_refreshes_a_stale_initial_session(live_browser_server)
         try:
             assert context.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "curator@example.org"}).ok
             _goto_ready_demo(controller, live_browser_server)
-            controller.locator("#workspace-btn").click()
+            _open_workspace(controller)
             opening.add_init_script("""
                 const originalFetch = window.fetch;
                 let held = false;
@@ -967,7 +1026,7 @@ def test_normal_user_view_refreshes_a_stale_initial_session(live_browser_server)
             _wait_for_demo_ready(opening)
             expect(opening.locator("#normal-user-view-indicator")).to_be_visible()
             assert opening.evaluate("state.authSession.scenario_admin") is False
-            opening.locator("#workspace-btn").click()
+            _open_workspace(opening)
             opening.locator("#workspace-tab-examples").click()
             expect(opening.locator("#examples-filter-field")).to_be_hidden()
         finally:
@@ -987,9 +1046,9 @@ def test_normal_user_view_uses_server_authority_without_inferring_from_balance(l
             credit = beneficiary.request.get(f"{live_browser_server}/api/trial").json()
             assert credit["granted_microusd"] == 50_000_000
             _goto_ready_demo(beneficiary, live_browser_server)
-            beneficiary.locator("#workspace-btn").click()
+            _open_workspace(beneficiary)
             expect(beneficiary.locator("#trial-balance-label")).to_contain_text("$50.00")
-            for label, scenario_admin in (("Restore administrator view", False), ("Use normal user view", True)):
+            for label, scenario_admin in (("Restore administrator view", False), ("Demonstrate as a normal user", True)):
                 beneficiary.locator("#account-view-toggle-btn").click()
                 expect(beneficiary.locator("#account-view-toggle-btn")).to_have_text(label)
                 assert beneficiary.evaluate("state.authSession.scenario_admin") is scenario_admin
@@ -1003,7 +1062,7 @@ def test_normal_user_view_uses_server_authority_without_inferring_from_balance(l
                 status=200, content_type="application/json", body=json.dumps(credit),
             ))
             _goto_ready_demo(ordinary, live_browser_server)
-            ordinary.locator("#workspace-btn").click()
+            _open_workspace(ordinary)
             expect(ordinary.locator("#trial-balance-label")).to_contain_text("$50.00")
             expect(ordinary.locator("#account-view-card")).to_be_hidden()
             expect(ordinary.locator("#restore-admin-view-btn")).to_be_hidden()
@@ -1021,7 +1080,7 @@ def test_scenario_library_signed_out_and_small_screen(live_browser_server):
         page = browser.new_page(viewport={"width": 390, "height": 844}, reduced_motion="reduce")
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             expect(page.locator("#scenario-signin-required")).to_be_visible()
             expect(page.locator("#scenario-library-submit")).to_be_disabled()
             page.locator("#scenario-tab-new").focus()
@@ -1029,10 +1088,10 @@ def test_scenario_library_signed_out_and_small_screen(live_browser_server):
             expect(page.locator("#scenario-tab-file")).to_be_focused()
             expect(page.locator("#scenario-file-input")).to_be_disabled()
             page.keyboard.press("Escape")
-            expect(page.locator("#scenario-library-btn")).to_be_focused()
+            expect(page.locator("#scenario-menu-btn")).to_be_focused()
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _reload_ready_demo(page)
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             page.locator("#scenario-starter-btn").click()
             for width in [390, 780, 1440]:
                 page.set_viewport_size({"width": width, "height": 900})
@@ -1044,7 +1103,7 @@ def test_scenario_library_signed_out_and_small_screen(live_browser_server):
             page.locator("#scenario-library-submit").click()
             expect(page.locator("#scenario-name")).to_have_text("Planning a picnic")
             expect(page.locator("#conclusions-list")).to_contain_text("Undecided")
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             page.locator("#scenario-tab-file").click()
             _axe_report(page, "mobile file picker")
         finally:
@@ -1062,21 +1121,22 @@ def test_scenario_import_failures_leave_current_work_untouched(live_browser_serv
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _goto_ready_demo(page, live_browser_server)
             before = page.locator("#scenario-name").inner_text()
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             page.locator("#scenario-tab-file").click()
             picker = page.locator("#scenario-file-input")
             picker.set_input_files({"name": "bad.yaml", "mimeType": "text/yaml", "buffer": b"title: ["})
+            expect(page.locator("#scenario-load-files")).to_be_enabled()
+            page.get_by_role("combobox", name="File role: bad.yaml").select_option("scenario")
             page.locator("#scenario-load-files").click()
-            expect(page.locator("#scenario-library-status")).to_contain_text("Cannot read")
-            expect(page.locator("#scenario-library-submit")).to_be_disabled()
+            expect(page.locator("#scenario-import-status")).to_contain_text("Cannot read")
+            expect(page.locator("#scenario-library-submit")).to_have_text("Check & save")
             picker.set_input_files({"name": "huge.json", "mimeType": "application/json", "buffer": b"x" * 1_000_001})
-            expect(page.locator("#scenario-library-status")).to_contain_text("at most 1 MB")
+            expect(page.locator("#scenario-import-status")).to_contain_text("at most 1 MB")
             picker.set_input_files({"name": "bad-utf8.yaml", "mimeType": "text/yaml", "buffer": b"\xff\xfe"})
-            page.locator("#scenario-load-files").click()
-            expect(page.locator("#scenario-library-status")).to_contain_text("UTF-8")
+            expect(page.locator("#scenario-import-status")).to_contain_text("UTF-8")
             picker.set_input_files({"name": "unknown.yaml", "mimeType": "text/yaml", "buffer": b"title: Unknown\nconclusions: {}\nrules:\n  r1: {type: defeasible, premises: [missing], conclusion: missing}"})
             page.locator("#scenario-load-files").click()
-            expect(page.locator("#scenario-library-status")).to_contain_text("unknown identifier")
+            expect(page.locator("#scenario-import-status")).to_contain_text("unknown identifier")
             expect(page.locator("#scenario-name")).to_have_text(before)
             assert page.request.get(f"{live_browser_server}/api/projects").json()["projects"] == []
             page.locator("#scenario-library-cancel").click()
@@ -1095,19 +1155,20 @@ def test_builder_deleted_statement_does_not_rebind_a_rule(live_browser_server):
         try:
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             page.locator("#scenario-starter-btn").click()
             row = page.locator(".scenario-statement-card").first
             removed_id = row.get_attribute("data-statement-id")
-            row.get_by_role("button").click()
+            row.locator(":scope > summary").click()
+            row.get_by_role("button", name="Remove statement 1", exact=True).click()
             page.locator("#scenario-add-statement").click()
-            page.locator(".scenario-statement-row input").last.fill("An unrelated new statement")
-            assert page.locator(".scenario-rule-card [data-literal]").first.input_value() == removed_id
+            page.locator("#scenario-statements .scenario-statement-card[open] input[type=text]").fill("An unrelated new statement")
+            assert page.evaluate("scenarioLibrary.rules[0].premises[0]") == removed_id
             page.locator("#scenario-preview-btn").click()
-            expect(page.locator("#scenario-library-status")).to_contain_text("Choose an existing statement")
+            expect(page.locator(".authoring-field-error").first).to_contain_text("Choose an existing statement")
             expect(page.locator("#context-indicator")).to_have_text("Example")
             page.locator("#scenario-library-cancel").click()
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             expect(page.locator("#scenario-builder-title")).to_have_value("Planning a picnic")
         finally:
             browser.close()
@@ -1125,22 +1186,24 @@ def test_scenario_library_late_create_does_not_replace_another_view(live_browser
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _goto_ready_demo(page, live_browser_server)
             page.route("**/api/projects/import", lambda route: pending.append(route))
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             page.locator("#scenario-starter-btn").click()
             _preview_editor(page)
             page.locator("#scenario-library-submit").click()
             expect(page.locator("#scenario-library-submit")).to_have_text("Saving...")
             page.locator("#scenario-library-cancel").click()
-            options = page.locator("#scenario-select option").evaluate_all("items => items.map(item => ({id: item.value, name: item.textContent}))")
-            target = next(item for item in options if item["id"] != "popov_v_hayashi")
-            page.locator("#scenario-select").select_option(target["id"])
-            expect(page.locator("#scenario-name")).to_have_text(target["name"])
+            options = page.request.get(f"{live_browser_server}/scenarios").json()["scenarios"]
+            current_id = page.evaluate("state.scenario_id")
+            target = next(item for item in options if item["id"] != current_id)
+            page.locator("#scenario-menu-btn").click()
+            page.locator('[data-scenario-key="example:' + target["id"] + '"]').click()
+            expect(page.locator("#scenario-name")).to_have_text(target["title"])
             assert len(pending) == 1
             response = pending[0].fetch()
             assert response.status == 201
             pending[0].fulfill(response=response)
             expect(page.locator("#global-status")).to_contain_text("Open it from My projects")
-            expect(page.locator("#scenario-name")).to_have_text(target["name"])
+            expect(page.locator("#scenario-name")).to_have_text(target["title"])
             assert len(page.request.get(f"{live_browser_server}/api/projects").json()["projects"]) == 1
         finally:
             browser.close()
@@ -1157,7 +1220,7 @@ def test_scenario_file_failure_preserves_draft_and_escapes_text(live_browser_ser
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _goto_ready_demo(page, live_browser_server)
             page.on("dialog", lambda dialog: dialog.accept())
-            page.locator("#scenario-library-btn").click()
+            _open_authoring(page)
             page.locator("#scenario-tab-file").click()
             payload = {"title": "<svg onload=alert(1)>", "description": "<img src=x onerror=alert(1)>", "conclusions": {}, "rules": {}}
             picker = page.locator("#scenario-file-input")
@@ -1167,10 +1230,13 @@ def test_scenario_file_failure_preserves_draft_and_escapes_text(live_browser_ser
             expect(page.locator("#scenario-builder-description")).to_have_value(payload["description"])
             assert page.locator("#scenario-builder-form img, #scenario-builder-form svg").count() == 0
             picker.set_input_files({"name": "bad.yaml", "mimeType": "text/yaml", "buffer": b"title: ["})
+            expect(page.locator("#scenario-load-files")).to_be_enabled()
+            page.get_by_role("combobox", name="File role: bad.yaml").select_option("scenario")
             page.locator("#scenario-load-files").click()
-            expect(page.locator("#scenario-library-status")).to_contain_text("Cannot read")
+            expect(page.locator("#scenario-import-status")).to_contain_text("Cannot read")
             expect(page.locator("#scenario-builder-title")).to_have_value(payload["title"])
-            expect(page.locator("#scenario-library-submit")).to_be_disabled()
+            expect(page.locator("#scenario-library-submit")).to_be_enabled()
+            assert page.evaluate("scenarioLibrary.preview.scenario.title") == payload["title"]
         finally:
             browser.close()
 
@@ -1187,7 +1253,7 @@ def test_unified_editor_raw_validation_stale_save_and_atomic_files(live_browser_
         try:
             assert page.request.post(f'{live_browser_server}/api/auth/dev/login', data={'email': 'editor-races@example.org'}).ok
             _goto_ready_demo(page, live_browser_server)
-            page.locator('#scenario-library-btn').click()
+            _open_authoring(page)
             page.locator('#scenario-mode-text').click()
             expect(page.locator('#scenario-rule-text')).to_have_value('')
             page.locator('#scenario-builder-title').fill('Text-first scenario')
@@ -1196,7 +1262,7 @@ def test_unified_editor_raw_validation_stale_save_and_atomic_files(live_browser_
             page.locator('#scenario-glossary-text').fill('evidence = Available evidence\nclaim = Our claim')
             page.locator('#scenario-mode-guided').click()
             expect(page.locator('#claim-text')).to_have_value('Our claim')
-            expect(page.locator('#scenario-library-submit')).to_be_disabled()
+            expect(page.locator('#scenario-library-submit')).to_be_enabled()
             page.locator('#scenario-mode-text').click()
             syntax = page.locator('#scenario-rule-text').input_value()
             page.locator('#scenario-rule-text').fill('this is not ASPIC')
@@ -1206,7 +1272,7 @@ def test_unified_editor_raw_validation_stale_save_and_atomic_files(live_browser_
             assert page.evaluate('scenarioLibrary.statements.find(s => s.id === "claim").description') == 'Our claim'
             page.locator('#scenario-rule-text').fill(syntax)
             page.locator('#scenario-mode-guided').click()
-            expect(page.locator('#claim-text')).to_be_visible()
+            expect(page.locator('#claim-text')).to_have_value('Our claim')
             # A document failure after a valid KB must leave the whole draft intact.
             page.locator('#scenario-tab-file').click()
             page.locator('#scenario-file-input').set_input_files([
@@ -1214,15 +1280,15 @@ def test_unified_editor_raw_validation_stale_save_and_atomic_files(live_browser_
                 {'name': 'bad.pdf', 'mimeType': 'application/pdf', 'buffer': b'not a PDF'},
             ])
             page.locator('#scenario-load-files').click()
-            expect(page.locator('#scenario-library-status')).to_contain_text('Your previous draft is unchanged')
+            expect(page.locator('#scenario-import-status')).to_contain_text('Your previous editor draft is unchanged')
             expect(page.locator('#scenario-builder-title')).to_have_value('Text-first scenario')
             _preview_editor(page)
             with page.expect_response(lambda r: r.url.endswith('/api/projects/import') and r.request.method == 'POST') as response:
                 page.locator('#scenario-library-submit').click()
             project = response.value.json()
             expect(page.locator('#scenario-name')).to_have_text('Text-first scenario')
-            page.locator('#scenario-materials-btn').click()
-            page.locator('#claim-text').fill('My unsaved wording')
+            _open_authoring(page, 'edit')
+            _expand_authoring_statement(page, 'claim').fill('My unsaved wording')
             _preview_editor(page)
             changed = page.request.put(f'{live_browser_server}/api/projects/{project["id"]}', data={'expected_version': 1, 'name': 'Concurrent save'})
             assert changed.ok
@@ -1357,7 +1423,7 @@ def test_oidc_logout_uses_fetch_origin_under_no_referrer_policy(
                     renderAccountUI();
                 }"""
             )
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             expect(page.locator("#account-signed-in")).to_be_visible()
             page.locator("#logout-btn").click()
             page.wait_for_url(f"{live_browser_server}/logout-complete")
@@ -1475,7 +1541,7 @@ def test_argument_game_resolves_all_defenses_and_detects_a_cycle(
 
             page.locator('[data-move="cb"][data-arg="counter_one"]').click()
             page.locator('[data-move="htb"][data-arg="defense_one"]').click()
-            page.locator('[data-resolve="uncontested"]').click()
+            expect(page.locator('[data-resolve="uncontested"]')).to_have_count(0)
             assert page.evaluate("gameNodes[gameRootId].resolution") is None
             expect(
                 page.locator('[data-move="cb"][data-arg="counter_two"]')
@@ -1483,7 +1549,7 @@ def test_argument_game_resolves_all_defenses_and_detects_a_cycle(
 
             page.locator('[data-move="cb"][data-arg="counter_two"]').click()
             page.locator('[data-move="htb"][data-arg="defense_two"]').click()
-            page.locator('[data-resolve="uncontested"]').click()
+            expect(page.locator('[data-resolve="uncontested"]')).to_have_count(0)
             assert page.evaluate("gameNodes[gameRootId].resolution") == "conceded"
             expect(
                 page.locator(
@@ -1543,12 +1609,13 @@ def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
         try:
             _goto_ready_demo(page, live_browser_server)
             page.evaluate("window.__abdaXssFired = 0")
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("content-safety@example.edu")
             page.locator("#dev-login-name").fill("Content Safety")
             page.locator('#dev-login-form button[type="submit"]').click()
             expect(page.locator("#account-signed-in")).to_be_visible()
             page.locator("#workspace-tab-projects").click()
+            page.locator("#project-copy-panel > summary").click()
             page.locator("#project-name-input").fill(project_probe)
             page.locator("#project-description-input").fill(project_probe)
             page.locator("#project-create-btn").click()
@@ -1676,7 +1743,7 @@ def test_mobile_item_question_reveals_chat(live_browser_server):
             question = page.locator(".rule-info[data-desc]").first
             expect(question).to_be_visible()
             question.click()
-            expect(page.locator("#chat-input")).to_have_value(re.compile('Can you explain'))
+            expect(page.locator("#chat-input")).to_have_text(re.compile('Can you explain'))
             expect(page.locator("#chat-messages")).not_to_contain_text("This is a route-mocked mobile explanation.")
             geometry = page.evaluate(
                 """() => {
@@ -1712,7 +1779,7 @@ def test_switching_byok_provider_clears_the_previous_provider_key(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#ai-access-btn").click()
+            _open_workspace(page, "ai")
             page.locator('input[name="ai-mode"][value="byok"]').check()
 
             provider_select = page.locator("#byok-provider-select")
@@ -1762,7 +1829,7 @@ def test_authenticated_workspace_keeps_each_successful_partial_refresh(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("partial-refresh@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -1829,7 +1896,7 @@ def test_authenticated_workspace_renders_a_fast_partial_refresh_immediately(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("fast-partial-refresh@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             page.locator("#account-signed-in").wait_for(state="visible")
@@ -1877,7 +1944,7 @@ def test_logout_discards_an_in_flight_private_workspace_refresh(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-refresh@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -1952,7 +2019,7 @@ def test_switching_scenarios_preserves_an_in_flight_answer_in_its_conversation(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-chat@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -1976,7 +2043,8 @@ def test_switching_scenarios_preserves_an_in_flight_answer_in_its_conversation(
                 "Question that belongs only to the old scenario", exact=True,
             )).to_be_attached()
 
-            page.locator("#scenario-select").select_option("fire_prevention")
+            page.locator("#scenario-menu-btn").click()
+            page.locator('[data-scenario-key="example:fire_prevention"]').click()
             expect(page.locator("#scenario-name")).to_have_text("Prescribed Burn")
 
             page.evaluate(
@@ -2015,7 +2083,7 @@ def test_editing_the_current_scenario_labels_an_in_flight_answer_as_earlier_stat
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("edited-chat-context@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2079,7 +2147,7 @@ def test_reopening_the_editor_discards_an_older_proposal_response(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-proposal@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2114,12 +2182,14 @@ def test_reopening_the_editor_discards_an_older_proposal_response(
                     };
                 }"""
             )
+            page.locator('.facts-filter-bar .add-menu > summary').click()
             page.locator('[data-edit-task="add-fact"]').first.click()
             page.locator("#edit-instruction").fill("Create an old proposal")
             page.locator('[data-edit-action="propose"]').click()
             page.wait_for_function("() => window.__resolveStaleProposal !== null")
 
             page.keyboard.press("Escape")
+            page.locator('.facts-filter-bar .add-menu > summary').click()
             page.locator('[data-edit-task="add-assumption"]').first.click()
             expect(page.locator("#edit-modal-title")).to_have_text("Add Assumption")
             page.evaluate(
@@ -2148,7 +2218,7 @@ def test_editing_the_scenario_discards_an_in_flight_proposal_response(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("edited-proposal-context@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2184,6 +2254,7 @@ def test_editing_the_scenario_discards_an_in_flight_proposal_response(
                     };
                 }"""
             )
+            page.locator('.facts-filter-bar .add-menu > summary').click()
             page.locator('[data-edit-task="add-fact"]').first.click()
             page.locator("#edit-instruction").fill("Create a proposal")
             page.locator('[data-edit-action="propose"]').click()
@@ -2289,7 +2360,7 @@ def test_project_change_discards_an_in_flight_share_secret(live_browser_server):
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-share@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2366,7 +2437,7 @@ def test_slower_share_refresh_cannot_restore_a_revoked_link(live_browser_server)
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-share-list@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2448,7 +2519,7 @@ def test_project_change_cannot_be_replaced_by_an_older_save_response(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-save@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2520,7 +2591,7 @@ def test_project_change_cannot_be_replaced_by_an_older_archive_response(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-archive@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2611,7 +2682,7 @@ def test_project_edit_is_blocked_while_its_save_is_in_flight(live_browser_server
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("save-in-flight@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2686,7 +2757,7 @@ def test_project_save_waits_for_an_in_flight_state_computation(live_browser_serv
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("compute-before-save@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2762,7 +2833,7 @@ def test_view_change_cannot_be_replaced_by_an_older_project_create_response(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-create@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2797,6 +2868,7 @@ def test_view_change_cannot_be_replaced_by_an_older_project_create_response(
                     };
                 }"""
             )
+            page.locator("#project-copy-panel > summary").click()
             page.locator("#project-name-input").fill("Older created project")
             page.locator("#project-create-btn").click()
             page.wait_for_function("() => window.__resolveOldCreate !== null")
@@ -2834,7 +2906,7 @@ def test_closing_workspace_discards_a_late_mcp_token(live_browser_server):
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("late-token@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2872,7 +2944,7 @@ def test_closing_workspace_discards_a_late_mcp_token(live_browser_server):
             page.wait_for_function(
                 "() => !document.querySelector('#mcp-token-form button[type=submit]').disabled"
             )
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#workspace-tab-mcp").click()
 
             expect(page.locator("#mcp-secret-panel")).to_be_hidden()
@@ -2894,7 +2966,7 @@ def test_slower_mcp_refresh_cannot_restore_a_revoked_credential(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#dev-login-email").fill("stale-token-list@example.edu")
             page.locator("#dev-login-form button[type=submit]").click()
             expect(page.locator("#account-signed-in")).to_be_visible()
@@ -2965,7 +3037,7 @@ def test_trial_activation_wins_over_an_older_workspace_refresh(
         page = browser.new_page()
         try:
             _goto_ready_demo(page, live_browser_server)
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.evaluate(
                 """() => {
                     const original = window.fetch.bind(window);
@@ -3173,7 +3245,7 @@ def test_research_workspace_in_browser(live_browser_server):
         try:
             _goto_ready_demo(page, live_browser_server)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
-            assert page.locator("#scenario-select option").count() >= 6
+            assert page.locator("#scenario-options [role=option]").count() >= 6
             expect(page.locator("#conclusions-list .conclusion-card").first).to_be_visible()
             expect(page.locator("#facts-list .fact-card").first).to_be_visible()
             expect(page.locator("#kb-content .rule-card").first).to_be_visible()
@@ -3248,10 +3320,11 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(game_dialog).to_be_visible()
             _axe_report(page, "argument explanation picker")
             picker_card = page.locator("#modal-game .game-picker-card").first
-            expect(picker_card).to_be_visible()
-            expect(picker_card).to_have_attribute("type", "button")
-            picker_card.focus()
-            picker_card.press("Enter")
+            if picker_card.count():
+                expect(picker_card).to_be_visible()
+                expect(picker_card).to_have_attribute("type", "button")
+                picker_card.focus()
+                picker_card.press("Enter")
             expect(page.locator("#modal-game .game-tree")).to_be_visible()
             _axe_report(page, "argument explanation tree")
             supports_toggle = page.locator("#modal-game .game-supports-toggle").first
@@ -3269,7 +3342,8 @@ def test_research_workspace_in_browser(live_browser_server):
             page.locator("#oidc-login-link").evaluate("element => { element.hidden = false; }")
             workspace_button.focus()
             workspace_button.press("Enter")
-            expect(page.get_by_role("dialog", name="Research workspace")).to_be_visible()
+            page.locator("#account-menu").get_by_role("menuitem", name=re.compile(r"^(Account and credit|Sign in)\.\.\.$")).click()
+            expect(page.get_by_role("dialog", name="Account", exact=True)).to_be_visible()
             expect(page.locator("#oidc-login-link")).to_be_focused()
             page.keyboard.press("Escape")
             expect(workspace_button).to_be_focused()
@@ -3278,7 +3352,8 @@ def test_research_workspace_in_browser(live_browser_server):
 
             workspace_button.focus()
             workspace_button.press("Enter")
-            dialog = page.get_by_role("dialog", name="Research workspace")
+            page.locator("#account-menu").get_by_role("menuitem", name=re.compile(r"^(Account and credit|Sign in)\.\.\.$")).click()
+            dialog = page.locator('#modal-workspace [role="dialog"]')
             expect(dialog).to_be_visible()
             expect(page.locator("#dev-login-email")).to_be_focused()
             _axe_report(page, "signed-out workspace")
@@ -3298,6 +3373,7 @@ def test_research_workspace_in_browser(live_browser_server):
             account_tab.press("ArrowRight")
             expect(page.locator("#workspace-tab-projects")).to_be_focused()
             expect(page.locator("#workspace-panel-projects")).to_be_visible()
+            page.locator("#project-copy-panel > summary").click()
             page.locator("#project-name-input").fill("Browser acceptance project")
             page.locator("#project-description-input").fill(
                 "Created through the real browser workspace"
@@ -3308,8 +3384,9 @@ def test_research_workspace_in_browser(live_browser_server):
                 "Created private project"
             )
 
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             page.locator("#workspace-tab-projects").click()
+            _project_action(page, "share")
             page.locator('[data-project-action="share-create"]').click()
             share_input = page.locator("#latest-share-url")
             expect(share_input).to_be_visible()
@@ -3329,7 +3406,7 @@ def test_research_workspace_in_browser(live_browser_server):
                 )
                 assert access_note.locator("button").count() == 0
                 shared_page.locator(".rule-info").first.click()
-                expect(shared_page.locator("#chat-input")).to_have_value(re.compile('Can you explain'))
+                assert "Can you explain" in shared_page.evaluate("chatComposer.snapshot().text")
                 expect(shared_page.locator("#chat-send-btn")).to_be_disabled()
                 expect(shared_page.locator("#modal-workspace .modal-content")).to_be_hidden()
             finally:
@@ -3340,6 +3417,7 @@ def test_research_workspace_in_browser(live_browser_server):
 
             ai_access_button = page.locator("#ai-access-btn")
             ai_access_button.click()
+            page.locator("#ai-menu").get_by_role("menuitem", name="AI access settings...", exact=True).click()
             expect(page.locator("#workspace-panel-ai")).to_be_visible()
             page.locator('input[name="ai-mode"][value="byok"]').check()
             page.locator("#byok-provider-select").select_option("openrouter")
@@ -3382,6 +3460,8 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(page.locator("#mcp-codex-config")).to_have_text("")
             expect(page.locator("#mcp-claude-command")).to_have_text("")
 
+            add_fact_summary = page.locator("#facts-panel .add-menu > summary")
+            add_fact_summary.click()
             add_fact_button = page.locator('[data-edit-task="add-fact"]').first
             add_fact_button.focus()
             add_fact_button.press("Enter")
@@ -3391,7 +3471,7 @@ def test_research_workspace_in_browser(live_browser_server):
             _axe_report(page, "natural language edit dialog")
             page.keyboard.press("Escape")
             expect(edit_dialog).to_be_hidden()
-            expect(add_fact_button).to_be_focused()
+            expect(add_fact_summary).to_be_focused()
 
             page.locator('.facts-filter[data-filter="assumptions"]').click()
             assumption = page.locator("#facts-list input[data-asm-id]").first
@@ -3411,17 +3491,17 @@ def test_research_workspace_in_browser(live_browser_server):
             expect(graph_scroll).to_have_attribute("tabindex", "0")
             expect(graph_scroll).to_have_attribute("role", "region")
             expect(graph_scroll).to_have_attribute(
-                "aria-label", "Scrollable argument graph"
+                "aria-label", "Scrollable conclusion graph"
             )
             expect(graph_scroll).to_have_attribute(
                 "aria-describedby", "af-graph-summary"
             )
             expect(page.locator("#af-graph-summary")).to_contain_text(
-                "For a text explanation"
+                "Activate a node to inspect its individual derivations"
             )
             graph_svg = graph_scroll.locator("svg")
-            expect(graph_svg).to_have_attribute("role", "img")
-            expect(graph_svg.locator("title")).to_have_text("ABDA-NL argument graph")
+            expect(graph_svg).to_have_attribute("role", "group")
+            expect(graph_svg.locator("#af-svg-title")).to_have_text("ABDA-NL conclusion graph")
             scope_control = page.locator(".af-scope-control")
             expect(scope_control).to_have_attribute("role", "group")
             key_scope = page.locator('[data-af-scope="key"]')
@@ -3457,6 +3537,7 @@ def test_research_workspace_in_browser(live_browser_server):
             _reload_ready_demo(page)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
             page.locator("#ai-access-btn").click()
+            page.locator("#ai-menu").get_by_role("menuitem", name="AI access settings...", exact=True).click()
             expect(page.locator("#byok-api-key")).to_have_value("")
             expect(page.locator("#mcp-secret-panel")).to_be_hidden()
             page.keyboard.press("Escape")
@@ -3474,7 +3555,8 @@ def test_research_workspace_in_browser(live_browser_server):
             page.set_viewport_size({"width": 390, "height": 844})
             _reload_ready_demo(page)
             expect(page.locator("#scenario-name")).not_to_have_text("Loading...")
-            expect(page.locator(".compact-switch")).to_be_visible()
+            expect(page.locator("#scenario-menu-btn")).to_be_visible()
+            expect(page.locator("#ai-access-btn")).to_be_visible()
             expect(page.locator("#aspic-btn")).to_be_visible()
             overflow = page.evaluate(
                 "Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) "
@@ -3488,7 +3570,7 @@ def test_research_workspace_in_browser(live_browser_server):
             )
             assert aspic_width_ratio >= 0.9
             page.keyboard.press("Escape")
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             expect(dialog).to_be_visible()
             _axe_report(page, "mobile workspace")
             _save_browser_evidence(page, "mobile-workspace")
@@ -3499,7 +3581,7 @@ def test_research_workspace_in_browser(live_browser_server):
                 "async () => (await fetch('/api/auth/session')).json()"
             )
             assert session["authenticated"] is False
-            page.locator("#workspace-btn").click()
+            _open_workspace(page)
             expect(dialog).to_be_visible()
             expect(page.locator("#account-signed-out")).to_be_visible()
             assert console_errors == []

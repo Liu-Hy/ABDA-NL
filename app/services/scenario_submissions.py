@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from contextlib import nullcontext
+from datetime import timezone
 import re
 import threading
 from uuid import UUID
@@ -42,6 +43,25 @@ def public_id(item: ScenarioSubmission) -> str:
     return "community_" + UUID(item.id).hex
 
 
+def safe_display_name(user: User | None) -> str | None:
+    """A display name can be shown by permission or opt-in, never an email fallback."""
+    name = " ".join((user.display_name or "").split()) if user else ""
+    return name[:200] if name and "@" not in name else None
+
+
+def _metadata(project: Project, owner: User, title: str | None, summary: str | None,
+              author_note: str, attribute_author: bool) -> tuple[str, str, str, str | None]:
+    public_title = (project.name if title is None else title).strip()
+    public_summary = (summary or "").strip()
+    note = author_note.strip()
+    if not public_title or len(public_title) > 120 or len(public_summary) > 400 or len(note) > 1000:
+        raise SubmissionError("Check the public title, summary, and note lengths.", status=400)
+    attribution = safe_display_name(owner) if attribute_author else None
+    if attribute_author and not attribution:
+        raise SubmissionError("A display name without an email address is needed for public attribution.", status=400)
+    return public_title, public_summary, note, attribution
+
+
 def _active_owner(session: Session, owner_id: str) -> User:
     owner = session.scalar(
         select(User)
@@ -62,6 +82,10 @@ def submit_scenario(
     project_id: str,
     expected_version: int,
     publish: bool,
+    public_title: str | None = None,
+    public_summary: str | None = None,
+    author_note: str = "",
+    attribute_author: bool = False,
 ) -> ScenarioSubmission:
     # PostgreSQL serializes on the owner row. SQLite is single-process only.
     with (_SQLITE_LOCK if session.get_bind().dialect.name == "sqlite" else nullcontext()):
@@ -86,6 +110,8 @@ def submit_scenario(
                 raise SubmissionError("Project not found.", status=404)
             if project.version != expected_version:
                 raise SubmissionError("The project changed. Reopen it before submitting.")
+            title, summary, note, attribution = _metadata(
+                project, owner, public_title, public_summary, author_note, attribute_author)
             previous = session.scalar(
                 select(ScenarioSubmission).where(
                     ScenarioSubmission.project_id == project.id,
@@ -93,6 +119,12 @@ def submit_scenario(
                 )
             )
             if previous:
+                if (previous.title, previous.public_summary, previous.author_note, previous.attribution_name) != (
+                    title, summary, note, attribution
+                ):
+                    raise SubmissionError(
+                        "This project version already has a submission. Save a new project version before changing its public metadata."
+                    )
                 # A retry cannot duplicate a request or silently undo a review.
                 return previous
             pending = (
@@ -122,7 +154,7 @@ def submit_scenario(
                     status=429,
                 )
             raw = deepcopy(project.scenario_json)
-            raw["title"] = project.name
+            raw["title"] = title
             # The project description is private workspace metadata. Publish only
             # the scenario description shown in the snapshot preview.
             raw = normalize_project_scenario(raw, project.source_scenario_id)
@@ -130,8 +162,11 @@ def submit_scenario(
                 submitter_id=owner.id,
                 project_id=project.id,
                 project_version=project.version,
-                title=project.name,
+                title=title,
                 description=raw.get("description", ""),
+                public_summary=summary,
+                author_note=note,
+                attribution_name=attribution,
                 scenario_json=raw,
                 source_scenario_id=project.source_scenario_id,
                 status="published" if publish else "pending",
@@ -193,7 +228,7 @@ def review_submission(
                 raise SubmissionError(
                     "This action is not available for this submission.", status=403
                 )
-            if action in {"reject", "unpublish"} and not note.strip():
+            if (action == "reject" or (action == "unpublish" and item.submitter_id != user.id)) and not note.strip():
                 raise SubmissionError("Add a short reason for the author.", status=400)
             result = session.execute(
                 update(ScenarioSubmission)
@@ -244,6 +279,9 @@ def list_published_scenarios(session: Session) -> list[dict]:
             ScenarioSubmission.title,
             ScenarioSubmission.description,
             ScenarioSubmission.source_scenario_id,
+            ScenarioSubmission.public_summary,
+            ScenarioSubmission.attribution_name,
+            ScenarioSubmission.reviewed_at,
         )
         .order_by(ScenarioSubmission.created_at, ScenarioSubmission.id)
     )
@@ -254,6 +292,11 @@ def list_published_scenarios(session: Session) -> list[dict]:
             "description": row.description,
             "category": "community",
             "source_scenario_id": row.source_scenario_id,
+            "public_summary": row.public_summary,
+            "attribution_name": row.attribution_name,
+            "published_at": (row.reviewed_at.replace(tzinfo=timezone.utc)
+                             if row.reviewed_at and row.reviewed_at.tzinfo is None
+                             else row.reviewed_at).isoformat() if row.reviewed_at else None,
         }
         for row in rows
     ]

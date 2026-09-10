@@ -61,7 +61,10 @@ const conversationHistory = (() => {
     }
     const data = { ...structuredClone({ ...record, snapshots: undefined }), snapshots };
     const signatures = new Map();
-    for (const ref of data.context_refs || []) {
+    const referenceValues = [...(data.context_refs || []),
+      ...(data.draft_segments || []).filter(item => item.type === 'reference').map(item => item.ref),
+      ...(data.messages || []).flatMap(message => (message.segments || []).filter(item => item.type === 'reference').map(item => item.ref))];
+    for (const ref of referenceValues) {
       if (ref.scenario_signature && !ref.scenario_signature.startsWith('sha256:')) {
         const text = ref.scenario_signature;
         if (!signatures.has(text)) signatures.set(text, signature(text));

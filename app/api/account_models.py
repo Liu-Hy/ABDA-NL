@@ -91,6 +91,12 @@ class ProjectUpdateRequest(BaseModel):
         return self
 
 
+class ProjectRestoreRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+
+
 class ScenarioFilePreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -163,6 +169,13 @@ class ProjectProposeRequest(ProjectWorkingStateRequest):
     llm: Optional[LLMRequestOptions] = None
 
 
+class ProjectSubmissionStatus(BaseModel):
+    id: str
+    project_version: int
+    status: Literal["pending", "published", "rejected", "withdrawn"]
+    reviewed_at: Optional[datetime] = None
+
+
 class ProjectSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -173,6 +186,9 @@ class ProjectSummaryResponse(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    archived_at: Optional[datetime] = None
+    active_share_count: int = 0
+    submissions: List[ProjectSubmissionStatus] = Field(default_factory=list)
 
 
 class ProjectListResponse(BaseModel):

@@ -1,0 +1,56 @@
+/* Private workspace and public snapshot review. */
+.project-filters, .example-filters, .project-status-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.project-filters [aria-pressed="true"], .example-filters [aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
+.project-copy-panel { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: .8rem; }
+.project-copy-panel > summary, .example-full-snapshot > summary { cursor: pointer; font-weight: 600; padding: .45rem 0; }
+.project-copy-panel .project-create-form { margin-top: .6rem; }
+.project-status-chips { margin-top: .35rem; }
+.project-status-chip { border: 1px solid var(--border); border-radius: 1rem; padding: .12rem .5rem; font-size: 12px; color: var(--text-dim); }
+.current-project-card { padding: .7rem .8rem; }
+.current-project-card .workspace-section-heading { margin-bottom: 0; align-items: center; }
+.current-project-card h3 { margin: 0; font-size: 15px; }
+.current-project-card .workspace-section-heading p { margin: .2rem 0 0; font-size: 13px; }
+.project-menu { position: relative; }
+.project-menu > summary { list-style: none; cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius); padding: .25rem .65rem; font-weight: 700; }
+.project-menu > summary::-webkit-details-marker { display: none; }
+.project-menu-items { position: absolute; right: 0; top: calc(100% + .25rem); z-index: 3; display: grid; min-width: 12rem; padding: .4rem; gap: .2rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-lg); }
+.project-menu-items button { text-align: left; white-space: normal; }
+.project-rename-form { display: flex; align-items: end; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+.project-rename-form label { display: grid; gap: .25rem; flex: 1; font-size: 14px; }
+.project-rename-form input, .project-share-controls select { padding: .4rem; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.project-share-controls { border-top: 1px solid var(--border); margin-top: .6rem; padding-top: .6rem; }
+.project-share-controls > label { font-size: 14px; }
+.project-share-controls > h4 { margin: .2rem 0; }
+.account-view-card { margin: .8rem 0; padding: .7rem; }
+.account-view-card .workspace-section-heading { align-items: center; margin: 0; }
+.account-view-card h3 { margin: 0; font-size: 15px; }
+.account-view-card p { max-width: 44rem; font-size: 15px; }
+.account-view-card button { flex-shrink: 0; max-width: 15rem; white-space: normal; }
+.example-public-metadata .form-field { margin-bottom: .55rem; }
+.example-counts { color: var(--text-dim); font-size: 13px; }
+.example-background p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .3rem 0 .75rem; }
+.example-attribution { display: block; font-size: 14px; margin-top: .75rem; }
+.example-full-snapshot { margin-top: .8rem; border-top: 1px solid var(--border); }
+.example-review-footer { flex-direction: column; align-items: stretch; gap: .45rem; }
+.example-review-footer .example-consent { margin: 0; padding: .5rem .65rem; }
+.example-review-footer .field-hint { font-size: 13px; margin: .25rem 0 0; }
+.example-review-footer .form-field { margin: 0; }
+.example-review-footer textarea { min-height: 3rem; max-height: 5rem; }
+.example-review-footer .workspace-status:empty { display: none; }
+.example-review-actions, .example-confirmation { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.example-confirmation { border: 1px solid var(--accent); border-radius: var(--radius); padding: .5rem; }
+.example-confirmation span { flex: 1; font-size: 15px; }
+.example-review-footer [aria-invalid="true"] { outline: 2px solid #b8342b; }
+.project-menu:focus-within, .example-full-snapshot > summary:focus-visible { outline-offset: 3px; }
+.modal-backdrop[inert] { pointer-events: none; }
+.workspace-tab, .workspace-panel label { font-size: 14px; }
+.workspace-panel .field-hint, .workspace-panel .field-help, .project-card-meta,
+.example-review-content .field-hint, .account-policy-note { font-size: 13px; }
+.project-card-name, .project-card-description, .example-review-content .modal-body { font-size: 15px; }
+@media (max-width: 600px) {
+  .account-view-card .workspace-section-heading { align-items: stretch; flex-direction: column; }
+  .account-view-card button { max-width: none; }
+  .example-review-content { max-height: 94dvh; }
+  .example-review-footer { padding: .5rem; }
+  .example-review-footer .example-consent { padding: .35rem; }
+}

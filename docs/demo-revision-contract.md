@@ -13,6 +13,9 @@ in the [September 9 investigation](demo-revision-review-20260909.md), his six
 supplemental requests, and his later messages in this conversation. Later explicit
 instructions take precedence. The initial instruction to investigate without
 implementation was superseded by authorization to implement using subagents.
+The authorized [consolidated UI review](demo-ui-design-review-20260910.md)
+adds the interface acceptance criteria below; its U01-U77 finding numbers are
+distinct from Haoyang's six U1-U6 requests.
 
 Below, **O** refers to the original product questions in `Requirements.docx`;
 **G** refers to the colleague's Demo or More radical ideas indices; **U1-U6**
@@ -55,6 +58,24 @@ The R03 identity list is exact, using the sign-in system's email normalization:
 | Shawn | `bowers@gonzaga.edu` |
 | Martin Caminada | `CaminadaM@cardiff.ac.uk` |
 | Timothy McPhillips | `tmcphill@illinois.edu` |
+
+## Interface acceptance, September 10
+
+These criteria condense the consolidated review's P01-P29 proposals. The guide
+records implementation choices and deliberate departures. Preserve R01-R16 and
+E01-E07 throughout, including account isolation and late-response protection.
+
+| Area | Acceptance criteria | Review |
+| --- | --- | --- |
+| Navigation | Scenario choice and separate New, Import, Manage, Download, Sources, and Edit actions share one popover. Arrow keys move focus without loading. The header exposes the selected AI model and funding mode, direct Save with secondary actions, and Account. Anonymous download remains available. Normal user view keeps a visible one-click Restore. | P01-P03, P27-P28 |
+| Reset | A baseline Reset is a no-op. A real reset preserves conversation, draft and saved turn snapshots. Undo remains available until another state change, save/version change, view/account switch or reload invalidates it; it cannot restore changes into a different project. | P02, P08 |
+| Explorer | Reading width and wrapping take priority over decorative status blocks. Keep four panels and keyboard/draggable dividers. Separate fact/assumption kind from Changed and Suspended filters; grouping is optional per panel. Keep visible state words, question drafting, direct formal inspection including Absent, and rule modification/copy actions. Priority controls say Prefer or Equal priority. | P04-P05, P11-P14 |
+| Arguments | Skip a one-candidate picker; distinguish multiple derivations with exact IDs and premise routes. Explain and Derivation use the same captured bundle. Auto-resolve only terminal leaves, preserving cycles and unplayed choices. Conclusion graph nodes use prose plus IDs and open the selected literal's derivations. Count any hidden nodes without displayed attacks, retain access to all nodes, and restore graph scope, zoom and focus on return. | P06-P07 |
+| Conversation | Keep compact history controls, visible pending/storage failures, explicit fork scenario choice, and scenario-derived starter actions that do not auto-send. The composer preserves ordered prose and atomic references through draft storage, reload, fork and export. Converting or removing a reference affects only that token, with discoverable Undo. Plain-text paste, keyboard editing, stale context, the 24-reference cap, and IME confirmation must work. Never reconstruct legacy references by matching substrings. | P08, P10, P15 |
+| Sources | Evidence distinguishes verified quotation from retrieved context and formal references. Open the saved source snapshot for historical answers, with plain-text search and a glossary table. Confirm a cited location against the reader's exact text before highlighting, including Unicode offsets; ambiguous or extraction-mismatched locations remain unconfirmed. No documents is normal. Source URLs are metadata, never fetched. Clear reader contents on account changes. | P09, P29 |
+| Authoring | New starts with an empty draft; New, Import and Edit remain distinct goals. Assign IDs once, preserve references and explicit renames, and provide keyboard literal selection. Group/filter long drafts and show validation beside fields. Check & save saves valid manual input directly; warnings require review, errors block saving, and AI proposals retain preview/apply. Current-rule text remains visible while instructions are typed. Import suggests roles from content and requires confirmation of ambiguity. Document rows show only retained or actually reported metadata and support read/edit/replace/remove. | P16-P22, U37 |
+| Projects and publication | Put projects first with saved-version/share/submission status. Restore archived projects privately under owner, active-account, version and capacity checks; revoke old links atomically. Public title, short summary and optional attribution belong to the submitted snapshot. Full background and documents remain explicitly disclosed; private description and author note stay private. Keep one informed publication affirmation, authorized queue counts/display names, in-dialog review confirmation, and a durable Open example action. Own unpublication needs no note but keeps the audit record. | P23-P28 |
+| Presentation and access | Use readable type (15 px reading, 14 px controls, 13 px captions, at least 12 px badges/IDs), restrained surfaces and semantic status colors. Verify contrast, keyboard focus, logical modal return, top-dialog interaction, and narrow/zoomed layouts. Status banners push content down; errors persist until dismissed and important actions are not timer-only. | P04, P07, P11-P14 |
 
 ## Engineering constraints to preserve
 

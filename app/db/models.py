@@ -145,6 +145,9 @@ class ScenarioSubmission(Base):
     reviewer_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    public_summary: Mapped[str] = mapped_column(String(400), nullable=False, default="", server_default="")
+    author_note: Mapped[str] = mapped_column(String(1000), nullable=False, default="", server_default="")
+    attribution_name: Mapped[Optional[str]] = mapped_column(String(200))
 
 
 class ShareLink(Base):

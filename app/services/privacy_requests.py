@@ -318,6 +318,8 @@ def export_privacy_account(session: Session, email: str) -> dict[str, Any]:
         },
         "scenario_submissions": [
             {"id": item.id, "title": item.title, "scenario": item.scenario_json,
+             "public_summary": item.public_summary, "author_note": item.author_note,
+             "attribution_name": item.attribution_name,
              "source_scenario_id": item.source_scenario_id,
              "project_version": item.project_version, "status": item.status,
              "review_note": item.review_note, "created_at": _time(item.created_at),

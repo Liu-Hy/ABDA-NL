@@ -13,7 +13,7 @@ The subsequent correction work starts from `94febed`; inspect the current
 commit and the correction status below for its validation boundary.
 The last verified hosted source is
 `234ffc97522b5d82e0a4a4d05082d88a4ab0c173`, on schema 0006. The correction
-candidate uses schema 0007 and has not been deployed to the hosted site. Hosted
+candidate uses schema 0008 and has not been deployed to the hosted site. Hosted
 receipts below describe the earlier release. Review existing foundations as well as this diff
 wherever R01-R16 or E01-E07 depend on them.
 
@@ -78,7 +78,7 @@ eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34518090673)
 and [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34518090581):
 1,688 tests/81 skips per Python version, restricted-role PostgreSQL, and 80 tests
 per browser engine (Chromium, Firefox and WebKit). CodeQL reported zero results
-across 50 rules. The only subsequent source changes are documentation.
+across 50 rules. This is the verified baseline preceding the UI revision below.
 Both application and observability templates and parameter files compiled with
 pinned Bicep 0.46.1 using synthetic configuration. Earlier failed browser runs
 remain preserved; corrections synchronized the logout fixture and scoped its
@@ -128,6 +128,64 @@ paid testing is pending. Lifetime CloudBank evaluation spending is **$67.664447
 of the original $100**, zero pending, leaving $32.335553. Paid OpenRouter testing
 remains zero. These are conservative application ledger amounts, not invoices.
 
+## Consolidated UI revision
+
+The UI revision starts at `02c77dc955661eac3f9773aaeaaa2a29b9dbb3c1`. Its
+acceptance criteria are condensed in the contract; Tim's consolidated review
+and the earlier response are supporting provenance, not additional entry
+points a reviewer must reconcile.
+
+| Area | Implementation and focused checks |
+| --- | --- |
+| Shell and explorer, P01-P07/P10-P14 | `ui-shell.js`, `ui-shell.css`, `argument-navigation.js`, `app.js`; `test_ui_shell_browser.py` checks selection without loading, Reset/Undo scope, exact graph navigation, saved-bundle games, terminal leaves, and seven screen sizes. Existing game tests retain full-defense and cycle cases. |
+| Chat and sources, P08-P10/P15/P29 | `composer.js`, `source-reader.js`, `exploration.js`, `conversation-storage.js`, `chat-exploration.css`; `test_composer_source_reader.py` and `test_exploration_browser.py` cover ordered references, IME, clipboard/caret/Undo, legacy history, late answers and account isolation, quotation offsets, ambiguity, and saved source text. |
+| Authoring, P16-P22 | `scenarios.js`, `materials.js`, `authoring.css`; `test_authoring_browser.py` and the migrated existing browser workflows cover empty drafts, stable symbols, literal selection, validation/save, import, documents and portable export. |
+| Projects and publication, P23-P28 | `workspace.js`, `curation.js`, `workspace.css`, project/submission services and API, migration 0008; `test_workspace_projects_publication.py`, `test_submission_metadata_migration.py`, `test_workspace_revision_browser.py`, and restricted-role PostgreSQL contention checks. |
+
+Intentional refinements:
+
+- Retain the generic editable `Can you explain ...?` draft. The ordered
+  reference editor changes presentation and persistence; it does not justify
+  replacing qualified question wording or commissioning new prompt tuning.
+- Keep the system font stack with the larger reading scale. It remains
+  familiar, supports multilingual text through platform fallbacks, and requires
+  no additional font downloads. IBM Plex is optional visual polish, deferred
+  after inspecting the system-font prototype.
+- Use a shared navigation bar that replaces the active argument dialog rather
+  than nesting the game over the inspector. Preserve the exact bundle and
+  derivation, with a return to the prior game or graph. Describe projected
+  rebuts as one-way or bidirectional, since an absent projected edge alone
+  does not prove a preference decided the outcome. Node descriptions wrap to
+  three short lines; complete text remains in the accessible name and tooltip.
+  Fit shows the whole topology; larger graphs require zoom or inspection to
+  read every description comfortably.
+- The selected item's identifier is the direct inspector link; a second
+  conclusion-row overflow duplicates that action without adding a user goal.
+  Rule overflow remains useful for its three distinct actions. Desktop split
+  proportions adapt below laptop width rather than imposing a 420 px minimum
+  on a narrow viewport.
+- Document page counts are shown only when the upload result actually contains
+  them. Retained text size is explicit; original PDFs are not stored. Source
+  location mismatches remain unconfirmed instead of changing qualified PDF
+  extraction or suggesting that context alone is a verified quotation.
+
+Schema 0008 adds only publication metadata. Existing snapshots receive empty
+summary/note fields and no attribution opt-in; it does not modify credit,
+identity or inference configuration. The model implementation fingerprint is
+still `ef801af4d8861155efcb846818e73464e7f28701dabcba6dc0c90186da11a6f0`.
+No paid model calls were needed for this presentation work.
+
+Local Slurm verification passed 1,718 deterministic/backend tests (113 skips,
+including opt-in browsers and PostgreSQL). The complete Chromium run passed
+116 of 117 cases, exposing a keyboard-inaccessible About scroller at 200% zoom.
+After correcting that and two inherited game-control contrast issues, all 17
+focused integration cases passed, including the full research workflow and
+seven viewport sizes. Seventeen checked color pairs have contrast ratios of
+at least 4.58. Screenshots of the explorer, authoring, publication, chat, and
+saved-source reader were inspected, along with three color-vision simulations.
+The full browser/CI and managed-demo receipts will establish the final boundary;
+these local results alone are not hosted deployment or conference-device acceptance.
+
 ## Current qualified model pool
 
 | Funded provider | Models |
@@ -163,25 +221,16 @@ interpretation and should themselves be challenged.
 
 ## Earlier release evidence and remaining limits
 
-1. **Model behavior:** the accepted composite contains 1,080 observations
-   (45 cases, three repetitions, eight models), covering eleven feature groups:
-   grounded chat, item/corpus questions, sensitivity, four proposal tasks,
-   refinement, semantic review, and authoring-context fidelity. All six bundled
-   scenarios plus custom/imported/renamed and adverse cases are represented.
-   There are 1,057 original automatic passes, 21 phrase-matching adjudications,
-   and two nonblocking assessments. The latter retain an optional GLM category
-   omission with unchanged computed framework and a valid Sonnet state-heading
-   quotation rejected by a corpus-only scorer. Inspect actual outputs and the
-   justification, not just the accepted total. The final GLM-only chat reminder
-   has a 63-observation regression; 1,017 retained observations have identical
-   full-request/result replay. See the [qualification evidence](operations/model-qualification-20260910.md).
-2. **Budget and funding:** before these corrections, lifetime CloudBank evaluation spending was
-   $65.361387, zero pending, leaving $34.638613 of the original $100. This is
-   conservative application accounting, not an invoice. Paid OpenRouter tests
-   were zero. The authoritative evaluation ledger is
-   `artifacts/evals/cloudbank-budget.sqlite3`; never restart it or create a fresh
-   $100 allowance for review. Check that timeout/correction/cached/reasoning paths
-   cannot escape accounting or switch to personal funding.
+1. **Earlier model qualification:** the original eight-model reports, failed
+   outputs and adjudications are retained in the
+   [qualification evidence](operations/model-qualification-20260910.md).
+   They are superseded by the seven-model, 945-observation boundary above;
+   neither a validator pass nor exact replay proves semantic correctness.
+2. **Budget and funding:** the authoritative lifetime ledger is
+   `artifacts/evals/cloudbank-budget.sqlite3`. The current total is above;
+   never restart it or create a fresh $100 allowance for review. Verify that
+   timeout, correction, cached-token and reasoning-token paths remain accounted
+   for and cannot switch evaluation to personal funding.
 3. **Hosted credit and release:** schema 0006, one registered administrator's
    $50 total with prior usage retained, and four future entitlements were
    verified. The hosted native fixtures were synthetic; the real administrator's

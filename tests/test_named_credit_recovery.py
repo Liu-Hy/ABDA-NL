@@ -81,7 +81,7 @@ def test_0007_recovery_conserves_transferred_reservations_and_eligibility(recove
     command.upgrade(config, "head")
     initialize_database()
     with get_session_factory()() as session:
-        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260910_0007"
+        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260910_0008"
         markers = {
             (marker.digest, marker.kind, marker.user_id, marker.claimed_at)
             for marker in session.scalars(select(CreditEligibilityMarker))

@@ -1,0 +1,69 @@
+/* Scenario authoring, scoped to editor and retained-document controls. */
+#modal-scenario-library .scenario-library-content { min-width: 0; }
+#modal-scenario-library .scenario-library-body { overflow-x: hidden; }
+#modal-scenario-library :is(input, textarea, select) { max-width: 100%; }
+#modal-scenario-library .scenario-lead { font-size: var(--font-reading, .95rem); }
+#modal-scenario-library .scenario-hint { font-size: var(--font-caption, .82rem); }
+#modal-scenario-library :is(.authoring-empty, .authoring-rule-preview) { font-size: var(--font-reading, .95rem); line-height: 1.55; }
+#modal-scenario-library .authoring-empty { padding: .65rem 0; color: var(--text-dim); }
+#modal-scenario-library .authoring-filter { margin: 1rem 0; }
+#modal-scenario-library .authoring-statement-group { margin: .6rem 0 1rem; }
+#modal-scenario-library .authoring-statement-group > summary { padding: .45rem .1rem; font-weight: 650; cursor: pointer; font-size: var(--font-control, .88rem); }
+#modal-scenario-library .authoring-row-summary { cursor: pointer; overflow-wrap: anywhere; line-height: 1.5; }
+#modal-scenario-library .authoring-row-summary > span { margin-right: .55rem; }
+#modal-scenario-library .authoring-row-description { font-size: var(--font-reading, .95rem); }
+#modal-scenario-library .authoring-symbol-line { overflow-wrap: anywhere; }
+#modal-scenario-library .authoring-row-kind { text-transform: capitalize; color: var(--text-dim); font-size: var(--font-caption, .82rem); }
+#modal-scenario-library .authoring-row-symbol { font-family: monospace; font-size: var(--font-caption, .82rem); color: var(--text-dim); }
+#modal-scenario-library .authoring-rule-preview { padding: .6rem .7rem; margin: .7rem 0; background: var(--surface); border-radius: var(--radius); }
+#modal-scenario-library .authoring-literal-picker { display: grid; grid-template-columns: 4.3rem minmax(0, 1fr); align-items: start; position: relative; gap: .35rem .6rem; margin: .65rem 0; min-width: 0; }
+#modal-scenario-library .authoring-literal-picker > label { grid-column: 1; padding-top: .5rem; font-size: var(--font-control, .88rem); }
+#modal-scenario-library .authoring-literal-picker > :is(input, div, p) { grid-column: 2; min-width: 0; }
+#modal-scenario-library .authoring-literal-picker > input { width: 100%; padding: .55rem; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; font-size: var(--font-reading, .95rem); }
+#modal-scenario-library .authoring-literal-selection { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
+#modal-scenario-library .authoring-literal-chip { flex: 1 1 12rem; text-align: left; padding: .55rem .7rem; border: 1px solid #b9cee6; border-radius: 8px; background: #eef4fb; color: #233e60; font: inherit; font-size: var(--font-reading, .95rem); cursor: pointer; overflow-wrap: anywhere; }
+#modal-scenario-library .authoring-literal-not { display: inline-flex; align-items: center; gap: .35rem; padding: .45rem .15rem; font-size: var(--font-control, .88rem); }
+#modal-scenario-library .authoring-literal-options { grid-column: 2; max-height: 17rem; overflow-y: auto; border: 1px solid #73869e; background: var(--surface); border-radius: var(--radius); padding: .2rem; box-shadow: 0 3px 12px #142d4820; }
+#modal-scenario-library .authoring-option-group { font-size: var(--font-caption, .82rem); font-weight: 650; padding: .4rem .55rem .15rem; color: var(--text-dim); }
+#modal-scenario-library [role=option] { padding: .5rem .55rem; border-radius: 4px; cursor: pointer; font-size: var(--font-reading, .95rem); overflow-wrap: anywhere; }
+#modal-scenario-library [role=option]:hover, #modal-scenario-library [role=option][aria-selected=true] { background: #dfebfa; color: #163b6b; }
+#modal-scenario-library [aria-invalid=true] { border: 2px solid #a82935; outline-color: #a82935; }
+#modal-scenario-library .authoring-field-error { color: #a0202e; font-size: var(--font-caption, .82rem); line-height: 1.45; margin: .3rem 0 .5rem; }
+#modal-scenario-library .scenario-statement-row .authoring-field-error { grid-column: 1 / -1; grid-row: 2; }
+#modal-scenario-library .authoring-error-summary { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; padding: .5rem 1.2rem; color: #a0202e; max-height: 6rem; overflow: auto; flex-shrink: 0; }
+#modal-scenario-library .authoring-limit { padding: .7rem; border: 1px solid #b18a27; background: #fff8e5; font-size: var(--font-reading, .95rem); line-height: 1.5; }
+#modal-scenario-library .authoring-import-size, #modal-scenario-library .authoring-import-progress { display: block; font-size: var(--font-caption, .82rem); line-height: 1.5; color: var(--text-dim); }
+#modal-scenario-library .authoring-import-confirm { display: flex; align-items: flex-start; gap: .4rem; font-size: var(--font-caption, .82rem); margin-top: .4rem; }
+#modal-scenario-library .authoring-import-confirm input { margin: .25rem 0 0; }
+#modal-scenario-library .scenario-library-footer { flex-wrap: wrap; justify-content: flex-end; }
+#modal-scenario-library #scenario-save-note { flex-basis: 100%; margin: 0; text-align: right; }
+#modal-scenario-library .scenario-preview-claim .conclusion-status-bar { border-radius: 20px; width: auto; padding: .2rem .7rem; min-width: 6rem; justify-content: center; flex: 0 0 auto; }
+.authoring-sources { min-width: 0; }
+.authoring-sources .authoring-document-scroll { max-width: 100%; }
+.authoring-sources .authoring-documents { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: var(--font-reading, .95rem); }
+.authoring-sources .authoring-documents th, .authoring-sources .authoring-documents td { text-align: left; vertical-align: top; padding: .6rem .45rem; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.authoring-sources .authoring-documents th:first-child { width: 35%; }
+.authoring-sources .authoring-documents small { display: block; margin-top: .25rem; font-size: var(--font-caption, .82rem); font-weight: 400; color: var(--text-dim); }
+.authoring-sources .authoring-source-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+.authoring-sources .authoring-source-actions .btn { min-height: 32px; }
+.authoring-sources .authoring-source-capacity { margin: .8rem 0; font-size: var(--font-caption, .82rem); }
+.authoring-sources .authoring-source-capacity label { display: block; }
+.authoring-sources meter { display: block; width: 100%; height: 1.1rem; }
+.authoring-sources .authoring-source-form { padding: .8rem; margin-top: .8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.authoring-sources .authoring-source-form .form-field { margin: .65rem 0; }
+.authoring-sources .authoring-source-form textarea { resize: vertical; line-height: 1.55; }
+@media (max-width: 600px) {
+  #modal-scenario-library .scenario-library-body { padding: .8rem; }
+  #modal-scenario-library .scenario-library-nav { flex-wrap: wrap; padding: .6rem .8rem; }
+  #modal-scenario-library .scenario-section-heading { flex-wrap: wrap; }
+  #modal-scenario-library .scenario-statement-row { grid-template-columns: minmax(0, 1fr) auto; }
+  #modal-scenario-library .scenario-statement-row > select { grid-column: 1 / -1; }
+  #modal-scenario-library .scenario-statement-row .authoring-field-error { grid-row: 3; }
+  #modal-scenario-library .authoring-literal-picker { grid-template-columns: minmax(0, 1fr); }
+  #modal-scenario-library .authoring-literal-picker > :is(label, input, div, p) { grid-column: 1; }
+  #modal-scenario-library .scenario-library-footer { padding: .6rem .8rem; }
+  #modal-scenario-library .scenario-footer-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .authoring-sources .authoring-documents { font-size: var(--font-caption, .82rem); }
+  .authoring-sources .authoring-documents th, .authoring-sources .authoring-documents td { padding: .45rem .25rem; }
+  .authoring-sources .authoring-documents .btn { padding: .35rem .45rem; font-size: var(--font-caption, .82rem); }
+}

@@ -48,15 +48,17 @@ def test_frontend_ids_labels_and_assets_are_self_contained():
     duplicates = [value for value, count in Counter(inventory.ids).items() if count > 1]
     assert duplicates == []
     assert set(inventory.label_targets) <= set(inventory.ids)
-    assert inventory.scripts[-7:] == [
-        "app.js",
-        "conversation-storage.js",
-        "exploration.js",
-        "workspace.js",
-        "scenarios.js",
-        "materials.js",
-        "curation.js",
-    ]
+    for dependency, consumer in (
+        ("app.js", "exploration.js"),
+        ("conversation-storage.js", "exploration.js"),
+        ("composer.js", "exploration.js"),
+        ("exploration.js", "source-reader.js"),
+        ("workspace.js", "scenarios.js"),
+        ("scenarios.js", "materials.js"),
+    ):
+        assert inventory.scripts.index(dependency) < inventory.scripts.index(consumer)
+    assert {"ui-shell.js", "argument-navigation.js"} <= set(inventory.scripts)
+    assert all((STATIC_ROOT / source).is_file() for source in inventory.scripts + inventory.stylesheets)
     assert all("://" not in source for source in inventory.scripts)
     assert all("://" not in source for source in inventory.stylesheets)
 
@@ -163,10 +165,16 @@ def test_oidc_login_does_not_copy_share_fragments_into_server_urls():
     assert "refreshExternalOIDCLogin" in source
 
 
-def test_modal_focus_falls_back_when_the_requested_control_is_hidden():
+def test_modal_focus_uses_a_stack_and_falls_back_for_hidden_controls():
     source = (STATIC_ROOT / "workspace.js").read_text(encoding="utf-8")
-    assert "element.offsetParent !== null" in source
-    assert "const target = requested || modalFocusableElements(modal)[0]" in source
+    assert "element.getClientRects().length" in source
+    assert "summary:not([hidden])" in source
+    assert "requested || modalFocusableElements(modal)[0] || content" in source
+    assert "modalStack.push(id)" in source
+    assert "modal.inert = modal !== top" in source
+    assert "element.inert = true" in source
+    assert "const top = topModal()" in source
+    assert "opener?.isConnected" in source
     assert ".workspace-panel.active a[href]" in source
 
 

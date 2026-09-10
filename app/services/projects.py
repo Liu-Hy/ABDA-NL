@@ -5,12 +5,13 @@ import hashlib
 import json
 import secrets
 import threading
+from contextlib import nullcontext
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.db.models import Project, ShareLink, User, utc_now
+from app.db.models import Project, ScenarioSubmission, ShareLink, User, utc_now
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.loader import scenario_from_dict
 from app.scenario.serialize import scenario_to_dict
@@ -93,14 +94,45 @@ def normalize_project_scenario(raw: dict, source_scenario_id: str | None) -> dic
     return normalized
 
 
-def list_projects(session: Session, owner: User) -> list[Project]:
+def list_projects(session: Session, owner: User, *, archived: bool = False) -> list[Project]:
     return list(
         session.scalars(
             select(Project)
-            .where(Project.owner_user_id == owner.id, Project.archived_at.is_(None))
+            .where(Project.owner_user_id == owner.id,
+                   Project.archived_at.is_not(None) if archived else Project.archived_at.is_(None))
             .order_by(Project.updated_at.desc())
         )
     )
+
+
+def project_statuses(session: Session, owner: User, projects: list[Project]) -> dict[str, dict]:
+    """Bounded owner-only summaries, independent of the submission queue page."""
+    ids = [project.id for project in projects]
+    result = {project.id: {"active_share_count": 0, "submissions": []} for project in projects}
+    if not ids:
+        return result
+    for project_id, count in session.execute(
+        select(ShareLink.project_id, func.count(ShareLink.id))
+        .where(ShareLink.project_id.in_(ids), ShareLink.revoked_at.is_(None),
+               (ShareLink.expires_at.is_(None) | (ShareLink.expires_at > utc_now())))
+        .group_by(ShareLink.project_id)
+    ):
+        result[project_id]["active_share_count"] = count
+    for item in session.execute(
+        select(ScenarioSubmission.id, ScenarioSubmission.project_id,
+               ScenarioSubmission.project_version, ScenarioSubmission.status,
+               ScenarioSubmission.reviewed_at)
+        .where(ScenarioSubmission.project_id.in_(ids), ScenarioSubmission.submitter_id == owner.id)
+        .order_by(ScenarioSubmission.project_version.desc())
+    ):
+        result[item.project_id]["submissions"].append({
+            "id": item.id, "project_version": item.project_version,
+            "status": item.status, "reviewed_at": item.reviewed_at,
+        })
+    for project in projects:
+        if project.archived_at:
+            result[project.id]["active_share_count"] = 0
+    return result
 
 
 def get_project(session: Session, owner: User, project_id: str) -> Project:
@@ -280,6 +312,50 @@ def archive_project(
             raise ProjectNotFoundError("project not found")
         raise ProjectVersionConflictError("project changed since it was loaded")
     session.commit()
+
+
+def restore_project(
+    session: Session, owner: User, project_id: str, *, expected_version: int
+) -> Project:
+    """Restore privately. Old bearer links must never become usable again."""
+    if expected_version < 1:
+        raise ProjectValidationError("expected_version must be positive")
+    with (_SQLITE_PROJECT_LOCK if session.get_bind().dialect.name == "sqlite" else nullcontext()):
+        try:
+            current_owner = _lock_active_owner(session, owner.id)
+            if not current_owner.email_verified:
+                raise ProjectNotFoundError("account not found")
+            project = session.scalar(
+                select(Project).where(Project.id == project_id, Project.owner_user_id == owner.id)
+                .with_for_update().execution_options(populate_existing=True)
+            )
+            if project is None:
+                raise ProjectNotFoundError("project not found")
+            if project.version != expected_version or project.archived_at is None:
+                raise ProjectVersionConflictError("project changed since it was loaded")
+            active_count = session.scalar(select(func.count(Project.id)).where(
+                Project.owner_user_id == owner.id, Project.archived_at.is_(None))) or 0
+            if active_count >= MAX_ACTIVE_PROJECTS:
+                raise ProjectLimitError(f"an account can have at most {MAX_ACTIVE_PROJECTS} active projects")
+            # A historical project must still be openable under the current
+            # deterministic and portability limits before it consumes a slot.
+            normalize_project_scenario(project.scenario_json, project.source_scenario_id)
+            now = utc_now()
+            changed = session.execute(update(Project).where(
+                Project.id == project.id, Project.owner_user_id == owner.id,
+                Project.archived_at.is_not(None), Project.version == expected_version,
+            ).values(archived_at=None, version=expected_version + 1, updated_at=now))
+            if changed.rowcount != 1:
+                raise ProjectVersionConflictError("project changed since it was loaded")
+            session.execute(update(ShareLink).where(
+                ShareLink.project_id == project.id, ShareLink.revoked_at.is_(None),
+            ).values(revoked_at=now))
+            session.commit()
+            session.refresh(project)
+            return project
+        except Exception:
+            session.rollback()
+            raise
 
 
 def _token_hash(token: str) -> str:

@@ -1319,7 +1319,6 @@ body.llm-disabled .rule-info { display: none; }
   display: flex; align-items: center; justify-content: space-between; gap: .7rem;
   border-top: 1px solid var(--border); padding: .85rem 1.2rem; background: #fafbfd;
 }
-.scenario-download { display: flex; align-items: flex-start; flex-direction: column; gap: .3rem; }
 .scenario-footer-actions { display: flex; gap: .45rem; flex-shrink: 0; }
 .scenario-signin { display: flex; align-items: center; gap: 1rem; padding: .75rem; margin-bottom: 1rem; background: var(--accent-light); border-radius: var(--radius); font-size: .81rem; }
 .scenario-signin .btn { flex-shrink: 0; }
@@ -1794,8 +1793,8 @@ body.llm-disabled .rule-info { display: none; }
 .game-rationale p + p { margin-top: .35rem; }
 .game-rationale strong { color: var(--tag-rejected); }
 
-/* ── Preference-suppressed counter-attackers block ─────── */
-.game-pref-disclosure {
+/* Opposing derivations without an incoming engine edge. */
+.game-opposing-disclosure {
   margin-top: .5rem;
   padding: .4rem .6rem;
   background: var(--accent-light);
@@ -1804,17 +1803,17 @@ body.llm-disabled .rule-info { display: none; }
   font-size: .78rem;
   line-height: 1.5;
 }
-.game-pref-lead {
+.game-opposing-lead {
   color: var(--text);
   margin-bottom: .25rem;
 }
-.game-pref-list {
+.game-opposing-list {
   list-style: disc;
   margin: 0 0 0 1.2rem;
   color: var(--text-dim);
 }
-.game-pref-list li { margin-bottom: .15rem; }
-.game-pref-list .kw { font-weight: 700; color: #4a4a5a; }
+.game-opposing-list li { margin-bottom: .15rem; }
+.game-opposing-list .kw { font-weight: 700; color: #4a4a5a; }
 
 /* ── Game Explorer ────────────────────────────────────── */
 .game-tree {

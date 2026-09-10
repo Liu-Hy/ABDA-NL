@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ABDA-NL: Argumentation Explorer</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="chat-exploration.css">
+  <link rel="stylesheet" href="ui-shell.css">
+  <link rel="stylesheet" href="authoring.css">
+  <link rel="stylesheet" href="workspace.css">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to argumentation explorer</a>
-  <div class="global-status" id="global-status" role="status" aria-live="polite" hidden></div>
-
   <!-- Top Bar -->
   <header class="topbar">
     <div class="topbar-left">
@@ -17,34 +19,52 @@
         <span class="app-title">ABDA-NL</span>
         <span class="app-lab">iDAKS Lab</span>
       </span>
-      <span class="sep">&gt;</span>
-      <span class="scenario-name" id="scenario-name">Loading...</span>
+      <div class="shell-popup-anchor">
+        <button class="scenario-switcher" id="scenario-menu-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="scenario-popover">
+          <span class="scenario-name" id="scenario-name">Loading...</span><span aria-hidden="true">⌄</span>
+        </button>
+        <div class="shell-popover scenario-popover" id="scenario-popover" role="dialog" aria-label="Choose a scenario" hidden>
+          <div id="scenario-options" role="listbox" aria-label="Examples and your projects"></div>
+          <div class="scenario-menu-actions" role="group" aria-label="Scenario actions">
+            <button class="btn" id="scenario-library-btn" type="button">New scenario</button>
+            <button class="btn" id="scenario-import-btn" type="button">Import scenario file</button>
+            <button class="btn" id="scenario-projects-btn" type="button">Manage projects</button>
+            <button class="btn" id="scenario-download-btn" type="button">Download scenario (.json)</button>
+            <button class="btn" id="scenario-sources-btn" type="button">Sources and glossary</button>
+            <button class="btn" id="scenario-edit-btn" type="button" hidden>Edit scenario</button>
+          </div>
+        </div>
+      </div>
       <span class="context-indicator" id="context-indicator" role="status" aria-live="polite">Example</span>
+      <button class="btn btn-tertiary" id="scenario-about-btn" type="button" aria-expanded="true" aria-controls="scenario-about">About</button>
+    </div>
+    <div class="scenario-state-actions">
       <span class="modified-indicator" id="modified-indicator" role="status" aria-live="polite" hidden></span>
+      <button class="btn btn-tertiary" id="reset-btn" type="button" disabled hidden>Reset</button>
+      <button class="btn btn-tertiary" id="reset-undo-btn" type="button" hidden>Undo reset</button>
       <span class="normal-user-view-indicator" id="normal-user-view-indicator" hidden>Normal user view</span>
+      <button class="btn btn-tertiary" id="restore-admin-view-btn" type="button" aria-label="Restore administrator view" hidden>Restore</button>
     </div>
     <div class="topbar-right">
-      <label class="visually-hidden" for="scenario-select">Choose an example scenario</label>
-      <select class="scenario-select" id="scenario-select"></select>
-      <button class="btn scenario-launcher" id="scenario-library-btn" type="button" title="Create a scenario, open a file, or return to your projects">New / Open</button>
-      <button class="btn" id="scenario-materials-btn" type="button">Sources &amp; glossary</button>
-      <label class="compact-switch" title="Compact view: flat list with category badges instead of category headers">
-        <input type="checkbox" id="compact-toggle" checked>
-        <span class="compact-switch-slider"></span>
-        <span class="compact-switch-label">Compact</span>
-      </label>
-      <button class="btn" id="aspic-btn" title="Show the current scenario as ASPIC- syntax">Show ASPIC-</button>
-      <button class="btn" id="reset-btn">Reset</button>
-      <button class="btn access-chip llm-only" id="ai-access-btn" type="button">AI: Balanced</button>
-      <button class="btn" id="restore-admin-view-btn" type="button" hidden>Restore administrator view</button>
-      <button class="btn" id="workspace-btn" type="button">Workspace</button>
-      <button class="btn btn-primary" id="save-btn" type="button" title="Save this analysis as a private project">Save project</button>
-      <nav class="service-links" aria-label="Service policies">
-        <a href="/privacy.html">Privacy</a>
-        <a href="/terms.html">Terms</a>
-      </nav>
+      <div class="shell-popup-anchor llm-only">
+        <button class="btn access-chip" id="ai-access-btn" type="button" data-shell-menu="ai-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="ai-menu">AI access</button>
+        <div class="shell-popover shell-menu" id="ai-menu" role="menu" aria-label="AI access" hidden></div>
+      </div>
+      <div class="shell-popup-anchor save-split">
+        <button class="btn" id="save-btn" type="button" title="Save as a private project">Save</button>
+        <button class="btn" id="save-menu-btn" type="button" data-shell-menu="save-menu" aria-label="More save and sharing actions" aria-haspopup="menu" aria-expanded="false" aria-controls="save-menu">⌄</button>
+        <div class="shell-popover shell-menu" id="save-menu" role="menu" aria-label="Save and share" hidden></div>
+      </div>
+      <div class="shell-popup-anchor">
+        <button class="btn" id="workspace-btn" type="button" data-shell-menu="account-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">Account</button>
+        <div class="shell-popover shell-menu" id="account-menu" role="menu" aria-label="Account" hidden></div>
+      </div>
     </div>
   </header>
+  <div class="global-status" id="global-status" role="status" aria-live="polite" hidden></div>
+  <section class="scenario-about" id="scenario-about" aria-label="About this scenario" tabindex="0" hidden>
+    <p id="scenario-background"></p>
+  </section>
 
   <!-- Two-Panel Layout -->
   <main class="main-area" id="main-content" tabindex="-1">
@@ -56,17 +76,18 @@
       <div class="top-section" id="top-section">
         <div class="conclusions-panel" id="conclusions-panel" role="region" aria-labelledby="conclusions-title">
           <div class="panel-header conclusions-header-row">
-            <span class="conclusions-title" id="conclusions-title">
-              Conclusions
-              <button class="btn btn-small btn-view-af" id="view-af-btn" title="View the argumentation framework as a graph">View Graph</button>
-            </span>
+            <span class="conclusions-title" id="conclusions-title">Conclusions <span class="panel-count" id="conclusions-count"></span></span>
+            <div class="formal-views" role="group" aria-label="Formal views">
+              <button class="btn btn-small btn-view-af" id="view-af-btn" title="Explore arguments grouped by conclusion">Conclusion graph</button>
+              <button class="btn btn-small" id="aspic-btn" title="Read the current scenario as ASPIC- syntax">ASPIC- text</button>
+            </div>
             <div class="concl-filters" role="group" aria-label="Filter conclusions">
               <button type="button" class="concl-filter active" data-filter="key" aria-controls="conclusions-list" aria-pressed="true">Key</button>
               <button type="button" class="concl-filter" data-filter="accepted" aria-controls="conclusions-list" aria-pressed="false">Accepted</button>
               <button type="button" class="concl-filter" data-filter="rejected" aria-controls="conclusions-list" aria-pressed="false">Rejected</button>
               <button type="button" class="concl-filter" data-filter="undecided" aria-controls="conclusions-list" aria-pressed="false">Undecided</button>
               <button type="button" class="concl-filter" data-filter="absent" aria-controls="conclusions-list" aria-pressed="false">Absent</button>
-              <button type="button" class="concl-filter" data-filter="all" aria-controls="conclusions-list" aria-pressed="false">All</button>
+              <button type="button" class="concl-filter" data-filter="all" aria-controls="conclusions-list" aria-pressed="false" title="Includes intermediate propositions">All</button>
             </div>
           </div>
           <div class="conclusions-list" id="conclusions-list" tabindex="0" aria-label="Conclusions"></div>
@@ -74,28 +95,33 @@
         <div class="v-resize-handle" id="v-resize-top" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize conclusions and facts panels" aria-controls="conclusions-panel facts-panel" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="75" aria-valuenow="50"></div>
         <div class="facts-panel" id="facts-panel" role="region" aria-labelledby="facts-title">
           <div class="panel-header facts-header-row">
-            <span id="facts-title">Facts &amp; Assumptions</span>
+            <span id="facts-title">Facts &amp; Assumptions <span class="panel-count" id="facts-count"></span></span>
+            <details class="panel-options"><summary aria-label="Facts display options">⋯</summary><div><label><input id="facts-grouped" type="checkbox"> Group by category</label></div></details>
           </div>
           <div class="facts-filter-bar" role="group" aria-label="Filter facts and assumptions">
             <button type="button" class="facts-filter active" data-filter="facts" aria-controls="facts-list" aria-pressed="true">Facts</button>
             <button type="button" class="facts-filter" data-filter="assumptions" aria-controls="facts-list" aria-pressed="false">Assumptions</button>
-            <button type="button" class="facts-filter" data-filter="modified" aria-controls="facts-list" aria-pressed="false">Modified</button>
-            <button type="button" class="facts-filter" data-filter="suspended" aria-controls="facts-list" aria-pressed="false">Suspended</button>
+            <label class="state-filter"><input id="facts-changed" type="checkbox"> Changed</label>
+            <label class="state-filter"><input id="facts-suspended" type="checkbox"> Suspended</label>
             <div class="toolbar-spacer"></div>
-            <button class="btn btn-small btn-primary llm-only" data-edit-task="add-fact" title="Add a new fact via natural-language instruction">+ Fact</button>
-            <button class="btn btn-small btn-primary llm-only" data-edit-task="add-assumption" title="Add a new assumption via natural-language instruction">+ Assumption</button>
+            <details class="panel-options add-menu llm-only"><summary>+ Add</summary><div>
+              <button class="btn btn-small" data-edit-task="add-fact">Fact with AI</button>
+              <button class="btn btn-small" data-edit-task="add-assumption">Assumption with AI</button>
+            </div></details>
           </div>
           <div class="facts-list" id="facts-list" tabindex="0" aria-label="Facts and assumptions"></div>
         </div>
       </div>
 
-      <div class="h-resize-handle" id="h-resize-left" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize evidence and rules panels" aria-controls="top-section rules-section" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="75" aria-valuenow="35"></div>
+      <div class="h-resize-handle" id="h-resize-left" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize evidence and rules panels" aria-controls="top-section rules-section" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="75" aria-valuenow="42"></div>
 
       <!-- Bottom Section: Rules -->
       <div class="rules-section" id="rules-section" role="region" aria-labelledby="rules-title">
-        <div class="panel-header" id="rules-title">Rules</div>
+        <div class="panel-header"><span id="rules-title">Rules <span class="panel-count" id="rules-count"></span></span>
+          <details class="panel-options"><summary aria-label="Rules display options">⋯</summary><div><label><input id="rules-grouped" type="checkbox"> Group by category</label></div></details>
+        </div>
         <div class="rules-toolbar">
-          <button class="btn btn-small btn-primary llm-only" data-edit-task="add-rule" title="Add a new rule via natural-language instruction">+ New Rule</button>
+          <button class="btn btn-small llm-only" data-edit-task="add-rule" title="Add a new rule via natural-language instruction">+ Add rule</button>
           <div class="kb-search">
             <label class="visually-hidden" for="kb-search-input">Search rules</label>
             <input type="text" id="kb-search-input" placeholder="Search rules...">
@@ -103,9 +129,9 @@
           <div class="kb-tabs" role="group" aria-label="Filter rules">
             <button type="button" class="kb-tab active" data-tab="all" aria-controls="kb-content" aria-pressed="true">All Rules</button>
             <button type="button" class="kb-tab" data-tab="conflicts" aria-controls="kb-content" aria-pressed="false" title="Show rebut and undercut conflicts; set preferences">Conflicts</button>
-            <button type="button" class="kb-tab" data-tab="modified" aria-controls="kb-content" aria-pressed="false">Modified</button>
-            <button type="button" class="kb-tab" data-tab="suspended" aria-controls="kb-content" aria-pressed="false">Suspended</button>
           </div>
+          <label class="state-filter"><input id="rules-changed" type="checkbox"> Changed</label>
+          <label class="state-filter"><input id="rules-suspended" type="checkbox"> Suspended</label>
           <div class="toolbar-spacer"></div>
         </div>
         <div class="kb-content" id="kb-content" tabindex="0" aria-label="Rules"></div>
@@ -118,27 +144,36 @@
     <section class="right-panel llm-only" id="right-panel" aria-labelledby="chat-panel-title">
       <div class="panel-header chat-header-row">
         <span id="chat-panel-title">Chat &amp; Exploration</span>
-        <button class="chat-access-button" id="chat-access-button" type="button">Balanced</button>
       </div>
       <div class="chat-access-note" id="chat-access-note" role="status"></div>
       <div class="conversation-toolbar" aria-label="Conversation controls">
         <label class="visually-hidden" for="conversation-select">Saved conversations</label>
         <select id="conversation-select" aria-label="Saved conversations"></select>
-        <button class="btn btn-small" id="conversation-new" type="button">New</button>
-        <button class="btn btn-small" id="conversation-export" type="button">Export</button>
-        <button class="btn btn-small" id="conversation-delete" type="button">Delete</button>
-        <button class="btn btn-small" id="conversation-export-all" type="button" hidden>Export all</button>
-        <button class="btn btn-small" id="conversation-retry-save" type="button" hidden>Retry saving</button>
+        <details class="conversation-actions">
+          <summary aria-label="Conversation actions">•••</summary>
+          <div class="conversation-actions-list">
+            <p id="conversation-storage-description"></p>
+            <button class="btn btn-small" id="conversation-export" type="button">Export this conversation</button>
+            <button class="btn btn-small" id="conversation-export-all" type="button">Export all</button>
+            <button class="btn btn-small" id="conversation-delete" type="button">Delete conversation</button>
+          </div>
+        </details>
+        <button class="btn btn-small" id="conversation-new" type="button">+ New</button>
       </div>
       <div class="conversation-storage-note" id="conversation-storage-note" role="status"></div>
+      <div class="conversation-recovery" id="conversation-recovery" hidden>
+        <button class="btn btn-small" id="conversation-retry-save" type="button">Retry saving</button>
+        <button class="btn btn-small" id="conversation-recovery-export" type="button">Export all to keep a copy</button>
+      </div>
       <div class="chat-degraded-note" id="chat-degraded-note" role="status" hidden></div>
       <div class="chat-messages" id="chat-messages" tabindex="0" aria-label="Conversation"></div>
       <div class="visually-hidden" id="chat-announcement" role="status" aria-live="polite" aria-atomic="true"></div>
       <div class="h-resize-handle" id="h-resize-chat" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize chat history and message composer" aria-controls="chat-messages chat-input-area" aria-orientation="horizontal" aria-valuemin="10" aria-valuemax="50" aria-valuenow="20"></div>
       <div class="chat-input-area" id="chat-input-area">
-        <div class="chat-context-items" id="chat-context-items" aria-label="Selected question context"></div>
-        <label class="visually-hidden" for="chat-input">Ask about the current scenario</label>
-        <textarea id="chat-input" rows="4" placeholder="Ask about the case, a rule, or a conclusion..."></textarea>
+        <p class="chat-no-documents" id="chat-no-documents" hidden>No reference documents attached. You can ask about this scenario's statements, rules, and computed labels.</p>
+        <div id="chat-input" class="chat-composer" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Ask about the current scenario" aria-describedby="chat-composer-help" data-placeholder="Ask about this scenario, a rule, or a conclusion..."></div>
+        <p class="visually-hidden" id="chat-composer-help">Enter asks your question. Shift+Enter starts a new line. Referenced items remain when you edit surrounding words. Click a reference, or focus it and press Enter or Space, to edit it as text. Backspace or Delete removes a reference; use Undo to restore an edit. Refresh earlier references before asking.</p>
+        <div class="chat-composer-notice" id="chat-composer-notice" role="status" hidden></div>
         <button class="btn btn-primary" id="chat-send-btn">Ask</button>
       </div>
     </section>
@@ -159,7 +194,7 @@
     <div class="modal-content modal-workspace-content" role="dialog" aria-modal="true" aria-labelledby="workspace-modal-title">
       <div class="modal-header">
         <div>
-          <div class="modal-title" id="workspace-modal-title">Research workspace</div>
+          <div class="modal-title" id="workspace-modal-title">Account</div>
           <div class="modal-subtitle">Private projects, model access, and agent connections</div>
         </div>
         <button class="modal-close" id="workspace-close-btn" type="button" aria-label="Close workspace">&times;</button>
@@ -168,9 +203,9 @@
         <div class="workspace-tabs" role="tablist" aria-label="Workspace sections">
           <button class="workspace-tab active" id="workspace-tab-account" type="button" role="tab" aria-selected="true" aria-controls="workspace-panel-account" data-workspace-tab="account">Account</button>
           <button class="workspace-tab" id="workspace-tab-projects" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-projects" data-workspace-tab="projects">Projects</button>
-          <button class="workspace-tab" id="workspace-tab-examples" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-examples" data-workspace-tab="examples" hidden>Examples</button>
+          <button class="workspace-tab" id="workspace-tab-examples" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-examples" data-workspace-tab="examples" hidden>Community examples <span id="examples-tab-count"></span></button>
           <button class="workspace-tab llm-only" id="workspace-tab-ai" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-ai" data-workspace-tab="ai">AI access</button>
-          <button class="workspace-tab" id="workspace-tab-mcp" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-mcp" data-workspace-tab="mcp">Codex and Claude</button>
+          <button class="workspace-tab" id="workspace-tab-mcp" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-mcp" data-workspace-tab="mcp">Agent access</button>
         </div>
         <div class="workspace-panels">
           <section class="workspace-panel active" id="workspace-panel-account" role="tabpanel" aria-labelledby="workspace-tab-account" tabindex="0">
@@ -204,9 +239,9 @@
                 <div class="workspace-section-heading">
                   <div>
                     <h3 id="account-view-heading">Administrator view</h3>
-                    <p id="account-view-description">Use the normal user experience without administrator privileges. Your projects and credit stay the same.</p>
+                    <p id="account-view-description">The review queue and Publish as example are hidden in normal user view. Your suggestions go through review. Projects, credit, and conversations are unchanged.</p>
                   </div>
-                  <button class="btn" id="account-view-toggle-btn" type="button">Use normal user view</button>
+                  <button class="btn" id="account-view-toggle-btn" type="button">Demonstrate as a normal user</button>
                 </div>
                 <div class="workspace-status" id="account-view-status" role="status" aria-live="polite"></div>
               </div>
@@ -248,8 +283,19 @@
             <div class="signed-in-required" id="projects-signin-required">Sign in with a verified email to use private projects.</div>
             <div id="projects-authenticated" hidden>
               <div class="current-project-card" id="current-project-card" hidden></div>
+              <div class="project-list-heading">
+                <div class="project-filters" role="group" aria-label="Project status">
+                  <button class="btn btn-small" id="projects-active-filter" type="button" aria-pressed="true">Active</button>
+                  <button class="btn btn-small" id="projects-archived-filter" type="button" aria-pressed="false">Archived</button>
+                </div>
+                <span id="project-count"></span>
+              </div>
+              <p class="field-hint" id="projects-archive-hint" hidden>Restore brings a project back privately and revokes every old share link. Published example snapshots remain independent.</p>
+              <div class="project-list" id="project-list"></div>
+              <details class="project-copy-panel" id="project-copy-panel">
+                <summary>Save a copy...</summary>
               <form class="workspace-form project-create-form" id="project-create-form">
-                <h3 id="project-create-heading">Save current analysis as a new project</h3>
+                <h3 id="project-create-heading">Save current analysis as a private project</h3>
                 <div class="form-field">
                   <label for="project-name-input">Project name</label>
                   <input id="project-name-input" name="name" type="text" required maxlength="120" placeholder="Popov analysis for COMMA">
@@ -260,24 +306,20 @@
                 </div>
                 <button class="btn btn-primary" id="project-create-btn" type="submit">Create private project</button>
               </form>
-              <div class="project-list-heading">
-                <h3>Your projects</h3>
-                <span id="project-count"></span>
-              </div>
-              <div class="project-list" id="project-list"></div>
+              </details>
             </div>
             <div class="workspace-status" id="projects-status" role="status" aria-live="polite"></div>
           </section>
 
           <section class="workspace-panel" id="workspace-panel-examples" role="tabpanel" aria-labelledby="workspace-tab-examples" tabindex="0" hidden>
             <div class="workspace-section-heading">
-              <div><h2>Example submissions</h2><p>Share a useful scenario with everyone who visits the demo.</p></div>
+              <div><h2>Community examples</h2><p>Share a useful scenario with everyone who visits the demo.</p></div>
               <button class="btn" id="examples-refresh-btn" type="button">Refresh</button>
             </div>
             <p class="workspace-lead" id="examples-introduction">Open a private project, then choose Suggest as example. Your project stays private; only the snapshot you approve is submitted for review.</p>
             <div class="form-field" id="examples-filter-field" hidden>
-              <label for="examples-filter">Show</label>
-              <select id="examples-filter">
+              <div class="example-filters" id="examples-filter-segments" role="group" aria-label="Submission status"></div>
+              <select id="examples-filter" aria-label="Submission status" hidden>
                 <option value="pending">Awaiting review</option>
                 <option value="published">Published community examples</option>
                 <option value="mine">My submissions</option>
@@ -294,8 +336,8 @@
           </section>
 
           <section class="workspace-panel" id="workspace-panel-ai" role="tabpanel" aria-labelledby="workspace-tab-ai" tabindex="0" hidden>
-            <h2>AI access for this browser tab</h2>
-            <p class="workspace-lead">Choose funded trial access or bring your own provider key. The LLM translates and explains. ABDA still computes every argument and conclusion label.</p>
+            <h2>AI access</h2>
+            <p class="workspace-lead">Choose funded trial access or bring your own provider key. These settings apply only to this browser tab. The LLM translates and explains. ABDA still computes every argument and conclusion label.</p>
             <form class="workspace-form" id="ai-access-form">
               <fieldset class="choice-card-group">
                 <legend>Usage source</legend>
@@ -316,7 +358,7 @@
               </fieldset>
               <div id="funded-settings">
                 <div class="form-field">
-                  <label for="funded-profile-select">Funded model profile</label>
+                  <label for="funded-profile-select">Model</label>
                   <select id="funded-profile-select"></select>
                   <div class="form-help" id="funded-profile-description"></div>
                 </div>
@@ -421,7 +463,7 @@
   <div class="modal-backdrop" id="modal-af">
     <div class="modal-content modal-af-content">
       <div class="modal-header">
-        <span class="modal-title">Conclusion overview</span>
+        <span class="modal-title">Conclusion graph</span>
         <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body" id="af-modal-body"></div>
@@ -437,6 +479,7 @@
       </div>
       <div class="modal-body">
         <div class="edit-instruction-wrap">
+          <div id="edit-current-rule" class="edit-current-rule" hidden></div>
           <label for="edit-instruction" id="edit-instruction-label">Describe the edit you want:</label>
           <textarea id="edit-instruction" rows="4"
             placeholder="e.g. 'Add a rule saying that if the patient has low bone density then long-term PPI elevates fracture risk.'"></textarea>
@@ -457,10 +500,10 @@
     <div class="modal-content scenario-library-content">
       <div class="modal-header">
         <div><span class="modal-title" id="scenario-editor-heading">Your scenario</span>
-          <p class="scenario-lead">Statements and rules define the reasoning. Reference documents give AI context.</p></div>
+          <p class="scenario-lead" id="scenario-editor-outcome">Saves as a private project</p></div>
         <button class="modal-close" type="button" aria-label="Close scenario library">×</button>
       </div>
-      <div class="scenario-library-nav">
+      <div class="scenario-library-nav" id="scenario-editor-navigation">
         <div class="scenario-tabs" role="tablist" aria-label="Start a scenario">
           <button class="scenario-tab active" id="scenario-tab-new" type="button" role="tab" aria-selected="true" aria-controls="scenario-panel-new" data-scenario-tab="new">New scenario</button>
           <button class="scenario-tab" id="scenario-tab-file" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-file" data-scenario-tab="file" tabindex="-1">Import scenario</button>
@@ -474,7 +517,7 @@
           <button class="btn btn-primary" id="scenario-signin-btn" type="button">Sign in</button>
         </div>
         <section id="scenario-panel-new" role="tabpanel" aria-labelledby="scenario-tab-new">
-          <p class="scenario-hint">Start below, or <button class="btn btn-small" id="scenario-starter-btn" type="button">Try a small example</button>
+          <p class="scenario-hint" id="scenario-start-actions">Start with your own statements, or <button class="btn btn-small" id="scenario-starter-btn" type="button">Try the picnic example</button>
             <button class="btn btn-small" id="scenario-reset-btn" type="button">Clear draft</button></p>
         </section>
         <section id="scenario-panel-file" role="tabpanel" aria-labelledby="scenario-tab-file" hidden>
@@ -485,18 +528,19 @@
             <p class="scenario-hint" id="scenario-file-help">A complete ABDA-NL YAML/JSON file, or ASPIC- rules with an optional glossary and reference documents. Check each file's role below. Up to 1 MB per file.</p>
             <div id="scenario-import-files"></div>
             <button class="btn" id="scenario-load-files" type="button" hidden>Load into editor</button>
-            <button class="btn btn-small" id="scenario-template-btn" type="button">Download a starter file</button>
+            <button class="btn btn-primary" id="scenario-open-file-project" type="button" hidden>Open as project</button>
+            <div id="scenario-import-status" class="workspace-status" role="status" aria-live="polite"></div>
           </div>
         </section>
-        <form id="scenario-builder-form">
+        <form id="scenario-builder-form" novalidate>
           <fieldset id="scenario-builder-fields" class="scenario-fields">
             <div class="form-field"><label for="scenario-builder-title">Scenario title</label>
-              <input id="scenario-builder-title" type="text" required maxlength="120" placeholder="What would you like to explore?"></div>
-            <details class="scenario-description"><summary>Background <span class="optional-label">optional</span></summary>
+              <input id="scenario-builder-title" type="text" required maxlength="120" data-editor-field="title" placeholder="What would you like to explore?"></div>
+            <details class="scenario-description" id="scenario-background-details"><summary>Background <span class="optional-label">optional</span></summary>
               <div class="form-field"><label class="visually-hidden" for="scenario-builder-description">Scenario background</label>
                 <textarea id="scenario-builder-description" rows="2" maxlength="4000" placeholder="A little context for this scenario"></textarea></div>
             </details>
-            <section class="scenario-editor-section">
+            <section class="scenario-editor-section" data-editor-field="knowledge-base" tabindex="-1">
               <div class="scenario-section-heading">
                 <h3><span class="scenario-step" aria-hidden="true">1</span> Knowledge base</h3>
                 <div class="scenario-mode-switch" role="group" aria-label="Knowledge base editor">
@@ -515,7 +559,9 @@
                 <p class="scenario-hint" id="scenario-rename-help">Letters, digits and underscores only, starting with a letter or underscore. Up to 100 characters. Symbols must be unique across statements and rules.</p>
                 <div class="scenario-rename-actions"><button class="btn btn-small" id="scenario-rename-apply" type="button">Rename</button><button class="btn btn-small" id="scenario-rename-cancel" type="button">Cancel rename</button></div>
               </details>
+              <p id="scenario-guided-limit" class="authoring-limit" role="status" hidden></p>
               <div id="scenario-guided">
+                <div class="form-field authoring-filter"><label for="scenario-builder-filter">Find statements or rules</label><input id="scenario-builder-filter" type="search" data-authoring-filter placeholder="Search words, symbols or categories"></div>
                 <h4>Statements &amp; glossary</h4>
                 <p class="scenario-hint" id="scenario-statements-help">Write each statement in plain English. Facts are given, assumptions are defeasible, and claims follow from rules. Mark the claims you want to feature as key conclusions.</p>
                 <div id="scenario-statements" aria-describedby="scenario-statements-help"></div>
@@ -527,7 +573,7 @@
               </div>
               <div id="scenario-rule-text-panel" hidden>
                 <div class="form-field"><label for="scenario-rule-text">ASPIC- rules</label>
-                  <textarea id="scenario-rule-text" class="material-code" rows="9" maxlength="100000" spellcheck="false" placeholder="-> sunny&#10;sunny => outside [r1]"></textarea></div>
+                  <textarea id="scenario-rule-text" class="material-code" rows="9" maxlength="100000" data-editor-field="rule-text" spellcheck="false" placeholder="-> sunny&#10;sunny => outside [r1]"></textarea></div>
                 <p class="scenario-hint">Use -&gt; for strict rules, =&gt; for defeasible rules, and -p for negation. In native ABDA files, blank lines separate defeasible preference blocks, with later blocks stronger. Explicit # Block N markers override blank-line grouping. Keep identifiers to preserve their meanings.</p>
                 <p class="scenario-hint">Switch back to Guided to edit meanings and choose key conclusions. Invalid text never replaces the last valid draft.</p>
               </div>
@@ -542,7 +588,7 @@
               <h3><span class="scenario-step" aria-hidden="true">2</span> Reference documents <span class="optional-label">optional</span></h3>
               <p class="scenario-hint">The corpus supplies context and citations to AI. It does not add logical facts or rules. Attach text, Markdown or text-based PDFs, then review the extracted text.</p>
               <p class="scenario-hint" id="scenario-bundled-references"></p>
-              <details id="scenario-sources-panel" class="material-section"><summary id="scenario-sources-summary">Add reference documents</summary><div id="scenario-source-editor"></div></details>
+              <details id="scenario-sources-panel" class="material-section"><summary id="scenario-sources-summary">Add reference documents</summary><div id="scenario-source-editor" data-editor-field="sources" tabindex="-1"></div></details>
             </section>
           </fieldset>
         </form>
@@ -555,14 +601,15 @@
         </section>
       </div>
       <div class="workspace-status" id="scenario-library-status" role="status" aria-live="polite" tabindex="0"></div>
+      <div id="scenario-error-summary" class="authoring-error-summary" hidden></div>
       <div class="scenario-library-footer">
-        <div class="scenario-download"><button class="btn btn-small" id="scenario-download-current" type="button">Download current scenario</button>
-          <span class="scenario-hint">Includes unsaved edits. No chat or credentials.</span></div>
         <div class="scenario-footer-actions">
+          <button class="btn" id="scenario-discard-changes" type="button" hidden>Discard editor changes</button>
           <button class="btn" id="scenario-library-cancel" type="button">Cancel</button>
           <button class="btn" id="scenario-preview-btn" type="button">Preview</button>
-          <button class="btn btn-primary" id="scenario-library-submit" type="button">Save &amp; open</button>
+          <button class="btn btn-primary" id="scenario-library-submit" type="button" aria-describedby="scenario-save-note">Check &amp; save</button>
         </div>
+        <p class="scenario-hint" id="scenario-save-note">Checks the scenario before saving. No AI call is needed.</p>
       </div>
     </div>
   </div>
@@ -692,19 +739,69 @@
         <button class="modal-close" id="example-review-close" type="button" aria-label="Close snapshot review">&times;</button>
       </div>
       <div class="modal-body">
-        <div id="example-review-snapshot"></div>
+        <div class="example-public-metadata">
+          <div class="form-field"><label for="example-public-title">Public title</label><input id="example-public-title" maxlength="120" required></div>
+          <div class="form-field"><label for="example-public-summary">One-line public summary <span class="optional-label">optional</span></label><input id="example-public-summary" maxlength="400"></div>
+          <p class="field-hint">The complete background and reference text remain public. A shorter summary does not redact them.</p>
+          <div id="example-snapshot-summary"></div>
+          <div class="form-field" id="example-author-note-field"><label for="example-author-note">Note to the reviewer <span class="optional-label">optional, private</span></label><textarea id="example-author-note" rows="2" maxlength="1000"></textarea></div>
+          <label class="example-attribution" id="example-attribution-field"><input id="example-attribute-author" type="checkbox"> Include my display name, <span id="example-attribution-name"></span>, in this public snapshot.</label>
+          <p class="field-hint" id="example-attribution-note"></p>
+        </div>
+        <details class="example-full-snapshot" id="example-full-snapshot">
+          <summary>Everything that will be published</summary>
+          <div id="example-review-snapshot"></div>
+        </details>
+      </div>
+      <div class="modal-footer example-review-footer">
         <div class="example-consent" id="example-consent-panel">
-          <p>This snapshot can become a public, downloadable example, including the glossary and full text of attached reference documents. Your account email, chat history, API keys, share links, and private project description are not included automatically. Check the scenario and documents for sensitive information and permission to share.</p>
           <label><input id="example-public-consent" type="checkbox"> I have permission to share this content publicly and have checked the snapshot.</label>
-          <p class="field-hint">Later project edits or archiving will not change this snapshot.</p>
+          <p class="field-hint">Includes full reference text. Project edits or archiving do not change the snapshot. Account email, chats, keys, private notes, and share links are not included automatically.</p>
         </div>
         <div class="form-field" id="example-review-note-field" hidden>
-          <label for="example-review-note">Note to the author <span class="optional-label">required when declining or removing</span></label>
+          <label for="example-review-note">Note to the author <span class="optional-label" id="example-review-note-requirement">required when declining or removing someone else's example</span></label>
           <textarea id="example-review-note" rows="2" maxlength="1000"></textarea>
         </div>
+        <div class="example-confirmation" id="example-publish-confirmation" hidden>
+          <span>Publish this exact snapshot as a public example?</span>
+          <button class="btn btn-primary" type="button" data-example-action="confirm-publish">Publish</button>
+          <button class="btn" type="button" data-example-action="cancel-publish">Cancel</button>
+        </div>
         <div class="workspace-status" id="example-review-status" role="status" aria-live="polite"></div>
+        <div class="example-review-actions" id="example-review-actions"></div>
       </div>
-      <div class="modal-footer" id="example-review-actions"></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modal-sources-reader">
+    <div class="modal-content sources-reader-content" role="dialog" aria-modal="true" aria-labelledby="sources-reader-title">
+      <div class="modal-header">
+        <span class="modal-title" id="sources-reader-title">Sources and glossary</span>
+        <button class="modal-close" type="button" aria-label="Close sources reader">&times;</button>
+      </div>
+      <p class="source-reader-state" id="source-reader-state"></p>
+      <div class="source-reader-tabs" aria-label="Sources reader views">
+        <button class="btn btn-small" id="source-reader-sources-tab" type="button" aria-pressed="true">Sources</button>
+        <button class="btn btn-small" id="source-reader-glossary-tab" type="button" aria-pressed="false">Glossary</button>
+        <button class="btn btn-small" id="source-reader-edit-scenario" type="button" hidden>Edit in scenario editor</button>
+      </div>
+      <div id="source-reader-sources" class="source-reader-layout">
+        <nav id="source-reader-documents" aria-label="Reference documents"></nav>
+        <section class="source-reader-document-body" aria-label="Document text">
+          <div class="source-reader-searchbar">
+            <label for="source-reader-search">Find in document</label>
+            <input id="source-reader-search" type="search" autocomplete="off">
+            <button class="btn btn-small" id="source-reader-previous" type="button" aria-label="Previous search match">Previous</button>
+            <button class="btn btn-small" id="source-reader-next" type="button" aria-label="Next search match">Next</button>
+          </div>
+          <p id="source-reader-position" role="status"></p>
+          <p id="source-reader-metadata"></p>
+          <div id="source-reader-excerpt" hidden></div>
+          <pre id="source-reader-text" tabindex="0" aria-label="Source text"></pre>
+          <button class="btn btn-small" id="source-reader-edit" type="button" hidden>Edit extracted text</button>
+        </section>
+      </div>
+      <div id="source-reader-glossary" hidden></div>
     </div>
   </div>
 
@@ -713,10 +810,14 @@
   <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
   <script src="conversation-storage.js"></script>
+  <script src="composer.js"></script>
   <script src="exploration.js"></script>
+  <script src="source-reader.js"></script>
   <script src="workspace.js"></script>
   <script src="scenarios.js"></script>
   <script src="materials.js"></script>
   <script src="curation.js"></script>
+  <script src="ui-shell.js"></script>
+  <script src="argument-navigation.js"></script>
 </body>
 </html>

@@ -26,6 +26,7 @@ from app.api.account_models import (
     ProjectDetailResponse,
     ProjectImportRequest,
     ProjectListResponse,
+    ProjectRestoreRequest,
     ProjectSummaryResponse,
     ProjectUpdateRequest,
     ScenarioFilePreviewRequest,
@@ -75,6 +76,8 @@ from app.services.projects import (
     list_projects,
     list_share_links,
     normalize_project_scenario,
+    project_statuses,
+    restore_project,
     resolve_share_link,
     revoke_share_link,
     update_project,
@@ -472,11 +475,16 @@ def _project_error(exc: Exception) -> HTTPException:
 
 @router.get("/api/projects", response_model=ProjectListResponse)
 def get_projects(
+    archived: bool = False,
     user: User = Depends(require_verified_user),
     session: Session = Depends(get_db),
 ) -> ProjectListResponse:
+    projects = list_projects(session, user, archived=archived)
+    summaries = project_statuses(session, user, projects)
     return ProjectListResponse(
-        projects=[ProjectSummaryResponse.model_validate(item) for item in list_projects(session, user)]
+        projects=[ProjectSummaryResponse.model_validate({
+                      **ProjectSummaryResponse.model_validate(item).model_dump(), **summaries[item.id]})
+                  for item in projects]
     )
 
 
@@ -724,6 +732,30 @@ def delete_project(
     except (ProjectNotFoundError, ProjectVersionConflictError) as exc:
         raise _project_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/api/projects/{project_id}/restore",
+    response_model=ProjectDetailResponse,
+    dependencies=[Depends(require_same_origin)],
+)
+def post_restore_project(
+    project_id: str,
+    payload: ProjectRestoreRequest,
+    request: Request,
+    response: Response,
+    user: User = Depends(require_verified_user),
+    session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> ProjectDetailResponse:
+    _limit_user_mutation(request, session, settings, user)
+    try:
+        project = restore_project(session, user, project_id, expected_version=payload.expected_version)
+    except (ProjectNotFoundError, ProjectVersionConflictError, ProjectLimitError,
+            *_PROJECT_INPUT_ERRORS) as exc:
+        raise _project_error(exc) from exc
+    response.headers["ETag"] = f'"{project.version}"'
+    return _project_detail(project)
 
 
 @router.get(
