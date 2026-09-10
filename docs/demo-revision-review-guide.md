@@ -13,8 +13,8 @@ The subsequent correction work starts from `94febed`; inspect the current
 commit and the correction status below for its validation boundary.
 The last verified hosted source is
 `234ffc97522b5d82e0a4a4d05082d88a4ab0c173`, on schema 0006. The correction
-candidate uses schema 0007 and has not been deployed. Hosted receipts below
-describe the earlier release. Review existing foundations as well as this diff
+candidate uses schema 0007 and has not been deployed to the hosted site. Hosted
+receipts below describe the earlier release. Review existing foundations as well as this diff
 wherever R01-R16 or E01-E07 depend on them.
 
 `Requirements.docx` was read directly and has SHA-256
@@ -73,15 +73,37 @@ selective for Sonnet 5 and the internal DeepSeek route. The [baseline erratum](o
 identifies the two recorded GLM provenance failures that justify its existing
 guidance. Passing prompts were not broadened for uniformity.
 
-The correction snapshot `bbf17be` passed all eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34515372422)
-and [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34515372721):
-1,661 tests/77 skips per Python version, restricted-role PostgreSQL, and 76 tests
-per browser engine (Chromium, Firefox and WebKit). The later administrator-view
-changes need their own final commit-bound result.
+The final implementation `469f6888752607a42f1248bd7547e5531934736b` passed all
+eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34518090673)
+and [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34518090581):
+1,688 tests/81 skips per Python version, restricted-role PostgreSQL, and 80 tests
+per browser engine (Chromium, Firefox and WebKit). CodeQL reported zero results
+across 50 rules. The only subsequent source changes are documentation.
 Both application and observability templates and parameter files compiled with
 pinned Bicep 0.46.1 using synthetic configuration. Earlier failed browser runs
 remain preserved; corrections synchronized the logout fixture and scoped its
 pre-logout message assertion without weakening the privacy checks.
+
+The administrator-view addition passes 27 server mode tests and five browser
+workflows per tested engine (Chromium and Firefox), covering all five named
+identities, configured curators, revoked permissions, unchanged credit and work,
+refresh, cross-tab privacy, and delayed responses. Desktop and phone screenshots
+were inspected. The first browser run exposed toolbar overflow and a CSP-sensitive
+test expression; both are corrected and the failed record is retained. The bound
+receipt is `artifacts/evals/admin-view-frontend-20260910.json`.
+Final CI logs and artifact hashes are retained in
+`artifacts/evals/final-admin-ci-469f688-20260910/`. The preceding CI run
+`34517612065` was cancelled after the local layout failure and is not counted
+as passing.
+
+The launcher-managed Delta demo was restarted at `469f688`. Liveness, readiness,
+seven-model quota/BYOK menus, served asset hashes, schema 0007, initialized credit
+eligibility policy, and unchanged pre-migration accounting aggregates passed
+read-only checks. All five named identities are in its administrator policy.
+No account was impersonated and no model call was made for this check. Its receipt
+is `artifacts/evals/review-local-demo-final-readiness-20260910.json`. Laptop access
+still requires the `ssh delta-demo` tunnel. This is separate from hosted deployment
+or the owner's personal sign-in acceptance.
 
 The current seven-model qualification contains **945 observations** (45 cases,
 three repetitions per model): 930 retained observations and 15 fresh Flash edit
