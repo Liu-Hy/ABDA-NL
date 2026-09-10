@@ -1,5 +1,5 @@
 version: 4
-updated: '2026-09-09'
+updated: '2026-09-10'
 models:
   claude-sonnet-4-6:
     family: anthropic
@@ -218,11 +218,11 @@ profiles:
     primary_route: cloudbank-gpt-5.4-mini
     fallback_route: openrouter-gpt-5.4-mini
   balanced:
-    display_name: Claude Sonnet 4.6
-    description: Validated baseline for interactive explanations and edits.
+    display_name: Claude Sonnet 5
+    description: Interactive explanations and scenario edits.
     public_ready: true
-    primary_route: cloudbank-claude-sonnet-4-6
-    fallback_route: openrouter-claude-sonnet-4-6
+    primary_route: cloudbank-claude-sonnet-5
+    fallback_route: openrouter-claude-sonnet-5
   quality:
     display_name: Quality
     description: Higher reasoning budget for difficult authoring requests.
@@ -233,14 +233,14 @@ profiles:
     display_name: GPT-5.6 Terra
     description: CloudBank funded access with the same model on OpenRouter after provider
       failure.
-    public_ready: false
+    public_ready: true
     primary_route: cloudbank-gpt-5.6-terra
     fallback_route: openrouter-gpt-5.6-terra
   gpt-5-6-sol:
     display_name: GPT-5.6 Sol
     description: CloudBank funded access with the same model on OpenRouter after provider
       failure.
-    public_ready: false
+    public_ready: true
     primary_route: cloudbank-gpt-5.6-sol
     fallback_route: openrouter-gpt-5.6-sol
   claude-sonnet-5:
@@ -254,14 +254,14 @@ profiles:
     display_name: Claude Opus 5
     description: CloudBank funded access with the same model on OpenRouter after provider
       failure.
-    public_ready: false
+    public_ready: true
     primary_route: cloudbank-claude-opus-5
     fallback_route: openrouter-claude-opus-5
   gemini-3-8-flash:
     display_name: Gemini 3.8 Flash
     description: CloudBank funded access with the same model on OpenRouter after provider
       failure.
-    public_ready: false
+    public_ready: true
     primary_route: cloudbank-gemini-3.8-flash
     fallback_route: openrouter-gemini-3.8-flash
   deepseek-v4-flash-0731:
@@ -275,21 +275,21 @@ profiles:
     display_name: GLM 5.3
     description: CloudBank funded access with the same model on OpenRouter after provider
       failure.
-    public_ready: false
+    public_ready: true
     primary_route: cloudbank-glm-5.3
     fallback_route: openrouter-glm-5.3
   kimi-k3:
     display_name: Kimi K3
     description: CloudBank funded access with the same model on OpenRouter after provider
       failure.
-    public_ready: false
+    public_ready: true
     primary_route: cloudbank-kimi-k3
     fallback_route: openrouter-kimi-k3
   gemini-3-1-pro:
     display_name: Gemini 3.1 Pro Preview
     description: CloudBank funded access with the same model on OpenRouter after provider
       failure.
-    public_ready: false
+    public_ready: true
     primary_route: cloudbank-gemini-3.1-pro-preview
     fallback_route: openrouter-gemini-3.1-pro-preview
 routes:
@@ -306,7 +306,7 @@ routes:
     billing_source: cloudbank
     model: claude-sonnet-5
     request_model: abda-claude-sonnet-5
-    verified: false
+    verified: true
   cloudbank-gpt-5.4-mini:
     adapter: openai-responses
     provider: azure-foundry
@@ -325,7 +325,7 @@ routes:
     billing_source: cloudbank
     model: gpt-5.6-terra
     request_model: abda-gpt-5-6-terra
-    verified: false
+    verified: true
   cloudbank-deepseek-v4-flash:
     adapter: openai-compatible
     provider: azure-foundry
@@ -474,7 +474,7 @@ routes:
     billing_source: cloudbank
     model: gpt-5.6-sol
     request_model: abda-gpt-5-6-sol
-    verified: false
+    verified: true
   cloudbank-claude-opus-5:
     adapter: anthropic
     provider: azure-foundry
@@ -483,7 +483,7 @@ routes:
     request_model: claude-opus-5
     endpoint_env: AZURE_OPUS5_ENDPOINT
     api_key_env: AZURE_OPUS5_API_KEY
-    verified: false
+    verified: true
   openrouter-claude-opus-5:
     adapter: openai-compatible
     provider: openrouter
@@ -499,7 +499,7 @@ routes:
     billing_source: cloudbank
     model: gemini-3.8-flash
     request_model: gemini-3.8-flash
-    verified: false
+    verified: true
   openrouter-gemini-3.8-flash:
     adapter: openai-compatible
     provider: openrouter
@@ -531,7 +531,7 @@ routes:
     billing_source: cloudbank
     model: glm-5.3
     request_model: abda-glm-5-3
-    verified: false
+    verified: true
   openrouter-glm-5.3:
     adapter: openai-compatible
     provider: openrouter
@@ -547,7 +547,7 @@ routes:
     billing_source: cloudbank
     model: kimi-k3
     request_model: abda-kimi-k3
-    verified: false
+    verified: true
   openrouter-kimi-k3:
     adapter: openai-compatible
     provider: openrouter
@@ -563,7 +563,7 @@ routes:
     billing_source: cloudbank
     model: gemini-3.1-pro-preview
     request_model: gemini-3.1-pro-preview
-    verified: false
+    verified: true
   openrouter-gemini-3.1-pro-preview:
     adapter: openai-compatible
     provider: openrouter

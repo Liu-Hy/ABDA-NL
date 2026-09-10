@@ -464,7 +464,7 @@ def test_funded_api_call_deducts_exact_metered_trial_cost(monkeypatch):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["billing_source"] == "cloudbank"
-    assert body["route"] == "cloudbank-claude-sonnet-4-6"
+    assert body["route"] == router.catalog.profiles["balanced"].primary_route
     assert body["cost_microusd"] > 0
     assert balance["spent_microusd"] == body["cost_microusd"]
     assert balance["reserved_microusd"] == 0
