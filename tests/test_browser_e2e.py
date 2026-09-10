@@ -792,13 +792,16 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             assert page.evaluate(capture) == before
             assert page.request.get(f"{live_browser_server}/api/trial").json() == credit
             assert page.request.get(f"{live_browser_server}/api/scenario-submissions?queue=true").status == 403
+            expect(page.locator("#global-status")).to_be_hidden(timeout=8000)
             _save_browser_evidence(page, "normal-user-view-account-desktop")
+            assert page.locator(".topbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
             page.keyboard.press("Escape")
             expect(page.locator("#workspace-btn")).to_be_focused()
             page.set_viewport_size({"width": 390, "height": 844})
+            _save_browser_evidence(page, "normal-user-view-narrow")
             assert page.locator(".topbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
-            _save_browser_evidence(page, "normal-user-view-narrow")
             page.locator("#workspace-btn").click()
             _axe_report(page, "normal user view account controls")
             page.set_viewport_size({"width": 1200, "height": 900})
@@ -823,7 +826,7 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             expect(page.locator("#chat-input")).to_have_value("Keep this unfinished question.")
             restored_work = page.evaluate(capture)
             page.locator("#restore-admin-view-btn").click()
-            page.wait_for_function("state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
+            page.wait_for_function("() => state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
             expect(page.locator("#normal-user-view-indicator")).to_be_hidden()
             expect(page.locator("#workspace-btn")).to_be_focused()
             assert page.evaluate(capture) == restored_work
@@ -876,10 +879,10 @@ def test_normal_user_view_suppresses_late_admin_content_across_tabs(live_browser
                 window.__lateAdminList = refreshExampleSubmissions();
                 window.__lateAdminDetail = openExampleReview(id);
             }""", submission["id"])
-            reviewer.wait_for_function("window.__heldAdminResponses.length === 2")
+            reviewer.wait_for_function("() => window.__heldAdminResponses.length === 2")
             controller.locator("#account-view-toggle-btn").click()
             expect(controller.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
-            reviewer.wait_for_function("state.authSession.normal_user_view === true")
+            reviewer.wait_for_function("() => state.authSession.normal_user_view === true")
             expect(reviewer.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
             expect(reviewer.locator("#example-review-snapshot")).to_be_empty()
             expect(reviewer.locator("#workspace-tab-examples")).to_be_focused()
@@ -893,7 +896,7 @@ def test_normal_user_view_suppresses_late_admin_content_across_tabs(live_browser
             expect(reviewer.locator("#examples-filter-field")).to_be_hidden()
 
             controller.locator("#account-view-toggle-btn").click()
-            reviewer.wait_for_function("state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
+            reviewer.wait_for_function("() => state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
             expect(reviewer.locator("#examples-list")).to_contain_text(project["name"])
             reviewer.get_by_role("button", name="Review snapshot", exact=True).click()
             expect(reviewer.locator("#example-review-snapshot")).to_contain_text(project["name"])
@@ -914,9 +917,9 @@ def test_normal_user_view_suppresses_late_admin_content_across_tabs(live_browser
                     target: document.querySelector('[data-example-action="reject"]'),
                 });
             }""")
-            reviewer.wait_for_function("window.__resolveAdminDecision !== null")
+            reviewer.wait_for_function("() => window.__resolveAdminDecision !== null")
             controller.locator("#account-view-toggle-btn").click()
-            reviewer.wait_for_function("state.authSession.normal_user_view === true")
+            reviewer.wait_for_function("() => state.authSession.normal_user_view === true")
             reviewer.evaluate("""async () => {
                 window.__resolveAdminDecision();
                 await window.__lateAdminDecision;
@@ -956,10 +959,10 @@ def test_normal_user_view_refreshes_a_stale_initial_session(live_browser_server)
                 };
             """)
             opening.goto(live_browser_server, wait_until="domcontentloaded")
-            opening.wait_for_function("typeof window.__releaseInitialSession === 'function'")
+            opening.wait_for_function("() => typeof window.__releaseInitialSession === 'function'")
             controller.locator("#account-view-toggle-btn").click()
             expect(controller.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
-            opening.wait_for_function("accountView.revision > 0")
+            opening.wait_for_function("() => accountView.revision > 0")
             opening.evaluate("window.__releaseInitialSession()")
             _wait_for_demo_ready(opening)
             expect(opening.locator("#normal-user-view-indicator")).to_be_visible()
