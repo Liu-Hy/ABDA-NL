@@ -2,6 +2,10 @@
 
 State: prepared for rehearsal; presentation-hardware acceptance remains pending
 
+These labels describe the current development UI. Confirm the deployed version
+before rehearsing the public URL; a local candidate capture is not evidence of
+a hosted update.
+
 This playbook keeps the live demonstration focused on the research contribution
 while preserving a deterministic path when an external model, identity service,
 network, or public host is unavailable. It does not replace the public release
@@ -28,8 +32,9 @@ Complete these steps before the audience enters:
    account. Do not show the email inbox or an OTP on the projector.
 2. Confirm that the account has enough funded balance for the rehearsed calls.
    Do not activate a trial during the presentation.
-3. Select **Popov v. Hayashi**, select **Reset** to return to the bundled
-   baseline, close every dialog, and leave the four reasoning panels visible.
+3. Open the scenario-name menu and select **Popov v. Hayashi**. If changes are
+   present, use **Reset** to return to baseline. Reset is hidden at baseline.
+   Close every dialog and leave the four reasoning panels visible.
 4. Keep a second, unprojected browser on
    `https://demo.abda-nl.org/health/ready`. A successful response is
    `{"status":"ready"}`.
@@ -48,15 +53,16 @@ be repeated consistently during rehearsal.
 
 Introduce Popov v. Hayashi as the dispute over Barry Bonds's 73rd home-run
 baseball. Point out the four panels: conclusions, facts and assumptions, rules,
-and grounded chat. Explain that natural-language descriptions make the
+and **Chat & Exploration**. Explain that natural-language descriptions make the
 knowledge base readable, while the ABDA engine computes the arguments,
 attacks, and conclusion labels.
 
 ### 2. Inspect a conclusion and its argument
 
 Choose the accepted conclusion **Popov has a legitimate claim to the baseball**
-and select **Explain**. Open one argument, expand one support branch, and
-identify an attack or preference when one is shown. Emphasize that this
+and select **Explain**. A single argument opens directly; choose one if a
+picker appears. Expand a support branch and identify an attack when shown.
+An absent attack edge alone does not establish a preference. Emphasize that this
 explanation comes from the deterministic argument graph, not from an
 LLM-generated answer. Close the dialog with Escape to demonstrate keyboard
 operation and focus return.
@@ -68,35 +74,40 @@ its equitable power to divide the proceeds between the parties**. Use the
 suspension-impact preview to show the consequences before selecting **Apply**.
 Point out the modified-state indicator and that the equal-division conclusion
 becomes undecided under the competing equity rules. Select **Reset** before
-moving on, so later steps use the bundled baseline.
+moving on, so later steps use the bundled baseline. **Undo reset** remains
+available until the next edit or context change; the conversation is preserved.
 
 ### 4. Ask one grounded model question
 
-Use this rehearsed question:
+Show that **?** places a question and reference in the input without sending.
+Edit the wording before **Ask**. Use this rehearsed question:
 
 ```text
 Why do both Popov and Hayashi have legitimate claims, and which sources in this scenario support that conclusion?
 ```
 
-Point out the displayed model route, citations, and trial charge. Explain that
-the application validates cited corpus filenames, while the argumentation
-engine remains authoritative for the labels. Ask only one question unless the
-audience requests another.
+Point out the answer's model and cost, **Sources**, and **Referenced items**.
+The source cards distinguish quoted wording from context; **Open in Sources**
+reads the saved document. Verified quotation locations do not establish that
+an answer's interpretation is correct. The argumentation engine determines
+the labels. Ask only one question unless the audience requests another.
 
 ### 5. Show human-reviewed authoring
 
-Open one natural-language edit control and explain the propose, validate,
-review, and apply sequence. If the rehearsed proposal returns promptly, show
+Open **+ Add** or a rule's action menu and choose an AI edit. Explain the
+propose, validate, review, and apply sequence. If the rehearsed proposal returns promptly, show
 its structured operations and advisory issues without applying it. If it is
 slow or differs from rehearsal, close the dialog and explain that model output
 never changes the scenario without explicit human approval.
 
 ### 6. Close with portability
 
-Briefly show **Argument graph** or **Show ASPIC-**, then explain that the same
+Briefly show **Conclusion graph** or **ASPIC- text**, then explain that the same
 application runs at the public URL, on an ordinary laptop, and through the
-Delta `demo` launcher. Mention private projects and scoped MCP access only if
-time permits. Do not create or reveal an MCP token during the talk.
+Delta `demo` launcher. **Download scenario (.json)** in the scenario menu
+includes the rules, meanings, and reference text for import elsewhere.
+Mention private projects and scoped MCP access only if time permits. Do not
+create or reveal an MCP token during the talk.
 
 ## Recovery ladder
 
@@ -105,8 +116,8 @@ dependency.
 
 1. **One model call fails or is slow:** continue with Explain, assumption
    changes, graph view, and ASPIC- view. These features do not need a model.
-2. **The CloudBank route has a qualifying service outage:** after final public
-   promotion, the application may use the bounded OpenRouter fallback. Do not
+2. **The CloudBank route has a qualifying service outage:** a deployment with
+   fallback enabled may use the bounded OpenRouter backup. Do not
    manually change provider settings during the talk.
 3. **Email or Auth0 is unavailable:** keep using the already authenticated
    presentation session. Do not sign out or demonstrate registration.
@@ -141,13 +152,21 @@ or a model call:
 
 Choose a fresh output path for each capture. The command refuses to overwrite
 an existing directory or ZIP. It captures the six deterministic narrative views
-from the public Popov example in a new anonymous Chromium context, checks the
+from the included Popov example in a new anonymous Chromium context, checks the
 equity conclusion and Reset behavior, and writes a local HTML gallery, PNGs,
 SHA-256 manifest, and adjacent ZIP. It verifies the gallery with browser
 network access disabled. A request allowlist blocks model, project, token,
 login, and unrelated network operations. The anonymous session-status read
 is permitted. State computation may create expiring rate-limit counters but
 does not save a project or alter the bundled example.
+
+After the UI settles, regenerate the pack from the candidate being rehearsed.
+For a local candidate, add `--base-url http://127.0.0.1:PORT` using the actual
+loopback port. Only the public origin or an explicit HTTP loopback address is
+accepted. On Delta, run browser capture in Slurm with a disposable local
+server. The manifest and gallery identify the captured origin. The manifest's
+`capture_tool_revision` describes the capture checkout, not the served release;
+bind a local candidate's source and served asset hashes separately.
 
 Copy the verified ZIP onto the presentation laptop before the conference,
 extract it, and open `abda-nl-offline-backup/index.html` in a browser. No web

@@ -1,14 +1,14 @@
 # Your own scenarios
 
-Select **New / Open** beside the scenario selector. Sign in to save private
-work. Creating, importing, editing, previewing, and exporting scenarios do not
-require an API key, trial activation, or a model call.
+Open the scenario-name menu and select **New scenario** or **Import scenario
+file**. Sign in to save private work. Creating, importing, editing, previewing,
+and exporting scenarios do not require an API key, trial activation, or a model call.
 
 ## One editor, two ways to start
 
-**New scenario** starts with a guided editor. **Import scenario** loads existing
-materials into that same editor. Switching entry points does not discard the
-draft or create a second copy.
+**New scenario** starts with a guided editor. **Import scenario file** loads
+existing materials into that same editor. Switching entry points does not
+discard the draft or create a second copy.
 
 1. Give the scenario a title and optional background.
 2. In **Statements & glossary**, write each statement in plain English. A
@@ -22,11 +22,12 @@ draft or create a second copy.
    an empty-premise rule.
 4. Optionally add **Reference documents**. Review their text before saving.
    They provide AI context and citations, not extra logical facts or rules.
-5. Select **Preview** to see actual ABDA results and rules in plain language.
-   Then **Save & open** saves a private project and opens it for exploration.
-   Editing anything invalidates the preview until you check it again.
+5. Select **Check & save** to validate and open a private project. Use
+   **Preview** first if you want to inspect the computed conclusions and rules;
+   the save button then reads **Save & open**. Warnings pause saving for review.
+   Editing anything invalidates the previous check.
 
-**Try a small example** starts a new draft with two competing picnic rules.
+**Try the picnic example** starts a new draft with two competing picnic rules.
 **Clear draft** starts over after confirmation. **Symbol & details** preserves
 identifiers, categories, attribution, and explicit negative meanings.
 **Priority & details** exposes defeasible priority and active state. Higher
@@ -49,7 +50,7 @@ This changes the symbol everywhere it is used by the logic, including negative
 literals and rule undercuts. It preserves meanings, key-conclusion choices,
 priorities, active states, and attribution. Background and reference-document
 text are not searched or rewritten. The change stays in this draft until
-**Preview**, then **Save & open**. Published examples retain their snapshots.
+you save. Published examples retain their snapshots.
 
 Invalid names leave the draft unchanged. **Cancel rename**, or Escape while
 typing the name, cancels that pending change. Preview and saving wait until
@@ -59,12 +60,13 @@ Renaming also works in an unfinished guided draft and in larger scenarios
 that use Rule text instead of the guided rows.
 
 Closing the editor keeps its draft in this browser tab. Refreshing or signing
-out clears it. Saved projects persist under **My projects**.
+out clears it. Reopen saved projects with **Manage projects** in the scenario menu.
 
 ## Import one file or several materials
 
 Choose files or drop them together into **Import scenario**. Check file roles,
-then select **Load into editor**:
+then select **Load into editor**. A complete scenario also offers
+**Open as project**, which validates before saving a new private project:
 
 - **Complete scenario**: ABDA-NL YAML/JSON, including a downloaded export.
 - **ASPIC- rules**: a .txt or .aspic knowledge base.
@@ -126,7 +128,7 @@ Omitted rule names are generated. Rule text is limited to 100 KB and
 
 Native ABDA files use blank lines between defeasible preference blocks,
 with later blocks stronger. In the example, wind has higher priority.
-Explicit **# Block N** markers, used by the editor and **Show ASPIC-**, override
+Explicit **# Block N** markers, used by the editor and **ASPIC- text**, override
 blank-line grouping. **# [suspended]** preserves inactive defeasible rules and
 assumptions. Unsupported dialects, variables, and disjunction are rejected.
 
@@ -145,8 +147,8 @@ must fit the 1 MB portable file limit. Saving rejects excessive content rather
 than silently truncating exports. Safe PDF uploads require POSIX resource
 limits; text upload and paste remain available on other platforms.
 
-**Download current scenario** creates one self-contained **version 3 JSON**
-file containing:
+**Download scenario (.json)** in the scenario or Save menu creates one
+self-contained **version 3 JSON** file containing:
 
 - Facts, assumptions, rules, priorities, active states, and key conclusions.
 - Full glossary meanings, background, categories, and attribution.
@@ -177,43 +179,55 @@ AI requests use bounded, question-relevant excerpts. Selection is not exhaustive
 but complete text remains stored and exported. The ABDA engine determines
 conclusion labels. Funded or BYOK accounting applies only to AI requests.
 
+Open **Sources and glossary** from the scenario menu to read full saved text,
+search within a document, or view statement meanings. In the editor, **Read
+document** opens the unsaved text without losing the draft. AI source cards
+separate quoted wording from contextual passages. **Open in Sources** on an
+older answer reads that answer's saved document, not the current project's
+replacement. A scenario without documents can still be explored and discussed
+using its statements, rules, and computed labels.
+
 ## Edit saved work
 
-Open a private project and select **Edit scenario** in the toolbar. The same
-editor updates its statements, rules, glossary, and documents together.
-**Save & open** checks the project version and rejects stale edits instead
-of overwriting newer work. Outstanding rule toggles in the current exploration
-are included in the editor draft.
+Open a private project and select **Edit scenario** in the scenario-name menu.
+The same editor updates its statements, rules, glossary, and documents together.
+**Check & save**, or **Save changes** after Preview, checks the project version
+and rejects stale edits instead of overwriting newer work. Outstanding rule
+toggles in the current exploration are included in the editor draft.
 
-For examples and shared views, **Sources & glossary** is read-only. Save a
-private copy before editing. Active share links expose updated saved content;
-published examples keep their separately reviewed snapshots. Include only
-material you have permission to share.
+The **Sources and glossary** reader is read-only. Edit documents through the
+scenario editor; for examples and shared views, save a private copy first.
+Active share links expose updated saved content; published examples keep their
+separately reviewed snapshots. Include only material you have permission to share.
 
 ## Suggest or publish a preloaded example
 
-Open your private project, then open **Workspace > Projects**. Select
-**Suggest as example**, inspect the snapshot, check the public-sharing consent,
-and select **Submit for review**. No model call or trial credit is required.
-The preview includes the project name and the scenario itself, but not the
-private project description, account email, chat history, or credentials.
-The preview also includes the full text of attached references and their source
-URLs. Remove sensitive or restricted material before submitting it.
+Open your private project, then choose **Suggest as a community example...**
+from the menu beside **Save**. Review the public title, optional summary, and
+full snapshot; optionally include your display name or a private reviewer note.
+Check the public-sharing consent and select **Submit**. No model call or trial
+credit is required. Unsaved changes must be saved before submission.
 
-Follow the request under **Workspace > Examples**. You can withdraw a pending
-request. If a revision is needed, edit and save the project before submitting
+The public snapshot includes the scenario background, full reference text,
+and source URLs. A shorter public summary does not redact them. It excludes
+the private project description, account email, chat history, credentials,
+and private reviewer notes. Remove restricted material before submitting.
+
+Follow the request under **Account > Community examples...**. You can withdraw
+a pending request. If a revision is needed, edit and save the project before submitting
 a new snapshot. A retry of the same project version does not create a duplicate.
 Each account can have five pending requests and fifty submissions in total.
 
-Scenario administrators see **Publish as example** on their own projects.
-They can also review submitted snapshots under **Examples > Awaiting review**,
-then approve or decline them. A short reason is required when declining or
-removing a published example. This role does not grant access to other private
-projects. Review status is shown in the application; no notification email is
-sent for each submission.
+Scenario administrators see **Publish as a community example...** in the Save
+menu for their own projects. They can also review submissions under
+**Community examples > Awaiting review**. **Approve** opens a final **Publish**
+confirmation; **Decline** requires a short note. Removing someone else's
+published example also requires a note. This role does not grant access to
+other private projects. Review status is shown in the application; no
+notification email is sent for each submission.
 
 Published snapshots appear under **Community examples** in the main scenario
-selector, alongside the unchanged included examples. They support the same
+menu, alongside the unchanged included examples. They support the same
 deterministic analysis, AI tools, downloads, private copies, and MCP reads.
 Publication does not change the source private project. Later edits or
 archiving do not update or remove its public snapshot. An administrator can

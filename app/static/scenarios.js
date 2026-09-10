@@ -239,9 +239,13 @@ function renderScenarioLibraryAccess() {
     : 'Renaming updates every logical reference, including negation and rule undercuts. Meanings and reference documents are preserved.';
   for (const id of ['scenario-rule-text', 'scenario-glossary-text', 'scenario-glossary-file', 'scenario-apply-glossary'])
     byId(id).disabled = disabled || pendingRename;
-  byId('scenario-library-submit').textContent = scenarioLibrary.busy ? 'Saving...' : scenarioLibrary.reading ? 'Checking...'
+  const submitLabel = scenarioLibrary.busy ? 'Saving...' : scenarioLibrary.reading ? 'Checking...'
     : !scenarioLibrary.preview ? 'Check & save' : scenarioLibrary.target ? 'Save changes' : 'Save & open';
-  byId('scenario-preview-btn').textContent = scenarioLibrary.reading ? 'Checking...' : 'Preview';
+  const previewLabel = scenarioLibrary.reading ? 'Checking...' : 'Preview';
+  // Description blur refreshes access before a pointer click completes.
+  // Keep unchanged labels attached throughout that pointer sequence.
+  if (byId('scenario-library-submit').textContent !== submitLabel) byId('scenario-library-submit').textContent = submitLabel;
+  if (byId('scenario-preview-btn').textContent !== previewLabel) byId('scenario-preview-btn').textContent = previewLabel;
   byId('scenario-editor-heading').textContent = scenarioLibrary.target ? 'Edit: ' + scenarioLibrary.target.name
     : scenarioLibrary.tab === 'file' ? 'Import scenario' : 'New scenario';
   byId('scenario-editor-outcome').textContent = scenarioLibrary.target
@@ -1072,7 +1076,7 @@ async function submitScenarioLibrary() {
       requestCloseModal('modal-scenario-library');
     }
     await refreshProjects({ quiet: true });
-    showGlobalStatus(changed ? 'Saved "' + project.name + '". Open it from My projects when ready.'
+    showGlobalStatus(changed ? 'Saved "' + project.name + '". Open it from Manage projects when ready.'
       : 'Opened "' + project.name + '". Saved privately, ready to explore.', 'success');
     setWorkspaceStatus('scenario-library-status');
   } catch (error) {

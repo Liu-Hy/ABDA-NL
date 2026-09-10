@@ -443,13 +443,27 @@ def _assert_concurrent_stale_sweeps_conserve_both_ledgers() -> None:
 
 def _wait_for_blocked_worker(session, *, owner_pid, worker_pid, future) -> None:
     deadline = time.monotonic() + 5
-    while owner_pid not in session.scalar(
-        text("SELECT pg_blocking_pids(:pid)"), {"pid": worker_pid},
-    ):
+    while True:
+        # PostgreSQL may queue a second row-lock waiter behind the first,
+        # reporting that waiter rather than the transaction holding the row.
+        # Prove the held account is an ancestor, including this queued case.
+        pending = [worker_pid]
+        blocking_chain = {}
+        while pending:
+            pid = pending.pop()
+            if pid in blocking_chain:
+                continue
+            blockers = session.scalar(text("SELECT pg_blocking_pids(:pid)"), {"pid": pid}) or []
+            blocking_chain[pid] = blockers
+            if owner_pid in blockers:
+                return
+            pending.extend(blockers)
         if future.done():
             future.result()
             pytest.fail("the worker bypassed the held account lock")
-        assert time.monotonic() < deadline, "the worker did not wait for the account lock"
+        assert time.monotonic() < deadline, (
+            f"the worker did not wait for account lock owner {owner_pid}: {blocking_chain}"
+        )
         time.sleep(0.01)
 
 

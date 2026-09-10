@@ -10,9 +10,10 @@ argument-based reasoning.
 
 Try the hosted service at <https://demo.abda-nl.org>. You can explore the bundled
 examples without signing in. For model assistance, sign in with an email code.
-Activate a funded trial in **Workspace > Account**, or supply your own provider
-key in **Workspace > AI access**. The Account panel reports trial availability
-and your balance.
+Use **Account > Sign in...**, then **Account and credit...** to activate a
+funded trial and view its balance. Choose a funded model from the top AI menu,
+or select **Use your own API key...**. The workflows below describe this
+development branch; the hosted release may still show earlier labels.
 
 ## Run the demo
 
@@ -38,20 +39,14 @@ configuration exists, otherwise it starts the complete deterministic demo.
 Use `abda-nl --basic`, `abda-nl --llm`, or `abda-nl --no-browser` to choose
 explicit behavior.
 
-For the CloudBank-funded LLM features, place the Azure/Foundry credentials in
-the gitignored `.env` file and select Foundry in `.env.local`:
-
-```bash
-ABDA_CLAUDE_PROVIDER=foundry
-```
-
-The supported fields are `AZURE_ANTHROPIC_ENDPOINT` or
-`ANTHROPIC_FOUNDRY_BASE_URL` for the endpoint, and
-`AZURE_ANTHROPIC_API_KEY`, `ANTHROPIC_FOUNDRY_API_KEY`, or
-`AZURE_OPENAI_API_KEY` for authentication. ABDA-NL also understands an Azure
-OpenAI endpoint and derives the matching Foundry Messages endpoint. See the
-[CloudBank LLM setup tutorial](https://github.com/Liu-Hy/cloudbank-llm-setup)
-for how those values are provisioned.
+For managed CloudBank access, follow the funded provider configuration in
+[public deployment](docs/operations/public-deployment.md) and
+[model promotion](docs/operations/model-promotion.md). Keep credentials in the
+gitignored `.env`, never in project files. The
+[CloudBank setup tutorial](https://github.com/Liu-Hy/cloudbank-llm-setup)
+explains provisioning for Azure and GCP. Direct development provider access
+requires a separate explicit opt-in; a provider key alone does not activate
+managed funded access.
 
 On NCSA Delta, start the full demo through the user-level launcher:
 
@@ -87,9 +82,11 @@ physical provider call and settles recorded usage. If a dispatched request has
 no reliable billing result, it conservatively charges the reserved amount
 instead of making the same credit available to spend again.
 
-CloudBank Azure Foundry is the primary funded route. OpenRouter is used only
-after bounded retries establish a transport, throttling, or provider-service
-failure. The project-paid OpenRouter ledger defaults to a hard $500 cap.
+CloudBank Azure or GCP supplies each model's primary funded route. OpenRouter
+provides same-model fallback for eligible CloudBank provider failures, with
+bounded retries where applicable. A deployment-scoped recent-failure circuit
+can skip repeated CloudBank probes. See the [review guide](docs/demo-revision-review-guide.md)
+for the routing contract. The project-paid OpenRouter ledger defaults to a hard $500 cap.
 Increasing it above $500 requires an explicit deployment acknowledgement, and
 the application refuses values above $1,000.
 
@@ -105,20 +102,23 @@ kept out of the public list until they pass the repository evaluation gate.
 
 ### Browser workspace
 
-Use **New / Open**, beside the example selector, to work with your own scenario:
+Open the scenario-name menu to choose an included example, a community example,
+or one of your private projects:
 
-- **New scenario** and **Import scenario** lead into one common editor.
+- **New scenario** and **Import scenario file** lead into one common editor.
   Write statements and rules in **Guided**, or switch to **Rule text** for
   ASPIC-. Statement descriptions are the linked glossary. Import a complete
   YAML/JSON scenario, or rules, glossary, and reference documents together.
-- Add optional text, Markdown, or text-based PDF references, then **Preview**
-  the actual ABDA results and **Save & open**. No model call or trial credit
-  is needed. References provide AI context without becoming logical facts.
-- **My projects** reopens saved work. **Download current scenario** exports
+- Add optional text, Markdown, or text-based PDF references. **Check & save**
+  validates and saves; **Preview** lets you inspect the computed results first.
+  Warnings require review before saving. No model call or trial credit is
+  needed. References provide AI context without becoming logical facts.
+- **Manage projects** reopens saved work. **Download scenario (.json)** exports
   rules, meanings, and full reference text, including bundled corpus content,
   in one self-contained JSON file. Import does not need the original server.
   PDF content uses extracted text, not page layout. **Edit scenario** opens
-  the same editor for a saved private project.
+  the same editor for the current private project. **Sources and glossary**
+  opens a read-only reader with document search and statement meanings.
   Downloads do not include chat, account identifiers, share links, or API keys.
 
 Sign in before creating or importing private work. The builder draft stays in
@@ -127,22 +127,31 @@ refreshing or signing out discards it. Document text is reviewed before saving;
 original PDFs are not retained and source URLs are not fetched. See the
 [scenario guide](docs/scenarios.md) for a short example and supported formats.
 
-The webpage keeps anonymous example exploration available while placing private
-and metered features in the **Workspace** dialog:
+**Explain** explores an individual argument and its supports. **Conclusion
+graph** groups arguments by conclusion; **ASPIC- text** shows the formal rules.
+Assumption and rule toggles preview their effects before applying. **Reset**
+appears after changes, restores the baseline, and offers **Undo reset** without
+discarding the conversation.
 
-1. **Account** signs in through hosted verified-email OIDC in public deployments.
-   Local and Delta development use a visibly labeled development login instead.
-2. **Projects** saves the current analysis as a private database record. Reopened
-   projects continue deterministic changes, grounded chat, and reviewed edits
-   from the saved project state. The Save changes button uses an optimistic
-   project version so another browser tab cannot be overwritten silently.
-3. **AI access** chooses an approved funded profile or an Anthropic, OpenAI,
-   Google, or OpenRouter key supplied by the user. A personal key exists only in
-   memory for the current browser tab. Reloading or signing out clears it.
-4. **Codex and Claude** creates, lists, and revokes scoped MCP credentials. A new
-   secret is disclosed once and never stored in recoverable form.
+In **Chat & Exploration**, **?** drafts an editable question with an attached
+reference. It sends only when you choose **Ask**. Editing prose preserves the
+reference; activating its words converts it to an ordinary quotation. Refresh
+or remove references marked as belonging to an earlier state before sending.
+Source cards distinguish **Quotation** from **Context**; **Open in Sources**
+shows the saved document, while **Referenced items** explains the formal
+context. Older answers keep their own scenario snapshot. Conversation history
+is stored in this browser for the signed-in account; signed-out history lasts
+only in the tab. The conversation menu offers export and deletion.
 
-The first Save project action creates a private project. A project owner can
+The **Account** menu opens account and credit, project management, community
+examples, AI access, and **Agent access (Codex, Claude Code)**. Public sign-in
+uses verified-email OIDC; development login is visibly labeled. A personal
+provider key stays only in the current tab's memory and clears on reload or
+sign-out. Agent credentials are disclosed once and can be revoked.
+
+**Save** creates a private project or updates the current one using its version
+to prevent silent overwrites from another tab. Its adjacent menu offers private
+copies, sharing, community submission, and downloads. A project owner can
 create a revocable read-only link. The bearer token stays in the URL fragment,
 and a recipient cannot toggle assumptions, change preferences, call models, or
 save over the owner's project. A signed-in recipient can save a validated

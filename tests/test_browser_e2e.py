@@ -876,22 +876,6 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
                       position: css.position, overflow: css.overflowX, display: css.display,
                       closedDetails: closed ? label(closed) : null};
                   })};
-                const widthWithHidden = selector => {
-                  const saved = [...document.querySelectorAll(selector)].map(element => [element, element.getAttribute('style')]);
-                  try {
-                    for (const [element] of saved) element.style.setProperty('display', 'none', 'important');
-                    return document.documentElement.scrollWidth;
-                  } finally {
-                    for (const [element, style] of saved) {
-                      if (style === null) element.removeAttribute('style'); else element.setAttribute('style', style);
-                    }
-                  }
-                };
-                report.widthWithoutClosedDetails = widthWithHidden('details:not([open]) > :not(summary)');
-                report.widthWithoutConversationMenu = widthWithHidden('.conversation-actions:not([open]) > :not(summary)');
-                report.widthWithoutSnapshots = widthWithHidden('.conversation-turn-controls details:not([open]) > :not(summary)');
-                report.widthWithoutExplorerMenus = widthWithHidden('.panel-options:not([open]) > :not(summary), .row-options:not([open]) > :not(summary)');
-                report.restoredDocumentWidth = document.documentElement.scrollWidth;
                 return report;
             }"""), indent=2)
             _open_workspace(page)
@@ -1185,6 +1169,8 @@ def test_builder_deleted_statement_does_not_rebind_a_rule(live_browser_server):
     with sync_playwright() as playwright:
         browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
         page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
         try:
             assert page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": f"{uuid4().hex}@example.org"}).ok
             _goto_ready_demo(page, live_browser_server)
@@ -1197,8 +1183,40 @@ def test_builder_deleted_statement_does_not_rebind_a_rule(live_browser_server):
             page.locator("#scenario-add-statement").click()
             page.locator("#scenario-statements .scenario-statement-card[open] input[type=text]").fill("An unrelated new statement")
             assert page.evaluate("scenarioLibrary.rules[0].premises[0]") == removed_id
-            page.locator("#scenario-preview-btn").click()
-            expect(page.locator(".authoring-field-error").first).to_contain_text("Choose an existing statement")
+            page.evaluate("""() => {
+              const editor = document.querySelector('#modal-scenario-library');
+              const preview = document.querySelector('#scenario-preview-btn');
+              const label = preview.firstChild;
+              window.authoringPreviewEvents = [];
+              const record = (event, phase = event.type) => {
+                if (!editor.contains(event.target) || window.authoringPreviewEvents.length >= 30) return;
+                window.authoringPreviewEvents.push({phase, target: event.target.id || event.target.tagName,
+                  originalLabelConnected: label.isConnected, disabled: preview.disabled,
+                  reading: scenarioLibrary.reading, generation: scenarioLibrary.generation,
+                  pendingRename: pendingSymbolRename(),
+                  focused: document.activeElement?.id, status: document.querySelector('#scenario-library-status').textContent});
+              };
+              for (const type of ['pointerdown', 'mousedown', 'blur', 'pointerup', 'mouseup', 'click']) {
+                document.addEventListener(type, event => {
+                  record(event);
+                  if (type === 'blur') queueMicrotask(() => record(event, 'after-blur'));
+                }, true);
+              }
+            }""")
+            try:
+                page.locator("#scenario-preview-btn").click()
+                expect(page.locator(".authoring-field-error").first).to_contain_text("Choose an existing statement")
+            except AssertionError as error:
+                _save_browser_evidence(page, "authoring-preview-click-failure")
+                diagnostics = page.evaluate("""() => {
+                  const bounds = document.querySelector('#scenario-preview-btn').getBoundingClientRect();
+                  return {events: window.authoringPreviewEvents, reading: scenarioLibrary.reading,
+                    busy: scenarioLibrary.busy, problems: scenarioLibrary.problems,
+                    previewBounds: {x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height}};
+                }""")
+                raise AssertionError(f"{error}\nPreview diagnostics: {json.dumps(diagnostics)}\nBrowser errors: {errors}") from error
+            assert page.evaluate("scenarioLibrary.rules[0].premises[0]") == removed_id
+            assert not errors
             expect(page.locator("#context-indicator")).to_have_text("Example")
             page.locator("#scenario-library-cancel").click()
             _open_authoring(page)
@@ -1235,7 +1253,7 @@ def test_scenario_library_late_create_does_not_replace_another_view(live_browser
             response = pending[0].fetch()
             assert response.status == 201
             pending[0].fulfill(response=response)
-            expect(page.locator("#global-status")).to_contain_text("Open it from My projects")
+            expect(page.locator("#global-status")).to_contain_text("Open it from Manage projects")
             expect(page.locator("#scenario-name")).to_have_text(target["title"])
             assert len(page.request.get(f"{live_browser_server}/api/projects").json()["projects"]) == 1
         finally:

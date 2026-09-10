@@ -251,7 +251,7 @@ async function openScenarioMaterials() {
   byId('materials-scenario-title').textContent = project?.name || scenario.title;
   byId('materials-access-note').textContent = project
     ? 'Edits are saved to this private project. Existing shared links will include the updated materials. Published examples keep their separate snapshot.'
-    : 'Read-only materials for this scenario. To change them, first save a private copy from Workspace > Projects.';
+    : 'Read-only materials for this scenario. To change them, first save a private copy from Manage projects.';
   byId('materials-glossary').value = glossaryText(scenario);
   byId('materials-bundled').textContent = scenario.corpus?.length
     ? `Bundled references: ${scenario.corpus.join(', ')}. These stay linked to the original example. Additional documents appear below.`
@@ -266,7 +266,7 @@ async function saveScenarioMaterials() {
   if (!draft?.project || scenarioMaterials.busy || scenarioMaterials.loading || projectSources.busy) return;
   if (state.activeProject !== draft.project || state.bundle !== draft.bundle || hasPendingStateRequest()
       || state.projectSavePending || state.authSession.user?.id !== draft.account) {
-    setWorkspaceStatus('materials-status', 'The current view changed. Close and reopen Sources & glossary before saving.', 'error'); return;
+    setWorkspaceStatus('materials-status', 'The current view changed. Close and reopen Edit scenario before saving.', 'error'); return;
   }
   const generation = scenarioMaterials.generation;
   let scenario;
