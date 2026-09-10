@@ -49,6 +49,7 @@ from app.llm.edit_validator import (
     validate_op,
 )
 from app.llm.prompts import load_prompt
+from app.scenario.diff_ops import _validated_rule_fields
 
 log = logging.getLogger(__name__)
 
@@ -187,6 +188,7 @@ def build_reviewer_system_prompt(
         state_block=build_edit_state_block(scenario, af, diff_ops),
         user_instruction=user_instruction.strip(),
         proposed_edit=pretty_op_for_review(proposed_edit),
+        rule_edit_delta=_rule_edit_delta(scenario, proposed_edit),
     )
 
 
@@ -318,6 +320,32 @@ def _build_validator_retry_message(
 def pretty_op_for_review(op: dict[str, Any]) -> str:
     """Render a proposed op as indented JSON for the Reviewer prompt."""
     return json.dumps(op, indent=2, sort_keys=True)
+
+
+def _rule_edit_delta(scenario: Any, op: dict[str, Any]) -> str:
+    """Compare the reviewed replacement with the current rule without editing either."""
+    if op.get("op") != "modify-rule":
+        return ""
+    current = scenario.rules.get(op.get("id"))
+    proposed = op.get("rule")
+    if current is None or not isinstance(proposed, dict):
+        return ""
+    # The reviewer receives a validated replacement. Use the same defaults and
+    # description normalization as Apply so omitted optional values are accurate.
+    after = _validated_rule_fields(proposed)
+    changes = {}
+    preserved = []
+    for name, value in after.items():
+        before = getattr(current, name)
+        if before == value:
+            preserved.append(name)
+        else:
+            changes[name] = {"before": before, "after": value}
+    content = json.dumps(
+        {"changed_fields": changes, "preserved_fields": sorted(preserved)},
+        indent=2, sort_keys=True,
+    ).replace("<", "\\u003c").replace(">", "\\u003e")
+    return "\n\n<rule_edit_delta>\n" + content + "\n</rule_edit_delta>"
 
 
 _VALIDATOR_TERRITORY_PHRASES = (

@@ -74,3 +74,21 @@ The original observations and all failed drafts remain evidence. Focused
 wrapper tests check scope and identical prompts for unaffected models. Paid
 replay must inspect actual new outputs before these corrections are accepted;
 full repeated model-by-feature qualification remains required afterward.
+
+The completed one-pass diagnostic inspected 25 model-case pairs and cost
+$2.859686 from CloudBank. Twenty-two were materially correct. It confirmed
+improvements from the existing short guidance, including the causal explanation
+and the requested support-rule reviews. Three Sonnet observations remain to
+recheck: two reviews inferred an unrequested source rewrite, and one fact
+refinement exhausted the correction loop. The follow-up uses a general edit
+delta for reviewer context and clearer schema paths in validator feedback.
+
+Haoyang clarified that minor lack of rigor is tolerable and prompt changes
+should remain simple and general. He also clarified that this was a reminder,
+not a negative assessment of the existing changes. The original stricter
+verdicts remain preserved alongside explicit reassessments. Minor count or
+terminology imprecision and a truthful but unnecessary advisory can be recorded
+without blocking a working feature. Wrong labels, materially wrong edits or
+claims, fabricated evidence, and failed features still require correction.
+The existing brief guidance is retained where the replay supports it; no
+scenario-specific exceptions or extra model branches were added.

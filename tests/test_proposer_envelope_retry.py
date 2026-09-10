@@ -128,13 +128,42 @@ def test_observed_nested_id_retries_and_only_valid_result_can_be_applied(greenho
     assert result.usage == {key: value * 2 for key, value in _USAGE.items()}
     assert result.cost_microusd == _assert_billed(factory, cap, 2)
     assert "failed deterministic validation" in raw.calls[1]["messages"][0]["content"]
-    assert "Additional properties" in raw.calls[1]["messages"][0]["content"]
+    correction = raw.calls[1]["messages"][0]["content"]
+    assert "Additional properties" in correction
+    assert "at /fact:" in correction
+    assert "missing a top-level string `id`" in correction
+    assert "sibling `id` and `fact`" in correction
+    assert "<root>" not in correction
     assert scenario_to_dict(greenhouse) == before
     assert "outdoor_safe" not in greenhouse.facts
     applied = apply_ops(greenhouse, [result.op])
     assert "outdoor_safe" in applied.facts
     assert compute_state_bundle(applied)["af"]["labels_by_proposition"]["ventilate"] == "accepted"
     assert fallback.calls == 0
+
+
+@pytest.mark.parametrize("task,payload_name,payload", [
+    ("add-fact", "fact", {"description": "the observation holds"}),
+    ("add-assumption", "assumption", {"description": "the premise is presumed"}),
+    ("add-rule", "rule", {"type": "defeasible", "premises": ["sensor_ready"],
+                          "conclusion": "ventilate"}),
+])
+def test_schema_feedback_distinguishes_nested_id_from_valid_top_level_id(
+    greenhouse, task, payload_name, payload,
+):
+    operation = {"op": task, "id": "fresh_item", payload_name: {"id": "fresh_item", **payload}}
+    issues = validate_op(operation, greenhouse)
+    assert [issue.code for issue in issues] == ["schema"]
+    assert f"at /{payload_name}:" in issues[0].message
+    assert f"Keep `id` outside `{payload_name}`" in issues[0].message
+    operation[payload_name].pop("id")
+    assert validate_op(operation, greenhouse) == []
+
+
+def test_schema_feedback_identifies_nested_property_without_calling_it_root(greenhouse):
+    issues = validate_op({"op": "add-fact", "id": "fresh_item", "fact": {"description": 7}}, greenhouse)
+    assert issues[0].code == "schema"
+    assert "at /fact/description:" in issues[0].message
 
 
 def test_nested_id_exhaustion_stops_after_three_charged_attempts(greenhouse, billed_provider):

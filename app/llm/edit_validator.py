@@ -91,6 +91,11 @@ def validate_op(op: dict[str, Any], scenario: Scenario) -> list[ValidationIssue]
     """
     kind = op.get("op")
     issues: list[ValidationIssue] = []
+    op_id = op.get("id")
+    if not isinstance(op_id, str) or not op_id:
+        issues.append(ValidationIssue(
+            "missing_id", "tool input is missing a top-level string `id`",
+        ))
 
     # --- Pass 1: schema ---
     # Delegate to the existing Draft-2020-12 validator. Surfaces the same
@@ -108,15 +113,17 @@ def validate_op(op: dict[str, Any], scenario: Scenario) -> list[ValidationIssue]
         try:
             _validate_payload(payload_key, payload)
         except DiffOpError as e:
-            issues.append(ValidationIssue("schema", str(e)))
+            issues.append(ValidationIssue(
+                "schema",
+                f"{e}. The tool input must have sibling `id` and "
+                f"`{payload_key}` fields. Keep `id` outside `{payload_key}`.",
+            ))
             # Schema failures often cascade into confusing downstream
             # errors; bail early and let the Proposer fix them first.
             return issues
 
     # --- Pass 2: id discipline ---
-    op_id = op.get("id")
     if not isinstance(op_id, str) or not op_id:
-        issues.append(ValidationIssue("missing_id", "op is missing a string `id`"))
         return issues
 
     all_ids = scenario.all_ids()

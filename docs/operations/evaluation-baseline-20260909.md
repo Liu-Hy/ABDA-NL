@@ -242,3 +242,43 @@ and swapped labels. An offline comparison is bound to the original response and
 report hashes in `artifacts/evals/opus-label-rubric-recheck-20260909.json`; the
 original report is unchanged and incomplete. This correction needs no model
 prompt change or additional paid call.
+
+## Bounded replay of inspected failures
+
+Slurm job `21933304` completed one diagnostic pass over 25 observed model-case
+pairs in 3 minutes 51 seconds. The source was commit
+`caec7025784713210abe12ec46a3b7e20e751b04`, fingerprint
+`3aca185407ee645e1deda54ceb96ee37d6020a0082856abca2ab7833d2154d4d`.
+All four reports confirm unchanged source during execution. The pass used
+separate route limits whose sum was $5, in addition to the persistent lifetime
+$100 limit. It made 55 successful physical calls (53 Azure and 2 Vertex),
+costing $2.859686. Every call settled. The ledger records $16.205730 spent,
+zero pending reservations, and $83.794270 remaining. No paid OpenRouter call
+occurred. The manifest, original reports, checkpoints, and completion receipt
+use the `artifacts/evals/targeted-replay-20260909` prefix.
+
+Sonnet's pending-reference fact promotion now completes after two rejected
+drafts and a valid third draft. Its refinement still exhausts the three allowed
+attempts, with a structured application error instead of `KeyError`. The
+correction feedback calls a nested fact error an error at `<root>`, which is
+ambiguous relative to the complete tool envelope. Exact validation paths are
+the next application correction. Two Sonnet reviewer notes also misstate an
+explicit request to preserve source metadata as a request to rewrite it.
+These remain material failures requiring correction before full qualification.
+
+The Opus crispiness explanation now identifies the accepted undercut as the
+decisive step. It opens with "It's accepted" in response to one selected
+conclusion. The evaluator previously required the literal's description and
+label in the same clause. A narrow scoring correction recognizes this direct
+answer only for one matching selected item, without overriding an explicit
+contradictory label or guessing among multiple items. Negative controls cover
+negation, the wrong label, an unselected target, and ambiguous selections.
+The offline receipt `artifacts/evals/opus-pronoun-rubric-recheck-20260909.json`
+binds the exact original answer and report. No new model call or model prompt
+change was needed for this scoring correction.
+
+The user clarified that minor imprecision should be documented without
+blocking an otherwise useful feature. Original strict-review verdicts remain
+unchanged. The separate `claude-policy-reassessment.json` receipt in the replay
+directory records that calibration explicitly. The diagnostic pass does not
+replace full model-by-feature qualification with three repetitions.

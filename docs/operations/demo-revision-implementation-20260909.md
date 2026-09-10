@@ -91,8 +91,13 @@ After the completed availability runs, the lifetime ledger recorded $4.901138
 spent. The first full-suite attempt was then stopped at safe case boundaries
 after inspection exposed further application and prompt defects. All 169
 observations were inspected, including rejected drafts and reviewer advisories.
-The current ledger records $13.346044 spent, no pending reservations, and
-$86.653956 remaining. The fixes cover malformed edit envelopes, incorrect
+That stop brought the ledger to $13.346044 spent. A subsequent 25-case diagnostic
+cost $2.859686, bringing the total to $16.205730 with no pending reservations
+and $83.794270 remaining. It passed 22 material-correctness reviews; three
+Sonnet cases require another bounded replay after clearer schema feedback and
+reviewer change summaries. Minor imprecision is recorded without blocking
+otherwise correct features, following Haoyang's clarification.
+The fixes cover malformed edit envelopes, incorrect
 duplicate detection, a rule/pending-premise name collision, conflicting reviewer
 instructions, and scoped explanation guidance for the affected models. A
 focused diagnostic replay precedes full repeated qualification. See the

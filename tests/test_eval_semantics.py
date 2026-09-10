@@ -76,6 +76,31 @@ def test_label_check_accepts_present_tense_without_accepting_negated_or_swapped_
     assert not _chat_semantic_checks(changed, negated, scenario, bundle, directory)["label_0_crispy"]
 
 
+def test_single_selected_item_accepts_a_direct_pronoun_answer():
+    case = _case("fried-chicken-v1-item-question")
+    scenario, bundle, _, directory = _scenario_for_case(case)
+    explanation = " The active air-fryer assumption supports crispiness and undercuts the soggy inference."
+    for opening in ("It's accepted.", "It’s accepted.", "It is currently accepted."):
+        assert _chat_semantic_checks(case, opening + explanation, scenario, bundle, directory)["label_0_crispy"]
+    for opening in ("It's rejected.", "It is undecided.", "It's not accepted.", "It isn't rejected.", "Perhaps it's accepted."):
+        assert not _chat_semantic_checks(case, opening + explanation, scenario, bundle, directory)["label_0_crispy"]
+    contradiction = "It's accepted. Crispiness is rejected."
+    assert not _chat_semantic_checks(case, contradiction, scenario, bundle, directory)["label_0_crispy"]
+
+
+@pytest.mark.parametrize("references", [
+    [],
+    [{"kind": "conclusion", "id": "order_to_go"}],
+    [{"kind": "rule", "id": "airfryer_makes_crispy"}],
+    [{"kind": "conclusion", "id": "crispy"}, {"kind": "conclusion", "id": "order_to_go"}],
+])
+def test_direct_pronoun_does_not_guess_an_unselected_or_ambiguous_label(references):
+    case = _case("fried-chicken-v1-item-question")
+    case["context_refs"] = references
+    scenario, bundle, _, directory = _scenario_for_case(case)
+    assert not _chat_semantic_checks(case, "It's accepted. The air fryer supports crispiness.", scenario, bundle, directory)["label_0_crispy"]
+
+
 def test_unattached_handbook_wording_passes_without_licensing_invented_sources():
     case = _case("missing-reference-does-not-license-a-quote")
     scenario, bundle, _, directory = _scenario_for_case(case)

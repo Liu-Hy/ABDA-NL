@@ -129,6 +129,17 @@ def _chat_semantic_checks(case, text, scenario, bundle, scenario_dir) -> dict[st
     """Check inspectable semantic facts without substituting keyword scores for review."""
     checks: dict[str, bool] = {}
     lower = text.casefold()
+    references = case.get("context_refs") or []
+    selected_literal = None
+    if len(references) == 1 and not case.get("argument_rules"):
+        reference = references[0]
+        if reference.get("kind") in {"conclusion", "proposition", "fact", "assumption"}:
+            selected_literal = reference.get("id")
+    direct_answer = re.match(
+        r"\s*it(?:['’]s|\s+is)\s+(?:currently\s+)?"
+        r"(accepted|rejected|undecided|absent)(?:\s*[.!?](?=\s|$)|\s*$)",
+        lower,
+    )
     if case.get("forbidden_claims"):
         checks["forbidden_claims_absent"] = not any(str(value).casefold() in lower for value in case["forbidden_claims"])
     for number, assertion in enumerate(case.get("label_assertions") or []):
@@ -154,6 +165,10 @@ def _chat_semantic_checks(case, text, scenario, bundle, scenario_dir) -> dict[st
                         clause[max(0, label.start() - 30):label.start()],
                     ))
                     observed.append(value if not negated else "not " + value)
+        # A direct first-sentence answer can refer to the single selected item.
+        # It cannot override an explicit label claim or resolve multiple items.
+        if not observed and literal == selected_literal and direct_answer:
+            observed.append(direct_answer.group(1))
         checks[f"label_{number}_{literal}"] = expected in observed
     required_sources = case.get("required_exact_quotes") or []
     if required_sources:

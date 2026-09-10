@@ -8,7 +8,7 @@ grounding, semantic fidelity, usefulness, and presentation separately from the
 automatic rubric. Identical visible payloads were grouped for inspection, then
 each observation received an explicit annotation bound to its own evidence hash.
 
-| Model | Observations inspected | Approved | Failed |
+| Model | Observations inspected | Initial strict approval | Initial strict failure |
 | --- | ---: | ---: | ---: |
 | Claude Sonnet 5 | 45 | 33 | 12 |
 | Claude Opus 5 | 54 | 43 | 11 |
@@ -68,3 +68,39 @@ The three application boundary corrections and their saved-response regression
 tests are recorded in [proposer-envelope-20260910.md](proposer-envelope-20260910.md).
 The combined edit, validator, routing/billing, and API regression passed 209
 tests. This inspection and its offline regressions made no paid model calls.
+
+The user subsequently clarified that minor imprecision and harmless advisory
+notes should be documented without blocking an otherwise correct feature.
+The original verdicts above remain unchanged. Separate calibrated reviews make
+the original fire argument-count observations and Opus's V1 causal-precision
+caveat nonblocking because the current labels and material explanations are
+correct. This yields 34 approved and 11 failed original Sonnet observations,
+and 46 approved and 8 failed original Opus observations under that clarified
+policy.
+
+The one-pass diagnostic replay used commit `caec702`, source fingerprint
+`3aca185407ee645e1deda54ceb96ee37d6020a0082856abca2ab7833d2154d4d`.
+All 21 Claude replay cases and every intermediate response were inspected:
+
+| Model | Replay cases | Approved under clarified policy | Substantive failures |
+| --- | ---: | ---: | ---: |
+| Claude Sonnet 5 | 12 | 9 | 3 |
+| Claude Opus 5 | 9 | 9 | 0 |
+
+Sonnet still produced two false assertions that the user should rewrite source
+metadata despite requesting a conclusion-only edit. A fact refinement exhausted
+three malformed nested envelopes. The latter now fails safely through the
+validator rather than raising `KeyError`. Another fact case succeeded on its
+third corrected attempt, with that extra cost and latency preserved in its
+annotation. Opus's truthful but unnecessary suggestion to check coexistence of
+strict and defeasible rules is a nonblocking caveat under the clarified policy.
+Its selected-crispiness response is semantically correct; the original automatic
+label check missed the unambiguous opening "It's accepted."
+
+The replay cost was $0.849032 for Sonnet and $1.870799 for Opus. These are
+diagnostic results, not full qualification. Exact-hash annotations, unchanged
+source reports, and separate calibrated reports are under
+`artifacts/evals/targeted-replay-20260909/`. The file
+`claude-policy-reassessment.json` records each policy-driven verdict change
+without replacing the initial annotations. No further prompt changes were made
+as part of this inspection.

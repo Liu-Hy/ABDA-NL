@@ -71,8 +71,8 @@ def _validate_payload(defname: str, payload: Any) -> None:
     )
     if errors:
         first = errors[0]
-        path = "/".join(str(p) for p in first.absolute_path) or "<root>"
-        raise DiffOpError(f"invalid {defname} payload at {path}: {first.message}")
+        path = "/".join([defname, *(str(p) for p in first.absolute_path)])
+        raise DiffOpError(f"invalid {defname} payload at /{path}: {first.message}")
 
 
 def apply(baseline: Scenario, ops: list[dict[str, Any]]) -> Scenario:

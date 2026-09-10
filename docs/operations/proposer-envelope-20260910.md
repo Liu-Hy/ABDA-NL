@@ -32,6 +32,24 @@ OpenRouter invocation, and no scenario mutation before Apply. They also cover
 missing payloads for all four edit tasks and correction of malformed premise
 metadata. No paid inference or prompt change is part of this fix.
 
+## Clarifying correction feedback
+
+The next diagnostic confirmed that malformed responses enter the bounded
+correction loop. One Sonnet fact proposal recovered on its third attempt, but
+a fact refinement exhausted all three attempts. Its first refinement repeated
+the identifier both at top level and inside `fact`; subsequent drafts kept the
+nested identifier and dropped the required top-level field. The feedback had
+reported an extra property at `<root>`, meaning the root of the fact payload,
+which was ambiguous relative to the tool input.
+
+Schema errors now use the complete payload path, such as `/fact` or
+`/fact/description`. Missing top-level identifiers are reported even when the
+payload is also malformed. On a schema failure, one general instruction states
+that `id` and the payload object are sibling fields. This applies to all edit
+types and models, only during correction. It adds no scenario-specific example
+or new proposer prompt branch. The original failing refinement is retained as
+evidence `3d219e39ec0b98141d58fd5feae1a5e259f70f3054e2036f3661adc8b152463b`.
+
 The same saved run exposed two further deterministic boundary issues:
 
 | Observation | Evidence SHA-256 | Correction |
