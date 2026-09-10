@@ -858,12 +858,21 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             page.keyboard.press("Escape")
             expect(page.locator("#workspace-btn")).to_be_focused()
             page.set_viewport_size({"width": 390, "height": 844})
+            narrow_before_capture = page.evaluate("""() => ({viewport: innerWidth,
+                document: document.documentElement.scrollWidth,
+                toolbar: document.querySelector('.conversation-toolbar').scrollWidth})""")
             _save_browser_evidence(page, "normal-user-view-narrow")
             assert page.locator(".topbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
-            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), json.dumps(page.evaluate("""() => {
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), json.dumps(page.evaluate("""beforeCapture => {
                 const label = element => element.id ? '#' + element.id
                   : element.tagName.toLowerCase() + (typeof element.className === 'string' && element.className ? '.' + element.className.trim().replace(/\\s+/g, '.') : '');
-                const report = {viewport: innerWidth, document: document.documentElement.scrollWidth, body: document.body.scrollWidth,
+                const report = {beforeCapture, viewport: innerWidth, document: document.documentElement.scrollWidth, body: document.body.scrollWidth,
+                  conversationControls: [...document.querySelector('.conversation-toolbar').children].map(element => {
+                    const rect = element.getBoundingClientRect(); const css = getComputedStyle(element);
+                    return {element: label(element), left: Math.round(rect.left), right: Math.round(rect.right),
+                      width: Math.round(rect.width), scroll: element.scrollWidth, client: element.clientWidth,
+                      display: css.display, position: css.position, minWidth: css.minWidth, maxWidth: css.maxWidth};
+                  }),
                   elements: [...document.querySelectorAll('body *')].filter(element => {
                     const rect = element.getBoundingClientRect();
                     return rect.width && (rect.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 1);
@@ -877,7 +886,8 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
                       closedDetails: closed ? label(closed) : null};
                   })};
                 return report;
-            }"""), indent=2)
+            }""", narrow_before_capture), indent=2)
+            assert narrow_before_capture["document"] <= narrow_before_capture["viewport"] + 1, narrow_before_capture
             _open_workspace(page)
             _axe_report(page, "normal user view account controls")
             page.set_viewport_size({"width": 1200, "height": 900})
