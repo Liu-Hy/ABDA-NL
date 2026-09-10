@@ -1,6 +1,7 @@
 """Authentication dependencies shared by browser and future MCP routes."""
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.db.models import User
 from app.db.session import get_db
 from app.core.config import Settings, get_settings
+from app.services.admin_view import normal_user_view
 
 
 def current_user(
@@ -43,6 +45,17 @@ def require_verified_user(user: User = Depends(require_user)) -> User:
             },
         )
     return user
+
+
+def scenario_access_settings(
+    request: Request,
+    user: Optional[User] = Depends(current_user),
+    settings: Settings = Depends(get_settings),
+) -> Settings:
+    """Keep browser demotion effective when services reload the account."""
+    if normal_user_view(request, user, settings):
+        return replace(settings, scenario_admin_emails=())
+    return settings
 
 
 def require_same_origin(

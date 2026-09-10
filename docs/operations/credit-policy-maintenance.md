@@ -4,8 +4,11 @@ The public program has at most 100 introductory grants of $5, with a $500
 cumulative allocation ceiling. The five exact named identities have one $50
 lifetime allocation each, from a separate $250 pool. An unavailable or retired
 allocation must not prevent verified sign-in, private project access, or BYOK.
-Explicit claims still report ineligibility. Neither eligibility program grants
-curator privileges. OpenRouter has its own independent emergency budget.
+Explicit claims still report ineligibility. The same five named identities are
+also scenario administrators, as the owner explicitly requested. Roles depend
+on verified identity, not a grant amount or remaining balance. Additional
+configured curators receive no automatic named allocation. OpenRouter has its
+own independent emergency budget.
 
 ## Retention and migration 0007
 

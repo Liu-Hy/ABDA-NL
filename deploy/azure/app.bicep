@@ -92,7 +92,7 @@ param trialBudgetMicrousd int = 500000000
 @description('Allow qualifying CloudBank outages to spend the bounded OpenRouter budget.')
 param openrouterFailoverEnabled bool = false
 
-@description('Comma-separated verified email addresses allowed to curate public example snapshots. Does not grant access to private projects.')
+@description('Additional verified curator emails, comma-separated. The application also includes the five named administrators. Does not grant access to private projects.')
 param scenarioAdminEmails string = ''
 
 @description('Disable only during the expand-first catalog schema rollout. Enable after migration 20260908_0005.')

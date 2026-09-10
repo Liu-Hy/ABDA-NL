@@ -21,6 +21,7 @@
       <span class="scenario-name" id="scenario-name">Loading...</span>
       <span class="context-indicator" id="context-indicator" role="status" aria-live="polite">Example</span>
       <span class="modified-indicator" id="modified-indicator" role="status" aria-live="polite" hidden></span>
+      <span class="normal-user-view-indicator" id="normal-user-view-indicator" hidden>Normal user view</span>
     </div>
     <div class="topbar-right">
       <label class="visually-hidden" for="scenario-select">Choose an example scenario</label>
@@ -35,6 +36,7 @@
       <button class="btn" id="aspic-btn" title="Show the current scenario as ASPIC- syntax">Show ASPIC-</button>
       <button class="btn" id="reset-btn">Reset</button>
       <button class="btn access-chip llm-only" id="ai-access-btn" type="button">AI: Balanced</button>
+      <button class="btn" id="restore-admin-view-btn" type="button" hidden>Restore administrator view</button>
       <button class="btn" id="workspace-btn" type="button">Workspace</button>
       <button class="btn btn-primary" id="save-btn" type="button" title="Save this analysis as a private project">Save project</button>
       <nav class="service-links" aria-label="Service policies">
@@ -197,6 +199,16 @@
                   <div class="identity-email" id="account-email"></div>
                 </div>
                 <span class="verified-badge">Verified email</span>
+              </div>
+              <div class="account-view-card" id="account-view-card" hidden>
+                <div class="workspace-section-heading">
+                  <div>
+                    <h3 id="account-view-heading">Administrator view</h3>
+                    <p id="account-view-description">Use the normal user experience without administrator privileges. Your projects and credit stay the same.</p>
+                  </div>
+                  <button class="btn" id="account-view-toggle-btn" type="button">Use normal user view</button>
+                </div>
+                <div class="workspace-status" id="account-view-status" role="status" aria-live="polite"></div>
               </div>
               <div class="trial-card llm-only">
                 <div class="workspace-section-heading">

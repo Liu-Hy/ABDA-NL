@@ -1,5 +1,10 @@
 # Model and feature qualification, September 10, 2026
 
+This preserves the earlier hosted release evidence. The subsequent review
+corrections withhold GLM and qualify seven models with 945 observations; see the
+[current review guide](../demo-revision-review-guide.md) for that assessment,
+its source boundary, and the final $67.664447 evaluation total.
+
 The release pool contains eight models: Claude Sonnet 5, Claude Opus 5,
 GPT-5.6 Terra, GPT-5.6 Sol, Gemini 3.8 Flash, Gemini 3.1 Pro Preview,
 GLM 5.3, and Kimi K3. Funded access, BYOK, and optional MCP server LLM tools

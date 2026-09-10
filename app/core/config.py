@@ -7,6 +7,8 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from app.services.credit_policy import NAMED_CREDIT_EMAILS
+
 
 # This deterministic development value is rejected in staging and production.
 LOCAL_SESSION_SECRET = "abda-nl-local-session-secret-not-for-production"  # noqa: S105
@@ -42,7 +44,10 @@ def _default_database_url() -> str:
 def _scenario_admin_emails() -> tuple[str, ...]:
     from email_validator import EmailNotValidError, validate_email
 
-    addresses = []
+    # The owner's five institutional administrators always retain their base
+    # role. The environment variable adds other curators. Request-scoped normal
+    # user view can still supply an empty effective allowlist with replace().
+    addresses = list(NAMED_CREDIT_EMAILS)
     for value in (os.getenv("ABDA_SCENARIO_ADMIN_EMAILS") or "").split(","):
         if not value.strip():
             continue
@@ -117,7 +122,7 @@ class Settings:
     metrics_token: str | None
     proxy_mode: str
     trusted_hosts: tuple[str, ...]
-    scenario_admin_emails: tuple[str, ...] = ()
+    scenario_admin_emails: tuple[str, ...] = NAMED_CREDIT_EMAILS
     community_catalog_enabled: bool = True
     named_credit_auto_activate: bool = True
     credit_eligibility_pepper: str = LOCAL_SESSION_SECRET

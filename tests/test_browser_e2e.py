@@ -735,6 +735,280 @@ def test_reviewed_community_examples_in_browser(live_browser_server):
             browser.close()
 
 
+def _create_view_mode_project(page, server, name):
+    response = page.request.post(f"{server}/api/projects/import", data={
+        "name": name,
+        "scenario": {
+            "title": name,
+            "facts": {"sunny": {"description": "It is sunny"}},
+            "conclusions": {"outside": {"description": "Hold the picnic outside"}},
+            "rules": {"r1": {
+                "type": "defeasible", "premises": ["sunny"], "conclusion": "outside",
+            }},
+        },
+    })
+    assert response.ok
+    return response.json()
+
+
+def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page(viewport={"width": 1200, "height": 900})
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.on("dialog", lambda dialog: dialog.accept())
+        try:
+            login = page.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "curator@example.org"})
+            assert login.ok and login.json()["scenario_admin"] is True
+            assert page.request.post(f"{live_browser_server}/api/trial/activate").ok
+            credit = page.request.get(f"{live_browser_server}/api/trial").json()
+            project = _create_view_mode_project(page, live_browser_server, "View mode demonstration")
+            _goto_ready_demo(page, live_browser_server)
+            page.locator("#workspace-btn").click()
+            page.locator("#workspace-tab-projects").click()
+            page.locator(f'[data-project-action="open"][data-project-id="{project["id"]}"]').click()
+            expect(page.locator("#scenario-name")).to_have_text("View mode demonstration")
+            page.evaluate("""async () => {
+                apiPostChat = async () => ({billing_source: 'cloudbank', cost_microusd: 0,
+                    message: 'A saved teaching answer.', model: 'test-model', latency_ms: 1});
+                await sendChatMessage('A saved teaching question.');
+                await applyOp({op: 'toggle-rule', id: 'r1'});
+            }""")
+            page.locator("#chat-input").fill("Keep this unfinished question.")
+            page.evaluate("flushConversationWrites()")
+            capture = """() => ({project: state.activeProject, bundle: state.bundle,
+                diff: state.diff_ops, conversation: activeConversation().id,
+                messages: state.chatMessages, draft: document.querySelector('#chat-input').value})"""
+            before = page.evaluate(capture)
+            page.locator("#workspace-btn").click()
+            expect(page.locator("#account-view-toggle-btn")).to_have_text("Use normal user view")
+            page.locator("#account-view-toggle-btn").click()
+            expect(page.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
+            expect(page.locator("#account-view-toggle-btn")).to_be_focused()
+            expect(page.locator("#normal-user-view-indicator")).to_be_visible()
+            assert page.evaluate(capture) == before
+            assert page.request.get(f"{live_browser_server}/api/trial").json() == credit
+            assert page.request.get(f"{live_browser_server}/api/scenario-submissions?queue=true").status == 403
+            _save_browser_evidence(page, "normal-user-view-account-desktop")
+            page.keyboard.press("Escape")
+            expect(page.locator("#workspace-btn")).to_be_focused()
+            page.set_viewport_size({"width": 390, "height": 844})
+            assert page.locator(".topbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
+            _save_browser_evidence(page, "normal-user-view-narrow")
+            page.locator("#workspace-btn").click()
+            _axe_report(page, "normal user view account controls")
+            page.set_viewport_size({"width": 1200, "height": 900})
+
+            page.locator("#workspace-tab-projects").click()
+            expect(page.get_by_role("button", name="Publish as example", exact=True)).to_have_count(0)
+            page.get_by_role("button", name="Suggest as example", exact=True).click()
+            page.locator("#example-public-consent").check()
+            page.get_by_role("button", name="Submit for review", exact=True).click()
+            expect(page.locator("#examples-list")).to_contain_text("Awaiting review")
+            expect(page.locator("#examples-filter-field")).to_be_hidden()
+            expect(page.get_by_role("button", name="Approve & publish", exact=True)).to_have_count(0)
+            submissions = page.request.get(f"{live_browser_server}/api/scenario-submissions").json()["submissions"]
+            assert len(submissions) == 1 and submissions[0]["status"] == "pending"
+
+            page.evaluate("flushConversationWrites()")
+            _reload_ready_demo(page)
+            expect(page.locator("#normal-user-view-indicator")).to_be_visible()
+            expect(page.locator("#restore-admin-view-btn")).to_be_visible()
+            page.evaluate("conversationStore.ready")
+            expect(page.locator("#chat-messages")).to_contain_text("A saved teaching answer.")
+            expect(page.locator("#chat-input")).to_have_value("Keep this unfinished question.")
+            restored_work = page.evaluate(capture)
+            page.locator("#restore-admin-view-btn").click()
+            page.wait_for_function("state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
+            expect(page.locator("#normal-user-view-indicator")).to_be_hidden()
+            expect(page.locator("#workspace-btn")).to_be_focused()
+            assert page.evaluate(capture) == restored_work
+            assert page.request.get(f"{live_browser_server}/api/trial").json() == credit
+            assert page.request.get(f"{live_browser_server}/api/projects/{project['id']}").ok
+            assert not errors
+        finally:
+            browser.close()
+
+
+def test_normal_user_view_suppresses_late_admin_content_across_tabs(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        author = browser.new_page()
+        context = browser.new_context()
+        controller, reviewer = context.new_page(), context.new_page()
+        errors = []
+        for page in (controller, reviewer):
+            page.on("pageerror", lambda error: errors.append(str(error)))
+        try:
+            assert author.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "mode-author@example.org"}).ok
+            project = _create_view_mode_project(author, live_browser_server, "Another author's private submission")
+            submitted = author.request.post(f"{live_browser_server}/api/scenario-submissions", data={
+                "project_id": project["id"], "expected_version": project["version"], "public_consent": True,
+            })
+            assert submitted.ok
+            submission = submitted.json()
+            assert context.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "curator@example.org"}).ok
+            for page in (controller, reviewer):
+                _goto_ready_demo(page, live_browser_server)
+                page.locator("#workspace-btn").click()
+            reviewer.locator("#workspace-tab-examples").click()
+            expect(reviewer.locator("#examples-list")).to_contain_text(project["name"])
+            reviewer.get_by_role("button", name="Review snapshot", exact=True).click()
+            expect(reviewer.locator("#example-review-snapshot")).to_contain_text(project["name"])
+            reviewer.evaluate("""id => {
+                window.__modeOriginalAPI = apiRequest;
+                window.__heldAdminResponses = [];
+                apiRequest = (path, options = {}) => {
+                    const queue = path.startsWith('/api/scenario-submissions?') && path.includes('queue=true');
+                    if (queue || path === `/api/scenario-submissions/${id}`) {
+                        return window.__modeOriginalAPI(path, options).then(body => new Promise(resolve => {
+                            window.__heldAdminResponses.push(() => resolve(body));
+                        }));
+                    }
+                    return window.__modeOriginalAPI(path, options);
+                };
+                window.__lateAdminList = refreshExampleSubmissions();
+                window.__lateAdminDetail = openExampleReview(id);
+            }""", submission["id"])
+            reviewer.wait_for_function("window.__heldAdminResponses.length === 2")
+            controller.locator("#account-view-toggle-btn").click()
+            expect(controller.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
+            reviewer.wait_for_function("state.authSession.normal_user_view === true")
+            expect(reviewer.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
+            expect(reviewer.locator("#example-review-snapshot")).to_be_empty()
+            expect(reviewer.locator("#workspace-tab-examples")).to_be_focused()
+            reviewer.evaluate("""async () => {
+                apiRequest = window.__modeOriginalAPI;
+                for (const resolve of window.__heldAdminResponses) resolve();
+                await Promise.all([window.__lateAdminList, window.__lateAdminDetail]);
+            }""")
+            assert project["name"] not in reviewer.locator("body").text_content()
+            assert reviewer.request.get(f"{live_browser_server}/api/scenario-submissions/{submission['id']}").status == 404
+            expect(reviewer.locator("#examples-filter-field")).to_be_hidden()
+
+            controller.locator("#account-view-toggle-btn").click()
+            reviewer.wait_for_function("state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
+            expect(reviewer.locator("#examples-list")).to_contain_text(project["name"])
+            reviewer.get_by_role("button", name="Review snapshot", exact=True).click()
+            expect(reviewer.locator("#example-review-snapshot")).to_contain_text(project["name"])
+            reviewer.evaluate("""() => {
+                window.__resolveAdminDecision = null;
+                apiRequest = (path, options = {}) => {
+                    if (path.endsWith('/review') && options.method === 'POST') {
+                        return window.__modeOriginalAPI(path, options).then(body => new Promise(resolve => {
+                            window.__resolveAdminDecision = () => resolve(body);
+                        }));
+                    }
+                    return window.__modeOriginalAPI(path, options);
+                };
+            }""")
+            reviewer.locator("#example-review-note").fill("Private administrator decision note")
+            reviewer.evaluate("""() => {
+                window.__lateAdminDecision = handleExampleDecision({
+                    target: document.querySelector('[data-example-action="reject"]'),
+                });
+            }""")
+            reviewer.wait_for_function("window.__resolveAdminDecision !== null")
+            controller.locator("#account-view-toggle-btn").click()
+            reviewer.wait_for_function("state.authSession.normal_user_view === true")
+            reviewer.evaluate("""async () => {
+                window.__resolveAdminDecision();
+                await window.__lateAdminDecision;
+            }""")
+            assert reviewer.evaluate("curation.busy") is False
+            assert project["name"] not in reviewer.locator("body").text_content()
+            assert "Private administrator decision note" not in reviewer.locator("body").text_content()
+            expect(reviewer.locator("#example-review-actions")).to_be_empty()
+            assert not errors
+        finally:
+            browser.close()
+
+
+def test_normal_user_view_refreshes_a_stale_initial_session(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        context = browser.new_context()
+        controller, opening = context.new_page(), context.new_page()
+        try:
+            assert context.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "curator@example.org"}).ok
+            _goto_ready_demo(controller, live_browser_server)
+            controller.locator("#workspace-btn").click()
+            opening.add_init_script("""
+                const originalFetch = window.fetch;
+                let held = false;
+                window.fetch = async (...args) => {
+                    const response = await originalFetch(...args);
+                    if (!held && String(args[0]).endsWith('/api/auth/session')) {
+                        held = true;
+                        return new Promise(resolve => {
+                            window.__releaseInitialSession = () => resolve(response);
+                        });
+                    }
+                    return response;
+                };
+            """)
+            opening.goto(live_browser_server, wait_until="domcontentloaded")
+            opening.wait_for_function("typeof window.__releaseInitialSession === 'function'")
+            controller.locator("#account-view-toggle-btn").click()
+            expect(controller.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
+            opening.wait_for_function("accountView.revision > 0")
+            opening.evaluate("window.__releaseInitialSession()")
+            _wait_for_demo_ready(opening)
+            expect(opening.locator("#normal-user-view-indicator")).to_be_visible()
+            assert opening.evaluate("state.authSession.scenario_admin") is False
+            opening.locator("#workspace-btn").click()
+            opening.locator("#workspace-tab-examples").click()
+            expect(opening.locator("#examples-filter-field")).to_be_hidden()
+        finally:
+            browser.close()
+
+
+def test_normal_user_view_uses_server_authority_without_inferring_from_balance(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        beneficiary, ordinary = browser.new_page(), browser.new_page()
+        try:
+            login = beneficiary.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "tmcphill@illinois.edu"})
+            assert login.ok and login.json()["can_switch_admin_view"] is True
+            assert login.json()["scenario_admin"] is True
+            credit = beneficiary.request.get(f"{live_browser_server}/api/trial").json()
+            assert credit["granted_microusd"] == 50_000_000
+            _goto_ready_demo(beneficiary, live_browser_server)
+            beneficiary.locator("#workspace-btn").click()
+            expect(beneficiary.locator("#trial-balance-label")).to_contain_text("$50.00")
+            for label, scenario_admin in (("Restore administrator view", False), ("Use normal user view", True)):
+                beneficiary.locator("#account-view-toggle-btn").click()
+                expect(beneficiary.locator("#account-view-toggle-btn")).to_have_text(label)
+                assert beneficiary.evaluate("state.authSession.scenario_admin") is scenario_admin
+                assert beneficiary.request.get(f"{live_browser_server}/api/scenario-submissions?queue=true").status == (200 if scenario_admin else 403)
+                assert beneficiary.request.get(f"{live_browser_server}/api/trial").json() == credit
+                expect(beneficiary.locator("#trial-balance-label")).to_contain_text("$50.00")
+
+            assert ordinary.request.post(f"{live_browser_server}/api/auth/dev/login", data={"email": "ordinary-mode-user@example.org"}).ok
+            # An equally large displayed balance is not an authority signal.
+            ordinary.route("**/api/trial", lambda route: route.fulfill(
+                status=200, content_type="application/json", body=json.dumps(credit),
+            ))
+            _goto_ready_demo(ordinary, live_browser_server)
+            ordinary.locator("#workspace-btn").click()
+            expect(ordinary.locator("#trial-balance-label")).to_contain_text("$50.00")
+            expect(ordinary.locator("#account-view-card")).to_be_hidden()
+            expect(ordinary.locator("#restore-admin-view-btn")).to_be_hidden()
+            assert ordinary.request.post(f"{live_browser_server}/api/auth/view-mode", data={"normal_user_view": True}).status == 403
+        finally:
+            browser.close()
+
+
 def test_scenario_library_signed_out_and_small_screen(live_browser_server):
     from uuid import uuid4
     from playwright.sync_api import expect, sync_playwright

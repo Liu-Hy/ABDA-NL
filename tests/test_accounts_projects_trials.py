@@ -7,6 +7,7 @@ from dataclasses import replace
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from fastapi import Response
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -165,7 +166,7 @@ def test_api_logout_returns_validated_oidc_destination(monkeypatch):
     )
     request = FakeRequest()
 
-    response = asyncio.run(account_routes.logout(request=request, settings=settings))
+    response = asyncio.run(account_routes.logout(request=request, response=Response(), settings=settings))
 
     location = urlsplit(response.logout_url)
     query = parse_qs(location.query)

@@ -1,5 +1,5 @@
 /* Consent-based publication of fixed snapshots. Account data is never public. */
-const curation = { generation: 0, reviewGeneration: 0, offset: 0, review: null, busy: false, account: null };
+const curation = { generation: 0, reviewGeneration: 0, offset: 0, review: null, busy: false, account: null, admin: false };
 
 function initCurationUI() {
   byId('examples-refresh-btn').addEventListener('click', () => refreshExampleSubmissions());
@@ -23,25 +23,40 @@ function initCurationUI() {
 }
 
 function clearCurationState() {
+  const focusWasCleared = ['modal-example-review', 'examples-list', 'examples-filter-field']
+    .some(id => byId(id).contains(document.activeElement));
   curation.generation += 1;
   curation.offset = 0;
+  curation.busy = false;
   closeExampleReview();
   byId('examples-list').replaceChildren();
   byId('example-review-snapshot').replaceChildren();
+  byId('example-review-actions').replaceChildren();
+  byId('example-review-subtitle').textContent = '';
   byId('example-review-note').value = '';
   byId('example-public-consent').checked = false;
+  setWorkspaceStatus('examples-status', '', 'info');
+  setWorkspaceStatus('example-review-status', '', 'info');
+  if (focusWasCleared) {
+    (byId('modal-workspace').classList.contains('visible')
+      ? byId('workspace-tab-examples') : byId('workspace-btn')).focus();
+  }
 }
 
 function closeExampleReview() {
   curation.reviewGeneration += 1;
   curation.review = null;
+  curation.busy = false;
   closeModal('modal-example-review');
 }
 
 function renderCurationAccess() {
   const session = state.authSession;
   const account = session.authenticated ? session.user?.id : null;
-  if (curation.account !== account) { clearCurationState(); curation.account = account; }
+  const admin = Boolean(session.scenario_admin);
+  if (curation.account !== account || curation.admin !== admin) {
+    clearCurationState(); curation.account = account; curation.admin = admin;
+  }
   const available = !!account && session.community_catalog_enabled !== false;
   byId('workspace-tab-examples').hidden = !available;
   byId('scenario-example-submissions').hidden = !available;
@@ -143,7 +158,9 @@ async function beginExampleSubmission() {
     if (generation !== curation.reviewGeneration || state.activeProject !== project || state.authSession.user?.id !== account) return;
     curation.review = { kind: 'submit', project: saved, account };
     showExampleReview({ ...saved.scenario, title: saved.name }, `Saved project version ${saved.version}`);
-  } catch (error) { setWorkspaceStatus('projects-status', error.message, 'error'); }
+  } catch (error) {
+    if (generation === curation.reviewGeneration && state.authSession.user?.id === account) setWorkspaceStatus('projects-status', error.message, 'error');
+  }
 }
 
 async function openExampleReview(id) {
@@ -155,7 +172,9 @@ async function openExampleReview(id) {
     curation.review = { kind: 'review', item, account };
     showExampleReview(item.scenario, `${exampleStatusLabel(item.status)} · Snapshot of version ${item.project_version}`);
     if (item.review_note) setWorkspaceStatus('example-review-status', item.review_note, 'info');
-  } catch (error) { setWorkspaceStatus('examples-status', error.message, 'error'); }
+  } catch (error) {
+    if (generation === curation.reviewGeneration && state.authSession.user?.id === account) setWorkspaceStatus('examples-status', error.message, 'error');
+  }
 }
 
 function showExampleReview(scenario, subtitle) {
@@ -198,6 +217,7 @@ async function handleExampleDecision(event) {
   const action = event.target.closest('[data-example-action]')?.dataset.exampleAction;
   const review = curation.review;
   if (!action || !review || curation.busy || review.account !== state.authSession.user?.id) return;
+  if (['approve', 'reject', 'unpublish'].includes(action) && !state.authSession.scenario_admin) return;
   if (action === 'close') return closeExampleReview();
   const note = byId('example-review-note').value.trim();
   if (['reject', 'unpublish'].includes(action) && !note) {
@@ -209,6 +229,7 @@ async function handleExampleDecision(event) {
   if (action === 'approve' && !window.confirm('Publish this exact snapshot as a public, downloadable example?')) return;
   if (action === 'unpublish' && !window.confirm('Remove this snapshot from the public examples? Existing private copies are not changed.')) return;
   curation.busy = true;
+  const generation = curation.reviewGeneration;
   renderExampleActions();
   setWorkspaceStatus('example-review-status', 'Saving...', 'info');
   try {
@@ -217,7 +238,7 @@ async function handleExampleDecision(event) {
       ? { project_id: review.project.id, expected_version: review.project.version, public_consent: true, publish: !!state.authSession.scenario_admin }
       : { expected_version: review.item.version, action, note };
     const item = await apiRequest(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (review.account !== state.authSession.user?.id) return;
+    if (review.account !== state.authSession.user?.id || generation !== curation.reviewGeneration) return;
     const stillReviewing = curation.review === review;
     if (stillReviewing) closeExampleReview();
     const message = item.status === 'published' ? 'Published. The scenario is now in Community examples.'
@@ -230,5 +251,7 @@ async function handleExampleDecision(event) {
     openWorkspace('examples');
   } catch (error) {
     if (curation.review === review) setWorkspaceStatus('example-review-status', error.message, 'error');
-  } finally { curation.busy = false; renderExampleActions(); }
+  } finally {
+    if (generation === curation.reviewGeneration) { curation.busy = false; renderExampleActions(); }
+  }
 }

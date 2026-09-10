@@ -907,6 +907,14 @@ body.llm-disabled .left-panel { width: 100%; }
   border: 1px solid #a8d4b5; background: #edf8f0; color: #235b32;
   font-size: .68rem; font-weight: 700; white-space: nowrap;
 }
+.account-view-card {
+  margin-bottom: 1rem; padding: .85rem;
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.normal-user-view-indicator {
+  padding: .18rem .48rem; border-radius: var(--radius);
+  background: #edf4fb; color: #234b76; font-size: .72rem; white-space: nowrap;
+}
 .trial-card {
   margin-bottom: 1rem; padding: .85rem;
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -1042,6 +1050,7 @@ body.llm-disabled .left-panel { width: 100%; }
   }
   .topbar-right .scenario-select { grid-column: 1 / -1; width: 100%; max-width: none; }
   .topbar-right .btn { width: 100%; justify-content: center; }
+  #restore-admin-view-btn { grid-column: 1 / -1; }
   .compact-switch {
     width: 100%; min-height: 2rem; justify-content: center;
     padding: .4rem .9rem; border: 1px solid var(--border);

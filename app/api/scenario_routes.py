@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, defer
 
 from app.api.abuse import enforce_rate_limit
-from app.api.dependencies import require_same_origin, require_verified_user
-from app.core.config import Settings, get_settings
+from app.api.dependencies import require_same_origin, require_verified_user, scenario_access_settings
+from app.core.config import Settings
 from app.db.models import ScenarioSubmission, User
 from app.db.session import get_db
 from app.services.scenario_submissions import (
@@ -48,7 +48,7 @@ class ReviewRequest(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
-def require_catalog(settings: Settings = Depends(get_settings)) -> Settings:
+def require_catalog(settings: Settings = Depends(scenario_access_settings)) -> Settings:
     if not settings.community_catalog_enabled:
         raise HTTPException(
             status_code=503, detail="Scenario submissions are temporarily unavailable."

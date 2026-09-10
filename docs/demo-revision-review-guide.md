@@ -15,7 +15,7 @@ The last verified hosted source is
 `234ffc97522b5d82e0a4a4d05082d88a4ab0c173`, on schema 0006. The correction
 candidate uses schema 0007 and has not been deployed. Hosted receipts below
 describe the earlier release. Review existing foundations as well as this diff
-wherever R01-R15 or E01-E07 depend on them.
+wherever R01-R16 or E01-E07 depend on them.
 
 `Requirements.docx` was read directly and has SHA-256
 `fb934fec9ab180586774a80f01f5d57d23693f3814eb61fa0db6f0e54b240606`.
@@ -33,13 +33,15 @@ reviewer should judge whether it adequately fulfills the contract.
 
 | Area | Choice, reason, and decision status |
 | --- | --- |
-| Accounts | Verified email OTP replaced the tentative phone-registration idea; it does not prove one unique human. Public trials require an explicit claim and cap grant recipients, not all registrations. Existing Auth0 accounts, private projects, and revocable sharing remain. MCP uses personal scoped tokens; OAuth is deferred. These are inherited engineering choices. |
+| Accounts | Verified email OTP replaced the tentative phone-registration idea; it does not prove one unique human. Public trials require an explicit claim and cap grant recipients, not all registrations. Existing Auth0 accounts, private projects, and revocable sharing remain. These are inherited engineering choices. |
+| MCP scopes | Personal scoped tokens protect account-owned projects; OAuth is deferred. `llm:use` permits reading project context through `ask_project` and `propose_project_edit`; direct `get_project` still requires `projects:read`. Token issuance states this read implication. This is an inherited engineering choice. |
 | Repeat introductory credit | Haoyang accepted the recommended no-repeat policy after account deletion. Re-registration and BYOK remain available. Keyed markers cover a known verified email and issuer/subject pair for the program lifetime. Different credentials are not proof of a distinct person. Public identities deleted before this migration cannot be reconstructed. |
-| Administrator credit | $50 means a lifetime total, retaining prior spending/reservations, rather than $50 additional or a fresh $50 balance. Five entitlements use a separate $250 administrator pool, preserving 100 public $5 places/$500 and the separate $500 OpenRouter emergency cap. Engineering interpretation proposed in the review. No curator role or whole-domain grant is implied. |
+| Administrator credit and roles | $50 means a lifetime total, retaining prior spending/reservations. Five entitlements use a separate $250 pool, preserving 100 public $5 places/$500 and the separate $500 OpenRouter emergency cap. These budget interpretations were accepted. The owner subsequently explicitly made all five named identities scenario administrators too. Active, verified identity controls that role, not balance or email domain; configured additional curators remain supported. This supersedes the earlier proposal to keep the five identities' privileges separate. |
+| Normal user view | Both groups can switch in the Account panel and restore administrator view. The browser session retains identity, projects, conversations and actual credit; it temporarily loses scenario administration in the interface and server requests. Refresh retains the mode, tabs synchronize, and sign-out resets it. These are engineering choices. This is not impersonation, a separate $5 allowance, or revocation of another browser's session or MCP token. Requests already dispatched can complete; late administrator responses must not repopulate the demoted interface. |
 | Literal “if and only if CloudBank fails” | Transient provider failures get at most one retry; verified deployment/access failures may go directly to the qualified backup. A deployment-scoped circuit may reuse a recent failure without another CloudBank call on every request; default cooldown is 15 seconds, followed by a controlled probe. This cooldown is an engineering refinement of the literal per-request wording. It must never become permanent OpenRouter-first routing. |
 | Failure and time limits | Missing local provider configuration, login/credit, invalid input, safety refusal, malformed successful output, semantic rejection, accounting failure, and an exhausted overall deadline do not authorize fallback spending. Provider 429 and transport/retryable server failures do. OpenRouter has no provider-level retry; feature correction calls are still counted and share the 180-second overall deadline. These bounds are engineering choices, not a guarantee of identical answers or latency across providers. |
-| Model selection | Excluding the three weakest requested options, preferring successors, adding Gemini 3.1 Pro, using public benchmarks, and avoiding more expensive tiers are explicit. Sonnet 5 as default and the precise eight-model pool below are engineering selections. GLM was retained for family choice after Haoyang questioned its cost; Gemini Pro was added. Do not portray GLM retention as explicitly endorsed or claim the pool is a proven global Pareto frontier. |
-| Other candidates | Kimi and GLM provide two additional families. DeepSeek V4 Flash 0731 was withheld after material application/provider failures; Grok lacked a verified exact Azure tariff. Unpublished deployments were retained, including Luna deployed before its exclusion. These are documented selection decisions, not permission for public API/BYOK/MCP access to excluded models. |
+| Model selection | Excluding the three weakest requested options, preferring successors, adding Gemini 3.1 Pro, using public benchmarks, and avoiding more expensive tiers are explicit. Sonnet 5 as default and the current seven-model pool are engineering selections. GLM was initially retained for family choice, then withheld when correction testing exposed repeated edit failures that short general prompt changes did not reliably resolve. This is application qualification, not a new general model ranking or a claim of a global Pareto frontier. |
+| Other candidates | Kimi and Gemini 3.1 Pro remain the two added choices; Kimi supplies an additional family. GLM and DeepSeek V4 Flash 0731 remain internal candidates after application failures; Grok lacked a verified exact Azure tariff. Unpublished deployments remain, including Luna deployed before its exclusion; public quota, BYOK, and MCP admission consistently exclude them. |
 | Conversations | History is saved in per-conversation IndexedDB records in the same browser per account, with a compact selector rather than visual tabs. Transactions retain concurrent edits as explicit copies; deletion tombstones prevent stale tabs from restoring removed conversations. Source text and scenario snapshots are deduplicated and portable exports remain complete. Signed-out history is tab-local; signing out hides but retains that account's saved history for its next sign-in. No cross-device chat synchronization was built. These are intentional scope choices, and potential shortfalls if “automatic saving” or “tabs” implied more. |
 | Forks and graph | Forks retain previous turns/snapshots but explicitly use the current scenario for the new question. There is no automatic historical-scenario restoration. The derivation inspector shows individual arguments and their local neighborhood alongside the grouped overview; it is not a full ungrouped global graph. Both choices implement the review's bounded proposals and remain reviewable for adequacy. |
 | Edit identifiers | New LLM-generated identifiers allow 24 characters; manual editing allows 100, and modifying existing longer rule IDs remains supported. The larger generated-ID limit is an engineering choice intended to keep proposals readable. |
@@ -56,7 +58,7 @@ hosted deployment evidence.
 
 | Findings | Corrected behavior and focused evidence |
 | --- | --- |
-| 1, 13 | Expected automatic-credit refusal no longer breaks sign-in. Dedicated HMAC eligibility markers survive deletion; mismatched keys fail closed. `test_credit_eligibility.py`, `test_account_error_boundaries.py`, migration 0007. |
+| 1, 13 | Expected automatic-credit refusal no longer breaks sign-in. Dedicated HMAC eligibility markers survive deletion; mismatched keys fail closed. Account locks precede billing and marker locks, including during live reconciliation. `test_credit_eligibility.py`, `test_account_error_boundaries.py`, `test_postgres_acceptance.py`, migration 0007. |
 | 2, 10, 14 | Every public route's local settings are checked at managed startup. Missing settings cannot authorize OpenRouter spending. BYOK shares the overall deadline and provider concurrency bound; native Anthropic uses its fixed official endpoint. `test_review_provider_guards.py`, routing and provider tests. |
 | 3, 4, 5 | Quotation/context captions differ; explicit edits survive postprocessing; expected review failures preserve the paid proposal. Conservative assessments are identified in successful and failed request displays. `test_review_degradation.py`, `test_edit_retry.py`, browser proposal/evidence tests. |
 | 6, 7, 8, 9 | Inspector selection matches the selected claim; transactional history retains concurrent copies and deletion markers; late answers stay with their original snapshot; shared source data is deduplicated. `test_exploration_browser.py`. |
@@ -71,30 +73,44 @@ selective for Sonnet 5 and the internal DeepSeek route. The [baseline erratum](o
 identifies the two recorded GLM provenance failures that justify its existing
 guidance. Passing prompts were not broadened for uniformity.
 
-Current correction checks: 1,651 deterministic tests passed, with 77 browser or
-PostgreSQL tests skipped on Delta. Chromium and Firefox passed the focused
-interaction checks; WebKit needs CI's supported host libraries. Both application
-and observability templates and parameter files compiled with pinned Bicep
-0.46.1 using synthetic configuration. The [development CI workflow](https://github.com/Liu-Hy/ABDA-NL/actions/workflows/ci.yml?query=branch%3Adevelopment)
-covers both Python versions, restricted-role PostgreSQL, all three browser
-engines, packaging, container checks and secret scanning; match its result to
-the reviewed commit.
+The correction snapshot `bbf17be` passed all eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34515372422)
+and [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34515372721):
+1,661 tests/77 skips per Python version, restricted-role PostgreSQL, and 76 tests
+per browser engine (Chromium, Firefox and WebKit). The later administrator-view
+changes need their own final commit-bound result.
+Both application and observability templates and parameter files compiled with
+pinned Bicep 0.46.1 using synthetic configuration. Earlier failed browser runs
+remain preserved; corrections synchronized the logout fixture and scoped its
+pre-logout message assertion without weakening the privacy checks.
 
-Offline replay after the postprocessing fix preserved 1,061 of the earlier
-1,080 complete request/result observations exactly. The other 19 belong to
-Flash and GLM modifications. Fresh checks of all five affected cases, three
-times per model, preserved the intended formal edits but found 13 optional
-metadata failures, including seven incorrect undercut descriptions. Those
-failures remain recorded. A 33-word reminder now tells only these two models'
-rule-modification prompts to preserve unrequested fields, including absence.
-The affected 30-observation regression is pending. Spending before it was
-$66.387462 of the original $100, zero pending, with no paid OpenRouter calls.
+The current seven-model qualification contains **945 observations** (45 cases,
+three repetitions per model): 930 retained observations and 15 fresh Flash edit
+checks. Full request and application-result replay is exact for all 945 on
+the current model implementation fingerprint `ef801af4`. Separate AI assessment
+retains 17 lexical adjudications and one nonblocking Sonnet quotation exception;
+the 18 original automatic failures remain unchanged. The private composite is
+`artifacts/evals/review-corrections-composite-assessment-20260910-v2.json`
+(SHA-256 `e6c0716026b940cfa6267477dbf5022f72c23a4b07742e6ee71edf4b907e575b`),
+with request/result proof in `review-corrections-replay-20260910-v7.json`.
+Replay proves reuse of recorded inference, not fresh provider calls.
 
-## Selected model pool at the release snapshot
+After the edit postprocessing fix, five affected modification cases were checked
+three times each for Flash and GLM. The failures included incorrect undercut
+descriptions. A 33-word preservation reminder resolved all 15 Flash checks.
+GLM scored 8/15, 14/15 and 7/15 under three short general reminders, with omitted
+requested changes, incorrect descriptions, and some missed reviewer warnings.
+It is withheld from quota, BYOK and MCP; its 135 earlier observations are excluded
+from current admission and all failed reports are retained. The best short GLM
+reminder remains available only for internal evaluation. No further tuning or
+paid testing is pending. Lifetime CloudBank evaluation spending is **$67.664447
+of the original $100**, zero pending, leaving $32.335553. Paid OpenRouter testing
+remains zero. These are conservative application ledger amounts, not invoices.
+
+## Current qualified model pool
 
 | Funded provider | Models |
 | --- | --- |
-| Azure Foundry | Claude Sonnet 5, Claude Opus 5, GPT-5.6 Terra, GPT-5.6 Sol, GLM 5.3, Kimi K3 |
+| Azure Foundry | Claude Sonnet 5, Claude Opus 5, GPT-5.6 Terra, GPT-5.6 Sol, Kimi K3 |
 | GCP Vertex | Gemini 3.8 Flash, Gemini 3.1 Pro Preview |
 
 Every admitted model has an OpenRouter mapping. Native BYOK providers expose
@@ -120,6 +136,7 @@ interpretation and should themselves be challenged.
 | R07/R08/R12: prompts and qualification | [prompts](../app/prompts/), [model guidance](../app/llm/prompts.py), [chat](../app/llm/chat_service.py), [evidence](../app/llm/evidence.py), [evaluation code](../app/evals/), [budget](../app/evals/budget.py), [suite](../evals/llm_suite.yaml); `test_model_prompt_guidance.py`, `test_chat_validator.py`, `test_llm_eval.py`, proposer/reviewer/context tests. |
 | R09: MCP | [server](../app/mcp/server.py), [client acceptance helper](../app/cli/mcp_client_acceptance.py), [token service](../app/services/mcp_tokens.py); `test_mcp*`. Verify subscription-only calls do not reach server inference and server-model calls require `llm:use`. |
 | R10-R14: interaction | [exploration.js](../app/static/exploration.js), [app.js](../app/static/app.js), [workspace.js](../app/static/workspace.js), [index.html](../app/static/index.html); [exploration browser tests](../tests/test_exploration_browser.py), [workspace browser tests](../tests/test_browser_e2e.py). |
+| R03/R16: administrator roles and normal user view | [settings](../app/core/config.py), [view-mode policy](../app/services/admin_view.py), [account routes](../app/api/account_routes.py), [effective permissions](../app/api/dependencies.py), [scenario routes](../app/api/scenario_routes.py), [curation UI](../app/static/curation.js), [workspace](../app/static/workspace.js); `test_admin_view.py`, `test_named_credit.py`, browser view-mode tests. |
 | R02, E01/E02/E07: operation | [launcher configuration](../.demo.json), [repository rules](../AGENTS.md), [Azure deployment](../deploy/azure/), [CI](../.github/workflows/ci.yml). Preserve managed lifecycle, image/schema compatibility, restricted roles, and budget/configuration invariants. |
 
 ## Earlier release evidence and remaining limits

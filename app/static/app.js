@@ -245,13 +245,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Fetch config first so LLM-only DOM is hidden before first paint of
     // scenario content — avoids a flash of chat/save/add buttons on
     // servers that run with ABDA_ENABLE_LLM unset (the default).
+    const viewRevision = accountView.revision;
     const [config, authSession, scenarios] = await Promise.all([
       apiGetConfig(),
       apiRequest('/api/auth/session'),
       apiListScenarios(),
     ]);
     state.config = config;
-    state.authSession = authSession;
+    state.authSession = await authSessionForCurrentView(authSession, viewRevision);
     state.scenarios = scenarios;
     initializeLLMAccess(config);
     document.body.classList.toggle('llm-disabled', !config.llm_enabled);

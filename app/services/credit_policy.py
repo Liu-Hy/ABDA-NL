@@ -1,4 +1,4 @@
-"""Explicit institutional credit policy, independent of curator permissions."""
+"""Named institutional administrators and their separate credit allocation."""
 
 NAMED_CREDIT_PROGRAM = "administrators"
 NAMED_CREDIT_GRANT_MICROUSD = 50_000_000

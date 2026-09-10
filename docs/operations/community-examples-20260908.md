@@ -1,5 +1,10 @@
 # Reviewed community examples, September 8, 2026
 
+This records the September 8 release. The owner's later instruction makes all
+five named credit identities scenario administrators and adds normal user view;
+the [current requirements](../demo-revision-contract.md) supersede the role
+defaults below.
+
 Status: deployed and enabled at https://demo.abda-nl.org. Automated source,
 database, browser, and live release acceptance passed. No production scenario
 was submitted or published by the agent.

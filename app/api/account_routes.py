@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.account_models import (
+    AdminViewModeRequest,
     AspicPreviewRequest,
     GlossaryPreviewRequest,
     SourcePreviewRequest,
@@ -54,6 +55,12 @@ from app.scenario.loader import scenario_from_dict
 from app.scenario.serialize import scenario_to_dict
 from app.scenario.state import compute_state_bundle
 from app.services.accounts import IdentityError, upsert_local_development_user, upsert_verified_identity
+from app.services.admin_view import (
+    can_switch_admin_view,
+    clear_admin_view_cookie,
+    normal_user_view,
+    set_admin_view_cookie,
+)
 from app.services.projects import (
     ProjectNotFoundError,
     ProjectLimitError,
@@ -216,19 +223,54 @@ def _home_with_error(code: str) -> str:
     return f"/?{urlencode({'auth_error': code})}"
 
 
-@router.get("/api/auth/session", response_model=AuthSessionResponse)
-def auth_session(
-    user: Optional[User] = Depends(current_user),
-    settings: Settings = Depends(get_settings),
+def _session_response(
+    user: User | None, settings: Settings, *, normal_view: bool = False,
 ) -> AuthSessionResponse:
     return AuthSessionResponse(
         authenticated=user is not None,
-        scenario_admin=is_scenario_admin(user, settings),
+        scenario_admin=is_scenario_admin(user, settings) and not normal_view,
+        can_switch_admin_view=can_switch_admin_view(user, settings),
+        normal_user_view=normal_view,
         community_catalog_enabled=settings.community_catalog_enabled,
         auth_mode=settings.auth_mode,
         login_url="/auth/login" if settings.auth_mode == "oidc" else None,
         user=UserView.model_validate(user) if user is not None else None,
     )
+
+
+@router.get("/api/auth/session", response_model=AuthSessionResponse)
+def auth_session(
+    request: Request,
+    user: Optional[User] = Depends(current_user),
+    settings: Settings = Depends(get_settings),
+) -> AuthSessionResponse:
+    return _session_response(user, settings, normal_view=normal_user_view(request, user, settings))
+
+
+@router.post(
+    "/api/auth/view-mode",
+    response_model=AuthSessionResponse,
+    dependencies=[Depends(require_same_origin)],
+)
+def update_view_mode(
+    payload: AdminViewModeRequest,
+    request: Request,
+    response: Response,
+    user: User = Depends(require_verified_user),
+    session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AuthSessionResponse:
+    if not can_switch_admin_view(user, settings):
+        raise HTTPException(status_code=403, detail={
+            "code": "admin_view_unavailable",
+            "message": "This account cannot switch administrator view.",
+        })
+    _limit_user_mutation(request, session, settings, user, scope="admin_view_mode")
+    if payload.normal_user_view:
+        set_admin_view_cookie(response, user, settings)
+    else:
+        clear_admin_view_cookie(response, settings)
+    return _session_response(user, settings, normal_view=payload.normal_user_view)
 
 
 @router.post(
@@ -239,6 +281,7 @@ def auth_session(
 def development_login(
     payload: DevelopmentLoginRequest,
     request: Request,
+    response: Response,
     session: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> AuthSessionResponse:
@@ -258,13 +301,8 @@ def development_login(
     )
     request.session.clear()
     request.session["user_id"] = user.id
-    return AuthSessionResponse(
-        authenticated=True,
-        scenario_admin=is_scenario_admin(user, settings),
-        community_catalog_enabled=settings.community_catalog_enabled,
-        auth_mode=settings.auth_mode,
-        user=UserView.model_validate(user),
-    )
+    clear_admin_view_cookie(response, settings)
+    return _session_response(user, settings)
 
 
 @router.post(
@@ -274,6 +312,7 @@ def development_login(
 )
 async def logout(
     request: Request,
+    response: Response,
     settings: Settings = Depends(get_settings),
 ) -> LogoutResponse:
     """Clear the local session and return one validated logout destination."""
@@ -289,6 +328,7 @@ async def logout(
         except Exception as exc:  # noqa: BLE001
             log.warning("OIDC logout discovery failed: %s", type(exc).__name__)
     request.session.clear()
+    clear_admin_view_cookie(response, settings)
     return LogoutResponse(logout_url=destination)
 
 
@@ -314,7 +354,9 @@ async def browser_logout(
             )
         except Exception as exc:  # noqa: BLE001
             log.warning("OIDC logout discovery failed: %s", type(exc).__name__)
-    return RedirectResponse(destination, status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(destination, status_code=status.HTTP_303_SEE_OTHER)
+    clear_admin_view_cookie(response, settings)
+    return response
 
 
 @router.get("/auth/login", name="oidc_login", include_in_schema=False)
@@ -371,17 +413,23 @@ async def oidc_callback(
     except IdentityError as exc:
         request.session.clear()
         log.info("OIDC login rejected: %s", exc)
-        return RedirectResponse(_home_with_error(exc.code), status_code=303)
+        response = RedirectResponse(_home_with_error(exc.code), status_code=303)
+        clear_admin_view_cookie(response, settings)
+        return response
     except Exception as exc:  # noqa: BLE001
         request.session.clear()
         log.warning("OIDC callback failed: %s", type(exc).__name__)
-        return RedirectResponse(_home_with_error("login_failed"), status_code=303)
+        response = RedirectResponse(_home_with_error("login_failed"), status_code=303)
+        clear_admin_view_cookie(response, settings)
+        return response
     request.session.clear()
     request.session["user_id"] = user.id
     oidc_sid = _safe_logout_hint(claims.get("sid"))
     if oidc_sid:
         request.session["oidc_sid"] = oidc_sid
-    return RedirectResponse(next_path, status_code=303)
+    response = RedirectResponse(next_path, status_code=303)
+    clear_admin_view_cookie(response, settings)
+    return response
 
 
 def _project_detail(project: Project) -> ProjectDetailResponse:

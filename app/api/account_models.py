@@ -30,7 +30,15 @@ class AuthSessionResponse(BaseModel):
     login_url: Optional[str] = None
     user: Optional[UserView] = None
     scenario_admin: bool = False
+    can_switch_admin_view: bool = False
+    normal_user_view: bool = False
     community_catalog_enabled: bool = True
+
+
+class AdminViewModeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    normal_user_view: bool = Field(strict=True)
 
 
 class LogoutResponse(BaseModel):

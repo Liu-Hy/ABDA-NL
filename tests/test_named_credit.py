@@ -72,7 +72,7 @@ def _reservation(session, user, amount):
 
 
 @pytest.mark.parametrize("email", NAMED_CREDIT_EMAILS)
-def test_exact_verified_identity_gets_lifetime_grant_without_curator_role(credit_factory, email):
+def test_named_credit_and_base_curator_role_respect_effective_permission_demotion(credit_factory, email):
     with credit_factory() as session:
         user = upsert_verified_identity(
             session, issuer="https://identity.example", subject=email,
@@ -89,6 +89,7 @@ def test_exact_verified_identity_gets_lifetime_grant_without_curator_role(credit
         public = session.get(TrialProgram, "global")
         assert (named.activation_count, named.allocated_microusd) == (1, 50_000_000)
         assert (public.activation_count, public.allocated_microusd) == (0, 0)
+        assert is_scenario_admin(user, get_settings())
         assert not is_scenario_admin(user, replace(get_settings(), scenario_admin_emails=()))
 
 

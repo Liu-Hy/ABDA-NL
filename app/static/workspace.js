@@ -7,6 +7,9 @@ let trialRefreshGeneration = 0;
 let projectRefreshGeneration = 0;
 let mcpTokenRefreshGeneration = 0;
 const projectShareRefreshGenerations = new Map();
+const accountView = { busy: false, revision: 0, refreshGeneration: 0, refreshNeeded: false };
+const accountViewChannel = typeof BroadcastChannel === 'function'
+  ? new BroadcastChannel('abda-account-view-updates') : null;
 
 window.addEventListener('pageshow', event => {
   if (event.persisted) window.location.reload();
@@ -153,6 +156,8 @@ function initWorkspaceUI() {
 
   byId('dev-login-form')?.addEventListener('submit', handleDevelopmentLogin);
   byId('logout-form')?.addEventListener('submit', handleLogout);
+  byId('account-view-toggle-btn')?.addEventListener('click', toggleAccountView);
+  byId('restore-admin-view-btn')?.addEventListener('click', toggleAccountView);
   byId('trial-activate-btn')?.addEventListener('click', activateTrial);
   byId('projects-refresh-btn')?.addEventListener('click', () => refreshProjects());
   byId('project-create-form')?.addEventListener('submit', createProjectFromCurrentView);
@@ -176,7 +181,17 @@ function initWorkspaceUI() {
   byId('mcp-codex-copy-btn')?.addEventListener('click', () => copyElementText('mcp-codex-config', 'Codex config copied.'));
   byId('mcp-claude-copy-btn')?.addEventListener('click', () => copyElementText('mcp-claude-command', 'Claude Code command copied.'));
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') refreshExternalOIDCLogin();
+    if (document.visibilityState === 'visible') {
+      refreshExternalOIDCLogin();
+      if (state.authSession.can_switch_admin_view) refreshAccountView();
+    }
+  });
+  accountViewChannel?.addEventListener('message', event => {
+    if (event.data?.type !== 'view-mode-changed') return;
+    accountView.revision += 1;
+    if (!state.authSession.authenticated) return;
+    if (event.data.normal_user_view === true) suppressAdministratorView();
+    refreshAccountView();
   });
 }
 
@@ -254,6 +269,7 @@ function renderAccountUI() {
     byId('account-display-name').textContent = user.display_name || 'ABDA-NL researcher';
     byId('account-email').textContent = user.email;
   }
+  renderAccountView();
 
   byId('projects-signin-required').hidden = session.authenticated;
   byId('projects-authenticated').hidden = !session.authenticated;
@@ -267,6 +283,107 @@ function renderAccountUI() {
   renderCurationAccess();
 }
 
+async function authSessionForCurrentView(session, revision) {
+  // A mode change can arrive while another request delays initial page setup
+  // or while a sign-in response is still being read. Recheck the shared cookie.
+  while (revision !== accountView.revision) {
+    revision = accountView.revision;
+    session = await apiRequest('/api/auth/session');
+  }
+  return session;
+}
+
+function renderAccountView() {
+  const session = state.authSession;
+  const available = Boolean(session.authenticated && session.can_switch_admin_view);
+  const normal = available && session.normal_user_view === true;
+  const restoreHadFocus = document.activeElement === byId('restore-admin-view-btn');
+  byId('account-view-card').hidden = !available;
+  byId('normal-user-view-indicator').hidden = !normal;
+  byId('restore-admin-view-btn').hidden = !normal;
+  byId('restore-admin-view-btn').disabled = accountView.busy;
+  byId('account-view-toggle-btn').disabled = accountView.busy;
+  byId('account-view-toggle-btn').textContent = normal ? 'Restore administrator view' : 'Use normal user view';
+  byId('account-view-heading').textContent = normal ? 'Normal user view' : 'Administrator view';
+  byId('account-view-description').textContent = normal
+    ? 'Administrator actions are disabled in this browser. Your projects and credit stay the same.'
+    : 'Use the normal user experience without administrator privileges. Your projects and credit stay the same.';
+  if (restoreHadFocus && !normal) byId('workspace-btn').focus();
+}
+
+function suppressAdministratorView() {
+  if (!state.authSession.scenario_admin) return;
+  // Stop displaying privileged content before a downgrade request settles.
+  // The server remains authoritative for all permissions.
+  state.authSession = { ...state.authSession, scenario_admin: false };
+  renderAccountUI();
+}
+
+function applyAccountViewSession(session, account) {
+  if (state.authSession.user?.id !== account) return false;
+  if (!session.authenticated || session.user?.id !== account) {
+    clearCurationState();
+    window.location.reload();
+    return false;
+  }
+  const changed = Boolean(session.scenario_admin) !== Boolean(state.authSession.scenario_admin)
+    || Boolean(session.normal_user_view) !== Boolean(state.authSession.normal_user_view);
+  state.authSession = session;
+  renderAccountUI();
+  if (changed && !byId('workspace-panel-examples').hidden) refreshExampleSubmissions();
+  return true;
+}
+
+async function refreshAccountView() {
+  if (!state.authSession.authenticated) return;
+  if (accountView.busy) { accountView.refreshNeeded = true; return; }
+  const generation = ++accountView.refreshGeneration;
+  const account = state.authSession.user?.id;
+  try {
+    const session = await apiRequest('/api/auth/session');
+    if (generation === accountView.refreshGeneration) applyAccountViewSession(session, account);
+  } catch {
+    // A failed refresh never restores privileges hidden by a mode change.
+  }
+}
+
+async function toggleAccountView(event) {
+  if (accountView.busy || !state.authSession.authenticated || !state.authSession.can_switch_admin_view) return;
+  const trigger = event?.currentTarget;
+  const account = state.authSession.user.id;
+  const normal = state.authSession.normal_user_view !== true;
+  accountView.busy = true;
+  accountView.revision += 1;
+  accountView.refreshGeneration += 1;
+  if (normal) suppressAdministratorView();
+  renderAccountView();
+  setWorkspaceStatus('account-view-status', 'Changing account view...', 'info');
+  try {
+    const session = await apiRequest('/api/auth/view-mode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ normal_user_view: normal }),
+    });
+    if (!applyAccountViewSession(session, account)) return;
+    accountViewChannel?.postMessage({ type: 'view-mode-changed', normal_user_view: session.normal_user_view === true });
+    const message = session.normal_user_view ? 'Normal user view is active.' : 'Administrator view restored.';
+    setWorkspaceStatus('account-view-status', message, 'success');
+    showGlobalStatus(message, 'success');
+  } catch (error) {
+    if (state.authSession.user?.id === account) {
+      setWorkspaceStatus('account-view-status', error.message, 'error');
+      accountView.refreshNeeded = true;
+    }
+  } finally {
+    accountView.busy = false;
+    renderAccountView();
+    if (accountView.refreshNeeded) { accountView.refreshNeeded = false; await refreshAccountView(); }
+    if (trigger && state.authSession.user?.id === account
+        && (document.activeElement === trigger || document.activeElement === document.body)) {
+      (trigger.hidden ? byId('workspace-btn') : trigger).focus();
+    }
+  }
+}
+
 async function refreshExternalOIDCLogin() {
   if (
     externalLoginRefreshPending
@@ -274,9 +391,11 @@ async function refreshExternalOIDCLogin() {
     || state.authSession.auth_mode !== 'oidc'
   ) return;
   externalLoginRefreshPending = true;
+  const revision = accountView.revision;
   try {
-    const session = await apiRequest('/api/auth/session');
-    if (!session.authenticated) return;
+    const response = await apiRequest('/api/auth/session');
+    const session = await authSessionForCurrentView(response, revision);
+    if (!session.authenticated || state.authSession.authenticated) return;
     state.authSession = session;
     renderAccountUI();
     await refreshAuthenticatedWorkspace({ quiet: true });
@@ -294,12 +413,14 @@ async function handleDevelopmentLogin(event) {
   const displayName = byId('dev-login-name').value.trim();
   if (!email) return;
   setWorkspaceStatus('account-status', 'Signing in locally...', 'info');
+  const revision = accountView.revision;
   try {
-    state.authSession = await apiRequest('/api/auth/dev/login', {
+    const session = await apiRequest('/api/auth/dev/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, display_name: displayName || null }),
     });
+    state.authSession = await authSessionForCurrentView(session, revision);
     setWorkspaceStatus('account-status', '', 'info');
     renderAccountUI();
     await refreshAuthenticatedWorkspace({ quiet: true });
