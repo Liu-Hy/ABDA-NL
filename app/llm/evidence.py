@@ -80,6 +80,15 @@ def supplied_sources(corpus_block: str) -> dict[str, list[tuple[int, str]]]:
 
 _CITATION = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9_. -]{0,119}\.(?:txt|pdf|md))\]")
 _QUOTED = re.compile(r'"([^"]*)"|“([^”]*)”|^>\s*(.+)$', re.M)
+_PARAGRAPH_BREAK = re.compile(r"\r?\n[^\S\r\n]*\r?\n")
+
+
+def _paragraph_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    before = 0
+    for boundary in _PARAGRAPH_BREAK.finditer(text, 0, start):
+        before = boundary.end()
+    after = _PARAGRAPH_BREAK.search(text, end)
+    return before, after.start() if after else len(text)
 
 
 def _quotation_span(text: str, quote: str) -> tuple[int, int] | None:
@@ -98,11 +107,7 @@ def _quotation_span(text: str, quote: str) -> tuple[int, int] | None:
 
 def _quote_sources(response: str, quote: re.Match[str], citations: list[re.Match[str]]) -> list[str]:
     """Associate a quote with its local citation, not another source elsewhere."""
-    boundary = response.rfind("\n\n", 0, quote.start())
-    before = boundary + 2 if boundary >= 0 else 0
-    after = response.find("\n\n", quote.end())
-    if after < 0:
-        after = len(response)
+    before, after = _paragraph_bounds(response, quote.start(), quote.end())
     local = [item for item in citations if before <= item.start() < after]
     quote_end = quote.start(3) if quote.group(3) is not None else quote.end()
     # A paragraph can mix scenario labels and source quotations. Bind a
@@ -119,7 +124,13 @@ def _quote_sources(response: str, quote: re.Match[str], citations: list[re.Match
     preceding = [item for item in local if item.end() <= quote.start()
                  and not re.search(r"[.!?](?:[\"'’”)*_]*\s|$)",
                                    response[item.end():quote.start()])]
-    if following:
+    # A source immediately followed by a colon introduces this quotation.
+    # Do not steal the prefix citation of a later quote in the paragraph.
+    introduced = [item for item in preceding
+                  if re.fullmatch(r"[\s`*_]*:[\s`*_]*", response[item.end():quote.start()])]
+    if introduced:
+        selected = introduced[-1]
+    elif following:
         selected = following[0]
     elif preceding:
         selected = preceding[-1]
@@ -157,11 +168,9 @@ def canonicalize_source_quotes(response: str, passages: dict[str, list[tuple[int
         sources = _quote_sources(response, match, citations)
         if not sources:
             # A later sentence can refer back to a source in its paragraph.
-            boundary = response.rfind("\n\n", 0, match.start())
-            start = boundary + 2 if boundary >= 0 else 0
-            end = response.find("\n\n", match.end())
+            start, end = _paragraph_bounds(response, match.start(), match.end())
             sources = [item.group(1) for item in citations
-                       if start <= item.start() < (len(response) if end < 0 else end)]
+                       if start <= item.start() < end]
             if len(set(sources)) != 1:
                 continue
         supplied = [passage for source in sources for passage in passages.get(source, [])]

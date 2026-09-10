@@ -50,20 +50,14 @@ class ChatTurnResult:
 # --- State block formatting -----------------------------------------------
 
 
-def _format_labels(scenario: Any, af: dict[str, Any]) -> str:
-    """Render each key conclusion with its label, description,
-    producing rules, and undercutter rules — so the LLM doesn't have
-    to guess rule relationships.
+def _format_labels(
+    scenario: Any, af: dict[str, Any], *, include_rule_argument_status: bool = False,
+) -> str:
+    """Render conclusion labels and declared rule relationships.
 
-    For every key conclusion `C` we list:
-
-    - Rules whose conclusion is exactly `C` (supporting arguments)
-    - Rules whose conclusion is `-C` (opposing arguments)
-    - For each supporting / opposing rule, any rule that undercuts it
-      (rules whose conclusion is `-<rule_id>`)
-
-    This is deterministic and comes directly from the scenario YAML —
-    there is no room for the model to invent rule relationships.
+    Chat also places each current argument's label beside its rule.
+    Declared undercutters remain visible even when no argument uses them.
+    Edit-agent formatting stays unchanged unless explicitly requested.
     """
     labels = af.get("labels_by_proposition", {})
     rules = scenario.rules or {}
@@ -81,6 +75,30 @@ def _format_labels(scenario: Any, af: dict[str, Any]) -> str:
         if target and target in rules:
             undercutters.setdefault(target, []).append(rid)
 
+    argument_status: dict[str, list[str]] = {}
+    if include_rule_argument_status:
+        arguments = {a["id"]: a for a in (af.get("arguments") or [])}
+        accepted_defeaters: dict[str, set[str]] = {}
+        for edge in af.get("attacks") or []:
+            source = arguments.get(edge.get("from"))
+            target = edge.get("to")
+            if source and source.get("label") == "in" and target in arguments:
+                accepted_defeaters.setdefault(target, set()).add(source["id"])
+        names = {"in": "accepted", "out": "rejected", "undec": "undecided"}
+        for argument in arguments.values():
+            rid = argument.get("top_rule")
+            if rid not in rules or argument.get("conclusion") != rules[rid].conclusion:
+                continue
+            label = names.get(argument.get("label"), "unknown")
+            status = f"{argument['id']} {label}"
+            if label == "rejected":
+                causes = ", ".join(sorted(accepted_defeaters.get(argument["id"], ())))
+                status += f" (accepted defeaters: {causes or 'none recorded'})"
+            argument_status.setdefault(rid, []).append(status)
+
+    def _current_arguments(rid: str) -> str:
+        return "; ".join(argument_status.get(rid, ())) or "no current argument"
+
     def _render_rule(rid: str) -> str:
         r = rules[rid]
         premises_str = ", ".join(f"`{p}`" for p in (r.premises or [])) or "(no premises)"
@@ -90,12 +108,24 @@ def _format_labels(scenario: Any, af: dict[str, Any]) -> str:
         block = getattr(r, "block", None)
         block_str = f", block={block}" if block is not None else ""
         active = kind == "strict" or getattr(r, "active", True)
+        if include_rule_argument_status:
+            settings = kind + (block_str if kind != "strict" else "")
+            settings += f", configured {'enabled' if active else 'disabled'}"
+            premises = ", ".join(r.premises or []) or "(no premises)"
+            line = f"    - {rid} ({settings}): {premises} -> {r.conclusion}"
+            line += f"; current arguments: {_current_arguments(rid)}"
+            if ucs:
+                line += "; declared undercutters: " + ", ".join(
+                    f"{u} [{_current_arguments(u)}]" for u in ucs
+                )
+            return line
         return (
             f"    - `{rid}` ({kind}{block_str}, {'active' if active else 'inactive'}): "
             f"{premises_str} -> `{r.conclusion}`{uc_str}"
         )
 
-    lines = ["### Key conclusions — label, rules, and undercuts"]
+    lines = ["### Key conclusions and current arguments" if include_rule_argument_status
+             else "### Key conclusions — label, rules, and undercuts"]
     for conc_id, conc in (scenario.conclusions or {}).items():
         label = labels.get(conc_id, "absent")
         desc = getattr(conc, "description", "") or ""
@@ -111,7 +141,8 @@ def _format_labels(scenario: Any, af: dict[str, Any]) -> str:
             for rid in con:
                 lines.append(_render_rule(rid))
         if not pro and not con:
-            lines.append("  (no rule directly concludes this claim; label comes from absence of support)")
+            lines.append("  (no rule directly concludes this claim)" if include_rule_argument_status
+                         else "  (no rule directly concludes this claim; label comes from absence of support)")
     return "\n".join(lines)
 
 
@@ -305,9 +336,10 @@ def _format_diff_ops(diff_ops: list[dict[str, Any]]) -> str:
 def build_state_block(
     scenario: Any, af: dict[str, Any], diff_ops: list[dict[str, Any]], *,
     include_accepted_defeaters: bool = False,
+    include_rule_argument_status: bool = False,
 ) -> str:
     sections = [
-        _format_labels(scenario, af),
+        _format_labels(scenario, af, include_rule_argument_status=include_rule_argument_status),
         _format_assumptions(scenario),
         _format_attacks(af, scenario, include_accepted_defeaters=include_accepted_defeaters),
         _format_categories(scenario),
@@ -401,6 +433,7 @@ def build_system_prompt(
     scenario_block = build_scenario_block(scenario)
     state_block = build_state_block(
         scenario, af, diff_ops, include_accepted_defeaters=include_accepted_defeaters,
+        include_rule_argument_status=True,
     )
     state_block += context_block(resolve_context_refs(scenario, af, context_refs or []))
     if scenario_dir is None or getattr(scenario, "sources", []):
