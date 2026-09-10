@@ -16,7 +16,7 @@ from app.db.models import (
     UsageReservation,
     utc_now,
 )
-from app.services.billing_lock import BILLING_LOCK
+from app.services.billing_lock import BILLING_LOCK, lock_billing_accounts
 from app.services.emergency_budget import (
     release_emergency_budget,
     reserve_emergency_budget,
@@ -36,6 +36,22 @@ class CallReservation:
     emergency_reservation_id: str | None = None
 
 
+def _lock_call_accounts(
+    session: Session, reservation: CallReservation, *, event_user_id: str | None,
+) -> None:
+    # Resolve both sides before taking any reservation or budget lock. Normally
+    # they reference the same account, but sorting all keys also protects callers
+    # whose recorded usage has a separate account reference.
+    identifiers = [event_user_id]
+    for model, reservation_id in (
+        (UsageReservation, reservation.trial_reservation_id),
+        (EmergencyUsageReservation, reservation.emergency_reservation_id),
+    ):
+        if reservation_id:
+            identifiers.append(session.scalar(select(model.user_id).where(model.id == reservation_id)))
+    lock_billing_accounts(session, identifiers)
+
+
 def reserve_llm_call(
     session: Session,
     *,
@@ -53,6 +69,7 @@ def reserve_llm_call(
 
     def reserve() -> CallReservation:
         try:
+            lock_billing_accounts(session, [user_id])
             trial = None
             emergency = None
             if charge_trial:
@@ -101,6 +118,7 @@ def settle_llm_call(
 ) -> None:
     def settle() -> None:
         try:
+            _lock_call_accounts(session, reservation, event_user_id=event.user_id)
             if reservation.trial_reservation_id:
                 settle_trial_credit(
                     session,
@@ -136,6 +154,7 @@ def release_llm_call(
 ) -> None:
     def release() -> None:
         try:
+            _lock_call_accounts(session, reservation, event_user_id=event.user_id if event else None)
             if reservation.trial_reservation_id:
                 release_trial_credit(
                     session, reservation.trial_reservation_id, commit=False
@@ -219,10 +238,23 @@ def reconcile_stale_llm_reservations(
         trial_count = 0
         emergency_count = 0
         try:
+            # Discover a fixed candidate set before locking accounts. Refresh
+            # those rows after the locks: a concurrent transfer may have changed
+            # their pool, and a finalizer may have completed or removed them.
+            trial_candidates = list(session.execute(select(
+                UsageReservation.id, UsageReservation.user_id,
+            ).where(UsageReservation.status == "pending", UsageReservation.expires_at <= now)))
+            emergency_candidates = list(session.execute(select(
+                EmergencyUsageReservation.id, EmergencyUsageReservation.user_id,
+            ).where(EmergencyUsageReservation.status == "pending", EmergencyUsageReservation.expires_at <= now)))
+            lock_billing_accounts(session, [
+                user_id for _, user_id in trial_candidates + emergency_candidates
+            ])
             trial_reservations = list(
                 session.scalars(
                     select(UsageReservation)
                     .where(
+                        UsageReservation.id.in_([identifier for identifier, _ in trial_candidates]),
                         UsageReservation.status == "pending",
                         UsageReservation.expires_at <= now,
                     )
@@ -269,6 +301,7 @@ def reconcile_stale_llm_reservations(
                 session.scalars(
                     select(EmergencyUsageReservation)
                     .where(
+                        EmergencyUsageReservation.id.in_([identifier for identifier, _ in emergency_candidates]),
                         EmergencyUsageReservation.status == "pending",
                         EmergencyUsageReservation.expires_at <= now,
                     )

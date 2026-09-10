@@ -6,7 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from dataclasses import replace
 import os
-from threading import Barrier
+from threading import Barrier, Event
+import time
 from uuid import uuid4
 
 import pytest
@@ -32,9 +33,11 @@ from app.db.models import (
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.serialize import scenario_to_dict
 from app.services.accounts import IdentityError, upsert_verified_identity
-from app.services.credit_eligibility import claim_credit_eligibility
+from app.services.credit_eligibility import (
+    claim_credit_eligibility, initialize_credit_eligibility, remember_granted_identity,
+)
 from app.services.llm_billing import (
-    reconcile_stale_llm_reservations, reserve_llm_call, settle_llm_call, usage_event,
+    reconcile_stale_llm_reservations, release_llm_call, reserve_llm_call, settle_llm_call, usage_event,
 )
 from app.services.mcp_tokens import (
     MCPTokenError,
@@ -43,6 +46,7 @@ from app.services.mcp_tokens import (
     revoke_mcp_token,
 )
 from app.services.privacy_requests import (
+    PrivacyDeletionNotReadyError,
     delete_privacy_account,
     prepare_privacy_deletion,
 )
@@ -437,6 +441,160 @@ def _assert_concurrent_stale_sweeps_conserve_both_ledgers() -> None:
         session.commit()
 
 
+def _wait_for_blocked_worker(session, *, owner_pid, worker_pid, future) -> None:
+    deadline = time.monotonic() + 5
+    while owner_pid not in session.scalar(
+        text("SELECT pg_blocking_pids(:pid)"), {"pid": worker_pid},
+    ):
+        if future.done():
+            future.result()
+            pytest.fail("the worker bypassed the held account lock")
+        assert time.monotonic() < deadline, "the worker did not wait for the account lock"
+        time.sleep(0.01)
+
+
+def _assert_finalization_and_privacy_deletion_use_consistent_account_locks() -> None:
+    """A finalizer must not hold the grant while waiting for deletion's User lock."""
+    for disposition in ("settle", "release"):
+        suffix = uuid4().hex
+        email = f"postgres-finalize-{suffix}@example.edu"
+        request_id = f"postgres-finalize-{suffix}"
+        with get_session_factory()() as session:
+            user = upsert_verified_identity(
+                session, issuer="https://identity.example.test", subject=f"finalize-{suffix}",
+                email=email, email_verified=True,
+            )
+            activate_trial(session, user)
+            user_id = user.id
+            reservation = reserve_llm_call(
+                session, user_id=user_id, amount_microusd=100, provider="test",
+                route="postgres-finalization", model="test-model", request_kind="postgres-finalization",
+                charge_trial=True, charge_emergency=False,
+            )
+            prepare_privacy_deletion(session, email, request_reference="POSTGRES-FINALIZATION-001")
+
+        started = Event()
+        worker = {}
+
+        def finalize(worker, started, request_id, user_id, disposition, reservation):
+            with get_session_factory()() as session:
+                session.execute(text("SET LOCAL lock_timeout = '10s'"))
+                session.execute(text("SET LOCAL statement_timeout = '15s'"))
+                worker["pid"] = session.scalar(text("SELECT pg_backend_pid()"))
+                started.set()
+                event = usage_event(
+                    request_id=request_id, user_id=user_id, provider="test",
+                    route="postgres-finalization", model="test-model", billing_source="trial",
+                    request_kind="postgres-finalization", status="succeeded" if disposition == "settle" else "failed",
+                    cost_microusd=25 if disposition == "settle" else 0,
+                )
+                if disposition == "settle":
+                    settle_llm_call(session, reservation, actual_microusd=25, event=event)
+                else:
+                    release_llm_call(session, reservation, event=event)
+
+        with get_session_factory()() as deletion, ThreadPoolExecutor(max_workers=1) as executor:
+            deletion.execute(text("SET LOCAL statement_timeout = '10s'"))
+            deletion.scalar(select(User).where(User.id == user_id).with_for_update())
+            owner_pid = deletion.scalar(text("SELECT pg_backend_pid()"))
+            future = executor.submit(finalize, worker, started, request_id, user_id, disposition, reservation)
+            try:
+                assert started.wait(timeout=5), "the finalization worker did not start"
+                _wait_for_blocked_worker(
+                    deletion, owner_pid=owner_pid, worker_pid=worker["pid"], future=future,
+                )
+                # With the old order the worker holds the grant and waits on
+                # User through its usage-event FK. This deletion then deadlocks.
+                # With account-first locking it sees pending work and rolls back,
+                # which releases the worker to finish the existing reservation.
+                with pytest.raises(PrivacyDeletionNotReadyError, match="unsettled"):
+                    delete_privacy_account(
+                        deletion, email, request_reference="POSTGRES-FINALIZATION-001",
+                    )
+            finally:
+                deletion.rollback()
+            future.result(timeout=10)
+
+        with get_session_factory()() as session:
+            grant = session.get(TrialGrant, user_id)
+            expected_cost = 25 if disposition == "settle" else 0
+            assert (grant.spent_microusd, grant.reserved_microusd) == (expected_cost, 0)
+            row = session.get(UsageReservation, reservation.trial_reservation_id)
+            assert row.status == ("settled" if disposition == "settle" else "released")
+            assert session.scalar(select(LLMUsageEvent.cost_microusd).where(
+                LLMUsageEvent.request_id == request_id,
+            )) == expected_cost
+            receipt = delete_privacy_account(
+                session, email, request_reference="POSTGRES-FINALIZATION-001",
+            )
+            assert receipt.retained_trial_spent_microusd == expected_cost
+
+
+def _assert_startup_seeding_and_sign_in_do_not_invert_marker_fk_locks() -> None:
+    suffix = uuid4().hex
+    email = f"postgres-marker-new-{suffix}@example.edu"
+    with get_session_factory()() as session:
+        user = upsert_verified_identity(
+            session, issuer="https://identity.example.test", subject=f"marker-{suffix}",
+            email=f"postgres-marker-old-{suffix}@example.edu", email_verified=True,
+        )
+        activate_trial(session, user)
+        user_id = user.id
+        retained = set(session.scalars(select(CreditEligibilityMarker.digest).where(
+            CreditEligibilityMarker.user_id == user_id,
+        )))
+        assert len(retained) == 2
+        # Sign-in commits the verified identity update before ensuring credit.
+        # Stage that boundary, where the new email does not have a marker yet.
+        user.email = email
+        identity = session.scalar(select(Identity).where(Identity.user_id == user_id))
+        identity.provider_email = email
+        session.commit()
+
+    started = Event()
+    worker = {}
+
+    def seed():
+        with get_session_factory()() as session:
+            session.execute(text("SET LOCAL lock_timeout = '10s'"))
+            session.execute(text("SET LOCAL statement_timeout = '15s'"))
+            worker["pid"] = session.scalar(text("SELECT pg_backend_pid()"))
+            started.set()
+            initialize_credit_eligibility(session)
+            session.commit()
+
+    with get_session_factory()() as sign_in, ThreadPoolExecutor(max_workers=1) as executor:
+        sign_in.execute(text("SET LOCAL statement_timeout = '10s'"))
+        user = sign_in.scalar(select(User).where(User.id == user_id).with_for_update())
+        owner_pid = sign_in.scalar(text("SELECT pg_backend_pid()"))
+        future = executor.submit(seed)
+        try:
+            assert started.wait(timeout=5), "the eligibility initializer did not start"
+            _wait_for_blocked_worker(
+                sign_in, owner_pid=owner_pid, worker_pid=worker["pid"], future=future,
+            )
+            # The previous initializer inserted the new unique marker before
+            # waiting on its User FK. Sign-in then waited on that marker and
+            # deadlocked. Account-first seeding leaves the marker free to claim.
+            remember_granted_identity(sign_in, user)
+            sign_in.commit()
+        finally:
+            sign_in.rollback()
+        future.result(timeout=10)
+
+    with get_session_factory()() as session:
+        markers = set(session.scalars(select(CreditEligibilityMarker.digest).where(
+            CreditEligibilityMarker.user_id == user_id,
+        )))
+        assert retained < markers
+        assert len(markers) == 3
+        grant = session.get(TrialGrant, user_id)
+        assert (grant.granted_microusd, grant.spent_microusd, grant.reserved_microusd) == (5_000_000, 0, 0)
+        prepare_privacy_deletion(session, email, request_reference="POSTGRES-MARKER-001")
+        receipt = delete_privacy_account(session, email, request_reference="POSTGRES-MARKER-001")
+        assert receipt.retained_credit_eligibility_marker_count == 3
+
+
 def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
     import app.services.rate_limits as rate_limits_module
 
@@ -458,6 +616,8 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
         _assert_privacy_suspension_closes_stale_mutations()
         _assert_concurrent_eligibility_claim_and_deletion_preserve_lifetime_limit()
         _assert_concurrent_stale_sweeps_conserve_both_ledgers()
+        _assert_finalization_and_privacy_deletion_use_consistent_account_locks()
+        _assert_startup_seeding_and_sign_in_do_not_invert_marker_fk_locks()
         with get_session_factory()() as session:
             user = upsert_verified_identity(
                 session,

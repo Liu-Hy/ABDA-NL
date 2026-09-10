@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     NamedCreditEntitlement, TrialGrant, TrialProgram, UsageReservation, User, utc_now,
 )
-from app.services.billing_lock import BILLING_LOCK
+from app.services.billing_lock import BILLING_LOCK, lock_billing_accounts
 from app.services.credit_policy import (
     NAMED_CREDIT_BUDGET_MICROUSD,
     NAMED_CREDIT_EMAILS,
@@ -488,6 +488,10 @@ def reserve_trial_credit(
 
 
 def _get_pending_reservation(session: Session, reservation_id: str) -> UsageReservation:
+    user_id = session.scalar(select(UsageReservation.user_id).where(
+        UsageReservation.id == reservation_id,
+    ))
+    lock_billing_accounts(session, [user_id])
     reservation = session.scalar(
         select(UsageReservation)
         .where(UsageReservation.id == reservation_id)

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import EmergencyBudget, EmergencyUsageReservation, utc_now
-from app.services.billing_lock import BILLING_LOCK
+from app.services.billing_lock import BILLING_LOCK, lock_billing_accounts
 
 
 class EmergencyBudgetUnavailableError(RuntimeError):
@@ -59,6 +59,7 @@ def _locked_budget(session: Session, budget_key: str) -> EmergencyBudget | None:
         select(EmergencyBudget)
         .where(EmergencyBudget.key == budget_key)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
 
 
@@ -76,6 +77,7 @@ def _reserve(
 ) -> EmergencyUsageReservation:
     if amount_microusd <= 0:
         raise ValueError("reservation amount must be positive")
+    lock_billing_accounts(session, [user_id])
     budget = _locked_budget(session, budget_key)
     if budget is None:
         raise EmergencyBudgetUnavailableError("the emergency budget is not configured")
@@ -137,10 +139,15 @@ def reserve_emergency_budget(
 def _pending(
     session: Session, reservation_id: str
 ) -> EmergencyUsageReservation:
+    user_id = session.scalar(select(EmergencyUsageReservation.user_id).where(
+        EmergencyUsageReservation.id == reservation_id,
+    ))
+    lock_billing_accounts(session, [user_id])
     reservation = session.scalar(
         select(EmergencyUsageReservation)
         .where(EmergencyUsageReservation.id == reservation_id)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if reservation is None:
         raise EmergencyReservationError("emergency usage reservation not found")

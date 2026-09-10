@@ -20,6 +20,7 @@ from app.db.models import (
     CreditEligibilityMarker, CreditEligibilityPolicy, Identity,
     NamedCreditEntitlement, TrialGrant, User, utc_now,
 )
+from app.services.billing_lock import lock_billing_accounts
 
 POLICY_KEY = "introductory-credit-v1"
 
@@ -87,12 +88,27 @@ def initialize_credit_eligibility(session: Session) -> None:
         key=POLICY_KEY, key_fingerprint=_digest("key-check", POLICY_KEY), seeded_at=utc_now(),
     ).on_conflict_do_nothing(index_elements=["key"]))
     _check_policy(session)
-    for user in session.scalars(select(User).join(TrialGrant, TrialGrant.user_id == User.id)):
+    grantee_ids = set(session.scalars(select(TrialGrant.user_id)))
+    bound_entitlements = list(session.execute(select(
+        NamedCreditEntitlement.email, NamedCreditEntitlement.user_id,
+    ).where(NamedCreditEntitlement.bound_at.is_not(None))))
+    # A marker insert takes both a unique-key lock and a User foreign-key lock.
+    # Sign-in already holds User before recording changed identifiers. Match that
+    # order here so startup seeding cannot hold the unique key while awaiting User.
+    lock_billing_accounts(session, grantee_ids | {
+        user_id for _, user_id in bound_entitlements if user_id is not None
+    })
+    # Refresh after waiting: deletion may have removed an account or retired a
+    # named binding. New grants outside this snapshot record their own markers.
+    for user in session.scalars(select(User).join(TrialGrant, TrialGrant.user_id == User.id)
+                                .where(User.id.in_(grantee_ids))
+                                .execution_options(populate_existing=True)):
         for kind, digest in _user_markers(session, user):
             _record(session, kind=kind, digest=digest, user_id=user.id)
     for entitlement in session.scalars(select(NamedCreditEntitlement).where(
+        NamedCreditEntitlement.email.in_([email for email, _ in bound_entitlements]),
         NamedCreditEntitlement.bound_at.is_not(None),
-    )):
+    ).execution_options(populate_existing=True)):
         _record(session, kind="email", digest=_digest("email", entitlement.email),
                 user_id=entitlement.user_id)
 

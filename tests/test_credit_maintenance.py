@@ -15,6 +15,7 @@ from app.db.models import (
     UsageReservation, User, utc_now,
 )
 from app.services.llm_billing import reserve_llm_call
+from app.services.emergency_budget import EmergencyReservationError, settle_emergency_budget
 from app.services.trials import TrialUnavailableError, initialize_named_credit
 
 
@@ -139,6 +140,31 @@ def test_sweep_rolls_back_trial_updates_if_emergency_accounting_is_missing(
     with maintenance_factory() as session:
         assert session.get(TrialProgram, "global").spent_microusd == 0
         assert {row.status for row in session.scalars(select(UsageReservation))} == {"pending"}
+
+
+def test_stale_emergency_session_cannot_replace_a_sweeps_conservative_charge(maintenance_factory):
+    from app.services.llm_billing import reconcile_stale_llm_reservations
+
+    with maintenance_factory() as stale:
+        reservation = stale.scalar(select(EmergencyUsageReservation).where(
+            EmergencyUsageReservation.reserved_microusd == 100,
+        ))
+        budget = stale.get(EmergencyBudget, "openrouter")
+        reservation_id = reservation.id
+        stale.commit()
+        with maintenance_factory() as operator:
+            assert reconcile_stale_llm_reservations(operator) == (1, 1)
+        # ORM objects in this session predate the sweep. A lock must also refresh
+        # the row, otherwise the old pending status can overwrite assessed usage.
+        assert reservation.status == "pending"
+        assert budget.spent_microusd == 0
+        with pytest.raises(EmergencyReservationError, match="already finalized"):
+            settle_emergency_budget(stale, reservation_id, actual_microusd=25)
+        stale.rollback()
+    with maintenance_factory() as session:
+        budget = session.get(EmergencyBudget, "openrouter")
+        assert (budget.spent_microusd, budget.reserved_microusd) == (100, 80)
+        assert session.get(EmergencyUsageReservation, reservation_id).actual_microusd == 100
 
 
 def test_fixed_named_policy_mismatch_refuses_boot_and_points_to_controlled_migration(
