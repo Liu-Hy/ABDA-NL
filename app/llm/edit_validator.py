@@ -176,6 +176,16 @@ def validate_op(op: dict[str, Any], scenario: Scenario) -> list[ValidationIssue]
             if not isinstance(lit, str):
                 continue  # schema pass would have caught non-string
             ref = lit[1:] if lit.startswith("-") else lit
+            if kind == "add-rule" and ref == op_id and ref not in known:
+                issues.append(ValidationIssue(
+                    "premise_rule_id_collision",
+                    (
+                        f"new premise `{lit}` uses the proposed rule id `{op_id}`. "
+                        "Choose a distinct rule id so the premise can later be "
+                        "added as a fact or assumption"
+                    ),
+                ))
+                continue
             if ref not in known:
                 # Advisory, not blocking: the rule is structurally valid
                 # and applies; it just won't fire until the missing

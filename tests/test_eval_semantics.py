@@ -56,6 +56,26 @@ def test_swapped_labels_do_not_pass_just_because_expected_words_occur():
     assert all(correct.values())
 
 
+def test_label_check_accepts_present_tense_without_accepting_negated_or_swapped_claims():
+    case = _case("custom-scenario-renamed-meanings")
+    scenario, bundle, _, directory = _scenario_for_case(case)
+    observed = "The scenario accepts the conclusion that the greenhouse should be ventilated."
+    assert _chat_semantic_checks(case, observed, scenario, bundle, directory)["label_0_ventilate"]
+    for false_claim in (
+        "The scenario does not accept the conclusion that the greenhouse should be ventilated.",
+        "The scenario doesn't accept the conclusion that the greenhouse should be ventilated.",
+        "The ventilation conclusion is not currently accepted.",
+        "The scenario rejects the conclusion that the greenhouse should be ventilated.",
+    ):
+        assert not _chat_semantic_checks(case, false_claim, scenario, bundle, directory)["label_0_ventilate"]
+    changed = _case("fried-chicken-v1-airfryer-off")
+    scenario, bundle, _, directory = _scenario_for_case(changed)
+    accepted = "The scenario rejects crispiness. Ordering to-go is undecided."
+    assert all(_chat_semantic_checks(changed, accepted, scenario, bundle, directory).values())
+    negated = "The scenario does not reject crispiness. Ordering to-go is undecided."
+    assert not _chat_semantic_checks(changed, negated, scenario, bundle, directory)["label_0_crispy"]
+
+
 def test_unattached_handbook_wording_passes_without_licensing_invented_sources():
     case = _case("missing-reference-does-not-license-a-quote")
     scenario, bundle, _, directory = _scenario_for_case(case)

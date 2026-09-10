@@ -415,7 +415,13 @@ def _duplicates_existing_rule(scenario: Any, proposed_edit: dict[str, Any]) -> b
     for rule_id, rule in scenario.rules.items():
         if proposed_edit.get("op") == "modify-rule" and rule_id == proposed_id:
             continue
-        if sorted(rule.premises) == normalized_premises and rule.conclusion == conclusion:
+        if (
+            sorted(rule.premises) == normalized_premises
+            and rule.conclusion == conclusion
+            and rule.type == proposed.get("type")
+            and rule.block == proposed.get("block", 1)
+            and rule.active == proposed.get("active", True)
+        ):
             return True
     return False
 
@@ -699,8 +705,12 @@ def run_propose(
             scenario,
             instruction,
         )
-        notes = notes_from_tool_input(task, response.tool_input)
         issues = validate_op(candidate, scenario)
+        try:
+            notes = notes_from_tool_input(task, response.tool_input)
+        except ValueError as exc:
+            notes = []
+            issues.append(ValidationIssue("notes_schema", str(exc)))
         blocking, advisory = split_issues(issues)
 
         if not blocking:

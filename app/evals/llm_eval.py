@@ -140,12 +140,20 @@ def _chat_semantic_checks(case, text, scenario, bundle, scenario_dir) -> dict[st
         observed = []
         for clause in relevant:
             mentions = [match for phrase in assertion["phrases"] for match in re.finditer(re.escape(str(phrase).casefold()), clause)]
-            labels = list(re.finditer(r"\b(?:accepted|rejected|undecided|absent)\b", clause))
+            labels = list(re.finditer(r"\b(?:accept(?:ed|s)?|reject(?:ed|s)?|undecided|absent)\b", clause))
             for mention in mentions:
                 if labels:
                     label = min(labels, key=lambda value: min(abs(value.start() - mention.end()), abs(mention.start() - value.end())))
-                    negated = bool(re.search(r"\bnot\s+$", clause[max(0, label.start() - 5):label.start()]))
-                    observed.append(label.group() if not negated else "not " + label.group())
+                    value = label.group()
+                    if value.startswith("accept"):
+                        value = "accepted"
+                    elif value.startswith("reject"):
+                        value = "rejected"
+                    negated = bool(re.search(
+                        r"\b(?:not|never|doesn't|isn't|aren't|cannot|can't)\s+(?:currently\s+)?$",
+                        clause[max(0, label.start() - 30):label.start()],
+                    ))
+                    observed.append(value if not negated else "not " + value)
         checks[f"label_{number}_{literal}"] = expected in observed
     required_sources = case.get("required_exact_quotes") or []
     if required_sources:

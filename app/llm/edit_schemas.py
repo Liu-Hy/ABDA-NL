@@ -261,10 +261,12 @@ def diff_op_from_tool_input(task: str, tool_input: dict[str, Any]) -> dict[str, 
     the scenario substrate's schema forbids unknown keys. Callers that
     need the metadata use `notes_from_tool_input` separately.
     """
-    op = {"op": task, "id": tool_input["id"]}
+    # A provider may omit required envelope fields despite forced tool use.
+    # Preserve the missing value for validate_op's existing correction loop.
+    op = {"op": task, "id": tool_input.get("id")}
     payload_key = {"add-rule": "rule", "modify-rule": "rule",
                    "add-fact": "fact", "add-assumption": "assumption"}[task]
-    op[payload_key] = tool_input[payload_key]
+    op[payload_key] = tool_input.get(payload_key)
     return op
 
 
@@ -278,7 +280,9 @@ def notes_from_tool_input(task: str, tool_input: dict[str, Any]) -> list[dict[st
     """
     if task not in {"add-rule", "modify-rule"}:
         return []
-    raw = tool_input.get("new_premise_notes") or []
+    raw = tool_input.get("new_premise_notes", [])
+    if not isinstance(raw, list):
+        raise ValueError("new_premise_notes must be an array of premise notes")
     notes: list[dict[str, str]] = []
     for n in raw:
         if not isinstance(n, dict):

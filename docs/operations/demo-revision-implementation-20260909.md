@@ -87,9 +87,18 @@ to both Gemini models through the funded Vertex project. The GLM and Kimi
 replay passed all 12 inspected cases after the adapter began forwarding the
 configured low reasoning effort and Kimi's supported required-tool setting.
 Their prompts and output allowances stayed unchanged during that replay.
-After the completed availability runs, the lifetime ledger records $4.901138
-spent, no pending reservations, and $95.098862 remaining. Full repeated feature
-qualification remains pending. The detailed, dated findings are in the
+After the completed availability runs, the lifetime ledger recorded $4.901138
+spent. The first full-suite attempt was then stopped at safe case boundaries
+after inspection exposed further application and prompt defects. All 169
+observations were inspected, including rejected drafts and reviewer advisories.
+The current ledger records $13.346044 spent, no pending reservations, and
+$86.653956 remaining. The fixes cover malformed edit envelopes, incorrect
+duplicate detection, a rule/pending-premise name collision, conflicting reviewer
+instructions, and scoped explanation guidance for the affected models. A
+focused diagnostic replay precedes full repeated qualification. See the
+[prompt corrections](prompt-corrections-20260910.md) and
+[edit-boundary record](proposer-envelope-20260910.md).
+The detailed, dated findings are in the
 [evaluation record](evaluation-baseline-20260909.md). Costs use reported token
 usage and conservative tariffs; they are not reconciled cloud invoices.
 
@@ -128,8 +137,12 @@ isolation, token revocation, and unchanged ABDA credit. See the
 [acceptance record](mcp-client-acceptance-20260909.md).
 
 The hosted service has not yet received this revision or the administrator
-credit migration. A compatible recovery image is being built from `2f1483f`
-before the two-phase rollout described in the
+credit migration. A compatible recovery image from `2df719b` passed source,
+container, security, and provenance checks. Its full CI passed 1,273 tests
+with 53 opt-in skips on each supported Python version and 44 browser tests
+on each of Chromium, Firefox, and WebKit. Protected rollout requests are
+prepared, but the newly discovered fixes require a new candidate image.
+The two-phase rollout is described in the
 [rollout plan](revision-rollout-20260909.md). That image retains the previously
 qualified public model while new candidates undergo qualification.
 

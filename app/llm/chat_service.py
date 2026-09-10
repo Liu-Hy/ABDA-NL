@@ -19,7 +19,7 @@ from typing import Any
 
 from app.llm.client import LLMClient, LLMResponse
 from app.llm.corpus import build_corpus_block
-from app.llm.prompts import load_prompt
+from app.llm.prompts import load_prompt, model_prompt_guidance
 from app.llm.evidence import context_block, resolve_context_refs, source_evidence, supplied_sources
 
 log = logging.getLogger(__name__)
@@ -509,6 +509,7 @@ def run_turn(
     query = next((str(item.get("content", "")) for item in reversed(messages) if item.get("role") == "user"), "")
     system_prompt = build_system_prompt(scenario, af, diff_ops, scenario_dir=scenario_dir, query=query,
                                         context_refs=context_refs)
+    system_prompt += model_prompt_guidance(client, "chat")
     passages = supplied_sources(system_prompt)
     references = resolve_context_refs(scenario, af, context_refs or [])
     formal_evidence = [{"kind": ref["kind"], "id": ref["id"], "verified": True}

@@ -198,3 +198,47 @@ unchanged during the run. The replay used $0.619694. The lifetime ledger now
 records $4.901138 spent, zero pending reservations, and $95.098862 remaining.
 All calls used CloudBank Azure; no OpenRouter generation occurred. These smoke
 passes still require full feature qualification before public admission.
+
+## First complete-suite attempt, stopped at case boundaries
+
+The first four-worker run used the corrected reasoning settings, evaluator
+pacing, and a shared 180-second application deadline per case. Slurm job
+`21933016` was stopped after a shared application exception appeared. It
+completed normally in 4 minutes 54 seconds, with every current provider request
+settled and no pending reservations. All nine reports retain the unchanged
+source fingerprint
+`26ef5764c1ffca7418617c9f0de8fa95ca77be664e165ee2d076cdaecd424e46`.
+
+The batch preserved 169 observations: 54 Opus, 45 Sonnet, 50 Terra, and 20 Gemini
+Pro. Queued routes made no requests. It made 224 successful physical provider
+calls (201 Azure and 23 Vertex), costing $8.444906. Application errors occurred
+after successful, billable responses; there were no provider failures. The
+lifetime ledger now records $13.346044 spent, zero pending reservations, and
+$86.653956 remaining. Original reports and checkpoints are in
+`artifacts/evals/full-qualification-20260909/`. The sibling manifest, complete
+scenario/AF oracle file, stop receipt, and stop-completion receipt preserve the
+execution and accounting evidence.
+
+Sonnet returns a fact identifier inside the fact object, omitting the required
+top-level identifier, in a pending-reference case. The application raises
+`KeyError` before the normal validation and bounded correction loop. This
+demonstrates a shared structural-validation defect at the model-output boundary.
+The same problem affects a refinement case. The appropriate first correction
+is application validation of the returned shape before field access, retaining
+the model's original payload for diagnosis.
+
+Sonnet also produces an unnecessary reviewer note on a valid combination of
+existing fire-scenario premises, and an issue on an explicitly requested strict
+hypothetical rule. These remain recorded semantic-review failures for a targeted
+decision after complete answer inspection. No passing prompt is changed merely
+because an unrelated case fails.
+
+Opus's greenhouse answer says, "The scenario accepts the conclusion that the
+greenhouse should be ventilated," and explains the correct window, sensor, and
+unattacked inference chain. The evaluator recognizes only the inflection
+"accepted", causing an automatic false negative. The corrected label check
+recognizes present-tense forms while retaining negative controls for negation
+and swapped labels. An offline comparison is bound to the original response and
+report hashes in `artifacts/evals/opus-label-rubric-recheck-20260909.json`; the
+original report is unchanged and incomplete. This correction needs no model
+prompt change or additional paid call.

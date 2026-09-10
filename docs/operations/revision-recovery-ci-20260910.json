@@ -74,5 +74,195 @@
   },
   "next_gate": "Commit the completed fixes and publish a repaired recovery candidate; require its full CI and exact-image gates before rollout.",
   "hosted_mutations_performed": false,
-  "paid_inference_calls": 0
+  "paid_inference_calls": 0,
+  "repaired_recovery": {
+    "verified_at_utc": "2026-09-10T03:28:23.350942+00:00",
+    "source_commit": "2df719b1516f619ba94dbd1071426bc3e43297c0",
+    "source_tag": "service-image-demo-revision-recovery-20260909",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:0ce8fcb8a1a1de3c657ed5cb932615f9935c69677944c61ce2f5530da7ca0720",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34432640655",
+    "publication_result": "success",
+    "all_publication_steps_successful": true,
+    "ci_runs": [
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34432640675",
+        "workflow": "CI",
+        "branch": "service-image-demo-revision-recovery-20260909",
+        "source_commit": "2df719b1516f619ba94dbd1071426bc3e43297c0",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34432640589",
+        "workflow": "CI",
+        "branch": "development",
+        "source_commit": "2df719b1516f619ba94dbd1071426bc3e43297c0",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34432640601",
+        "workflow": "CodeQL",
+        "branch": "development",
+        "source_commit": "2df719b1516f619ba94dbd1071426bc3e43297c0",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "Analyze Python",
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_summaries": [
+      {
+        "job": "Python 3.13",
+        "step": "Run python -m pytest -q",
+        "summary": "1273 passed, 53 skipped in 86.88s (0:01:26)"
+      },
+      {
+        "job": "postgres-acceptance",
+        "step": "Exercise restricted-role PostgreSQL flows",
+        "summary": "1 passed in 1.72s"
+      },
+      {
+        "job": "browser-acceptance (firefox)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 297.06s (0:04:57)"
+      },
+      {
+        "job": "Python 3.10",
+        "step": "Run python -m pytest -q",
+        "summary": "1273 passed, 53 skipped in 96.61s (0:01:36)"
+      },
+      {
+        "job": "browser-acceptance (webkit)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 261.22s (0:04:21)"
+      },
+      {
+        "job": "browser-acceptance (chromium)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 194.10s (0:03:14)"
+      }
+    ],
+    "cryptographic_provenance": {
+      "github_api_bundle_verified": true,
+      "registry_bundle_verified": true,
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "exact_subject_digest_verified": true,
+      "certificate_identity": "https://github.com/Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml@refs/tags/service-image-demo-revision-recovery-20260909",
+      "oidc_issuer": "https://token.actions.githubusercontent.com",
+      "source_and_signer_commit_pinned": true,
+      "source_ref_pinned": true,
+      "github_hosted_runner_required": true,
+      "verified_timestamp_count": 1,
+      "oci_verification_json_sha256": "780402a51253a9cb5b4dd5da35882f5ff4dfe834ac805492c26bd43f9663090d"
+    },
+    "container_security": {
+      "total_vulnerabilities": 248,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "sbom": {
+      "format": "CycloneDX",
+      "spec_version": "1.7",
+      "components": 169,
+      "sha256": "dfbd030a57c0d9cd1253ea67733ef00585b3b9ceb2ca6616586ec5abfb083d27"
+    },
+    "protected_rollout_prepared_at_utc": "2026-09-10T03:24:52.725829+00:00",
+    "protected_rollout_verification": {
+      "private_permissions": true,
+      "source_default_and_scoped_keys_match": true,
+      "adc_content_matches_existing_verified_file": true,
+      "all_existing_secrets_and_unrelated_configuration_preserved": true,
+      "full_stage_ready_templates_differ_only_by_suffix_and_credit_flag": true,
+      "all_new_images_use_verified_recovery_digest": true,
+      "migration_template_changes_image_only": true,
+      "reconciliation_and_inspection_use_only_restricted_database_credentials": true,
+      "adc_volume_contains_only_adc_secret": true,
+      "live_app_still_on_expected_old_revision": true,
+      "cloud_mutations": false,
+      "database_mutations": false
+    },
+    "both_payload_image_arguments_use_recovery_digest": true,
+    "final_candidate_payloads_must_be_regenerated": true,
+    "application_followup": "The shared malformed-proposal parser defect and the observed semantic-review false positive will be repaired in the final candidate. This recovery image retains the historical balanced public selection and 0006-compatible accounting.",
+    "recovery_image_checks_passed": true,
+    "hosted_rollout_applied": false,
+    "hosted_migration_applied": false,
+    "hosted_credit_reconciliation_applied": false
+  }
 }
