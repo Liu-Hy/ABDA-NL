@@ -136,7 +136,7 @@ def test_added_intermediate_defeater_keeps_its_supporting_premise_closure():
 @pytest.mark.parametrize("model,features", [
     ("claude-sonnet-5", {"chat", "proposer", "reviewer"}),
     ("deepseek-v4-flash-0731", {"chat", "proposer", "reviewer"}),
-    ("glm-5.3", {"proposer"}),
+    ("glm-5.3", {"chat", "proposer"}),
     ("kimi-k3", {"proposer"}),
     ("gpt-5.6-sol", set()),
     ("gemini-3.8-flash", set()),

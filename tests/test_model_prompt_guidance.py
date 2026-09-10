@@ -50,7 +50,7 @@ class CapturingClient:
 
 @pytest.mark.parametrize("model", [
     "gpt-5.6-sol", "gemini-3.1-pro-preview",
-    "gemini-3.8-flash", "glm-5.3", "kimi-k3",
+    "gemini-3.8-flash", "kimi-k3",
 ])
 def test_unaffected_model_receives_byte_identical_chat_prompt(model):
     scenario = load_bundled_scenario("fire_prevention")
@@ -65,7 +65,7 @@ def test_unaffected_model_receives_byte_identical_chat_prompt(model):
 
 
 @pytest.mark.parametrize("model", [
-    "claude-sonnet-5", "claude-opus-5", "gpt-5.6-terra", "deepseek-v4-flash-0731",
+    "claude-sonnet-5", "claude-opus-5", "gpt-5.6-terra", "deepseek-v4-flash-0731", "glm-5.3",
 ])
 def test_guidance_uses_catalog_identity_for_funded_and_byok_clients(model):
     client = CapturingClient(model)

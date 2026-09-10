@@ -81,6 +81,8 @@ def model_prompt_templates(client: Any, feature: str) -> tuple[str, ...]:
         templates.append("proposer_explicit_fields")
     if feature == "chat" and model == "gpt-5.6-terra":
         templates.append("chat_terra_mutual_defeats")
+    if feature == "chat" and model == "glm-5.3":
+        templates.append("chat_preference_counterfactuals")
     return tuple(templates)
 
 
