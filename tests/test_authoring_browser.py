@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from copy import deepcopy
 from uuid import uuid4
 
@@ -105,6 +106,7 @@ def test_empty_draft_inline_errors_readable_ids_and_one_step_save(authoring_page
     claim = page.locator("[data-statement-id]").last
     claim.locator("input[type=text]").fill("We should hold the picnic outside")
     claim.locator("select").select_option("proposition")
+    expect(claim).to_have_attribute("data-statement-id", "hold_picnic_outside")
     claim.get_by_role("checkbox", name="Key conclusion").check()
     page.locator("#scenario-add-rule").click()
     rule = page.locator("[data-builder-rule-id]").first
@@ -125,6 +127,31 @@ def test_empty_draft_inline_errors_readable_ids_and_one_step_save(authoring_page
     assert saved["scenario"]["rules"]["rule_forecast_sunny"]["premises"] == ["forecast_sunny"]
     assert saved["scenario"]["rules"]["rule_forecast_sunny"]["conclusion"] == "hold_picnic_outside"
     assert page.request.get(base + "/api/trial").json()["active"] is False
+
+
+def test_pending_readable_ids_commit_before_rebuild_text_and_save_without_blur(authoring_page):
+    from playwright.sync_api import expect
+
+    page, _base = authoring_page
+    _open_editor(page)
+    page.locator("#scenario-builder-title").fill("Stable names across editor actions")
+    page.locator("#scenario-add-statement").click()
+    page.locator("#scenario-statements input[type=text]:focus").fill("The sky is clear")
+    # Button activation need not move focus before its handler, as in WebKit.
+    page.locator("#scenario-add-statement").dispatch_event("click")
+    expect(page.locator('[data-statement-id="sky_clear"]')).to_have_count(1)
+    page.locator("#scenario-statements input[type=text]:focus").fill("Heavy rain is forecast")
+    page.locator("#scenario-mode-text").dispatch_event("click")
+    expect(page.locator("#scenario-rule-text")).to_have_value(re.compile(r"-> heavy_rain_forecast"))
+    page.locator("#scenario-mode-guided").click()
+    expect(page.locator('[data-statement-id="heavy_rain_forecast"]')).to_have_count(1)
+    page.locator("#scenario-add-statement").click()
+    page.locator("#scenario-statements input[type=text]:focus").fill("The permit is valid")
+    with page.expect_response(lambda response: response.url.endswith("/api/projects/import") and response.request.method == "POST") as created:
+        page.locator("#scenario-library-submit").dispatch_event("click")
+    saved = created.value.json()
+    assert set(saved["scenario"]["facts"]) == {"sky_clear", "heavy_rain_forecast", "permit_valid"}
+    expect(page.locator("#scenario-name")).to_have_text("Stable names across editor actions")
 
 
 def test_content_import_receipts_and_editor_discard_preserve_entry_snapshot(authoring_page):
@@ -289,6 +316,17 @@ def test_search_groups_negation_undercuts_and_stable_atomic_rename(authoring_pag
     # Restore an undercut by search, then perform the existing atomic manual rename.
     _choose(picker, "weather_rule")
     expect(picker.locator(".authoring-literal-chip")).to_contain_text("does not apply")
+    picker.locator(".authoring-literal-chip").click()
+    search = picker.get_by_role("combobox")
+    search.fill("no matching statement exists")
+    expect(picker.get_by_role("listbox")).to_be_hidden()
+    expect(search).to_have_attribute("aria-expanded", "false")
+    expect(picker.locator(".authoring-literal-status")).to_be_visible()
+    expect(picker.locator(".authoring-literal-status")).to_contain_text("No matching statements")
+    search.press("Enter")
+    expect(page.locator("#scenario-error-summary")).to_be_hidden()
+    _axe_report(page, "literal search with no matching statements")
+    _choose(picker, "weather_rule")
     page.locator("#scenario-symbol-renamer > summary").click()
     page.locator("#scenario-rename-from").select_option("weather_rule")
     page.locator("#scenario-rename-to").fill("forecast_rule")

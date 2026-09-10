@@ -600,7 +600,12 @@ def _assert_concurrent_private_restores_share_the_owner_capacity_lock() -> None:
     from app.services import projects as service
 
     suffix = uuid4().hex
-    scenario = {"title": "Restore test", "facts": {"ready": {"description": "Ready"}}}
+    scenario = {
+        "title": "Restore test",
+        "facts": {"ready": {"description": "Ready"}},
+        "conclusions": {"can_resume": {"description": "The project can resume"}},
+        "rules": {"r_ready": {"type": "defeasible", "premises": ["ready"], "conclusion": "can_resume"}},
+    }
     with get_session_factory()() as session:
         user = upsert_verified_identity(
             session, issuer="https://identity.example.test", subject=f"restore-{suffix}",

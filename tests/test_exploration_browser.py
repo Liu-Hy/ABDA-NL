@@ -905,8 +905,9 @@ def test_composer_clipboard_plaintext_and_selection_across_reference(explorer_br
     copied = page.locator('#chat-input').evaluate("""input => {
       const range=document.createRange(); range.selectNodeContents(input);
       const selection=window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-      const clipboard=new DataTransfer(); input.dispatchEvent(new ClipboardEvent('copy',{clipboardData:clipboard,bubbles:true,cancelable:true}));
-      return {text:clipboard.getData('text/plain'),html:clipboard.getData('text/html')};
+      const event=new ClipboardEvent('copy',{clipboardData:new DataTransfer(),bubbles:true,cancelable:true});
+      input.dispatchEvent(event);
+      return {text:event.clipboardData.getData('text/plain'),html:event.clipboardData.getData('text/html')};
     }""")
     assert copied == {'text': original, 'html': ''}
     page.keyboard.press('Backspace')
@@ -918,8 +919,10 @@ def test_composer_clipboard_plaintext_and_selection_across_reference(explorer_br
     page.locator('#chat-input').fill('Before ')
     page.locator('#chat-input').press('End')
     page.locator('#chat-input').evaluate("""input => {
-      const clipboard=new DataTransfer(); clipboard.setData('text/plain','<b>Plain words</b>'); clipboard.setData('text/html','<img src="https://not-allowed.test/secret">');
-      input.dispatchEvent(new ClipboardEvent('paste',{clipboardData:clipboard,bubbles:true,cancelable:true}));
+      const event=new ClipboardEvent('paste',{clipboardData:new DataTransfer(),bubbles:true,cancelable:true});
+      event.clipboardData.setData('text/plain','<b>Plain words</b>');
+      event.clipboardData.setData('text/html','<img src="https://not-allowed.test/secret">');
+      input.dispatchEvent(event);
     }""")
     _expect_draft(page, 'Before <b>Plain words</b>')
     expect(page.locator('#chat-input img, #chat-input b')).to_have_count(0)
@@ -1065,6 +1068,7 @@ def test_composition_commits_text_and_shift_enter_preserves_exact_prose(explorer
     draft.fill('  α')
     draft.press('End')
     draft.press('Shift+Enter')
+    _expect_draft(page, '  α\n')
     page.keyboard.insert_text('β  ')
     _expect_draft(page, '  α\nβ  ')
     assert runtime['chat_requests'] == []

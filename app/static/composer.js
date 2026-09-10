@@ -60,8 +60,9 @@ const chatComposer = (() => {
   let editor, segments = [], composing = false, compositionBefore, history = [], redo = [];
   let selection = { start: 0, end: 0 }, pendingSelection, initialized = false;
   const tokenValues = new WeakMap();
+  const trailingBreaks = new WeakSet();
   const root = () => editor || (editor = document.getElementById('chat-input'));
-  const sizeOf = node => tokenValues.has(node) ? 1 : node.nodeType === 3 ? node.data.length
+  const sizeOf = node => trailingBreaks.has(node) ? 0 : tokenValues.has(node) ? 1 : node.nodeType === 3 ? node.data.length
     : node.nodeName === 'BR' ? 1 : [...node.childNodes].reduce((sum, child) => sum + sizeOf(child), 0);
   function pointOffset(node, offset, endPoint = false) {
     let total = 0, found = false;
@@ -198,10 +199,16 @@ const chatComposer = (() => {
   function render() {
     if (!root() || composing) return;
     root().replaceChildren(...segments.map(item => item.type === 'text' ? document.createTextNode(item.text) : tokenElement(item.ref)));
+    if (segments.at(-1)?.type === 'text' && segments.at(-1).text.endsWith('\n')) {
+      // Keep the empty final line available to the caret and IME. This is
+      // a rendering marker, with no length or text in the authored draft.
+      const br = document.createElement('br'); trailingBreaks.add(br); root().append(br);
+    }
   }
   function readDOM() {
     const result = [];
     const walk = node => {
+      if (trailingBreaks.has(node)) return;
       if (tokenValues.has(node)) result.push({ type: 'reference', ref: tokenValues.get(node) });
       else if (node.nodeType === 3) result.push({ type: 'text', text: node.data });
       else if (node.nodeName === 'BR') result.push({ type: 'text', text: '\n' });

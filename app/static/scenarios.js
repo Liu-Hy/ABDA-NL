@@ -288,6 +288,7 @@ async function switchScenarioMode(mode) {
   if (scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new.busy || mode === scenarioLibrary.mode) return;
   if (mode === 'guided' && scenarioLibrary.rawChanged && !await previewScenarioDraft(false)) return;
   if (mode === 'text') {
+    commitPendingReadableIds();
     const empty = scenarioLibrary.statements.every(item => !item.description.trim())
       && scenarioLibrary.rules.every(rule => !rule.conclusion && rule.premises.every(p => !p));
     if (empty) {
@@ -411,6 +412,13 @@ function proposeReadableId(item) {
   return true;
 }
 
+function commitPendingReadableIds() {
+  // Removing a focused input need not fire blur in every browser. Commit new
+  // names before rebuilding rows or serializing; imported and explicit IDs
+  // never enter the pending set, and a generated name is proposed only once.
+  for (const item of [...scenarioLibrary.statements, ...scenarioLibrary.rules]) proposeReadableId(item);
+}
+
 function builderLiteralDescription(literal) {
   if (!literal) return 'choose a statement';
   const negative = literal.startsWith('-'), id = negative ? literal.slice(1) : literal;
@@ -471,6 +479,7 @@ function addBuilderStatement(kind = 'fact', description = '', focus = true) {
 }
 
 function renderBuilderStatements() {
+  commitPendingReadableIds();
   const list = byId('scenario-statements'); list.replaceChildren();
   if (!guidedEditorAvailable()) {
     list.textContent = 'This knowledge base is too large for the guided editor. Use Rule text or edit its portable JSON file.';
@@ -573,13 +582,14 @@ function createLiteralPicker(label, rule, getValue, setValue, fieldKey) {
       <label class="authoring-literal-not"><input type="checkbox"> not</label><button type="button" class="btn btn-small authoring-literal-clear" aria-label="Clear ${escapeAttr(label.toLowerCase())}">Clear</button></div>
     <input id="${inputId}" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${listId}" aria-required="true" autocomplete="off" placeholder="Search statements or symbols">
     <div class="authoring-literal-options" id="${listId}" role="listbox" aria-label="${escapeAttr(label)} choices" hidden></div>
-    <span class="visually-hidden authoring-literal-status" role="status"></span>`;
+    <p class="scenario-hint visually-hidden authoring-literal-status" role="status"></p>`;
   const input = wrapper.querySelector('[role=combobox]'), list = wrapper.querySelector('[role=listbox]');
+  const status = wrapper.querySelector('.authoring-literal-status');
   const selected = wrapper.querySelector('.authoring-literal-selection'), chip = wrapper.querySelector('.authoring-literal-chip');
   const not = wrapper.querySelector('.authoring-literal-not input');
   input.dataset.editorField = fieldKey;
-  let visibleOptions = [], active = -1;
-  const close = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
+  let visibleOptions = [], active = -1, opened = false;
+  const close = () => { opened = false; list.hidden = true; status.classList.add('visually-hidden'); input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
   const highlight = index => {
     active = index;
     [...list.querySelectorAll('[role=option]')].forEach((option, position) => option.setAttribute('aria-selected', String(position === active)));
@@ -621,9 +631,11 @@ function createLiteralPicker(label, rule, getValue, setValue, fieldKey) {
     }
     // Match keyboard order to the rendered groups, not the source array order.
     visibleOptions = ['Statements', 'Negated', 'Rule does not apply'].flatMap(group => visibleOptions.filter(option => option.group === group));
-    list.hidden = false; input.setAttribute('aria-expanded', 'true'); highlight(-1);
-    wrapper.querySelector('.authoring-literal-status').textContent = visibleOptions.length + ' choices';
-    if (!visibleOptions.length) { const empty = document.createElement('p'); empty.textContent = 'No matching statements. Add one above, or change the search.'; list.append(empty); }
+    opened = true; list.hidden = !visibleOptions.length;
+    input.setAttribute('aria-expanded', String(!list.hidden)); highlight(-1);
+    status.classList.toggle('visually-hidden', Boolean(visibleOptions.length));
+    status.textContent = visibleOptions.length ? visibleOptions.length + ' choices'
+      : 'No matching statements. Add one above, or change the search.';
   };
   wrapper.openPicker = () => { selected.hidden = true; input.hidden = false; input.value = ''; input.focus(); showOptions(); };
   chip.onclick = wrapper.openPicker;
@@ -636,13 +648,13 @@ function createLiteralPicker(label, rule, getValue, setValue, fieldKey) {
       event.preventDefault(); event.stopPropagation(); if (list.hidden) showOptions();
       if (visibleOptions.length) highlight(active < 0 ? (event.key === 'ArrowDown' ? 0 : visibleOptions.length - 1)
         : (active + (event.key === 'ArrowDown' ? 1 : -1) + visibleOptions.length) % visibleOptions.length);
-    } else if (event.key === 'Enter' && !list.hidden) {
+    } else if (event.key === 'Enter' && opened) {
       event.preventDefault(); event.stopPropagation(); if (active >= 0) choose(visibleOptions[active].id);
-    } else if (event.key === 'Escape' && !list.hidden) { event.preventDefault(); event.stopPropagation(); close(); if (getValue()) { refreshSelected(); chip.focus(); } }
+    } else if (event.key === 'Escape' && opened) { event.preventDefault(); event.stopPropagation(); close(); if (getValue()) { refreshSelected(); chip.focus(); } }
     else if (event.key === 'Tab') close();
   });
   input.addEventListener('blur', () => { close(); if (getValue()) refreshSelected(); });
-  wrapper.refreshChoices = () => { if (document.activeElement !== input) refreshSelected(); if (!list.hidden) showOptions(); };
+  wrapper.refreshChoices = () => { if (document.activeElement !== input) refreshSelected(); if (opened) showOptions(); };
   refreshSelected(); return wrapper;
 }
 
@@ -809,6 +821,7 @@ function scenarioRuleText(scenario) {
 async function previewScenarioDraft(showPreview = true) {
   if (scenarioLibrary.busy || scenarioLibrary.reading || librarySources.new.busy || !state.authSession.authenticated) return null;
   if (pendingSymbolRename()) { setWorkspaceStatus('scenario-library-status', 'Rename or cancel the pending symbol change before previewing.', 'info'); return null; }
+  if (!scenarioLibrary.rawChanged) commitPendingReadableIds();
   const generation = scenarioLibrary.generation, account = state.authSession.user?.id;
   let completionGeneration = generation;
   scenarioLibrary.reading = true; renderScenarioLibraryAccess();

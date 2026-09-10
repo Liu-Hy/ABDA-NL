@@ -860,7 +860,40 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             page.set_viewport_size({"width": 390, "height": 844})
             _save_browser_evidence(page, "normal-user-view-narrow")
             assert page.locator(".topbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
-            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), json.dumps(page.evaluate("""() => {
+                const label = element => element.id ? '#' + element.id
+                  : element.tagName.toLowerCase() + (typeof element.className === 'string' && element.className ? '.' + element.className.trim().replace(/\\s+/g, '.') : '');
+                const report = {viewport: innerWidth, document: document.documentElement.scrollWidth, body: document.body.scrollWidth,
+                  elements: [...document.querySelectorAll('body *')].filter(element => {
+                    const rect = element.getBoundingClientRect();
+                    return rect.width && (rect.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 1);
+                  }).slice(0, 30).map(element => {
+                    const rect = element.getBoundingClientRect(); const css = getComputedStyle(element);
+                    const closed = element.closest('details:not([open])');
+                    return {element: label(element), parent: label(element.parentElement),
+                      left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width),
+                      scroll: element.scrollWidth, client: element.clientWidth, minWidth: css.minWidth,
+                      position: css.position, overflow: css.overflowX, display: css.display,
+                      closedDetails: closed ? label(closed) : null};
+                  })};
+                const widthWithHidden = selector => {
+                  const saved = [...document.querySelectorAll(selector)].map(element => [element, element.getAttribute('style')]);
+                  try {
+                    for (const [element] of saved) element.style.setProperty('display', 'none', 'important');
+                    return document.documentElement.scrollWidth;
+                  } finally {
+                    for (const [element, style] of saved) {
+                      if (style === null) element.removeAttribute('style'); else element.setAttribute('style', style);
+                    }
+                  }
+                };
+                report.widthWithoutClosedDetails = widthWithHidden('details:not([open]) > :not(summary)');
+                report.widthWithoutConversationMenu = widthWithHidden('.conversation-actions:not([open]) > :not(summary)');
+                report.widthWithoutSnapshots = widthWithHidden('.conversation-turn-controls details:not([open]) > :not(summary)');
+                report.widthWithoutExplorerMenus = widthWithHidden('.panel-options:not([open]) > :not(summary), .row-options:not([open]) > :not(summary)');
+                report.restoredDocumentWidth = document.documentElement.scrollWidth;
+                return report;
+            }"""), indent=2)
             _open_workspace(page)
             _axe_report(page, "normal user view account controls")
             page.set_viewport_size({"width": 1200, "height": 900})
