@@ -1,0 +1,91 @@
+{
+  "accounting_tables": {
+    "emergency_budgets": {
+      "count": 1,
+      "sha256": "b8776855ef15e9d42d047fede127dfc98deaea380076e034875d253331c752fe"
+    },
+    "emergency_usage_reservations": {
+      "count": 1,
+      "sha256": "0bdb31d6e614f6ad2cfbae4dca80e64a406de284d9d00ad446f87ed0f49f98ab"
+    },
+    "llm_usage_events": {
+      "count": 32,
+      "sha256": "fcbd93fb7be4fd0758919a1a13908aa84944ec37aab4e541f93109756ec976f8"
+    },
+    "named_credit_entitlements": {
+      "count": 5,
+      "sha256": "aa6539a93837a4d10991916df736bfc4a57af9aec09fe9618e589ce984eec4d7"
+    },
+    "trial_grants": {
+      "count": 1,
+      "sha256": "a4f7b2294699f6046f6c36c022ca807a0221596827780dc5f6b5c467472c6cd7"
+    },
+    "trial_programs": {
+      "count": 2,
+      "sha256": "cb4f78115c706f32b2b3e300ee5e18810d576243bec142c1934407f11eba5567"
+    },
+    "usage_reservations": {
+      "count": 30,
+      "sha256": "f7bbd63a878509599c6b3fb50e1f2dc8bd810db0f03134e0fa623542456b7a31"
+    }
+  },
+  "actual_native_model_turns": 0,
+  "all_seven_accounting_tables_unchanged": true,
+  "application_changes": false,
+  "cleanup_report_sha256": "8d95cc0db897d0c2ec863b5bc5771a1aef2a89e88d9ddc21f1c02624bdd9bb34",
+  "elapsed": "00:00:21",
+  "email_delivery": false,
+  "empty_native_credential_file_removed": true,
+  "empty_revocation_loop_not_counted_as_acceptance": true,
+  "failure_phase": "tokens before either native client was invoked",
+  "native_subscription_status_checks_passed": true,
+  "next_prepared_step": "docs/operations/hosted-native-fixture-correction-20260910.json",
+  "offline_reproduction": {
+    "cloud_console_validation_trace_available": false,
+    "component": "UserView.email EmailStr",
+    "interpretation": "This test-data schema violation explains the early owner-response preparation failure. No application change is required.",
+    "original_reserved_domain_rejected": true,
+    "same_synthetic_local_part_at_example_org_accepted": true
+  },
+  "phases": [
+    {
+      "client": null,
+      "exit_code": 1,
+      "finished_utc": "2026-09-10T08:34:01.743877+00:00",
+      "phase": "tokens",
+      "timed_out": false
+    },
+    {
+      "client": null,
+      "exit_code": 1,
+      "finished_utc": "2026-09-10T08:34:05.867592+00:00",
+      "phase": "cleanup",
+      "timed_out": false
+    },
+    {
+      "client": null,
+      "exit_code": 0,
+      "finished_utc": "2026-09-10T08:34:09.540612+00:00",
+      "phase": "revoked",
+      "timed_out": false
+    }
+  ],
+  "private_evidence_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-acceptance-preparation-20260910T070123Z",
+  "projects_created": 0,
+  "read_only_cleanup_execution": "abda-nl-stg-migrate-9l6oqnj",
+  "real_administrator_session_signing": false,
+  "recorded_utc": "2026-09-10T08:46:29.149328+00:00",
+  "removed_empty_file_sha256": "45a2feff914e8ea265281c6ee496503711f93f2416b29da6e8c93787f7f86ace",
+  "retirement_execution": "abda-nl-stg-migrate-1qu0m7s",
+  "server_accounting_change": false,
+  "server_inference_calls": 0,
+  "slurm_exit_code": "1:0",
+  "slurm_job": "21937026",
+  "slurm_state": "FAILED",
+  "status": "failed_fixture_preparation_with_authoritative_cleanup_complete",
+  "subscription_failure_proved": false,
+  "synthetic_users_created": 2,
+  "synthetic_users_retired": 2,
+  "tokens_available_for_revocation_probe": 0,
+  "tokens_created": 0
+}

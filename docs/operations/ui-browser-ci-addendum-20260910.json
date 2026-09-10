@@ -1,0 +1,142 @@
+{
+  "collected_at_utc": "2026-09-10T08:45:02.239727+00:00",
+  "ci_source_commit": "07928fc307c6fe73c6177af8e566d915f2e002fd",
+  "deployed_runtime_source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "only_changed_file": ".github/workflows/ci.yml",
+  "application_and_test_bytes_unchanged": true,
+  "runs": [
+    {
+      "workflow": "CI",
+      "run_id": 34456247151,
+      "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34456247151",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Python 3.10",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "browser-acceptance (firefox)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "browser-acceptance (chromium)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "secret-scan",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres-acceptance",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "deployment-artifacts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Python 3.13",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "browser-acceptance (webkit)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "workflow": "CodeQL",
+      "run_id": 34456247213,
+      "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34456247213",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Analyze Python",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "complete": true,
+  "all_ci_jobs_successful": true,
+  "browser_matrix_52_each_verified": true,
+  "new_image_published": false,
+  "deployment_or_inference_calls": 0,
+  "log_sha256": {
+    "CI": "bfd81a26a6f4f33f9be201799848dcf12899035d5aa8f58c3d742d8f72f92ff5",
+    "CodeQL": "107bd73e68a660ee56d394d0f2c7e8f3bf61723b427a8d95caa09069daf23fb6"
+  },
+  "test_summaries": [
+    {
+      "job": "Python 3.10",
+      "step": "Run python -m pytest -q",
+      "summary": "1454 passed, 53 skipped in 101.31s (0:01:41)"
+    },
+    {
+      "job": "browser-acceptance (firefox)",
+      "step": "Exercise the browser workspace and accessibility",
+      "summary": "52 passed in 251.90s (0:04:11)"
+    },
+    {
+      "job": "browser-acceptance (chromium)",
+      "step": "Exercise the browser workspace and accessibility",
+      "summary": "52 passed in 203.34s (0:03:23)"
+    },
+    {
+      "job": "postgres-acceptance",
+      "step": "Exercise restricted-role PostgreSQL flows",
+      "summary": "1 passed in 2.14s"
+    },
+    {
+      "job": "Python 3.13",
+      "step": "Run python -m pytest -q",
+      "summary": "1454 passed, 53 skipped in 89.00s (0:01:28)"
+    },
+    {
+      "job": "browser-acceptance (webkit)",
+      "step": "Exercise the browser workspace and accessibility",
+      "summary": "52 passed in 286.98s (0:04:46)"
+    }
+  ],
+  "codeql_security_findings_zero_verified": true,
+  "browser_artifacts": [
+    {
+      "name": "browser-acceptance-webkit-07928fc307c6fe73c6177af8e566d915f2e002fd",
+      "id": 10143788971,
+      "source_commit": "07928fc307c6fe73c6177af8e566d915f2e002fd",
+      "sha256": "0cf172c40c16aed41ecf1170793edb6ef850e502994ff7a22f573efd44fb3dc9",
+      "download_matches_published_digest": true,
+      "size_bytes": 1821959
+    },
+    {
+      "name": "browser-acceptance-firefox-07928fc307c6fe73c6177af8e566d915f2e002fd",
+      "id": 10143768076,
+      "source_commit": "07928fc307c6fe73c6177af8e566d915f2e002fd",
+      "sha256": "109ecf867df605fb2bb75a19bd939c5122663118f378595fe494e97d9161a515",
+      "download_matches_published_digest": true,
+      "size_bytes": 1803390
+    },
+    {
+      "name": "browser-acceptance-chromium-07928fc307c6fe73c6177af8e566d915f2e002fd",
+      "id": 10143734309,
+      "source_commit": "07928fc307c6fe73c6177af8e566d915f2e002fd",
+      "sha256": "14b4752bbc6c2740200f36f04e9abd2f894a056d62c87c486f4d05bfd3855c91",
+      "download_matches_published_digest": true,
+      "size_bytes": 1577299
+    }
+  ],
+  "collector_sha256": "edec47182569456b889821f35d5d41483f00e34ba450fe28988a09b433e8f2b4",
+  "immutable_run_summary_sha256": "c4fe59849556f2a5590318713b239cc6e23494125bb32721b5b3c9af622306f0"
+}

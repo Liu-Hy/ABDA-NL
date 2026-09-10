@@ -1,0 +1,7 @@
+# Browser CI coverage addendum, 2026-09-10
+
+Commit `07928fc307c6fe73c6177af8e566d915f2e002fd` changes only the browser CI selection. It adds the eight existing exploration workflows to the 44 existing workspace checks. Application and test files are byte-identical to deployed runtime source `234ffc97522b5d82e0a4a4d05082d88a4ab0c173`; this commit did not publish or deploy a new release image.
+
+[CI run 34456247151](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34456247151) passed all eight jobs. Chromium, Firefox, and WebKit each passed all 52 browser checks. Python 3.10 and 3.13 each passed 1,454 tests with 53 skips, and restricted-role PostgreSQL acceptance passed its one check. [CodeQL run 34456247213](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34456247213) passed with zero findings, verified from its security-gate output.
+
+The [separate JSON receipt](ui-browser-ci-addendum-20260910.json) binds exact-source run records, log hashes, six test summaries, and the three browser artifact ZIPs. Each downloaded ZIP matches its published SHA-256 digest and exact commit metadata. The deployed image's prior 44-test CI, image digest, security, and provenance receipts remain unchanged. This addendum closes the automation omission identified in the [UI acceptance audit](ui-requirements-acceptance-20260910.md); it is separate from [hosted public acceptance](hosted-public-ui-acceptance-20260910.md).

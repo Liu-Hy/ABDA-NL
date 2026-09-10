@@ -1,0 +1,210 @@
+{
+  "accounting_tables": [
+    "llm_usage_events",
+    "usage_reservations",
+    "emergency_usage_reservations",
+    "trial_grants",
+    "trial_programs",
+    "emergency_budgets",
+    "named_credit_entitlements"
+  ],
+  "administrator_owner_api": {
+    "existing_evidence": "Hosted schema0006 restricted DB ledger and $50 grant proof plus owner-route regression.",
+    "existing_valid_owner_session_available": false,
+    "impersonation_allowed": false,
+    "verified_via_owner_api": false
+  },
+  "all_eight_primary_configuration_ready": true,
+  "authentication_boundary": "Local signed sessions for only two immutable synthetic fixture UUIDs. No real administrator session is synthesized. This does not test OIDC login.",
+  "catalog_candidate_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+  "client_environment_minimum_checked": true,
+  "cloud_mutations": false,
+  "currently_verified_image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+  "currently_verified_revision": "abda-nl-stg-web--compat-8f83-0910-recovery-ready",
+  "database_mutations": false,
+  "execution_target": "The final qualified ready image and revision must be passed explicitly after rollout; helper re-reads ARM identity and ready image before each phase.",
+  "failure_policy": "Never retry an ambiguous Azure start or mutation without reading the execution/resource state. Cleanup and retirement remain required on failure. A native subscription login failure is not repaired by switching to API billing.",
+  "final_preparation_checked_utc": "2026-09-10T07:32:14.294790+00:00",
+  "fixture_accounts": 2,
+  "fixture_credit_grants": 0,
+  "fixture_domain": "acceptance.invalid",
+  "fixture_execution_image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+  "fixture_identity_rows": 0,
+  "fixture_token_expiry_days": 1,
+  "fixture_token_scopes": [
+    "projects:read",
+    "projects:write"
+  ],
+  "native_clients": {
+    "claude-code": {
+      "subscription_auth_checked": true,
+      "version": "2.1.267"
+    },
+    "codex": {
+      "subscription_auth_checked": true,
+      "version": "0.153.4"
+    }
+  },
+  "native_model_turns": 0,
+  "offline_validation": {
+    "command": "pytest -q artifacts/evals/test_hosted_acceptance_preparation_20260910.py",
+    "hosted_mutations": 0,
+    "inference_calls": 0,
+    "passed": 12,
+    "template_runner_binding_checks": 3,
+    "test_artifact": "artifacts/evals/test_hosted_acceptance_preparation_20260910.py",
+    "test_sha256": "97144bff424bcc28733fc5821df6d8564534791d30b3c3cbd8ec6de7d2a5ba89",
+    "tests": 12
+  },
+  "openrouter": {
+    "inference_tested": false,
+    "matches_authorized_source": true,
+    "metadata_http_status": 200,
+    "paid_tier": true,
+    "per_key_cap_available": true,
+    "referenced_key_present": true,
+    "secret_update_needed": false
+  },
+  "operator_commands": {
+    "azure_job_start": [
+      "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+      "containerapp",
+      "job",
+      "start",
+      "--name",
+      "abda-nl-stg-migrate",
+      "--resource-group",
+      "abda-nl-staging",
+      "--yaml",
+      "EXACT_REVIEWED_PRIVATE_EXECUTION_JSON",
+      "--output",
+      "json",
+      "--only-show-errors"
+    ],
+    "native_phase": [
+      "/u/haoyang/ABDA-NL/.venv/bin/python",
+      "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-acceptance-preparation-20260910T070123Z/native_workflow.py",
+      "--phase",
+      "REVIEWED_PHASE",
+      "--expected-revision",
+      "FINAL_VERIFIED_READY_REVISION",
+      "--expected-image",
+      "FINAL_VERIFIED_IMMUTABLE_DIGEST"
+    ]
+  },
+  "payload_manifest": {
+    "fixture-inspect.v2.execution.json": {
+      "mode": "0o600",
+      "sha256": "efef968b3c3139480cb97310fe3eb292d35b3d6b52d63bb6c03a141c9cee031a"
+    },
+    "fixture-manifest.json": {
+      "mode": "0o600",
+      "sha256": "4769138c59221013260cc70a8f6cbb97d4b6601b46221e8e2519437c107e23c4"
+    },
+    "fixture-retire.v2.execution.json": {
+      "mode": "0o600",
+      "sha256": "fcdd06ee1201389720befb4a00bbcca5ee4df56a05e83ee99d2e41f7114077d9"
+    },
+    "fixture-setup.v2.execution.json": {
+      "mode": "0o600",
+      "sha256": "37aed28efba3da64841dffe8c13c5db55a376807f32d7568516895cf1aad0892"
+    },
+    "fixture_runner.py": {
+      "mode": "0o600",
+      "sha256": "331fa2edab533d2468973661e246e2c41aa9f9d08aac6c76c6dc285f61a0a759"
+    },
+    "native_workflow.py": {
+      "mode": "0o600",
+      "sha256": "b8edc6a26a7dd284513402752c40aaccd319ce695804ee5cda8e05a2fedda5e2"
+    },
+    "readiness.py": {
+      "mode": "0o600",
+      "sha256": "0e5cb5ad189544a298f665545969a9954d3537f8f01cd473301e474374ee7ffa"
+    }
+  },
+  "prepared_utc": "2026-09-10T07:25:59.143656+00:00",
+  "private_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-acceptance-preparation-20260910T070123Z",
+  "provider_credentials_exposed": false,
+  "readiness_receipt": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-acceptance-preparation-20260910T070123Z/sanitized-readiness.json",
+  "remaining_bindings": [
+    "Final qualified image digest and ready revision, after image CI, final supplemental acceptance and rollout.",
+    "Root will provide the verified final image/revision before executing the approved native steps."
+  ],
+  "resolver_correction": "Legacy Azure env entries include an empty literal value beside secretRef; the inspector must use the referenced secret. The referenced hosted key was not empty.",
+  "resolver_correction_receipt": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-acceptance-preparation-20260910T070123Z/openrouter-key-readiness-correction.json",
+  "root_review": {
+    "approved_exact_private_steps": true,
+    "authorization": "Parent reviewed the full fixture and native workflow scripts and all seven recorded payload hashes/modes. Execute only after the final verified image/revision is provided. Always retire fixtures after failure; no real-administrator signing or API-billed native fallback.",
+    "fixture_or_token_creation_executed": false
+  },
+  "slurm_proposal": {
+    "account": "bhay-delta-gpu",
+    "cpus": 2,
+    "gpus": 1,
+    "memory": "8G",
+    "partition": "gpuA40x4-interactive",
+    "purpose": "Two subscribed native-client turns and bounded Chromium readback, no server inference.",
+    "walltime": "00:15:00"
+  },
+  "source_changes": false,
+  "status": "Prepared and offline checked only. No fixture, token, native client turn, or cloud mutation has executed.",
+  "steps": [
+    {
+      "action": "Verify final CI digest and ready revision, unchanged app funding settings, schema0006 compatibility and persistent job configuration. Inspect exact payload hashes and roles; no pending writer gate ambiguity.",
+      "id": "pin_final"
+    },
+    {
+      "action": "Start fixture-inspect.v2.execution.json as one execution-only override of the existing manual job. Require Succeeded, read-only true, exact role/schema, neither fixture registered. Save seven-table canonical row hashes/counts.",
+      "id": "before"
+    },
+    {
+      "action": "Start fixture-setup.v2.execution.json once, require Succeeded and two exact synthetic verified active users with zero identity/entitlement/credit/usage rows. Save parsed marker as fixture-setup.report.json. Existing ledger hashes must remain unchanged.",
+      "id": "setup"
+    },
+    {
+      "action": "Run native_workflow.py against final explicit revision/digest. Synthetic owner /api/auth/session and /api/trial checks precede real API token creation with read/write scopes and one-day expiry. Retain token values only in mode600 native-credentials.json.",
+      "id": "tokens",
+      "phase": "tokens"
+    },
+    {
+      "action": "Run existing authenticated Codex helper with only five exposed deterministic MCP tools. Require six actual tool calls, exactly one versioned permit toggle, accepted-to-rejected legal outcome and successful independent stale/invalid rejection.",
+      "client": "codex",
+      "id": "codex",
+      "phase": "client"
+    },
+    {
+      "action": "Run existing authenticated Claude Code helper with the same restricted task under its own subscription. Capture real tool evidence; inspect any failed client receipt and stranded project before a bounded retry.",
+      "client": "claude-code",
+      "id": "claude",
+      "phase": "client"
+    },
+    {
+      "action": "Read each project through its synthetic owner API and actual Chromium workspace. Require version2, inactive permit, rejected legal_today. Other fixture token must fail reads and writes. ask_project and propose_project_edit must both fail missing llm:use before any inference.",
+      "id": "verify",
+      "phase": "verify"
+    },
+    {
+      "action": "Archive every project owned by the two synthetic fixtures, including incomplete-turn projects. Revoke every fixture token twice via owner API. Require empty active project lists, revoked token lists and zero trial balances.",
+      "id": "cleanup",
+      "phase": "cleanup"
+    },
+    {
+      "action": "Repeat MCP initialize twice per retained token and require HTTP401, no native model turn.",
+      "id": "revoked",
+      "phase": "revoked"
+    },
+    {
+      "action": "Always execute fixture-retire.v2.execution.json, including after any failed client or verification phase. It archives only exact fixture-owner projects, revokes only exact fixture-owner tokens, and suspends/unverifies the two synthetic users. It preserves audit rows and all accounting tables.",
+      "id": "retire"
+    },
+    {
+      "action": "Execute fixture-inspect.v2.execution.json read-only, require both accounts suspended/unverified, all projects archived and tokens revoked, zero fixture identity/entitlement/credit/usage rows. Compare global seven-table hashes/counts to before; if unrelated live traffic changed them, inspect attribution and report only what is proved. Preserve named admin/emergency/public invariants.",
+      "id": "after"
+    },
+    {
+      "action": "After authoritative retirement and repeated401 proof, remove only native-credentials.json. Retain sanitized receipts, archived fixture audit rows and protected cloud diagnostics. Verify persistent manual job configuration unchanged.",
+      "id": "dispose"
+    }
+  ],
+  "tokens_created": false
+}

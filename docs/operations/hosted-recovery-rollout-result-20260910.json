@@ -1,0 +1,325 @@
+{
+  "completed_utc": "2026-09-10T06:40:32.016483+00:00",
+  "status": "recovery_rollout_completed",
+  "deployment": {
+    "verified_utc": "2026-09-10T06:40:32.016483+00:00",
+    "status": "passed",
+    "ready_revision": "abda-nl-stg-web--compat-8f83-0910-recovery-ready",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+    "revision_mode": "Single",
+    "active_ready_revisions": 1,
+    "ready_replica_count": 1,
+    "old_stage_replicas": 0,
+    "old_0005_replicas": 0,
+    "manual_job_image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "manual_job_trigger": "Manual",
+    "active_job_executions": 0,
+    "application_count": 1,
+    "job_count": 1,
+    "automatic_named_activation": true,
+    "exact_prepared_template_and_secrets_verified": true,
+    "cloudbank_funding_pins_preserved": true,
+    "public_catalog_unchanged": [
+      "balanced"
+    ],
+    "inference_calls": 0,
+    "cleanup": "All executions terminal; no test account, project, token, session or temporary database object was created; private audit records retained."
+  },
+  "database": {
+    "schema": "20260909_0006",
+    "restricted_role": {
+      "verified_utc": "2026-09-10T06:28:23.746758+00:00",
+      "status": "passed",
+      "schema": "20260909_0006",
+      "restricted_role_attributes": true,
+      "named_table_crud_allowed": true,
+      "alembic_writes_denied": true,
+      "schema_creation_and_object_ownership_denied": true,
+      "default_table_crud_grants": true,
+      "named_slots_unbound": 5,
+      "public_accounting_unchanged": true,
+      "emergency_budget_unchanged": true,
+      "named_reservation_rows_recorded": true,
+      "named_usage_event_rows_recorded": true,
+      "pending_reservations": 0
+    },
+    "credit_conservation": {
+      "verified_utc": "2026-09-10T06:36:02.589406+00:00",
+      "status": "passed",
+      "schema": "20260909_0006",
+      "allocated_registered_accounts": 1,
+      "lifetime_grant_usd": 50,
+      "future_unbound_entitlements": 4,
+      "spent_and_reserved_preserved": true,
+      "available_equals_50_usd_less_preserved_spending_and_reservations": true,
+      "reservation_ids_costs_statuses_timestamps_preserved": true,
+      "reservation_change_only_program_attribution": true,
+      "usage_event_rows_byte_equivalent": true,
+      "public_policy_preserved": {
+        "max_users": 100,
+        "grant_usd": 5,
+        "budget_usd": 500
+      },
+      "administrator_policy": {
+        "max_users": 5,
+        "grant_usd": 50,
+        "budget_usd": 250
+      },
+      "program_totals_reconciled": true,
+      "independent_emergency_budget_unchanged": true,
+      "pending_reservations": 0,
+      "role_privileges_preserved": true
+    },
+    "ready_startup_recheck": {
+      "verified_utc": "2026-09-10T06:39:33.403495+00:00",
+      "status": "passed",
+      "schema": "20260909_0006",
+      "ready_true_startup_preserved_exact_credit_and_ledger": true,
+      "lifetime_grant_usd": 50,
+      "bound_named_accounts": 1,
+      "future_unbound_entitlements": 4,
+      "pending_reservations": 0,
+      "all_role_and_conservation_checks_still_pass": true,
+      "usage_event_canonical_json_sha256": "65ef137f4daa27e52132758f115d7f0a82ccf5cb3830fb0cf7a59f01d05f3665",
+      "exact_private_report_sha256": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f"
+    }
+  },
+  "public_acceptance": {
+    "stage": {
+      "utc": "2026-09-10T06:25:03.803477+00:00",
+      "status": "passed",
+      "http_checks": [
+        {
+          "name": "live",
+          "path": "/health/live",
+          "status": 200,
+          "sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288"
+        },
+        {
+          "name": "ready",
+          "path": "/health/ready",
+          "status": 200,
+          "sha256": "31bf75f4c0a97cc1f7b60df824fa390b3be9ba014f29b63c87c698ba63d9a9fd"
+        },
+        {
+          "name": "config",
+          "path": "/config",
+          "status": 200,
+          "sha256": "611de5755dd1b91af133b5fc83e2da13a834022a56ad164ec4f189c6b075f8f3"
+        },
+        {
+          "name": "shell",
+          "path": "/",
+          "status": 200,
+          "sha256": "f33ed8443dee45faf5a9ac08034180da8b452ce34c3ee119fde37d91ed9c4aff"
+        },
+        {
+          "name": "scenarios",
+          "path": "/scenarios",
+          "status": 200,
+          "sha256": "bb21a36e8ad1e8e4c7f8c94f6723065da455c930019d0e9ace47cbd9e7d0f10c"
+        },
+        {
+          "name": "popov",
+          "path": "/state",
+          "status": 200,
+          "sha256": "282a726e3aacfdb4332df8105cbf89669f8adaea1c1135bf08cb75d59a9fb4db"
+        },
+        {
+          "name": "medical-toggle",
+          "path": "/state",
+          "status": 200,
+          "sha256": "758f480ebbe234f6a142c2e01fde6330e9ba0f0e4aca4822a9474cd97a941625"
+        },
+        {
+          "name": "medical-reset",
+          "path": "/scenarios/medical_ppi",
+          "status": 200,
+          "sha256": "f03eb84e08cbcf77cbb611c266f0e77e5d4091f600f7a2e1d3a64eb4cc03ea6a"
+        }
+      ],
+      "public_profiles": [
+        "balanced"
+      ],
+      "llm_enabled": true,
+      "byok_enabled": true,
+      "popov_matches_gold": true,
+      "manual_assumption_edit_and_reset_passed": true,
+      "inference_calls": 0,
+      "project_or_account_mutations": false
+    },
+    "final": {
+      "verified_utc": "2026-09-10T06:39:27.728875+00:00",
+      "status": "passed",
+      "http_checks": [
+        {
+          "path": "/health/live",
+          "status": 200,
+          "sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288"
+        },
+        {
+          "path": "/health/ready",
+          "status": 200,
+          "sha256": "31bf75f4c0a97cc1f7b60df824fa390b3be9ba014f29b63c87c698ba63d9a9fd"
+        },
+        {
+          "path": "/config",
+          "status": 200,
+          "sha256": "611de5755dd1b91af133b5fc83e2da13a834022a56ad164ec4f189c6b075f8f3"
+        },
+        {
+          "path": "/api/auth/session",
+          "status": 200,
+          "sha256": "a729f36c7656e45a98f79b7fbe02d0f261f84f7bcad0830fdcd47a730ae64b7a"
+        },
+        {
+          "path": "/api/trial",
+          "status": 401,
+          "sha256": "33dcc9c7bd377b8e67b1a16dc01b5a447ed648b523d9d572e54b58d8cd8dd0f4"
+        },
+        {
+          "path": "/mcp/",
+          "status": 401,
+          "sha256": "3ae7ddab16f90209af2f2b5932135d3bc56e8f3cbd44b967535f6c1db5c1bd2e"
+        },
+        {
+          "path": "/state",
+          "status": 200,
+          "sha256": "282a726e3aacfdb4332df8105cbf89669f8adaea1c1135bf08cb75d59a9fb4db"
+        },
+        {
+          "path": "/state",
+          "status": 200,
+          "sha256": "758f480ebbe234f6a142c2e01fde6330e9ba0f0e4aca4822a9474cd97a941625"
+        },
+        {
+          "path": "/app.js",
+          "status": 200,
+          "sha256": "35b3c84271d835e561fb9fb532b476667ee55155f793ba30100d3ceb2a4bad7b"
+        }
+      ],
+      "public_profiles": [
+        "balanced"
+      ],
+      "oidc_mode_preserved": true,
+      "anonymous_trial_denied": true,
+      "anonymous_mcp_initialization_denied": true,
+      "popov_matches_gold": true,
+      "manual_assumption_edit_passed": true,
+      "served_app_js_byte_matches_recovery_source": "app/static/app.js",
+      "inference_calls": 0,
+      "authenticated_user_browser_or_subscribed_client_flow_executed": false
+    },
+    "signed_in_administrator_trial_api_checked": false,
+    "administrator_credit_verified_through_restricted_database_role": true,
+    "actual_hosted_subscribed_client_workflow_checked": false
+  },
+  "executions": [
+    {
+      "purpose": "pre-migration-read",
+      "name": "abda-nl-stg-migrate-5hfav6f",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:16:27+00:00",
+      "finished_utc": "2026-09-10T06:16:58+00:00"
+    },
+    {
+      "purpose": "migration",
+      "name": "abda-nl-stg-migrate-l4j9a9m",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:21:53+00:00",
+      "finished_utc": "2026-09-10T06:22:24+00:00"
+    },
+    {
+      "purpose": "restricted-before-proof",
+      "name": "abda-nl-stg-migrate-uderztx",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:26:58+00:00",
+      "finished_utc": "2026-09-10T06:27:31+00:00"
+    },
+    {
+      "purpose": "preview",
+      "name": "abda-nl-stg-migrate-j8a8jyo",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:28:25+00:00",
+      "finished_utc": "2026-09-10T06:28:56+00:00"
+    },
+    {
+      "purpose": "apply",
+      "name": "abda-nl-stg-migrate-yu2s47u",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:32:17+00:00",
+      "finished_utc": "2026-09-10T06:32:37+00:00"
+    },
+    {
+      "purpose": "repeat-preview",
+      "name": "abda-nl-stg-migrate-4dmgxve",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:33:10+00:00",
+      "finished_utc": "2026-09-10T06:33:42+00:00"
+    },
+    {
+      "purpose": "restricted-after-proof",
+      "name": "abda-nl-stg-migrate-hptc9yh",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:34:20+00:00",
+      "finished_utc": "2026-09-10T06:34:53+00:00"
+    },
+    {
+      "purpose": "final-credit-read",
+      "name": "abda-nl-stg-migrate-d5onsdl",
+      "status": "Succeeded",
+      "started_utc": "2026-09-10T06:37:34+00:00",
+      "finished_utc": "2026-09-10T06:38:09+00:00"
+    }
+  ],
+  "persistent_mutations_applied_once": [
+    "preserved app secret configuration with scoped Opus key and CloudBank ADC",
+    "manual migration job image upgraded to verified0006 recovery",
+    "schema0006 and restricted application-role grants",
+    "compatible web stage with automatic named activation false",
+    "reviewed named credit reconciliation",
+    "compatible web ready revision with automatic named activation true"
+  ],
+  "operational_observations": [
+    {
+      "observation": "ARM PATCH returned exit0 with no body",
+      "handling": "Fresh exact app/secret or job reads established completion; no request was replayed."
+    },
+    {
+      "observation": "Migration-job GET omitted previously empty resources.ephemeralStorage",
+      "handling": "Recorded the sole empty-field representation change. CPU, memory, entrypoint, environment and trigger remained identical."
+    },
+    {
+      "observation": "Azure text logs included timestamp and stdout F framing around pretty JSON",
+      "handling": "Parsed the saved output after removing only transport framing. No preview or apply execution was duplicated."
+    }
+  ],
+  "prepared_plan": "docs/operations/hosted-recovery-rollout-plan-20260910.json",
+  "protected_payload_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only",
+  "protected_execution_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/execution-20260910T061500Z",
+  "protected_file_permissions_verified": true,
+  "private_receipt_sha256": {
+    "final-inventory-gate.json": "b93c9e9aadb5999c4ee24f89fcdc64907fdab7e9ccdfbd74efd42be4a851b2c2",
+    "final-credit-read-logs.report.json": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f",
+    "restricted-before-proof-logs.report.json": "49e36bdff81a19fa9ddb579a1b7941f82cab210e5db9d8fd7d7b8b62e5e0ac97",
+    "restricted-after-proof-logs.report.json": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f",
+    "preview-logs.report.json": "22637024dd047357d95fcb174eeaffeb342a328f373b2d60258d9c1b87d1bdb4",
+    "apply-logs.report.json": "56e72627860f210c7105fe3fb168f2c7b6ea53a63c2d9388e6617f5f37c6a466",
+    "repeat-preview-logs.report.json": "dbce5168932d1422eb314cf3778c37f3696c74f439894d8c8f11294b1180287b",
+    "final-http-smoke.json": "be2650bd3bc5fa6180ac74e1c3a226010a160cb61575812a01205a46544c4acb"
+  },
+  "inference_calls": 0,
+  "new_public_model_admission": false,
+  "public_profile_ids": [
+    "balanced"
+  ],
+  "main_checkout_head_preserved": "b4648deed9e27c2ae81bbbb08a8a7240428ca10d",
+  "application_eval_prompt_or_schema_source_edits_by_rollout": false,
+  "remaining_separate_release_work": [
+    "Final model qualification and public catalog image promotion",
+    "Authenticated hosted administrator UI balance acceptance",
+    "Actual deployed subscribed-client MCP workflow acceptance"
+  ],
+  "recovery_boundary": "After schema0006 and named binding, use verified0006 recovery or a forward repair. Preserve program-aware accounting, current provider funding pins, true named activation and database state. The historical0005 image is not a valid recovery target."
+}

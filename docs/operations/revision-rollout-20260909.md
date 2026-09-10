@@ -1,8 +1,17 @@
 # Revision rollout and administrator credit
 
-Prepared September 9, 2026. Hosted reads completed September 10 at 02:47 UTC.
-The image rollout, schema migration, hosted secret changes, and credit
-reconciliation described here have not been applied. The separate approved
+Prepared September 9, 2026. The first compatibility rollout, schema 0006,
+hosted provider configuration, and named-credit reconciliation completed
+September 10 at 06:40 UTC. See the [execution receipt](hosted-recovery-rollout-result-20260910.md).
+The final eight-model image from `234ffc9` subsequently became healthy at
+08:27 UTC. Its [final rollout receipt](hosted-final-rollout-result-20260910.md)
+confirms the preserved settings, drained previous replicas, and unchanged
+accounting proof. The starting-point descriptions and sequence below preserve
+the earlier preparation state. Current implementation and acceptance status
+are in the [implementation record](demo-revision-implementation-20260909.md).
+The [hosted native-client result](hosted-native-mcp-acceptance-result-20260910.md)
+completes subscription, browser, isolation, and cleanup acceptance.
+The separate approved
 Foundry capacity change is recorded in the
 [model deployment addendum](model-deployment-plan-20260909.md).
 

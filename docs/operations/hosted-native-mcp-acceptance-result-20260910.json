@@ -1,0 +1,306 @@
+{
+  "accounting": {
+    "after_image_promotion_named_credit_ledger_sha256": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f",
+    "all_seven_tables_unchanged_since_before_first_fixture": true,
+    "before_named_credit_ledger_sha256": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f",
+    "cloudbank_inference_calls": 0,
+    "fixture_grants_usage_reservations_and_identities": 0,
+    "openrouter_inference_calls": 0,
+    "server_inference_calls": 0,
+    "tables": {
+      "emergency_budgets": {
+        "count": 1,
+        "sha256": "b8776855ef15e9d42d047fede127dfc98deaea380076e034875d253331c752fe"
+      },
+      "emergency_usage_reservations": {
+        "count": 1,
+        "sha256": "0bdb31d6e614f6ad2cfbae4dca80e64a406de284d9d00ad446f87ed0f49f98ab"
+      },
+      "llm_usage_events": {
+        "count": 32,
+        "sha256": "fcbd93fb7be4fd0758919a1a13908aa84944ec37aab4e541f93109756ec976f8"
+      },
+      "named_credit_entitlements": {
+        "count": 5,
+        "sha256": "aa6539a93837a4d10991916df736bfc4a57af9aec09fe9618e589ce984eec4d7"
+      },
+      "trial_grants": {
+        "count": 1,
+        "sha256": "a4f7b2294699f6046f6c36c022ca807a0221596827780dc5f6b5c467472c6cd7"
+      },
+      "trial_programs": {
+        "count": 2,
+        "sha256": "cb4f78115c706f32b2b3e300ee5e18810d576243bec142c1934407f11eba5567"
+      },
+      "usage_reservations": {
+        "count": 30,
+        "sha256": "f7bbd63a878509599c6b3fb50e1f2dc8bd810db0f03134e0fa623542456b7a31"
+      }
+    }
+  },
+  "actual_native_model_turns": 2,
+  "application_changes_during_native_acceptance": false,
+  "authentication_scope": {
+    "actual_registered_administrator_session_signed": false,
+    "api_billed_native_fallback_allowed": false,
+    "email_sent": false,
+    "existing_subscription_logins_used": true,
+    "real_owner_oidc_signin_exercised": false,
+    "synthetic_accounts_only": true
+  },
+  "browser_checks": {
+    "all_backend_requests_get": true,
+    "complete_visible_scenario_and_graph_equal_owner_get": true,
+    "native_turns_repeated": false,
+    "original_project_ids_verified": true,
+    "owners": 2,
+    "pending_operations": 0,
+    "restored_project_version": 3,
+    "server_inference_calls": 0
+  },
+  "browser_replay_history": {
+    "final_attempt": "Both original projects passed browser readback on dt-login03.",
+    "first_verification_only_attempt": "Failed with directly captured CSP EvalError from Playwright wait_for_function.",
+    "relation_to_original_compute_failure": "The earlier generic Error is consistent with this later finding; its exact cause was not captured and remains unconfirmed.",
+    "remedy": "Use CSP-compatible DOM waits in the artifact browser helper. Hosted CSP and application source were preserved."
+  },
+  "cleanup": {
+    "active_fixture_projects": 0,
+    "active_fixture_tokens": 0,
+    "active_fixture_users": 0,
+    "all_seven_accounting_tables_unchanged": true,
+    "completed_utc": "2026-09-10T09:35:42.418514+00:00",
+    "final_read_only_execution": "abda-nl-stg-migrate-xz76kuv",
+    "final_read_only_report_sha256": "9fa1f9a70bc1232eae1c882bfb38e066045e7d811368b547440f3de11aac66da",
+    "fixture_credit_usage_and_identities": 0,
+    "fixture_users_retired_unverified": 2,
+    "native_model_turns_in_verification": 0,
+    "projects_archived": 2,
+    "removed_raw_credential_files": {
+      "browser-sessions.json": {
+        "removed": true,
+        "sha256": "070937edfb5bd0af68abd52c134fad07535d92fe6b49902aec2ce4fe6b7b3375"
+      },
+      "native-credentials.json": {
+        "removed": true,
+        "sha256": "e0244c01fb9504477d0699492e502d61cf0ae6f7f2a724814f926ff5a15b6c83"
+      }
+    },
+    "restricted_database_role": "abda_app",
+    "schema": "20260909_0006",
+    "server_inference_calls": 0,
+    "sessions_rejected": 2,
+    "status": "complete",
+    "tokens_revoked": 4
+  },
+  "evidence": {
+    "browser_preserved_failure": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/browser-readback-dt-login03/sanitized-receipt.json",
+      "sha256": "e1efdaf788b57d8a5b2d0496191f168f556a44f1f90c8cddbe7eb36057e9084e"
+    },
+    "browser_public_record": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-native-browser-readback-20260910.json",
+      "sha256": "2ab0144dfb6431fec2c117aab6a5ff4f7e777f41a6d9fb5bb6f1a40c04a97532"
+    },
+    "browser_raw_success": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/browser-readback-dt-login03-dom/sanitized-receipt.json",
+      "sha256": "0fdcb4e2141889a83c974a48e409db705f4c3eb1418f3a11a38f50a45073ab38"
+    },
+    "email_fixture_correction": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-native-fixture-correction-20260910.json",
+      "sha256": "f89346e9ebb14aa9e82667de14f8f5dca9ce74a6d29429ec2aa4b2127b7b1f47"
+    },
+    "final_hosted_resource_gates": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/final-hosted-resource-gates.json",
+      "sha256": "48cfbb3c5b678c4348e4b7e2c35c65042433de4cd15d4bed19e418a9566a3a17"
+    },
+    "final_hosted_rollout": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-final-rollout-result-20260910.json",
+      "sha256": "da7683ae96ffdf2852d28ffe03fca4436c2dd1e1600d9e45f62bb6b5bcfaa09b"
+    },
+    "final_read_only_ledger": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/hosted-execution-234ffc97/inspect-after.report.json",
+      "sha256": "9fa1f9a70bc1232eae1c882bfb38e066045e7d811368b547440f3de11aac66da"
+    },
+    "final_retirement": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/hosted-execution-234ffc97/retire.report.json",
+      "sha256": "69757d1be2567bfe7dc3c569d8f55198b3b36aa566db596aacc0bfa6d1fd288b"
+    },
+    "first_fixture_failure": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-native-first-attempt-20260910.json",
+      "sha256": "1c17d470f2df7a81e81248a5017c97e246a0b9fc351347402a24bc461b9da1fb"
+    },
+    "independent_http_protocol": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/native-http-verification.json",
+      "sha256": "d0dd8e63c9a13ecd6cf1dd9447b8d41e56e584fb461b835626c61034bf636c63"
+    },
+    "lifecycle_correction": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-native-lifecycle-correction-20260910.json",
+      "sha256": "525a6a308d26688e7345981cd3d14a722a6cdf410820aabc85b777f1beeb35f1"
+    },
+    "native_client_helper": {
+      "path": "/u/haoyang/ABDA-NL/app/cli/mcp_client_acceptance.py",
+      "sha256": "b7f4f9265f34fcef5d840696eb0abbd943213b147502e884876a7a469d456d65"
+    },
+    "native_first_cleanup": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-cleanup.json",
+      "sha256": "eac48d0ca096635fa4174de4e1374c4f38781ff248b1743205671c6a2b137253"
+    },
+    "native_phase_results": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-slurm-phases.json",
+      "sha256": "1fc8e2e35976b156f8d16eba8cb1fff10052f477828bbc880cc9d5ea54e6224b"
+    },
+    "native_plan": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-native-mcp-acceptance-plan-20260910.json",
+      "sha256": "63f0284b2b768cd82500399b9235a3829812b38624701133db35194cd1c26840"
+    },
+    "native_post_retirement_revocation": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-post-retirement-revocation.json",
+      "sha256": "c417ab9fc0793419aa4da239b964cae26b040072d1220bf0bbc53f854c8b9959"
+    },
+    "native_slurm_accounting": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-slurm-accounting.json",
+      "sha256": "d07d0e9d5d1f83e6666df4bbe128b7420515d3b9ca7455efb36f9266e5952f30"
+    },
+    "native_subscription_owner_preflight": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/owner-api-preflight.json",
+      "sha256": "60d491af63fea872b02c882d8a438347ed53c84d77778202a01e9ba3d3ec5a28"
+    },
+    "post_retirement_token_session_checks": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/post-retirement-authentication-proof.json",
+      "sha256": "a28c1a71821041c08fd0dbcf57d6ac5d70dcb3285ddd4a19a4a95356f1c58159"
+    },
+    "project_preservation_setup": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/fixture-setup.report.json",
+      "sha256": "af396f9a3f3b6c0b1b58103e592fb8feef274f19a15c5ec23ea5a5c9e5685712"
+    },
+    "terminal_credential_cleanup": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/terminal-cleanup.json",
+      "sha256": "09bcd393431c6d768402a41eb3e6df96a3e147c5c78dbb6532470ef3efe6ca83"
+    },
+    "verification_api_cleanup": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/native-cleanup.json",
+      "sha256": "5eeb175853707b62a8c7918d6451c2e07fd466b86e161741aa47ea8fce321941"
+    },
+    "verification_restoration_plan": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-native-verification-restoration-20260910.json",
+      "sha256": "e183223a2558f92cb2c026477d1a8d379ffbe176d181ac8cb682204f2d32bd47"
+    },
+    "verification_token_revocation": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/native-revocation.json",
+      "sha256": "206745befe033487bdc113693a1dd497a0c9da832191e762296042823bde241a"
+    }
+  },
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+  "independent_http_checks": [
+    {
+      "client": "codex",
+      "cross_owner_read_write_denied": true,
+      "legal_today": "rejected",
+      "owner_api_readback": true,
+      "owner_project_sha256": "c01f2dfbeed6117fe0fad500d060cf46561286d6fbb3646f56bc8ef15cd06bed",
+      "permit_active": false,
+      "project_unchanged_after_rejections": true,
+      "project_version": 3,
+      "question_and_proposal_server_scope_denied": true,
+      "server_llm_calls": 0
+    },
+    {
+      "client": "claude-code",
+      "cross_owner_read_write_denied": true,
+      "legal_today": "rejected",
+      "owner_api_readback": true,
+      "owner_project_sha256": "e04bb9d2c03e79e3bd83e8dcb88f8625a4a06e559fbb6744271b66f0df3c45e3",
+      "permit_active": false,
+      "project_unchanged_after_rejections": true,
+      "project_version": 3,
+      "question_and_proposal_server_scope_denied": true,
+      "server_llm_calls": 0
+    }
+  ],
+  "native_clients": [
+    {
+      "applied_edits": 1,
+      "client": "codex",
+      "created_projects": 1,
+      "invalid_operation_rejected": true,
+      "legal_today": "rejected",
+      "original_project_id_sha256": "5429c7f5071f7949c36e1c92cc524a5b35490ea2a51689bd77b4887ee19d9a1d",
+      "permit_active": false,
+      "receipt": {
+        "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-codex.json",
+        "sha256": "07b96da6ddf5b3334b307a5d47d0af563e3175981eae2acaa26c60b94fc4f754"
+      },
+      "saved_project_version": 2,
+      "stale_version_rejected": true,
+      "status": "passed",
+      "subscription_auth": "ChatGPT subscription",
+      "tool_calls": 6,
+      "tool_sequence": [
+        "list_examples",
+        "get_example",
+        "create_project",
+        "get_project",
+        "apply_project_ops",
+        "get_project"
+      ],
+      "version": "codex-cli 0.153.4"
+    },
+    {
+      "applied_edits": 1,
+      "client": "claude-code",
+      "created_projects": 1,
+      "invalid_operation_rejected": true,
+      "legal_today": "rejected",
+      "original_project_id_sha256": "ea395080208ccfebd2ba8d9647d5012b3edf9aadda9d3123f4e23fbd0b5abb57",
+      "permit_active": false,
+      "receipt": {
+        "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-claude-code.json",
+        "sha256": "ecf360db65101267ce8d46e22ead9f27807ff71ec338623c28e34d0806a4e895"
+      },
+      "saved_project_version": 2,
+      "stale_version_rejected": true,
+      "status": "passed",
+      "subscription_auth": "paid claude.ai subscription",
+      "tool_calls": 6,
+      "tool_sequence": [
+        "list_examples",
+        "get_example",
+        "create_project",
+        "get_project",
+        "apply_project_ops",
+        "get_project"
+      ],
+      "version": "2.1.267 (Claude Code)"
+    }
+  ],
+  "native_model_turns_during_verification": 0,
+  "native_slurm_execution": {
+    "accepted_native_phases": 2,
+    "api_cleanup_and_token_revocation_passed": true,
+    "elapsed": "00:01:49",
+    "end_utc": "2026-09-10T09:08:42",
+    "exit_code": "1:0",
+    "job_id": "21937597",
+    "original_status_preserved": true,
+    "original_verifier_error_class": "Error",
+    "original_verifier_exact_cause_confirmed": false,
+    "separate_combined_verification_phase_failed": true,
+    "start_utc": "2026-09-10T09:06:53",
+    "state": "FAILED"
+  },
+  "origin": "https://demo.abda-nl.org",
+  "recorded_utc": "2026-09-10T09:37:50.434825+00:00",
+  "revision": "abda-nl-stg-web--qualified-eight-0910",
+  "runtime_source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "status": "passed_with_all_required_cleanup_complete",
+  "transport": "Actual subscribed native clients using HTTPS MCP against the deployed Container App, followed by independent HTTPS owner/protocol and browser readback.",
+  "verification_restoration": {
+    "existing_tokens_remained_revoked": true,
+    "fresh_read_write_only_tokens": 2,
+    "new_projects": 0,
+    "new_users": 0,
+    "project_content_and_version_preserved": true,
+    "same_fixture_and_project_ids": true
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "verified_at_utc": "2026-09-10T09:31:13.864106+00:00",
+  "recorded_at_utc": "2026-09-10T09:34:13.202082+00:00",
+  "runtime_source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+  "revision": "abda-nl-stg-web--qualified-eight-0910",
+  "deployment_identity_provenance": "Approved fixture handoff and deployment-owner checks; public served-source acceptance is separately bound.",
+  "origin": "https://demo.abda-nl.org",
+  "node": "dt-login03.delta.ncsa.illinois.edu",
+  "actual_authenticated_browser": true,
+  "synthetic_accounts_only": true,
+  "clients": [
+    {
+      "client": "codex",
+      "original_project_id_verified": true,
+      "project_id_sha256": "5429c7f5071f7949c36e1c92cc524a5b35490ea2a51689bd77b4887ee19d9a1d",
+      "owner_identity_verified": true,
+      "project_version": 3,
+      "permit_active": false,
+      "legal_today": "rejected",
+      "pending_operations": 0,
+      "browser_state_equals_owner_get": true,
+      "scenario_sha256": "8c19b47b15e573ec1f0100c47e273e5e049f5f5323d0a3b79852b8b07f55379b",
+      "argument_graph_sha256": "756cc46d76a64ab02642485dd70eb00b4d994a7ec20010c0c1e19533effde078",
+      "screenshot_sha256": "04eaf8b7e363193214ab3c2dba1e1f9e3396efe6c5b9fdd08fc916c5c5789b01",
+      "checks_passed": true
+    },
+    {
+      "client": "claude-code",
+      "original_project_id_verified": true,
+      "project_id_sha256": "ea395080208ccfebd2ba8d9647d5012b3edf9aadda9d3123f4e23fbd0b5abb57",
+      "owner_identity_verified": true,
+      "project_version": 3,
+      "permit_active": false,
+      "legal_today": "rejected",
+      "pending_operations": 0,
+      "browser_state_equals_owner_get": true,
+      "scenario_sha256": "8c19b47b15e573ec1f0100c47e273e5e049f5f5323d0a3b79852b8b07f55379b",
+      "argument_graph_sha256": "756cc46d76a64ab02642485dd70eb00b4d994a7ec20010c0c1e19533effde078",
+      "screenshot_sha256": "0c81a4c9adbbab8172103e1e186d997dc3a9eb64deaf74c7609c60677571bf23",
+      "checks_passed": true
+    }
+  ],
+  "browser_csp_enforced": true,
+  "diagnostics": {
+    "page_errors": [],
+    "console_errors": [],
+    "request_failures": [],
+    "unexpected_statuses": [],
+    "blocked_requests": []
+  },
+  "all_real_backend_requests_are_get": true,
+  "unchanged_baseline_state_posts_mapped_to_scenario_get": true,
+  "real_inference_calls": 0,
+  "backend_writes": 0,
+  "accounts_or_tokens_created": false,
+  "native_model_turns_repeated": false,
+  "checks_passed": true,
+  "evidence": [
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/hosted-native-browser-readback-20260910.json",
+      "sha256": "0fdcb4e2141889a83c974a48e409db705f4c3eb1418f3a11a38f50a45073ab38"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/hosted_native_browser_readback.py",
+      "sha256": "146dab59009f6a9f9a836d2d067de4250cfd651aa7662a3bd82df6d65da77860"
+    },
+    {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/browser-readback-dt-login03/sanitized-receipt.json",
+      "sha256": "e1efdaf788b57d8a5b2d0496191f168f556a44f1f90c8cddbe7eb36057e9084e"
+    }
+  ],
+  "retained_failure": {
+    "attempt": "first diagnostic readback on dt-login03",
+    "stage": "navigation wait",
+    "error_class": "Error",
+    "established_cause": "Playwright wait_for_function string evaluation was blocked by the hosted script-src self Content Security Policy.",
+    "correction": "Replace only the artifact helper waits with DOM expectations; keep CSP enabled and direct browser state readback.",
+    "raw_diagnostics_private": true,
+    "earlier_compute_attempt_cause": "Unproven. That earlier attempt recorded only an Error class."
+  },
+  "cleanup": "Deployment owner was notified immediately after both readbacks. Final archival, revocation, fixture retirement and session-handoff deletion are recorded separately by that owner.",
+  "public_ui_acceptance": "docs/operations/hosted-public-ui-acceptance-20260910.json",
+  "existing_hash_bound_acceptance_json_unchanged": true
+}

@@ -1,0 +1,175 @@
+{
+  "accounting_state_source": "Explicit repeatable-read, read-only PostgreSQL transaction through the existing restricted application role.",
+  "active_job_execution_count": 0,
+  "additional_persistent_fields_checked": [
+    "identity",
+    "location",
+    "tags"
+  ],
+  "additional_persistent_fields_unchanged": true,
+  "applications": [
+    {
+      "containers": [
+        {
+          "command_sha256": "a683096011db3975a1e401e33b0047d1f2677a11efe85ef12806f016ae039795",
+          "database_environment_names": [
+            "ABDA_DATABASE_MAX_OVERFLOW",
+            "ABDA_DATABASE_POOL_SIZE",
+            "ABDA_DATABASE_POOL_TIMEOUT_SECONDS",
+            "ABDA_DATABASE_URL"
+          ],
+          "image": "ghcr.io/liu-hy/abda-nl@sha256:a5edbbae91c9eb0ed2afcba2e4e179b9388ea858d75c71f14206d04425c50d59",
+          "module": null,
+          "name": "web"
+        }
+      ],
+      "name": "abda-nl-stg-web",
+      "ready_revision": "abda-nl-stg-web--symbols-c6123d1",
+      "revision_mode": "Single",
+      "revisions": [
+        {
+          "active": true,
+          "containers": [
+            {
+              "command_sha256": "a683096011db3975a1e401e33b0047d1f2677a11efe85ef12806f016ae039795",
+              "database_environment_names": [
+                "ABDA_DATABASE_MAX_OVERFLOW",
+                "ABDA_DATABASE_POOL_SIZE",
+                "ABDA_DATABASE_POOL_TIMEOUT_SECONDS",
+                "ABDA_DATABASE_URL"
+              ],
+              "image": "ghcr.io/liu-hy/abda-nl@sha256:a5edbbae91c9eb0ed2afcba2e4e179b9388ea858d75c71f14206d04425c50d59",
+              "module": null,
+              "name": "web"
+            }
+          ],
+          "health": "Healthy",
+          "name": "abda-nl-stg-web--symbols-c6123d1",
+          "replicas": [
+            {
+              "containers": [
+                {
+                  "name": "web",
+                  "ready": true,
+                  "restart_count": 0,
+                  "started": true
+                }
+              ],
+              "name": "abda-nl-stg-web--symbols-c6123d1-658f7c967b-5ppw4"
+            }
+          ],
+          "running_state": "Running",
+          "traffic_weight": 100
+        }
+      ]
+    }
+  ],
+  "approved_account_count": 5,
+  "checked_utc": "2026-09-10T05:06:16.290571+00:00",
+  "database_or_credit_writes": false,
+  "database_read_only": true,
+  "entitlement_table_exists": false,
+  "hosted_read_probes": {
+    "/config": {
+      "default_profile": "balanced",
+      "llm_enabled": true,
+      "profile_ids": [
+        "balanced"
+      ],
+      "redirect_chain": [
+        {
+          "host": "abda-nl.org",
+          "path": "/config",
+          "status_code": 301
+        },
+        {
+          "host": "demo.abda-nl.org",
+          "path": "/config",
+          "status_code": 200
+        }
+      ],
+      "response_sha256": "5901ffff7fdb2b03694a2fa40d7bd331c33b56e729606e16a0ae912461295d29",
+      "status_code": 200
+    },
+    "/health/live": {
+      "redirect_chain": [
+        {
+          "host": "abda-nl.org",
+          "path": "/health/live",
+          "status_code": 301
+        },
+        {
+          "host": "demo.abda-nl.org",
+          "path": "/health/live",
+          "status_code": 200
+        }
+      ],
+      "response_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+      "status_code": 200
+    },
+    "/health/ready": {
+      "redirect_chain": [
+        {
+          "host": "abda-nl.org",
+          "path": "/health/ready",
+          "status_code": 301
+        },
+        {
+          "host": "demo.abda-nl.org",
+          "path": "/health/ready",
+          "status_code": 200
+        }
+      ],
+      "response_sha256": "31bf75f4c0a97cc1f7b60df824fa390b3be9ba014f29b63c87c698ba63d9a9fd",
+      "status_code": 200
+    }
+  },
+  "hosted_read_probes_checked_utc": "2026-09-10T05:10:52.971448+00:00",
+  "jobs": [
+    {
+      "containers": [
+        {
+          "command_sha256": "187d4274ecef84d82f9c40d2144f807fdcfc5000223832218eb97d154a691897",
+          "database_environment_names": [
+            "ABDA_DATABASE_APP_LOGIN",
+            "ABDA_DATABASE_APP_PASSWORD",
+            "ABDA_DATABASE_URL"
+          ],
+          "image": "ghcr.io/liu-hy/abda-nl@sha256:c3f6ec80972850d30850ec2e72d28fd673e835187bebdc45a8f9cda4a8ad1a55",
+          "module": "app.cli.migrate",
+          "name": "migrate"
+        }
+      ],
+      "name": "abda-nl-stg-migrate",
+      "schedule": null,
+      "trigger_type": "Manual"
+    }
+  ],
+  "pending_reservation_count": 0,
+  "persistent_application_unchanged": true,
+  "persistent_job_unchanged": true,
+  "private_credit_receipt_sha256": "41e782e8fd91691dafcc18c9729e7507cb3eb04409bb90f5ed602172b2a636a9",
+  "private_receipt_directory": "/tmp/abda-named-preflight-20260910T050149Z",
+  "private_writer_receipt_sha256": "a8f484cacdaf0d8fbfde18a6b3da4b82481585c0b71a7bd890b50b4f5f15b224",
+  "probe_execution": "abda-nl-stg-migrate-hik2yk8",
+  "probe_finished_utc": "2026-09-10T05:03:37+00:00",
+  "probe_started_utc": "2026-09-10T05:03:09+00:00",
+  "probe_status": "Succeeded",
+  "program_totals_match_grants": true,
+  "public_policy": [
+    {
+      "budget_microusd": 500000000,
+      "enabled": true,
+      "grant_microusd": 5000000,
+      "key": "global",
+      "max_users": 100
+    }
+  ],
+  "receipt_scope": "Read-only preflight only. No schema migration, named grant, image, secret, application or persistent job configuration change.",
+  "registered_account_count": 1,
+  "registered_active_verified_count": 1,
+  "registered_grants_match_public_policy": true,
+  "schema": [
+    "20260908_0005"
+  ]
+}

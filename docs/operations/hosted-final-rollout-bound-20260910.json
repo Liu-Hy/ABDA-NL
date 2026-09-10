@@ -1,0 +1,46 @@
+{
+  "bound_manifest": {
+    "admitted_source_fingerprint": "6e973965d4cdfa1112d3726238fc1cd658d15e587afb3bc11ff4656169c0703a",
+    "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+    "ci_receipt": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-qualified-00d7731/verified-release-summary.json",
+    "ci_receipt_sha256": "5f8d757d2b6cc07355891ce49c07f6d593d713437a65b46a91b1a9e7b502dee9",
+    "cloud_mutations": false,
+    "database_mutations": false,
+    "draft_manifest_sha256": "7d67d2b3ebf036de6d420a426e8514f6fa2e63bc1136728db1ceaa58c31261d6",
+    "expected_ready_revision": "abda-nl-stg-web--qualified-eight-0910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:d61ef30a031f7a4088aabc401b298960932c493e8c9c8e67c7fb7fb710c62548",
+    "inference_calls": 0,
+    "payloads": {
+      "candidate-migration.patch.json": {
+        "mode": "0o600",
+        "sha256": "4098b77acd02e2fa795967c605cc449af02ca5f9efdd05329f7a93b55fb2d8a3"
+      },
+      "candidate-web.patch.json": {
+        "mode": "0o600",
+        "sha256": "71c98ff6f8825e1383b8c61b41886f7b2e88f38a63828f6b39833f4c28121c13"
+      },
+      "inspect-after.execution.json": {
+        "mode": "0o600",
+        "sha256": "2d6655bf6e53e9dc511e67fc1bf39b66415097574bfa6e32e39e06fb7e58bfc8"
+      }
+    },
+    "prepared_utc": "2026-09-10T07:45:38.157395+00:00",
+    "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+    "status": "Bound locally only. Root final review and supplemental acceptance remain separate gates."
+  },
+  "bound_manifest_sha256": "cec35f0aeca1e2758298389ce8c395fdf76735bdb92a5c0a528b0bcb1d2949ec",
+  "database_mutations": false,
+  "image_applied": false,
+  "inference_calls": 0,
+  "native_steps_executed": false,
+  "pending_release_gate": "Final48 sensitivity observations accepted and root explicit release go.",
+  "persistent_cloud_configuration_mutations": false,
+  "private_bound_manifest": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/bound-00d77312/bound-manifest.json",
+  "recorded_utc": "2026-09-10T07:47:38.212819+00:00",
+  "root_review": {
+    "all_three_hashes_and_permissions_verified": true,
+    "approved": true,
+    "ci_source_digest_receipt_verified": true,
+    "drafts_deep_equal_except_image": true
+  }
+}

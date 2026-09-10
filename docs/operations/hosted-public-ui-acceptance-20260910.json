@@ -1,0 +1,97 @@
+{
+  "verified_at_utc": "2026-09-10T08:28:03.644749+00:00",
+  "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "origin": "https://demo.abda-nl.org",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+  "ready_revision": "abda-nl-stg-web--qualified-eight-0910",
+  "revision_provenance": "Readiness and immutable-image assignment independently reported by deployment owner; this browser check verifies served content and public behavior.",
+  "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+  "browser": "chromium",
+  "anonymous_real_oidc_session": true,
+  "llm_auth_required": true,
+  "public_models": [
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "gemini-3.1-pro-preview",
+    "gemini-3.8-flash",
+    "glm-5.3",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "kimi-k3"
+  ],
+  "funded_profiles": [
+    "balanced",
+    "claude-opus-5",
+    "gemini-3-1-pro",
+    "gemini-3-8-flash",
+    "glm-5-3",
+    "gpt-5-6-sol",
+    "gpt-5-6-terra",
+    "kimi-k3"
+  ],
+  "checks": {
+    "served_assets_match_exact_source": true,
+    "funded_and_byok_choices_consistent": true,
+    "all_model_options_selectable": true,
+    "byok_key_empty_and_password_field": true,
+    "anonymous_ask_requires_signin": true,
+    "anonymous_trial_status_401": true,
+    "question_insertion_preserves_existing_draft_and_context_without_inference": true,
+    "scenario_changes_preserve_draft_and_mark_old_context": true,
+    "individual_derivation_inspection_available": true,
+    "all_six_public_scenario_graphs_match_offline_engine": true,
+    "no_console_page_request_or_unexpected_status_errors": true
+  },
+  "served_asset_sha256": {
+    "index.html": "f33ed8443dee45faf5a9ac08034180da8b452ce34c3ee119fde37d91ed9c4aff",
+    "app.js": "35b3c84271d835e561fb9fb532b476667ee55155f793ba30100d3ceb2a4bad7b",
+    "workspace.js": "73dc9f62be132c82e3bf6bb1ea4b61006631c0de17d92fb68cd77c3b08a78577",
+    "exploration.js": "c53635468a67688533418d7dc631d0dc3f39fa9ccfb6bafe6812397b3cadc526",
+    "style.css": "58201d68c22a0cda7013456c2a607102c3f9fc51baa662d4a11cca19abe1dfe8",
+    "scenarios.js": "52661272adf4076078d634aebd1973136f7933893d03691a837cbee37060c1ec",
+    "materials.js": "aca267752fb07afe811800e8e80631e78e8befee465b64039beb5e9660cdc665",
+    "curation.js": "89f0875ea73c23bb0981a786dc180cecda258471342fa1533ae6cf99014504d9"
+  },
+  "deterministic_scenario_graph_sha256": {
+    "popov_v_hayashi": "e5b2fd2a2f30a690da973119e1787b82667135abcb45c3517f284c70e80f9e13",
+    "fire_prevention": "13516c972b0bc7f0cae98016dbcbbde3f58cfdb7e5f0ba6cff5a63c0b6e768a2",
+    "medical_ppi": "1d064079ace5f0f852219d38b870920d64a5584e963694d506376cff9149604d",
+    "nba_rebuild": "4f859858e49313603f11776c3aaa2a74ab3b0ebb6d2eb7f759345513daf5a1ce",
+    "fried_chicken_v1": "c4ca7e2e06347feae7bec07fb6548987cf772afe6a50ab6e8b3b9e8eb7f93828",
+    "fried_chicken_v2": "77b6c8e3cc43c033e9980a10f4108f359cd8b0b17b5fc5df852be3a25513b848"
+  },
+  "evidence": [
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/hosted-234ffc9-20260910T082800034297Z/receipt.json",
+      "sha256": "c40794fa8e85ec57229d47d57ca9a60d1cab9a9a8fe1bc83eb9a60b6a547e686"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/hosted_public_ui_acceptance.py",
+      "sha256": "b2046179f3c4c57065878a2cf8565dbbc2246e530e5d03a44eeadc2e76a17d16"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/hosted-234ffc9-20260910T082800034297Z/anonymous-final-workspace.png",
+      "sha256": "1dc3f993dd9fbb761cee6d9fed3452ee20266863d4b47d0a567e6ad82d7cf6d7"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/verified-image-234ffc9.json",
+      "sha256": "84ed70bca16a8262a5a1d9a0bcd257c9cfe39f4b65e56f47fd458db96d172b0e"
+    }
+  ],
+  "request_scope": {
+    "all_real_backend_requests_are_get": true,
+    "baseline_browser_state_posts_mapped_to_equivalent_scenario_get": true,
+    "diff_operations_allowed_in_mapped_reads": false,
+    "inference_requests": 0,
+    "backend_writes": 0,
+    "accounts_or_tokens_created": false,
+    "credentials_supplied": false
+  },
+  "authenticated_feature_evidence": "docs/operations/local-demo-acceptance-20260910.json",
+  "limitations": [
+    "Hosted public UI acceptance uses an actual anonymous browser session. Authenticated native clients and hosted account/ledger checks are separate deployment-owner receipts.",
+    "No live provider outage or paid model call was induced.",
+    "Image identity is bound through the independently verified release receipt and deployment-owner readiness report; HTTP asset equality alone does not identify a Container Apps revision."
+  ],
+  "checks_passed": true
+}

@@ -1,0 +1,84 @@
+{
+  "all_seven_accounting_tables_unchanged": true,
+  "application_changes": false,
+  "email_delivery": false,
+  "email_local_parts_unchanged": true,
+  "existing_fixture_project_count": 0,
+  "existing_fixture_token_count": 0,
+  "fixture_repair": "After exact old email, fixed UUID/display name, suspended/unverified status, zero credit/usage/identity and no project/token proof, atomically change only email/status/verification/updated time for those two rows. Other phases preserve existing bounded cleanup.",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+  "new_accounts_created": false,
+  "new_domain": "example.org",
+  "new_live_mutations": false,
+  "offline_validation": {
+    "actual_owner_email_schema_checked": true,
+    "isolated_sql_state_transition_and_negative_controls": true,
+    "passed": 10,
+    "path": "artifacts/evals/test_native_fixture_email_repair_20260910.py",
+    "tests": 10
+  },
+  "prepared_utc": "2026-09-10T08:45:05.130374+00:00",
+  "prior_domain": "acceptance.invalid",
+  "prior_failed_slurm_job": "21937026",
+  "prior_read_only_cleanup_execution": "abda-nl-stg-migrate-9l6oqnj",
+  "prior_read_only_cleanup_report_sha256": "8d95cc0db897d0c2ec863b5bc5771a1aef2a89e88d9ddc21f1c02624bdd9bb34",
+  "prior_retirement_execution": "abda-nl-stg-migrate-1qu0m7s",
+  "prior_retirement_report_sha256": "c262f8a80934ed7ed81fa867cc19b228d437f4a9554a070dceb333f4b379be3e",
+  "private_diff": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-schema-retry-234ffc97/fixture-correction.diff",
+  "private_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-schema-retry-234ffc97",
+  "protected_files": {
+    "collect_fixture_job.py": {
+      "mode": "0o600",
+      "sha256": "8e904e2fcebb517f2195088b0796f6b47856e9fa9a720f1461c0ca7deba4d2ae"
+    },
+    "fixture-correction.diff": {
+      "mode": "0o600",
+      "sha256": "8b2fd02dcc02cabfce95043d9c2571a21ceee42f03f55f83dfda089206267827"
+    },
+    "fixture-inspect.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "cc2fded792e33bc91ccf43c298bf0d212af9dcce9296492134d652d5f974e801"
+    },
+    "fixture-manifest.json": {
+      "mode": "0o600",
+      "sha256": "a8a44a56598bbafda3d5d45a62d3a5fd5819689d22e6b5023a58efb4afff7374"
+    },
+    "fixture-retire.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "abdddb32e2c4f99d2891f9f422b29f32681dd2b2e023298a21c988a83be5359c"
+    },
+    "fixture-setup.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "dbd559cd7b7f66c624bf1c1e65110910e7aaa489ec6c8ac810f4ce2f09f68b33"
+    },
+    "fixture_runner.py": {
+      "mode": "0o600",
+      "sha256": "1d963a326f5133a78a5c2431b62e3fa67b62d9f3026cd36754d3fe2f162f8975"
+    },
+    "native-subscriptions.slurm": {
+      "mode": "0o600",
+      "sha256": "c29f6882b9c6bea435945a0cd9c539ff0cb897693c1b4ab4e5234db904fdf92c"
+    },
+    "native_fixture_jobs.py": {
+      "mode": "0o600",
+      "sha256": "f3f979edc50b4dc030d96cb18f6301b74ade43b2882d99ef6ff4296be332fb24"
+    },
+    "native_workflow.py": {
+      "mode": "0o600",
+      "sha256": "9e74e1b3c7e06c4b979f505adfcfe91887f5eeb6a8e7d7a53cfea3ed9afe3ab9"
+    },
+    "readiness.py": {
+      "mode": "0o600",
+      "sha256": "0e5cb5ad189544a298f665545969a9954d3537f8f01cd473301e474374ee7ffa"
+    },
+    "run_native_phases.py": {
+      "mode": "0o600",
+      "sha256": "53f356e56184eb93ca3703ced269d0806cb9d8911c6a01306199d79767a5b09c"
+    }
+  },
+  "real_administrator_session_signing": false,
+  "same_two_fixed_uuids": true,
+  "server_inference_calls": 0,
+  "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "status": "Prepared and offline checked only; root review required before reactivation."
+}

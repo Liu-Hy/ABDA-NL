@@ -264,5 +264,1284 @@
     "hosted_rollout_applied": false,
     "hosted_migration_applied": false,
     "hosted_credit_reconciliation_applied": false
+  },
+  "latest_recovery_record": "grounding_recovery",
+  "validated_recovery": {
+    "verified_at_utc": "2026-09-10T03:47:30.282082+00:00",
+    "source_commit": "caec7025784713210abe12ec46a3b7e20e751b04",
+    "source_tag": "service-image-demo-revision-validated-20260910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:dffd197213456a789b43031d9e0e3f48a434cee56144e333669d4a20495be5dd",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34433936059",
+    "publication_result": "success",
+    "all_publication_steps_successful": true,
+    "ci_runs": [
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34433936074",
+        "workflow": "CI",
+        "branch": "service-image-demo-revision-validated-20260910",
+        "source_commit": "caec7025784713210abe12ec46a3b7e20e751b04",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34433936109",
+        "workflow": "CI",
+        "branch": "development",
+        "source_commit": "caec7025784713210abe12ec46a3b7e20e751b04",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34433936057",
+        "workflow": "CodeQL",
+        "branch": "development",
+        "source_commit": "caec7025784713210abe12ec46a3b7e20e751b04",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "Analyze Python",
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_summaries": [
+      {
+        "job": "browser-acceptance (firefox)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 295.47s (0:04:55)"
+      },
+      {
+        "job": "browser-acceptance (chromium)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 197.55s (0:03:17)"
+      },
+      {
+        "job": "postgres-acceptance",
+        "step": "Exercise restricted-role PostgreSQL flows",
+        "summary": "1 passed in 1.35s"
+      },
+      {
+        "job": "browser-acceptance (webkit)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 262.92s (0:04:22)"
+      },
+      {
+        "job": "Python 3.10",
+        "step": "Run python -m pytest -q",
+        "summary": "1313 passed, 53 skipped in 94.96s (0:01:34)"
+      },
+      {
+        "job": "Python 3.13",
+        "step": "Run python -m pytest -q",
+        "summary": "1313 passed, 53 skipped in 85.06s (0:01:25)"
+      }
+    ],
+    "cryptographic_provenance": {
+      "github_api_bundle_verified": true,
+      "registry_bundle_verified": true,
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "exact_subject_digest_verified": true,
+      "certificate_identity": "https://github.com/Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml@refs/tags/service-image-demo-revision-validated-20260910",
+      "oidc_issuer": "https://token.actions.githubusercontent.com",
+      "source_and_signer_commit_pinned": true,
+      "source_ref_pinned": true,
+      "github_hosted_runner_required": true,
+      "verified_timestamp_count": 1,
+      "oci_verification_json_sha256": "2408dd06121899940907c9a7f8c41f8b8f3b0fa450dffcdd236679b25f2dbabe"
+    },
+    "container_security": {
+      "total_vulnerabilities": 248,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "sbom": {
+      "format": "CycloneDX",
+      "spec_version": "1.7",
+      "components": 169,
+      "sha256": "42137be9b920303388af9d4534c23caae0bf06fe45b8314d45af8ad3efe077b1"
+    },
+    "protected_rollout_prepared_at_utc": "2026-09-10T03:46:00.447713+00:00",
+    "protected_rollout_verification": {
+      "verified_at_utc": "2026-09-10T03:46:49.403619+00:00",
+      "prepared_at_utc": "2026-09-10T03:46:00.447713+00:00",
+      "image": "ghcr.io/liu-hy/abda-nl@sha256:dffd197213456a789b43031d9e0e3f48a434cee56144e333669d4a20495be5dd",
+      "private_permissions": true,
+      "source_default_and_scoped_keys_match": true,
+      "adc_content_matches_existing_verified_file": true,
+      "all_existing_secrets_and_unrelated_configuration_preserved": true,
+      "full_stage_ready_templates_differ_only_by_suffix_and_credit_flag": true,
+      "all_new_images_use_verified_recovery_digest": true,
+      "migration_template_changes_image_only": true,
+      "reconciliation_and_inspection_use_only_restricted_database_credentials": true,
+      "adc_volume_contains_only_adc_secret": true,
+      "live_app_still_on_expected_old_revision": true,
+      "cloud_mutations": false,
+      "database_mutations": false
+    },
+    "both_payload_image_arguments_use_recovery_digest": true,
+    "final_candidate_payloads_must_be_regenerated": true,
+    "application_scope": "Compatible 0006 recovery candidate with the historical balanced public selection. It includes the earlier boundary and prompt repairs at this source commit. Additional material issues observed after this commit remain under repair and full model admission is separate.",
+    "recovery_image_checks_passed": true,
+    "hosted_rollout_applied": false,
+    "hosted_migration_applied": false,
+    "hosted_credit_reconciliation_applied": false,
+    "paid_inference_calls_by_this_verification": 0
+  },
+  "context_recovery": {
+    "verified_at_utc": "2026-09-10T04:05:24.106626+00:00",
+    "source_commit": "0a79a1b2f7f4734ec2a0befc55e57f846bc78eaf",
+    "source_tag": "service-image-demo-revision-context-20260910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:17efafdbc435ea557d4da0992fbec2af6ebebfeec61c268a8056550df6b7c0ca",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34434687574",
+    "publication_result": "success",
+    "all_publication_steps_successful": true,
+    "ci_runs": [
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34434687603",
+        "workflow": "CI",
+        "branch": "service-image-demo-revision-context-20260910",
+        "source_commit": "0a79a1b2f7f4734ec2a0befc55e57f846bc78eaf",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34434687757",
+        "workflow": "CI",
+        "branch": "development",
+        "source_commit": "0a79a1b2f7f4734ec2a0befc55e57f846bc78eaf",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34434687762",
+        "workflow": "CodeQL",
+        "branch": "development",
+        "source_commit": "0a79a1b2f7f4734ec2a0befc55e57f846bc78eaf",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "Analyze Python",
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_summaries": [
+      {
+        "job": "browser-acceptance (chromium)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 177.17s (0:02:57)"
+      },
+      {
+        "job": "browser-acceptance (firefox)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 292.62s (0:04:52)"
+      },
+      {
+        "job": "browser-acceptance (webkit)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 285.67s (0:04:45)"
+      },
+      {
+        "job": "Python 3.10",
+        "step": "Run python -m pytest -q",
+        "summary": "1330 passed, 53 skipped in 95.29s (0:01:35)"
+      },
+      {
+        "job": "Python 3.13",
+        "step": "Run python -m pytest -q",
+        "summary": "1330 passed, 53 skipped in 92.68s (0:01:32)"
+      },
+      {
+        "job": "postgres-acceptance",
+        "step": "Exercise restricted-role PostgreSQL flows",
+        "summary": "1 passed in 1.64s"
+      }
+    ],
+    "cryptographic_provenance": {
+      "github_api_bundle_verified": true,
+      "registry_bundle_verified": true,
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "exact_subject_digest_verified": true,
+      "certificate_identity": "https://github.com/Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml@refs/tags/service-image-demo-revision-context-20260910",
+      "oidc_issuer": "https://token.actions.githubusercontent.com",
+      "source_and_signer_commit_pinned": true,
+      "source_ref_pinned": true,
+      "github_hosted_runner_required": true,
+      "verified_timestamp_count": 1,
+      "oci_verification_json_sha256": "02a769cef232c82dc7567bd3d9c994e09760991ac27f266f368a0642ef5e9223"
+    },
+    "container_security": {
+      "total_vulnerabilities": 248,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "sbom": {
+      "format": "CycloneDX",
+      "spec_version": "1.7",
+      "components": 169,
+      "sha256": "b8e612d43e3d99412b9165c03e4177e1e36c52b7a80c682dde3e462893ec7002"
+    },
+    "recovery_image_checks_passed": true,
+    "protected_payloads_regenerated": false,
+    "protected_payload_plan": "Retain the prepared caec702 recovery requests. Generate final protected requests only after the model-admission image is available or a concrete release issue requires regeneration.",
+    "application_scope": "Compatible 0006 recovery candidate with the historical balanced public selection, generic validator paths, reviewer delta, and the offline pronoun scorer correction. Full model admission and any later application fixes remain separate.",
+    "hosted_rollout_applied": false,
+    "hosted_migration_applied": false,
+    "hosted_credit_reconciliation_applied": false,
+    "paid_inference_calls_by_this_verification": 0
+  },
+  "compatibility_recovery": {
+    "verified_at_utc": "2026-09-10T05:19:24.684300+00:00",
+    "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+    "source_tag": "service-image-demo-revision-compatibility-20260910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34439673098",
+    "publication_result": "success",
+    "all_publication_steps_successful": true,
+    "ci_runs": [
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34439673116",
+        "workflow": "CI",
+        "branch": "service-image-demo-revision-compatibility-20260910",
+        "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34439673045",
+        "workflow": "CI",
+        "branch": "demo-revision-qualification-20260910",
+        "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34440166430",
+        "workflow": "CodeQL",
+        "branch": "development",
+        "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "Analyze Python",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34440166443",
+        "workflow": "CI",
+        "branch": "development",
+        "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_summaries": [
+      {
+        "job": "postgres-acceptance",
+        "step": "Exercise restricted-role PostgreSQL flows",
+        "summary": "1 passed in 1.84s"
+      },
+      {
+        "job": "browser-acceptance (webkit)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 268.19s (0:04:28)"
+      },
+      {
+        "job": "Python 3.10",
+        "step": "Run python -m pytest -q",
+        "summary": "1376 passed, 53 skipped in 104.49s (0:01:44)"
+      },
+      {
+        "job": "Python 3.13",
+        "step": "Run python -m pytest -q",
+        "summary": "1376 passed, 53 skipped in 94.23s (0:01:34)"
+      },
+      {
+        "job": "browser-acceptance (chromium)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 176.62s (0:02:56)"
+      },
+      {
+        "job": "browser-acceptance (firefox)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 281.93s (0:04:41)"
+      }
+    ],
+    "cryptographic_provenance": {
+      "github_api_bundle_verified": true,
+      "registry_bundle_verified": true,
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "exact_subject_digest_verified": true,
+      "certificate_identity": "https://github.com/Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml@refs/tags/service-image-demo-revision-compatibility-20260910",
+      "oidc_issuer": "https://token.actions.githubusercontent.com",
+      "source_and_signer_commit_pinned": true,
+      "source_ref_pinned": true,
+      "github_hosted_runner_required": true,
+      "verified_timestamp_count": 1,
+      "oci_verification_json_sha256": "896ff454a5a4f6920d0484f1d66b376c7bdba866c424d4ee661863543f503d6e"
+    },
+    "container_security": {
+      "total_vulnerabilities": 248,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "sbom": {
+      "format": "CycloneDX",
+      "spec_version": "1.7",
+      "components": 169,
+      "sha256": "98bcc224cbbfd77845219c4642afb4393d542d4db24b8a4840755b35dd3fb4e0"
+    },
+    "recovery_image_checks_passed": true,
+    "additional_ci_pending": [],
+    "protected_payloads_regenerated": false,
+    "protected_payload_plan": "Exact 8f83 compatibility recovery payloads were subsequently prepared by Accounts. See docs/operations/hosted-recovery-rollout-plan-20260910.json and the dated preparation update; no hosted apply is claimed.",
+    "application_scope": "Compatible 0006 recovery candidate with the historical balanced public selection and bounded parser, prompt, and evaluation corrections. Full model admission remains separate and pending qualification.",
+    "hosted_rollout_applied": false,
+    "hosted_migration_applied": false,
+    "hosted_credit_reconciliation_applied": false,
+    "paid_inference_calls_by_this_verification": 0,
+    "codeql_security_findings": 0,
+    "codeql_log_sha256": "ac6c6543e5a5d490ecdf8c39b80a67348c7c4c139182ccdd975241b15dfa1f06",
+    "protected_payload_preparation_update": {
+      "recorded_at_utc": "2026-09-10T06:13:38.921520+00:00",
+      "prepared_utc": "2026-09-10T06:08:13.772625+00:00",
+      "handoff": "docs/operations/hosted-recovery-rollout-plan-20260910.json",
+      "handoff_sha256": "4e2c0b9eea4c67b28cecadc6625e5c33b58af239737008fda1316b8f9e072b28",
+      "protected_payloads_regenerated": true,
+      "hosted_changes_applied": {
+        "app_configuration": false,
+        "migration_job_configuration": false,
+        "schema_migration": false,
+        "named_credit_reconciliation": false,
+        "provider_secret_updates": false,
+        "public_model_admission": false
+      },
+      "note": "This later preparation update supersedes the payload bookkeeping recorded at initial image verification; the original verification timestamp and evidence are preserved."
+    }
+  },
+  "grounding_recovery": {
+    "verified_at_utc": "2026-09-10T06:09:19.228621+00:00",
+    "source_commit": "b4648deed9e27c2ae81bbbb08a8a7240428ca10d",
+    "source_tag": "service-image-demo-revision-grounding-20260910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:9ee0e0c5e93662dce6a715cbd89a60d08289c5f34d0a34c9594530692c5e7b17",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34443311377",
+    "publication_result": "success",
+    "all_publication_steps_successful": true,
+    "ci_runs": [
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34443311478",
+        "workflow": "CI",
+        "branch": "service-image-demo-revision-grounding-20260910",
+        "source_commit": "b4648deed9e27c2ae81bbbb08a8a7240428ca10d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34443309889",
+        "workflow": "CI",
+        "branch": "demo-revision-qualification-20260910",
+        "source_commit": "b4648deed9e27c2ae81bbbb08a8a7240428ca10d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34443310282",
+        "workflow": "CodeQL",
+        "branch": "development",
+        "source_commit": "b4648deed9e27c2ae81bbbb08a8a7240428ca10d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "Analyze Python",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34443310233",
+        "workflow": "CI",
+        "branch": "development",
+        "source_commit": "b4648deed9e27c2ae81bbbb08a8a7240428ca10d",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_summaries": [
+      {
+        "job": "postgres-acceptance",
+        "step": "Exercise restricted-role PostgreSQL flows",
+        "summary": "1 passed in 1.83s"
+      },
+      {
+        "job": "Python 3.10",
+        "step": "Run python -m pytest -q",
+        "summary": "1413 passed, 53 skipped in 100.60s (0:01:40)"
+      },
+      {
+        "job": "browser-acceptance (firefox)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 292.58s (0:04:52)"
+      },
+      {
+        "job": "Python 3.13",
+        "step": "Run python -m pytest -q",
+        "summary": "1413 passed, 53 skipped in 88.23s (0:01:28)"
+      },
+      {
+        "job": "browser-acceptance (webkit)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 267.79s (0:04:27)"
+      },
+      {
+        "job": "browser-acceptance (chromium)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 183.46s (0:03:03)"
+      }
+    ],
+    "cryptographic_provenance": {
+      "github_api_bundle_verified": true,
+      "registry_bundle_verified": true,
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "exact_subject_digest_verified": true,
+      "certificate_identity": "https://github.com/Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml@refs/tags/service-image-demo-revision-grounding-20260910",
+      "oidc_issuer": "https://token.actions.githubusercontent.com",
+      "source_and_signer_commit_pinned": true,
+      "source_ref_pinned": true,
+      "github_hosted_runner_required": true,
+      "verified_timestamp_count": 1,
+      "oci_verification_json_sha256": "a93dc2bae545346c30aa4405e2a5472f7fb5cf6a6e1af109bdfd15e69dd20a37"
+    },
+    "container_security": {
+      "total_vulnerabilities": 248,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "sbom": {
+      "format": "CycloneDX",
+      "spec_version": "1.7",
+      "components": 169,
+      "sha256": "c452dd675172a9b18f6ba26dacc95c3ceeaaad3f8a99f6c9376859c33d04f722"
+    },
+    "recovery_image_checks_passed": true,
+    "additional_ci_pending": [],
+    "protected_payloads_regenerated": false,
+    "protected_payload_plan": "Accounts prepared exact 8f83 compatibility recovery payloads in docs/operations/hosted-recovery-rollout-plan-20260910.json. This newer b4648de image has verified CI/provenance but no regenerated or applied payloads; model admission remains pending qualification.",
+    "application_scope": "Compatible 0006 recovery candidate with the historical balanced public selection and bounded accepted-defeater context, forward-reference reviewer context, quotation typography, explicit-field, and evaluation corrections. Full model admission remains separate and pending qualification.",
+    "hosted_rollout_applied": false,
+    "hosted_migration_applied": false,
+    "hosted_credit_reconciliation_applied": false,
+    "paid_inference_calls_by_this_verification": 0,
+    "codeql_security_findings": 0,
+    "codeql_log_sha256": "67a7107e3604cf02a539ec2b5b5004bc225371e78610bab25346f846016bb402",
+    "qualification_scope": "Image publication and source CI are verified. Paid model qualification remains independent; the new Sonnet run contains a retained material causal failure and no new public model admission is asserted."
+  },
+  "qualified_release": {
+    "verified_at_utc": "2026-09-10T07:44:43.285773+00:00",
+    "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+    "source_tag": "service-image-demo-revision-qualified-20260910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:d61ef30a031f7a4088aabc401b298960932c493e8c9c8e67c7fb7fb710c62548",
+    "implementation_fingerprint": "6e973965d4cdfa1112d3726238fc1cd658d15e587afb3bc11ff4656169c0703a",
+    "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34450812917",
+    "publication_result": "success",
+    "all_publication_steps_successful": true,
+    "ci_runs": [
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34450812920",
+        "workflow": "CI",
+        "branch": "service-image-demo-revision-qualified-20260910",
+        "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34450813366",
+        "workflow": "CI",
+        "branch": "demo-revision-qualification-20260910",
+        "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34450812771",
+        "workflow": "CodeQL",
+        "branch": "development",
+        "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "Analyze Python",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34450812799",
+        "workflow": "CI",
+        "branch": "development",
+        "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_summaries": [
+      {
+        "job": "browser-acceptance (firefox)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 296.87s (0:04:56)"
+      },
+      {
+        "job": "Python 3.10",
+        "step": "Run python -m pytest -q",
+        "summary": "1454 passed, 53 skipped in 99.19s (0:01:39)"
+      },
+      {
+        "job": "Python 3.13",
+        "step": "Run python -m pytest -q",
+        "summary": "1454 passed, 53 skipped in 115.36s (0:01:55)"
+      },
+      {
+        "job": "postgres-acceptance",
+        "step": "Exercise restricted-role PostgreSQL flows",
+        "summary": "1 passed in 1.76s"
+      },
+      {
+        "job": "browser-acceptance (chromium)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 193.96s (0:03:13)"
+      },
+      {
+        "job": "browser-acceptance (webkit)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 268.94s (0:04:28)"
+      }
+    ],
+    "cryptographic_provenance": {
+      "github_api_bundle_verified": true,
+      "registry_bundle_verified": true,
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "exact_subject_digest_verified": true,
+      "certificate_identity": "https://github.com/Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml@refs/tags/service-image-demo-revision-qualified-20260910",
+      "oidc_issuer": "https://token.actions.githubusercontent.com",
+      "source_and_signer_commit_pinned": true,
+      "source_ref_pinned": true,
+      "github_hosted_runner_required": true,
+      "verified_timestamp_count": 1,
+      "oci_verification_json_sha256": "7594df9f524ae0c0a00e35df1a997b843f0105dcf31c2124d65d384266d24b54"
+    },
+    "container_security": {
+      "total_vulnerabilities": 248,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "sbom": {
+      "format": "CycloneDX",
+      "spec_version": "1.7",
+      "components": 169,
+      "sha256": "3ed74d78ae551fcbfe1af0e69afecf7fa31eb4a53d0699d2f1688e408bd92e43"
+    },
+    "release_image_checks_passed": true,
+    "additional_ci_pending": [],
+    "protected_payloads_regenerated": false,
+    "protected_payload_plan": "Accounts prepares the final image-only web and persistent manual-job requests from fresh hosted configuration. Bind them only to this verified digest and preserve all settings. Root coordinates promotion after remaining supplemental qualification.",
+    "application_scope": "Final eight-model admission source with quota routing, same-model fallback, prompt qualification, chat context, verified evidence, frontend lifecycle, MCP, and named-credit improvements. Image verification is complete; hosted promotion additionally awaits root acceptance of the remaining sensitivity supplement.",
+    "remaining_acceptance": [
+      "Sensitivity supplemental qualification and root promotion coordination"
+    ],
+    "hosted_rollout_applied": false,
+    "hosted_migration_applied": false,
+    "hosted_credit_reconciliation_applied": false,
+    "paid_inference_calls_by_this_verification": 0,
+    "codeql_security_findings": 0,
+    "codeql_log_sha256": "f7bdd7a1d81cbae3e7efc36c385ea91a8e582d69e76e0c6168e78d2ac0be22ac"
+  },
+  "latest_verified_image_record": "preferences_release",
+  "preferences_release": {
+    "verified_at_utc": "2026-09-10T08:02:30.724302+00:00",
+    "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+    "source_tag": "service-image-demo-revision-preferences-20260910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+    "implementation_fingerprint": "3fbbfeffa6fae65ad7bc79e6f32fc131cb56a51c0d833c46cc0cb90285150ce9",
+    "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34452412038",
+    "publication_result": "success",
+    "all_publication_steps_successful": true,
+    "ci_runs": [
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34452411995",
+        "workflow": "CI",
+        "branch": "service-image-demo-revision-preferences-20260910",
+        "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34452412010",
+        "workflow": "CI",
+        "branch": "demo-revision-qualification-20260910",
+        "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34452411915",
+        "workflow": "CodeQL",
+        "branch": "development",
+        "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "Analyze Python",
+            "result": "success"
+          }
+        ]
+      },
+      {
+        "url": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34452411912",
+        "workflow": "CI",
+        "branch": "development",
+        "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+        "result": "success",
+        "jobs": [
+          {
+            "name": "secret-scan",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (chromium)",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (firefox)",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.13",
+            "result": "success"
+          },
+          {
+            "name": "postgres-acceptance",
+            "result": "success"
+          },
+          {
+            "name": "Python 3.10",
+            "result": "success"
+          },
+          {
+            "name": "deployment-artifacts",
+            "result": "success"
+          },
+          {
+            "name": "browser-acceptance (webkit)",
+            "result": "success"
+          }
+        ]
+      }
+    ],
+    "test_summaries": [
+      {
+        "job": "postgres-acceptance",
+        "step": "Exercise restricted-role PostgreSQL flows",
+        "summary": "1 passed in 1.82s"
+      },
+      {
+        "job": "Python 3.13",
+        "step": "Run python -m pytest -q",
+        "summary": "1454 passed, 53 skipped in 93.96s (0:01:33)"
+      },
+      {
+        "job": "Python 3.10",
+        "step": "Run python -m pytest -q",
+        "summary": "1454 passed, 53 skipped in 106.45s (0:01:46)"
+      },
+      {
+        "job": "browser-acceptance (webkit)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 227.31s (0:03:47)"
+      },
+      {
+        "job": "browser-acceptance (firefox)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 287.36s (0:04:47)"
+      },
+      {
+        "job": "browser-acceptance (chromium)",
+        "step": "Exercise the browser workspace and accessibility",
+        "summary": "44 passed in 189.40s (0:03:09)"
+      }
+    ],
+    "cryptographic_provenance": {
+      "github_api_bundle_verified": true,
+      "registry_bundle_verified": true,
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "exact_subject_digest_verified": true,
+      "certificate_identity": "https://github.com/Liu-Hy/ABDA-NL/.github/workflows/publish-service-image.yml@refs/tags/service-image-demo-revision-preferences-20260910",
+      "oidc_issuer": "https://token.actions.githubusercontent.com",
+      "source_and_signer_commit_pinned": true,
+      "source_ref_pinned": true,
+      "github_hosted_runner_required": true,
+      "verified_timestamp_count": 1,
+      "oci_verification_json_sha256": "febd8674bdfc213ad1a0c1a407df3ac07fb20ec644a7020b45ccb7806417b832"
+    },
+    "container_security": {
+      "total_vulnerabilities": 248,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "sbom": {
+      "format": "CycloneDX",
+      "spec_version": "1.7",
+      "components": 169,
+      "sha256": "17da4a0040be3cfae72fbddbad4cb4bd186e69e7d5470fd0b6f5c5fce1516ed9"
+    },
+    "release_image_checks_passed": true,
+    "additional_ci_pending": [],
+    "protected_payloads_regenerated": false,
+    "protected_payload_plan": "Accounts binds the image field of the previously reviewed web and persistent manual-job payload templates to this verified digest, preserving all settings and previous bound payloads. Root coordinates promotion after the GLM-specific requalification.",
+    "application_scope": "Final eight-model admission source with one short GLM-only preference-counterfactual reminder added after the sensitivity supplement. Catalog, UI, and other model prompts are unchanged. Hosted promotion additionally awaits root acceptance of the bounded GLM requalification.",
+    "remaining_acceptance": [
+      "GLM-specific requalification and root promotion coordination"
+    ],
+    "hosted_rollout_applied": false,
+    "hosted_migration_applied": false,
+    "hosted_credit_reconciliation_applied": false,
+    "paid_inference_calls_by_this_verification": 0,
+    "codeql_security_findings": 0,
+    "codeql_log_sha256": "261687374d970311ed637e90e1f5143b055950aa9327c749d028c31bb7925629"
   }
 }

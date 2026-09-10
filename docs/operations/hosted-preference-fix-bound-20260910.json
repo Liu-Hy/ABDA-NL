@@ -1,0 +1,47 @@
+{
+  "all_three_hashes_and_mode600_verified": true,
+  "all_three_payloads_equal_reviewed_drafts_except_image": true,
+  "bound_manifest": {
+    "admitted_source_fingerprint": "3fbbfeffa6fae65ad7bc79e6f32fc131cb56a51c0d833c46cc0cb90285150ce9",
+    "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+    "ci_receipt": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-preferences-234ffc9/verified-release-summary.json",
+    "ci_receipt_sha256": "84ed70bca16a8262a5a1d9a0bcd257c9cfe39f4b65e56f47fd458db96d172b0e",
+    "cloud_mutations": false,
+    "database_mutations": false,
+    "draft_manifest_sha256": "7d67d2b3ebf036de6d420a426e8514f6fa2e63bc1136728db1ceaa58c31261d6",
+    "expected_ready_revision": "abda-nl-stg-web--qualified-eight-0910",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+    "inference_calls": 0,
+    "payloads": {
+      "candidate-migration.patch.json": {
+        "mode": "0o600",
+        "sha256": "da6f5ee55019de00412337cc627f7007694ab0151c61cdc0867a266b9851a66e"
+      },
+      "candidate-web.patch.json": {
+        "mode": "0o600",
+        "sha256": "5c28ef78eda778f761988c44b11760cef115e317bb9d37901da6bc0edb4f9620"
+      },
+      "inspect-after.execution.json": {
+        "mode": "0o600",
+        "sha256": "6e856ec775d99c21df9a279b9e11bc14f4bf494e0ca183f20728b34a616438db"
+      }
+    },
+    "prepared_utc": "2026-09-10T08:09:01.648768+00:00",
+    "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+    "status": "Bound locally only. Root final review and supplemental acceptance remain separate gates."
+  },
+  "bound_manifest_sha256": "c039e6403c07df37b9dc0fcd098f354aa368a8185f8afc2c9f3cbdcd6b646e31",
+  "checked_utc": "2026-09-10T08:09:36.839373+00:00",
+  "ci_receipt_hash_exact": true,
+  "database_mutations": false,
+  "database_preflight_repeated": false,
+  "hosted_image_applied": false,
+  "inference_calls": 0,
+  "infrastructure_reread": false,
+  "native_fixture_or_token_created": false,
+  "new_bound_payload_review_pending": true,
+  "pending_gate": "Complete GLM63 acceptance and root final release go.",
+  "previous_bound_payloads_unchanged": true,
+  "private_bound_manifest": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/bound-234ffc97/bound-manifest.json",
+  "root_preparation_approved": true
+}

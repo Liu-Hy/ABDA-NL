@@ -1,0 +1,25 @@
+# MCP acceptance coverage, September 10, 2026
+
+The optional server LLM path passed a real CloudBank-funded question and proposal through in-process MCP JSON-RPC, costing $0.048024 in total. Both returned answers passed manual review, accounting settled exactly, and cleanup completed. Deterministic wire tests cover depleted credit, provider failure, and retry settlement. The actual subscribed-client acceptance remains a separate result: Codex and Claude Code used their subscription models with zero ABDA credit and never called a server model.
+
+| Requirement | Authoritative evidence | Scope |
+| --- | --- | --- |
+| Codex and Claude Code create, read, edit, and read back a private project | `mcp-client-acceptance-20260909.md` and its JSON receipt | Actual subscribed clients against the local managed demo; browser readback and correct changed grounded label |
+| Zero ABDA credit and no unexpected provider charge | Same client receipt, identical before/after hashes for six accounting tables | Actual client workflow, no server LLM request |
+| Ownership, stale version, invalid edits, missing LLM scope, revocation, and cleanup | Same client receipt and `test_subscribed_client_wire_workflow_needs_no_abda_credit` | Actual client acceptance plus deterministic protocol regression |
+| Server question and proposal, exact deduction, no implicit Apply, depleted-credit rejection before a provider call | `test_mcp_server_tools_charge_exact_real_ledger_and_reject_depleted_credit` | Real MCP/router/accounting path, injected raw provider |
+| Funded server question and proposal, exact deduction, no implicit Apply, cleanup | `artifacts/evals/mcp-funded-eab9fb5a450bddd8.paid.json` and `.root-reviewed.json` | In-process MCP transport, two actual Azure CloudBank requests using GPT-5.6 Terra, disposable verified account/project/token |
+| Bundled and custom project source context; client closure | `test_mcp_proposal_is_metered_and_never_applied_implicitly` | Deterministic service stubs |
+| One CloudBank retry, same-model backup success or both providers failing, correct trial and emergency settlement | `test_mcp_provider_outage_settles_ledgers_and_preserves_project` | Four combinations of question/proposal and backup success/failure, isolated SQLite, entirely injected providers |
+| Continued deterministic editing after provider failure | Same outage test | Permit toggle, version 2 readback, changed legal label, no extra inference or charge |
+| Cleanup after server-path outage | Same outage test | All provider clients closed, zero pending reservations, project archived, token revoked, revoked initialization denied, audit retained |
+
+The focused MCP and routing contract run passed 34 tests. Ruff and whitespace checks passed. The outage tests have no provider credentials or external inference and derive routes and prices from the configured catalog instead of hard-coding an admitted model.
+
+The funded probe used commit `b4648deed9e27c2ae81bbbb08a8a7240428ca10d`, with an unchanged source fingerprint before and after the run. The question cost 17,851 microUSD and the proposal cost 30,173 microUSD. Their sum matches both the account spending and the two provider usage events. No reservation remains pending. The question correctly explains the undecided burn result. The proposal adds the requested inspection-complete fact with user-instruction provenance, retains the expected version, and requires explicit Apply. The project was archived, the token revoked, repeated initialization denied, and all provider clients closed. OpenRouter and personal direct-provider credentials were absent.
+
+The probe retains complete provider and tool responses plus request hashes; it does not retain full request bodies. It proves the funded server path through an in-process MCP endpoint, not an external native-client call to the hosted endpoint. The actual subscribed-client workflow against the managed local demo is documented in the separate client receipt. Repeating paid failure cases is unnecessary because the injected tests cover them.
+
+An offline replay found that successful response cost metadata omitted billable failed provider attempts even though the ledger charged them correctly. The saved diagnosis is `artifacts/evals/full-qualification-final-20260909/mcp-cost-metadata-remedy.md`. The repair is integrated and passed 67 focused accounting/MCP checks. Both successful injected MCP paths report exactly 1,288 microUSD, matching all three settled provider attempts with zero pending reservations. The original baseline receipt is preserved alongside `mcp-cost-metadata-fixed-replay.json`.
+
+The compatible hosted recovery from commit `8f83ac948e1583d5f90317aab94d405530937f0d` completed at 06:40:32 UTC on September 10 and includes the accounting repair. Its [deployment receipt](hosted-recovery-rollout-result-20260910.md) proves health, deterministic operations, named grants, and anonymous MCP rejection. Authenticated hosted MCP acceptance and final model admission remain separate release checks.

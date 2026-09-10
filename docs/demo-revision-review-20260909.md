@@ -1,5 +1,57 @@
 # Review of the demo revision ideas
 
+## Implementation update, September 10, 2026
+
+Haoyang subsequently authorized implementation and parallel subagents. The
+current implementation is on `development`; the original investigation below
+is retained as a dated record. Its status labels describe the September 9
+checkout, not the current implementation. The stable paper branch is separate.
+
+| Area | Implemented and verified | Acceptance status |
+| --- | --- | --- |
+| Editable question button and selected context | `?` inserts an editable question, preserves existing text, and carries removable item references. Only explicit submission calls a model. | Complete. Local and hosted browser checks passed. |
+| Conversations and derivation navigation | Browser-local account-scoped history, New/Delete/export, edit-and-fork, portable scenario snapshots, and an inspector for individual derivations are implemented. Unused minimap code is removed. | Complete. Served-browser acceptance and final-source CI passed. |
+| Source evidence | Answers expose exact supplied source spans. Validation covers changed wording, local attribution, adjacent retrieval chunks, supported boundary typography, explicit prefix citations, and paragraph boundaries. | Complete. Paid answer review, served-browser acceptance, and final image checks passed. |
+| Five $50 administrator grants | Hosted schema 0006 and reconciliation are complete. The registered administrator has a $50 lifetime grant with spending preserved; the other four identities have entitlements for future verified registration. Restricted-role checks prove conservation and idempotency. | Database and account-route verification complete. The administrator's own browser sign-in remains a personal acceptance check. |
+| CloudBank and fallback | Azure/GCP primary routing, at most one CloudBank retry, same-model OpenRouter fallback after qualifying failures, complete attempt accounting, and non-LLM recovery are implemented. All eight hosted primary configurations and the referenced fallback key passed read-only readiness checks. | Complete. Final hosted image is healthy; injected outage checks passed. No paid OpenRouter testing. |
+| Shared model pool | Eight models are qualified and admitted in commit `00d7731`, including Gemini 3.1 Pro, Kimi, and GLM. Funded access, BYOK, and optional MCP LLM tools share the pool. DeepSeek remains internal after material feature failures. Haiku, Luna, and Flash-Lite are excluded. | Complete. All eight models appear in the final hosted and local menus. |
+| Prompt and feature qualification | The accepted composite covers 1,080 reviewed observations, 45 cases with three repetitions across eight models and all eleven feature groups. Public benchmarks guide selection. Short general prompt rules and application fixes address observed failures. A final GLM-only preference reminder passed its complete 63-observation chat regression. | Complete. Original failures and assessed limitations remain preserved. |
+| Subscribed MCP clients | Actual Codex and Claude Code subscriptions completed six-tool workflows against the hosted endpoint with zero ABDA credit. Owner browser readback, stale and invalid writes, ownership and scope denial, revocation, and fixture cleanup passed. A separate funded in-process MCP question/proposal probe also passed. | Complete. Both subscriptions and authenticated browser readback passed. |
+
+The shared CloudBank ledger records $65.361387 spent, zero outstanding
+reservations, and $34.638613 remaining under the original $100 lifetime cap.
+This is conservative application accounting, not a reconciled provider invoice.
+All paid qualification is complete. The accepted composite retains 1,057 original
+automatic passes, twenty-one bound phrase-matching adjudications, and two explicit
+nonblocking assessments. Earlier failed drafts and original automatic flags
+remain unchanged. The [qualification summary](operations/model-qualification-20260910.md)
+explains coverage, exact evidence hashes, source compatibility, and limitations.
+
+The compatible hosted recovery completed at 06:40 UTC on September 10. Its
+[receipt](operations/hosted-recovery-rollout-result-20260910.md) records the
+healthy image, schema, quota transfer, and deterministic acceptance checks.
+The final eight-model image from `234ffc9` is healthy on the hosted demo after
+exact-source CI, image security policy, and both provenance checks passed.
+The [final rollout receipt](operations/hosted-final-rollout-result-20260910.md)
+binds the image, preserved settings, and hosted ledger inspection, which is
+identical to the pre-deployment proof.
+The [hosted native-client receipt](operations/hosted-native-mcp-acceptance-result-20260910.md)
+records both successful subscription workflows, separate browser verification,
+unchanged accounting, and complete temporary-access cleanup. Earlier harness
+failures remain preserved with their original verdicts.
+The local demo also runs this source. Its
+existing development login is retained, with per-user funded quota accounting
+enabled through its private configuration.
+
+Current details are in the [implementation record](operations/demo-revision-implementation-20260909.md),
+[evaluation record](operations/evaluation-baseline-20260909.md),
+[exploration record](operations/exploration-revision-20260909.md),
+[final UI acceptance](operations/ui-requirements-acceptance-20260910.md),
+[local subscribed-client acceptance](operations/mcp-client-acceptance-20260909.md),
+and [phased rollout plan](operations/revision-rollout-20260909.md).
+
+## Original September 9 investigation
+
 Most of the concrete UI revisions are implemented. The strongest remaining
 opportunities are deliberate context selection in chat and better navigation
 between natural-language claims, formal rules, and individual argument

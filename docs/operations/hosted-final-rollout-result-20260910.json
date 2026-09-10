@@ -1,0 +1,117 @@
+{
+  "after_complete_ledger_sha256": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f",
+  "before_complete_ledger_sha256": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f",
+  "before_ledger_execution": "abda-nl-stg-migrate-nvplkox",
+  "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+  "deployment": {
+    "all_other_configuration_identity_secret_values_preserved": true,
+    "database_mutations_by_deployment": false,
+    "default_model": "claude-sonnet-5",
+    "default_profile": "balanced",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+    "live_and_ready_http200": true,
+    "named_auto_activation_preserved_true": true,
+    "oidc_mode_preserved": true,
+    "old_replicas": 0,
+    "old_revision_active": false,
+    "persistent_job_image_matches": true,
+    "profiles": 8,
+    "provisioning_state": "Succeeded",
+    "public_models": [
+      "claude-opus-5",
+      "claude-sonnet-5",
+      "gemini-3.1-pro-preview",
+      "gemini-3.8-flash",
+      "glm-5.3",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "kimi-k3"
+    ],
+    "public_profile_ids": [
+      "balanced",
+      "claude-opus-5",
+      "gemini-3-1-pro",
+      "gemini-3-8-flash",
+      "glm-5-3",
+      "gpt-5-6-sol",
+      "gpt-5-6-terra",
+      "kimi-k3"
+    ],
+    "quota_byok_pool_equal": true,
+    "ready_replicas": 1,
+    "ready_revision": "abda-nl-stg-web--qualified-eight-0910",
+    "revision_health": "Healthy",
+    "server_inference_calls": 0,
+    "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+    "verified_utc": "2026-09-10T08:27:11.159650+00:00"
+  },
+  "evidence": {
+    "after_ledger_gate": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/execution-final-234ffc97/after-ledger-verified.json",
+      "sha256": "45e3bc535a69c9ad4749ba38280e426282ec13ddcfd037cf16bd69f6894ae86c"
+    },
+    "deployed_resource_gate": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/execution-final-234ffc97/web-image-verified.json",
+      "sha256": "12303b4acb389d88e0ef8ef7fd6ea98c12aabb31205ad3697f83fbeb5bced8dd"
+    },
+    "image_release": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-preferences-234ffc9/verified-release-summary.json",
+      "sha256": "84ed70bca16a8262a5a1d9a0bcd257c9cfe39f4b65e56f47fd458db96d172b0e"
+    },
+    "model_release_assessment": {
+      "path": "/u/haoyang/ABDA-NL/artifacts/model-qualification-20260909/composite-eight-model-final-release-assessment-20260910.json",
+      "sha256": "49ed425d36fdff108f425351c9767dd5be54f30eba62d943dfa189a618a20df6"
+    },
+    "public_browser_acceptance": {
+      "path": "/u/haoyang/ABDA-NL/docs/operations/hosted-public-ui-acceptance-20260910.json",
+      "sha256": "f23de471221fe25b92d6f757950cf469654af602d1f76be79bbf903c16f479c9"
+    },
+    "reviewed_bound_manifest": {
+      "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/bound-234ffc97/bound-manifest.json",
+      "sha256": "c039e6403c07df37b9dc0fcd098f354aa368a8185f8afc2c9f3cbdcd6b646e31"
+    }
+  },
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+  "migration_executed_during_final_image_promotion": false,
+  "mutations": [
+    "Update the persistent manual migration job image without executing its migration command.",
+    "Update the web image and revision suffix."
+  ],
+  "native_client_acceptance_scope": "Recorded separately with synthetic fixture, token revocation and retirement evidence.",
+  "old_writer_drain_verified": true,
+  "preserved": [
+    "CloudBank subscription identity and all funded provider configuration.",
+    "Vertex ADC mount, project and quota pins.",
+    "Scoped Opus endpoint and key references.",
+    "Existing OpenRouter secret reference and failover settings.",
+    "OIDC, named-credit autoactivation, scaling, health probes and unrelated secrets."
+  ],
+  "ready_revision": "abda-nl-stg-web--qualified-eight-0910",
+  "real_administrator_owner_session_tested": false,
+  "recorded_utc": "2026-09-10T09:05:09.666910+00:00",
+  "restricted_after_ledger_inspection": {
+    "complete_ledger_unchanged_after_image_promotion": true,
+    "database_mutations": false,
+    "execution": "abda-nl-stg-migrate-uwnew5r",
+    "finished_utc": "2026-09-10T08:28:09+00:00",
+    "future_entitlements": 4,
+    "historical_spending_preserved": true,
+    "lifetime_grant_usd": 50,
+    "pending_reservations": 0,
+    "private_report_sha256": "f28bacb8ab4614cb8172c28c61543f0153b203554920957047042e8eeba89d0f",
+    "public_administrator_emergency_programs_preserved": true,
+    "registered_named_accounts": 1,
+    "restricted_role": "abda_app",
+    "restricted_role_privileges_preserved": true,
+    "schema": "20260909_0006",
+    "server_inference_calls": 0,
+    "started_utc": "2026-09-10T08:27:37+00:00",
+    "status": "passed",
+    "transaction_read_only": true,
+    "verified_utc": "2026-09-10T08:28:43.929856+00:00"
+  },
+  "runtime_source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "server_inference_calls": 0,
+  "source_fingerprint": "3fbbfeffa6fae65ad7bc79e6f32fc131cb56a51c0d833c46cc0cb90285150ce9",
+  "status": "final_qualified_rollout_passed"
+}

@@ -1,0 +1,133 @@
+{
+  "hosted_readiness": {
+    "all_eight_funded_primary_configurations_ready": true,
+    "azure_keys_match_live_funded_resources": true,
+    "candidate_catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+    "checked_utc": "2026-09-10T07:10:14.837681+00:00",
+    "cloud_mutations": false,
+    "configuration_payload_changes_required": [],
+    "container_apps": 1,
+    "database_mutations": false,
+    "default_azure_and_anthropic_same_resource": true,
+    "final_image_payload_prepared": false,
+    "final_image_payload_reason": "The exact qualified public image digest is not yet available.",
+    "hosted_openrouter_key_present": true,
+    "identity_pinned": true,
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "manual_jobs": 1,
+    "mcp_pepper_separate": true,
+    "mcp_session_secret_present": true,
+    "named_auto_activation": true,
+    "openrouter_key_matches_source": true,
+    "openrouter_live_inference_verified": false,
+    "opus_separate_same_subscription_resource": true,
+    "revision": "abda-nl-stg-web--compat-8f83-0910-recovery-ready",
+    "routes": [
+      {
+        "azure_deployment_metadata_verified": true,
+        "fallback": "openrouter-claude-sonnet-5",
+        "funding": "azure-foundry",
+        "hosted_configuration_ready": true,
+        "model": "claude-sonnet-5",
+        "primary": "cloudbank-claude-sonnet-5",
+        "same_model_pair": true,
+        "scoped_opus_credential": false
+      },
+      {
+        "azure_deployment_metadata_verified": true,
+        "fallback": "openrouter-gpt-5.6-terra",
+        "funding": "azure-foundry",
+        "hosted_configuration_ready": true,
+        "model": "gpt-5.6-terra",
+        "primary": "cloudbank-gpt-5.6-terra",
+        "same_model_pair": true,
+        "scoped_opus_credential": false
+      },
+      {
+        "azure_deployment_metadata_verified": true,
+        "fallback": "openrouter-gpt-5.6-sol",
+        "funding": "azure-foundry",
+        "hosted_configuration_ready": true,
+        "model": "gpt-5.6-sol",
+        "primary": "cloudbank-gpt-5.6-sol",
+        "same_model_pair": true,
+        "scoped_opus_credential": false
+      },
+      {
+        "azure_deployment_metadata_verified": true,
+        "fallback": "openrouter-claude-opus-5",
+        "funding": "azure-foundry",
+        "hosted_configuration_ready": true,
+        "model": "claude-opus-5",
+        "primary": "cloudbank-claude-opus-5",
+        "same_model_pair": true,
+        "scoped_opus_credential": true
+      },
+      {
+        "azure_deployment_metadata_verified": false,
+        "fallback": "openrouter-gemini-3.8-flash",
+        "funding": "gcp-vertex",
+        "hosted_configuration_ready": true,
+        "model": "gemini-3.8-flash",
+        "primary": "cloudbank-gemini-3.8-flash",
+        "same_model_pair": true,
+        "scoped_opus_credential": false
+      },
+      {
+        "azure_deployment_metadata_verified": false,
+        "fallback": "openrouter-gemini-3.1-pro-preview",
+        "funding": "gcp-vertex",
+        "hosted_configuration_ready": true,
+        "model": "gemini-3.1-pro-preview",
+        "primary": "cloudbank-gemini-3.1-pro-preview",
+        "same_model_pair": true,
+        "scoped_opus_credential": false
+      },
+      {
+        "azure_deployment_metadata_verified": true,
+        "fallback": "openrouter-glm-5.3",
+        "funding": "azure-foundry",
+        "hosted_configuration_ready": true,
+        "model": "glm-5.3",
+        "primary": "cloudbank-glm-5.3",
+        "same_model_pair": true,
+        "scoped_opus_credential": false
+      },
+      {
+        "azure_deployment_metadata_verified": true,
+        "fallback": "openrouter-kimi-k3",
+        "funding": "azure-foundry",
+        "hosted_configuration_ready": true,
+        "model": "kimi-k3",
+        "primary": "cloudbank-kimi-k3",
+        "same_model_pair": true,
+        "scoped_opus_credential": false
+      }
+    ],
+    "running_job_executions": 0,
+    "schema_proof": "docs/operations/hosted-recovery-rollout-result-20260910.json",
+    "server_inference_calls": 0,
+    "vertex_adc_matches_verified_source": true,
+    "vertex_adc_secret_mount_exact": true,
+    "vertex_location_global": true,
+    "vertex_project_and_quota_match_cloudbank": true
+  },
+  "openrouter_reference_correction": {
+    "checked_utc": "2026-09-10T07:10:15.184594+00:00",
+    "cloud_mutations": false,
+    "does_not_prove_account_balance_or_model_inference": true,
+    "endpoint": "https://openrouter.ai/api/v1/key",
+    "hosted_key_matches_authorized_source": true,
+    "hosted_referenced_key_nonempty": true,
+    "http_status": 200,
+    "inference_calls": 0,
+    "initial_incorrect_receipt_preserved": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-acceptance-preparation-20260910T070123Z/sanitized-readiness-initial-resolver-error.json",
+    "initial_inspector_error": "Legacy Azure env entries include an empty literal value beside secretRef; the inspector must use the referenced secret. The referenced hosted key was not empty.",
+    "method": "GET",
+    "paid_credit_tier": true,
+    "per_key_limit_not_exhausted": true,
+    "replacement_payload_needed": false,
+    "replacement_payload_written": false,
+    "valid_key_metadata": true
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "all_seven_accounting_tables_unchanged": true,
+  "application_changes": false,
+  "email_delivery": false,
+  "harness_fixes": [
+    "Use contextlib.closing for already opened owner clients in all workflow scopes.",
+    "Close owner clients immediately if the owner response gate fails.",
+    "Terminate each unique phase process group on every exit before API cleanup.",
+    "Treat any timeout as failure even if a child returns exit code zero."
+  ],
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+  "new_accounts_created": 0,
+  "offline_validation": {
+    "inference_calls": 0,
+    "network_calls": 0,
+    "result": "17 passed in 2.35s",
+    "tests": {
+      "artifacts/evals/test_native_client_lifecycle_20260910.py": "36736653147683c5d1f4690fb45ed0a807e2946dbb3a2c6286779c5a6f4e656d",
+      "artifacts/evals/test_native_fixture_lifecycle_reactivation_20260910.py": "436259a9780a6dec4c46fcd9b812afa49d8d1cabe78d8e9b5dd6aa3fb0509781",
+      "artifacts/evals/test_native_phase_descendants_20260910.py": "3f819cc68317c82f6cd374209d3747129d598c73e1719037f09d4c5f0900289f"
+    }
+  },
+  "plan_sha256": "824bcc14b2ee58d23d63c58804cf3d39311252e6900bd6458a93f091b809c75d",
+  "prepared_utc": "2026-09-10T09:03:45.096449+00:00",
+  "previous_owner_session_http_status": 200,
+  "previous_setup_execution": "abda-nl-stg-migrate-q60zj4y",
+  "previous_setup_report_sha256": "e7460d9f4e6bb5f2bcebd63047466b75a0a1922137d12fc9110db4effe1739b7",
+  "previous_setup_stdout_recovered_from_centralized_logs": true,
+  "prior_fixture_projects": 0,
+  "prior_fixture_tokens": 0,
+  "prior_native_turns": 0,
+  "prior_read_only_cleanup_execution": "abda-nl-stg-migrate-lqlmtlw",
+  "prior_read_only_cleanup_report_sha256": "b99f198e43438ffe4f0f63e292e06e45c2f29c9d94becc89839119685a7623f4",
+  "prior_retirement_execution": "abda-nl-stg-migrate-kokw7yu",
+  "prior_retirement_report_sha256": "329f98459601ea97fe8ac4fa78874ca32f084d82c727b407457d757d4f78bafc",
+  "private_diff": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/lifecycle-correction.diff",
+  "private_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97",
+  "private_directory_with_protected_values": true,
+  "protected_files": {
+    "collect_fixture_job.py": {
+      "mode": "0o600",
+      "sha256": "8e904e2fcebb517f2195088b0796f6b47856e9fa9a720f1461c0ca7deba4d2ae"
+    },
+    "fixture-inspect.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "47bb48e870ba845681199882a7b25a2c15b2e5980166a276185ab9ec7427cbf2"
+    },
+    "fixture-manifest.json": {
+      "mode": "0o600",
+      "sha256": "c26c1b998815eb8dbe9bdd001f0b53e9a13753b296cb904cc434c95ee92104c8"
+    },
+    "fixture-retire.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "f027fa7e8baaa7468eb69a33948d5df35e909b68a700de0ca811f5d80fc64389"
+    },
+    "fixture-setup.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "14fd46fa0476f02573b2e9e4cdfdac26a12848f54901cd209babc9a220234f4b"
+    },
+    "fixture_runner.py": {
+      "mode": "0o600",
+      "sha256": "85b6e02e8fa0ba4ab79b1b2ff008fa30479fcbafc0b76bc338337eb27e7803e1"
+    },
+    "lifecycle-correction.diff": {
+      "mode": "0o600",
+      "sha256": "419b38410123c86af8045f403047ef0b1364412d19004f2ed83c7969488dbdd2"
+    },
+    "native-subscriptions.slurm": {
+      "mode": "0o600",
+      "sha256": "11035f76c7412210fb7553b5a202866a91ba12fe1d465b1c080bdc476157c4f2"
+    },
+    "native_fixture_jobs.py": {
+      "mode": "0o600",
+      "sha256": "2cbf5e9969a8d3af9e96a02c02c24b4a040df4ba90a37b287359ba6ac58c0ec3"
+    },
+    "native_workflow.py": {
+      "mode": "0o600",
+      "sha256": "986f71207ec0c513c1cc396b94d69ac688a68e93d5d4efec56a9425ff79d87ae"
+    },
+    "readiness.py": {
+      "mode": "0o600",
+      "sha256": "0e5cb5ad189544a298f665545969a9954d3537f8f01cd473301e474374ee7ffa"
+    },
+    "run_native_phases.py": {
+      "mode": "0o600",
+      "sha256": "7fc12d4d3f028b8631d1a4ccbcd84822d4f077484cafa091343faae0e94b5fb7"
+    }
+  },
+  "reactivation_scope": "Change only active and verified flags and update time for the same two suspended, unverified, unused example.org fixtures. Preserve email, ID and display name. No INSERT.",
+  "real_administrator_session_signing": false,
+  "remaining_static_api_audit": "Nash found no additional request, response or selector mismatch.",
+  "revision": "abda-nl-stg-web--qualified-eight-0910",
+  "same_example_org_emails": true,
+  "same_two_fixed_uuids": true,
+  "server_inference_calls": 0,
+  "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "status": "prepared_not_executed"
+}

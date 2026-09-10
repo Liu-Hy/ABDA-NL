@@ -1,0 +1,191 @@
+{
+  "audited_at_utc": "2026-09-10T08:40:48.235342+00:00",
+  "runtime_source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "source_ci_only_followup_commit": "07928fc307c6fe73c6177af8e566d915f2e002fd",
+  "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+  "requirements_document": "docs/demo-revision-review-20260909.md",
+  "scope": "Accepted frontend recommendations and supplements 2 and 6; model qualification, hosted grants and native-client acceptance have separate owners.",
+  "conclusion": "Accepted functional UI scope is complete with documented semantics and coverage limits; the broader browser CI follow-up also passed.",
+  "requirements": [
+    {
+      "requirement": "Editable question and exact selected context",
+      "status": "implemented_and_verified",
+      "test_names": [
+        "test_question_insertion_preserves_draft_and_requires_explicit_submit",
+        "test_draft_remains_editable_without_access_and_during_pending_request",
+        "test_mobile_stale_context_retains_text_and_makes_no_model_request",
+        "test_selected_context_preserves_distinct_rule_and_argument_identity"
+      ],
+      "observed": "Cursor insertion preserves all prior text; separate identities remain removable; no request or turn precedes explicit submission; changed context blocks sending without discarding the draft."
+    },
+    {
+      "requirement": "Individual derivation inspector and formal navigation",
+      "status": "implemented_and_verified",
+      "test_names": [
+        "test_individual_derivations_preserve_shared_top_rules_and_navigation",
+        "test_exploration_controls_and_derivation_inspector_accessibility"
+      ],
+      "observed": "Distinct arguments with one shared top rule remain separate; premises, rules, proper subarguments, labels and attack endpoints remain inspectable. Compact graph is labeled Conclusion overview."
+    },
+    {
+      "requirement": "New, durable history, Delete, account isolation",
+      "status": "implemented_and_verified",
+      "test_names": [
+        "test_history_export_snapshot_fork_reload_and_account_isolation",
+        "test_new_delete_and_storage_failure_are_explicit"
+      ],
+      "observed": "Account-keyed browser persistence includes draft and history; reload, account switch, sign-out, explicit deletion and storage failure are covered."
+    },
+    {
+      "requirement": "Portable transcript snapshots and explicit fork semantics",
+      "status": "implemented_and_verified",
+      "test_names": [
+        "test_history_export_snapshot_fork_reload_and_account_isolation"
+      ],
+      "observed": "Export includes the effective scenario with sources, pending operations and an equivalent argument graph, excluding credential sentinels. Fork retains prior snapshots and labels the new question as using the current scenario."
+    },
+    {
+      "requirement": "Verified source excerpts and saved formal evidence",
+      "status": "implemented_and_verified_with_semantic_limit",
+      "test_names": [
+        "test_question_insertion_preserves_draft_and_requires_explicit_submit",
+        "test_evidence_uses_exact_attached_source_spans_and_rejects_invention",
+        "test_paraphrase_has_inspectable_evidence_without_claiming_verbatim_prose",
+        "test_exact_quote_in_another_document_does_not_validate_wrong_attribution",
+        "test_word_case_polarity_numbers_and_interior_punctuation_cannot_be_repaired",
+        "test_adjacent_retrieval_chunks_preserve_words_and_exact_source_coordinates"
+      ],
+      "observed": "UI shows only verified evidence with literal source text/offsets; saved formal links open the original snapshot. Span existence and attribution do not establish all paraphrase entailment."
+    },
+    {
+      "requirement": "Both-provider failure retains deterministic/manual use and explicit recovery",
+      "status": "implemented_with_bounded_injected_and_independent_acceptance",
+      "test_names": [
+        "test_provider_failure_preserves_question_and_non_llm_actions",
+        "test_scenario_library_build_download_import_and_reopen",
+        "test_unified_editor_raw_validation_stale_save_and_atomic_files",
+        "test_download_recovers_when_library_opens_during_scenario_load"
+      ],
+      "observed": "Injected 503 retains the draft and scenario, uses a local notice, leaves derivation inspection usable and recovers through Ask. Manual scenario/edit/save/export tests pass independently; chatDegraded has no readers in those controls.",
+      "unperformed_combined_check": "All manual operations were not repeated in the same injected-outage browser session. No live hosted outage was induced."
+    },
+    {
+      "requirement": "Remove dead minimap code",
+      "status": "implemented_and_source_verified",
+      "observed": "No minimap symbols or styles remain in the UI source."
+    }
+  ],
+  "unresolved_functional_requirements": [],
+  "open_verification_items": [],
+  "limitations": [
+    "History is browser-local per account and is not synchronized across devices.",
+    "A compact conversation selector supplies switching; there is no separate visual tab strip.",
+    "New questions in a fork explicitly use the current scenario. Prior snapshots remain attached, but are not automatically restored into the workspace.",
+    "The individual inspector and local attacks complement the compact conclusion overview.",
+    "Exact source-span verification does not prove every paraphrase is entailed by its cited passage.",
+    "Authenticated feature checks simulate account/model responses. Hosted public checks use actual anonymous authentication; authenticated hosted clients and accounting are separate receipts.",
+    "UI outages were injected, with separate deterministic/manual workflows and source-dependency inspection; no real provider outage or paid OpenRouter call was induced."
+  ],
+  "evidence": [
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/ui-source-and-ci-scope-234ffc9.json",
+      "sha256": "516126868f62cd464073777feea85ff8ef868ba56a7ae8f17af6ffd194b140dc"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/local-00d7731-chromium-074127/receipt.json",
+      "sha256": "601bceda9f51c54e2e5f35880a549d51a8bfd3121d8655c7eb63e7ab6cfad4a7"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/local-readonly-smoke-234ffc9-20260910T082129892431Z.json",
+      "sha256": "757c8ae32a84b358a6695ccb4af71951ce9a1f7621c0960dbf478ec4a0b7320d"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/hosted-234ffc9-20260910T082800034297Z/receipt.json",
+      "sha256": "c40794fa8e85ec57229d47d57ca9a60d1cab9a9a8fe1bc83eb9a60b6a547e686"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/verified-image-234ffc9.json",
+      "sha256": "84ed70bca16a8262a5a1d9a0bcd257c9cfe39f4b65e56f47fd458db96d172b0e"
+    },
+    {
+      "path": "docs/operations/exploration-revision-20260909.md",
+      "sha256": "46ee5080bd5cfc28338dfd2bb18c7653635b5d84242a2866c9f22b5c4f4f1498"
+    },
+    {
+      "path": "docs/operations/hosted-public-ui-acceptance-20260910.json",
+      "sha256": "f23de471221fe25b92d6f757950cf469654af602d1f76be79bbf903c16f479c9"
+    },
+    {
+      "path": "tests/test_exploration_browser.py",
+      "sha256": "ffd72f40547b128b30bfb8553ba68cc22859e40f6beab80406f757a519930fa3"
+    },
+    {
+      "path": "tests/test_browser_e2e.py",
+      "sha256": "0fce5a23d391ada23382667459948eb1dad808dee0a06cae9c462b4efbb10b93"
+    },
+    {
+      "path": "tests/test_revision_llm_contracts.py",
+      "sha256": "20d7e63ad90f5d833cf1dcd265c27221a48454aa24b1a314ebede7be6dc65218"
+    },
+    {
+      "path": "tests/test_quote_typography.py",
+      "sha256": "9c05657ab1da67db736fd2ad0dfbc60ff7609e71a46f86c9de47081e720224e9"
+    },
+    {
+      "path": "tests/test_citation_prefix.py",
+      "sha256": "bcc896c910185301e299693a4349af4302e250157370920c7734e6ee2a163852"
+    },
+    {
+      "path": "app/static/app.js",
+      "sha256": "35b3c84271d835e561fb9fb532b476667ee55155f793ba30100d3ceb2a4bad7b"
+    },
+    {
+      "path": "app/static/exploration.js",
+      "sha256": "c53635468a67688533418d7dc631d0dc3f39fa9ccfb6bafe6812397b3cadc526"
+    },
+    {
+      "path": "app/static/workspace.js",
+      "sha256": "73dc9f62be132c82e3bf6bb1ea4b61006631c0de17d92fb68cd77c3b08a78577"
+    },
+    {
+      "path": "app/static/index.html",
+      "sha256": "f33ed8443dee45faf5a9ac08034180da8b452ce34c3ee119fde37d91ed9c4aff"
+    },
+    {
+      "path": "app/static/style.css",
+      "sha256": "58201d68c22a0cda7013456c2a607102c3f9fc51baa662d4a11cca19abe1dfe8"
+    },
+    {
+      "path": "app/llm/evidence.py",
+      "sha256": "32e1a924fab24a8bc6e8bc7387ef46f191cdcc218b52f4fbb1b1d1e70efd2416"
+    },
+    {
+      "path": "docs/operations/ui-browser-ci-addendum-20260910.json",
+      "sha256": "4d90616ed44d09895dcb770cfb3886a94363c1350f2191bd81e02cc5c42dfaf1"
+    }
+  ],
+  "local_acceptance": "docs/operations/local-demo-acceptance-20260910.json",
+  "hosted_acceptance": "docs/operations/hosted-public-ui-acceptance-20260910.json",
+  "application_source_changes": false,
+  "ci_only_change": ".github/workflows/ci.yml",
+  "ci_followup_verified_at_utc": "2026-09-10T08:47:02.339158+00:00",
+  "ci_followup_result": {
+    "receipt": {
+      "path": "docs/operations/ui-browser-ci-addendum-20260910.json",
+      "sha256": "4d90616ed44d09895dcb770cfb3886a94363c1350f2191bd81e02cc5c42dfaf1"
+    },
+    "ci_source_commit": "07928fc307c6fe73c6177af8e566d915f2e002fd",
+    "deployed_runtime_source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+    "all_ci_jobs_successful": true,
+    "browser_checks_per_engine": 52,
+    "browser_engines": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "codeql_security_findings": 0,
+    "browser_artifacts_with_verified_digests": 3
+  },
+  "local_browser_or_model_runs_by_this_audit": 0,
+  "authorized_ci_browser_jobs_after_coverage_correction": 3
+}

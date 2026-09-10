@@ -1,0 +1,430 @@
+{
+  "prepared_utc": "2026-09-10T06:08:13.772625+00:00",
+  "status": "prepared_for_root_review_not_applied",
+  "protected_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z",
+  "payload_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only",
+  "credential_values_in_receipt": false,
+  "recovery": {
+    "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "historical_public_profile": "balanced",
+    "new_public_model_admission": false,
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34439673098",
+    "publication_success": true,
+    "cryptographic_provenance_verified": true,
+    "exact_subject_source_and_signer_verified": true,
+    "ci_and_restricted_postgres_acceptance_passed": true,
+    "container_security_policy": "CONTAINER_SECURITY_POLICY_VERIFIED",
+    "codeql_findings": 0,
+    "authoritative_receipt": "docs/operations/revision-recovery-ci-20260910.json#compatibility_recovery",
+    "compatibility_record_sha256": "e64cb97d3cbf44e8ef5591e2c46cfd3bc44738b4da3466b82d907b8fa250d6d2"
+  },
+  "fresh_hosted_state": {
+    "verified_utc": "2026-09-10T05:59:42.918075+00:00",
+    "app": "abda-nl-stg-web",
+    "resource_group": "abda-nl-staging",
+    "revision": "abda-nl-stg-web--symbols-c6123d1",
+    "app_image": "ghcr.io/liu-hy/abda-nl@sha256:a5edbbae91c9eb0ed2afcba2e4e179b9388ea858d75c71f14206d04425c50d59",
+    "app_count": 1,
+    "healthy_current_replica_count": 1,
+    "revision_mode": "Single",
+    "scale": {
+      "cooldownPeriod": 300,
+      "maxReplicas": 3,
+      "minReplicas": 1,
+      "pollingInterval": 30,
+      "rules": [
+        {
+          "http": {
+            "metadata": {
+              "concurrentRequests": "20"
+            }
+          },
+          "name": "http-concurrency"
+        }
+      ]
+    },
+    "manual_job": "abda-nl-stg-migrate",
+    "job_image": "ghcr.io/liu-hy/abda-nl@sha256:c3f6ec80972850d30850ec2e72d28fd673e835187bebdc45a8f9cda4a8ad1a55",
+    "job_count": 1,
+    "scheduled_or_event_job_count": 0,
+    "active_job_execution_count": 0,
+    "public_profile_ids": [
+      "balanced"
+    ],
+    "public_default_profile": "balanced"
+  },
+  "fresh_database_read": {
+    "verified_utc": "2026-09-10T05:59:42.918075+00:00",
+    "diagnostic_execution": "abda-nl-stg-migrate-zuvcjfw",
+    "diagnostic_status": "Succeeded",
+    "database_read_only": true,
+    "schema": [
+      "20260908_0005"
+    ],
+    "entitlement_table_exists": false,
+    "approved_accounts": 5,
+    "registered_count": 1,
+    "registered_active_verified_count": 1,
+    "registered_grant_totals_are_5_usd": true,
+    "unregistered_count": 4,
+    "registered_accounts_have_settled_prior_usage": true,
+    "pending_reservation_count": 0,
+    "program_totals_reconciled": true,
+    "app_configuration_unchanged": true,
+    "job_configuration_unchanged": true,
+    "active_job_execution_count": 0,
+    "exact_private_ledger_sha256": "41e782e8fd91691dafcc18c9729e7507cb3eb04409bb90f5ed602172b2a636a9",
+    "cloud_config_mutations": false,
+    "database_mutations": false,
+    "terminal_execution_retained_for_audit": true,
+    "started_utc": "2026-09-10T05:58:03+00:00",
+    "finished_utc": "2026-09-10T05:58:34+00:00",
+    "transaction_isolation": "REPEATABLE READ",
+    "transaction_read_only": true,
+    "transaction_rolled_back": true,
+    "persistent_job_configuration_preserved": true,
+    "application_modules_initialized_database": false,
+    "execution_only_diagnostic_was_started": true,
+    "public_policy": {
+      "max_users": 100,
+      "grant_usd": 5,
+      "budget_usd": 500
+    }
+  },
+  "payload_validation": {
+    "verified_utc": "2026-09-10T06:02:12.962349+00:00",
+    "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d",
+    "recovery_image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "payload_file_count": 17,
+    "cloudbank_azure_default_key_verified": true,
+    "cloudbank_scoped_opus_key_pinned": true,
+    "cloudbank_gcp_project_and_quota_match": true,
+    "adc_volume_contains_only_adc_secret": true,
+    "app_configuration_except_new_secrets_preserved": true,
+    "unrelated_environment_probes_resources_scale_mounts_preserved": true,
+    "stage_ready_differ_only_in_activation_flag_and_revision_suffix": true,
+    "migration_template_diff_image_only": true,
+    "inspection_and_reconcile_use_restricted_app_role_only": true,
+    "migration_cli_and_templates_match_recovery_commit": true,
+    "read_only_runner_transaction_verified": true,
+    "preview_and_apply_are_explicit_distinct_argv": true,
+    "protected_modes_verified": true,
+    "credential_values_outside_secret_patch": false,
+    "cloud_config_mutations": false,
+    "database_mutations": false,
+    "source_sha256": {
+      "deploy/azure/prepare-revision-rollout.py": "6b74c135e9b439e0347f092f856d4ed972d5bbaea063b702fa0a192b46ff837b",
+      "deploy/azure/inspect-named-credit.py": "128211c2355766600beac5c7b4d1a9897e8134836b87366928d6239aa657d145",
+      "app/cli/migrate.py": "ece8c6714e9d10242b00641fb8abaccf79eac895bc0c420b2ad5ec90f5581d9a",
+      "app/cli/reconcile_named_credit.py": "1d6694bb040422cd1d5935f0a9eb1a0608a5a86d70c2c4bccb60d5a874895709",
+      "app/services/trials.py": "af19f1899a35f6647c0c3592d5ed7813e548499cf271eef2ed6ca81f004ab2ba",
+      "app/db/session.py": "10cf1d1c60b748ac3b586305e68e6bed623ab192f8c418e4a4c79fc653c9eaa7"
+    },
+    "payload_sha256": {
+      "before.application.json": "b2862f67ad57a5e7d0fc3e3c4172ea65cf0a7abad3679907bd5d18fed7678770",
+      "before.migration-job.json": "093f50882a6b0da3f8029395416c4e306b78a6dc9341c78d5fbbfcbbed6f240a",
+      "candidate-inspect.execution.json": "d7e92fa7c74233cc440c1d7cf847d8c4863dc383aad7415c25fe35ca8d6847e9",
+      "candidate-migration.patch.json": "9fa84380b2bd997f83694105a34734b28617d11cd897fbf58f38fd9a6a01d7b6",
+      "candidate-ready.patch.json": "63d90fc7e5a45ecb55b936f4cc9ff29418fb369a98f3d5301cfaa3f195fba423",
+      "candidate-reconcile-apply.execution.json": "42d34494e8018921ec3b1d3d065249e84f28d0695bec3bb21c196e2fa6a2c5e7",
+      "candidate-reconcile-preview.execution.json": "e61ea1abce38dca2d553b965ab02694c61efdb38b24dd8f207bdd500772a9cdc",
+      "candidate-stage.patch.json": "f00f0eb6393dda61aa845cb09c5f8b0477d6232e5beb97faca1fba41c1416338",
+      "inspect-before.execution.json": "27bdc358dceae1b3b43dfc14da8e44840d12d8a4b43ab0f25afa92c253650bf0",
+      "manifest.json": "8b8194935b96247d871984c851c913ca1f06ad17f428085576936b30d8649313",
+      "recovery-inspect.execution.json": "d7e92fa7c74233cc440c1d7cf847d8c4863dc383aad7415c25fe35ca8d6847e9",
+      "recovery-migration.patch.json": "9fa84380b2bd997f83694105a34734b28617d11cd897fbf58f38fd9a6a01d7b6",
+      "recovery-ready.patch.json": "d3327d76b72df3a12925485e85b87288628e9337d708edc2bd62ba510c975d4f",
+      "recovery-reconcile-apply.execution.json": "42d34494e8018921ec3b1d3d065249e84f28d0695bec3bb21c196e2fa6a2c5e7",
+      "recovery-reconcile-preview.execution.json": "e61ea1abce38dca2d553b965ab02694c61efdb38b24dd8f207bdd500772a9cdc",
+      "recovery-stage.patch.json": "368c1cc02fe3a6bb68291963bdd07adba805e14d8139a5561e03a9b4f84f4d6a",
+      "secrets.patch.json": "14743e6721f1051e447496af9ad76852456495fcbc6c0368432e3e6b6ad0441a"
+    }
+  },
+  "supplemental_read_only_proof": {
+    "prepared_utc": "2026-09-10T06:06:01.611903+00:00",
+    "purpose": "Read-only 0006 privilege and exact named ledger snapshots immediately before and after reconciliation",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "restricted_app_role_only": true,
+    "explicit_repeatable_read_and_read_only": true,
+    "source_runner_compiles": true,
+    "new_sql_is_catalog_and_ledger_selects_only": true,
+    "requires_schema_0006": true,
+    "executed": false,
+    "hosted_or_database_mutations": false,
+    "payload_sha256": "f43fb05836c45ebdf5512f1b2e612a144a65676d58591f4fab8d71113cfa22c2",
+    "runner_sha256": "a6f8ad9b6e46c948bfaf638188b8b2e3cd84a7b30981a55516ff50c09d2c14cf",
+    "live_role_privilege_results_pending_migration": true,
+    "payload": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/supplemental-payloads/recovery-role-ledger-inspect.execution.json"
+  },
+  "public_read_only_health": {
+    "verified_utc": "2026-09-10T06:02:55.541328+00:00",
+    "inference_calls": 0,
+    "http_reads": [
+      {
+        "path": "/health/live",
+        "status": 200,
+        "final_host": "demo.abda-nl.org",
+        "content_sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288"
+      },
+      {
+        "path": "/health/ready",
+        "status": 200,
+        "final_host": "demo.abda-nl.org",
+        "content_sha256": "31bf75f4c0a97cc1f7b60df824fa390b3be9ba014f29b63c87c698ba63d9a9fd"
+      },
+      {
+        "path": "/config",
+        "status": 200,
+        "final_host": "demo.abda-nl.org",
+        "content_sha256": "5901ffff7fdb2b03694a2fa40d7bd331c33b56e729606e16a0ae912461295d29",
+        "llm_enabled": true,
+        "top_level_config_keys": [
+          "byok_enabled",
+          "byok_keys_stored",
+          "byok_providers",
+          "default_profile",
+          "llm_auth_required",
+          "llm_enabled",
+          "profiles"
+        ]
+      }
+    ]
+  },
+  "focused_offline_checks": {
+    "command": "python -m pytest -q tests/test_revision_rollout.py tests/test_named_credit_recovery.py tests/test_named_credit_cli.py tests/test_migrate_cli.py",
+    "result": "32 passed in 2.92s",
+    "database": "isolated test SQLite only",
+    "paid_or_external_inference_calls": 0,
+    "recovery_source_files_byte_matched": true
+  },
+  "execution_environment": {
+    "AZURE_CONFIG_DIR": "/u/haoyang/.local/share/abda-azure/config",
+    "AZURE_CORE_COLLECT_TELEMETRY": "false",
+    "AZURE_LOGGING_ENABLE_LOG_FILE": "false",
+    "AZURE_EXTENSION_USE_DYNAMIC_INSTALL": "no",
+    "capture_raw_stdout_stderr_privately": true
+  },
+  "steps": [
+    {
+      "id": "preflight",
+      "operation": "Recheck fresh protected plan against current app/job state and writer inventory",
+      "required_before_next": "Exact expected old revision and images, no bound named grants, balanced accounting; regenerate if configuration drifts."
+    },
+    {
+      "id": "secrets",
+      "operation": "Preserve existing app configuration and add the scoped Opus key and CloudBank ADC",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "rest",
+        "--method",
+        "patch",
+        "--url",
+        "https://management.azure.com/subscriptions/00e62f6e-2174-40b2-b428-8ebfd7c2ac54/resourceGroups/abda-nl-staging/providers/Microsoft.App/containerApps/abda-nl-stg-web?api-version=2025-01-01",
+        "--body",
+        "@/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only/secrets.patch.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Configuration and existing secret preservation verified; no provider or funding pin drift."
+    },
+    {
+      "id": "migration-image",
+      "operation": "Update the persistent manual job to the verified 0006 image",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "rest",
+        "--method",
+        "patch",
+        "--url",
+        "https://management.azure.com/subscriptions/00e62f6e-2174-40b2-b428-8ebfd7c2ac54/resourceGroups/abda-nl-staging/providers/Microsoft.App/jobs/abda-nl-stg-migrate?api-version=2025-01-01",
+        "--body",
+        "@/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only/recovery-migration.patch.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Exact recovery digest, original manual trigger, zero retry, single replica, administrator migration entrypoint preserved."
+    },
+    {
+      "id": "migration",
+      "operation": "Run app.cli.migrate once, including restricted-role provisioning",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "containerapp",
+        "job",
+        "start",
+        "--name",
+        "abda-nl-stg-migrate",
+        "--resource-group",
+        "abda-nl-staging",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Execution Succeeded and schema 20260909_0006. Do not retry an ambiguous result before inspecting its execution."
+    },
+    {
+      "id": "stage-web",
+      "operation": "Deploy compatible web code with named automatic activation false",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "rest",
+        "--method",
+        "patch",
+        "--url",
+        "https://management.azure.com/subscriptions/00e62f6e-2174-40b2-b428-8ebfd7c2ac54/resourceGroups/abda-nl-staging/providers/Microsoft.App/containerApps/abda-nl-stg-web?api-version=2025-01-01",
+        "--body",
+        "@/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only/recovery-stage.patch.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Ready revision abda-nl-stg-web--compat-8f83-0910-recovery-stage on the exact recovery digest; deterministic public flows work."
+    },
+    {
+      "id": "drain-old-writers",
+      "operation": "Verify the old revision is inactive, no old replica remains, and no incompatible auxiliary execution is running",
+      "required_before_next": "Every remaining database writer is 0006-aware. Preserve pending reservations."
+    },
+    {
+      "id": "restricted-before-proof",
+      "operation": "Read restricted-role privileges and exact named ledger rows before transfer",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "containerapp",
+        "job",
+        "start",
+        "--name",
+        "abda-nl-stg-migrate",
+        "--resource-group",
+        "abda-nl-staging",
+        "--yaml",
+        "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/supplemental-payloads/recovery-role-ledger-inspect.execution.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Schema0006, named table CRUD allowed, Alembic write privileges denied, no schema creation/ownership/admin attributes; default table CRUD grants; all named slots unbound; exact reservation/usage rows saved privately."
+    },
+    {
+      "id": "preview",
+      "operation": "Preview named reconciliation with restricted app credentials and rollback",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "containerapp",
+        "job",
+        "start",
+        "--name",
+        "abda-nl-stg-migrate",
+        "--resource-group",
+        "abda-nl-staging",
+        "--yaml",
+        "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only/recovery-reconcile-preview.execution.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Only eligible accounts receive total lifetime $50 grants; preserve spend/reservations; unregistered slots stay unbound."
+    },
+    {
+      "id": "apply",
+      "operation": "Apply the reviewed named reconciliation once with restricted app credentials",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "containerapp",
+        "job",
+        "start",
+        "--name",
+        "abda-nl-stg-migrate",
+        "--resource-group",
+        "abda-nl-staging",
+        "--yaml",
+        "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only/recovery-reconcile-apply.execution.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Succeeded and expected named/public program conservation. No placeholder accounts."
+    },
+    {
+      "id": "repeat-preview",
+      "operation": "Prove idempotence with another rollback-only preview",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "containerapp",
+        "job",
+        "start",
+        "--name",
+        "abda-nl-stg-migrate",
+        "--resource-group",
+        "abda-nl-staging",
+        "--yaml",
+        "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only/recovery-reconcile-preview.execution.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "No further grant proposed."
+    },
+    {
+      "id": "restricted-after-proof",
+      "operation": "Read the after-state with the same restricted role and exact ledger query",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "containerapp",
+        "job",
+        "start",
+        "--name",
+        "abda-nl-stg-migrate",
+        "--resource-group",
+        "abda-nl-staging",
+        "--yaml",
+        "/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/supplemental-payloads/recovery-role-ledger-inspect.execution.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Preserved reservation IDs, cost, timestamps, status and usage-event rows, except intended program attribution. Explain legitimate intervening usage. Independent emergency budget unchanged."
+    },
+    {
+      "id": "enable-future-activation",
+      "operation": "Enable automatic named activation on compatible code",
+      "argv": [
+        "/u/haoyang/.local/share/abda-azure/cli/bin/az",
+        "rest",
+        "--method",
+        "patch",
+        "--url",
+        "https://management.azure.com/subscriptions/00e62f6e-2174-40b2-b428-8ebfd7c2ac54/resourceGroups/abda-nl-staging/providers/Microsoft.App/containerApps/abda-nl-stg-web?api-version=2025-01-01",
+        "--body",
+        "@/u/haoyang/.local/share/abda-azure/rollouts/20260910-compatibility-8f83-20260910T055626Z/payloads-recovery-only/recovery-ready.patch.json",
+        "--only-show-errors",
+        "--output",
+        "json"
+      ],
+      "required_before_next": "Ready revision abda-nl-stg-web--compat-8f83-0910-recovery-ready on exact recovery digest; affected account balance is $50 less preserved spend/reservations."
+    },
+    {
+      "id": "final-model-promotion",
+      "operation": "Regenerate a separate plan after final model qualification and immutable image verification",
+      "required_before_next": "Final public model admission is outside this recovery-only preparation. Update both app and persistent manual job to that final image later."
+    }
+  ],
+  "recovery_rule": {
+    "after_schema0006": "Use the verified 0006 recovery image or a forward repair. The historical0005 image cannot restart against0006.",
+    "after_named_transfer": "Keep 0006-aware settlement, existing ledger and automatic-activation true. Do not revert the database or named grants as image rollback.",
+    "during_mixed_version_window": "Automatic named activation stays false and explicit reconcile is withheld until all old writers stop.",
+    "public_catalog_recovery": "The verified recovery image exposes only historical balanced; retain current credentials and funding pins."
+  },
+  "hosted_changes_applied": {
+    "app_configuration": false,
+    "migration_job_configuration": false,
+    "schema_migration": false,
+    "named_credit_reconciliation": false,
+    "provider_secret_updates": false,
+    "public_model_admission": false
+  },
+  "next_required_authorization": "Root review of concrete prepared rollout; user approval is not requested by this preparation."
+}

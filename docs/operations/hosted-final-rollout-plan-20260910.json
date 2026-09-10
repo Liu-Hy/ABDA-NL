@@ -1,0 +1,152 @@
+{
+  "admitted_source_fingerprint": "6e973965d4cdfa1112d3726238fc1cd658d15e587afb3bc11ff4656169c0703a",
+  "allowed_differences": {
+    "migration_template": [
+      "/containers/0/image"
+    ],
+    "web_template": [
+      "/containers/0/image",
+      "/revisionSuffix"
+    ]
+  },
+  "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+  "cloud_mutations": false,
+  "credential_values_in_receipt": false,
+  "database_mutations": false,
+  "final_ci_receipt": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-qualified-00d7731/verified-release-summary.json",
+  "final_image": null,
+  "fresh_hosted_state": {
+    "all_resolved_environment_values_match_verified_readiness": true,
+    "all_secret_values_match_verified_readiness": true,
+    "candidate_expected_revision": "abda-nl-stg-web--qualified-eight-0910",
+    "container_apps": 1,
+    "expected_before_image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "expected_before_revision": "abda-nl-stg-web--compat-8f83-0910-recovery-ready",
+    "healthy_ready_replicas": 1,
+    "manual_jobs": 1,
+    "prepared_utc": "2026-09-10T07:38:47.316901+00:00",
+    "running_job_executions": 0
+  },
+  "grant_reconciliation_execution": false,
+  "inference_calls": 0,
+  "native_plan": "docs/operations/hosted-native-mcp-acceptance-plan-20260910.json",
+  "offline_validation": {
+    "passed": 8,
+    "path": "artifacts/evals/test_final_rollout_preparation_20260910.py",
+    "server_inference_calls": 0,
+    "test_sha256": "2aaaecd9eb451d5d12f1a45336e413afe57bf46e7c2dcffef60a7dda78c2c987",
+    "tests": 8
+  },
+  "pending_release_gates": [
+    "Final image CI, signature/provenance/security evidence and immutable digest.",
+    "The final 48 rule-suspension/preference sensitivity observations accepted.",
+    "Root review of the final bound payload hashes and authorization to execute."
+  ],
+  "prepared_utc": "2026-09-10T07:42:08.409485+00:00",
+  "preservation": {
+    "adc_mount_and_volume": true,
+    "all_funding_project_quota_and_endpoints": true,
+    "app_configuration_and_identity": true,
+    "auth_session_and_pepper": true,
+    "manual_job_entrypoint_trigger_retry_and_credentials": true,
+    "named_auto_activation_true": true,
+    "probes_resources_scale": true,
+    "secret_values_and_references": true
+  },
+  "private_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z",
+  "protected_files": {
+    "bind_verified_image.py": {
+      "mode": "0o600",
+      "sha256": "0c1781b99d28449dd3022453c0b6b11973e174c280c5c9e2314dbfa755786141"
+    },
+    "candidate-migration.draft.json": {
+      "mode": "0o600",
+      "sha256": "78b8310fa922fe7a4e5392225e83dbc76a770a75ac6e36192fd11a0b259f697d"
+    },
+    "candidate-web.draft.json": {
+      "mode": "0o600",
+      "sha256": "b75e133651c53196bf1aef968be46d0cee39ffb1312a66e2077229df66d9acfb"
+    },
+    "draft-manifest.json": {
+      "mode": "0o600",
+      "sha256": "7d67d2b3ebf036de6d420a426e8514f6fa2e63bc1136728db1ceaa58c31261d6"
+    },
+    "inspect-after.execution.draft.json": {
+      "mode": "0o600",
+      "sha256": "d11c017bdec80d1f002de36be5080dfbfbe4d0ce25fadec67befaa88e47fb929"
+    },
+    "inspect-before.execution.json": {
+      "mode": "0o600",
+      "sha256": "feac63bac5889cf133467facc9d38737d18b79deaf73468fdb516ef5f2b95455"
+    },
+    "prepare_final_rollout.py": {
+      "mode": "0o600",
+      "sha256": "5ac0c7b85ac810def8055a71872a8196330cd7b51a47a369cba3358acc848d8b"
+    },
+    "recovery-migration.patch.json": {
+      "mode": "0o600",
+      "sha256": "f50d196bb6a50cbcbc5d0e09523a153b08c5f3631d17aefc2a0d2173d7157790"
+    },
+    "recovery-web.patch.json": {
+      "mode": "0o600",
+      "sha256": "523d2b7dc7f78edc3981d5cebf153aad88ecca3afc5a1a3184b0454a5ae02e85"
+    }
+  },
+  "recovery": {
+    "expected_revision": "abda-nl-stg-web--qualified-eight-0910-recovery",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:11244a0df0b78c236945e0ef7a93add6acebf655e2758225d841276483812c44",
+    "named_auto_activation_true": true,
+    "public_profile_ids": [
+      "balanced"
+    ],
+    "receipt": "docs/operations/hosted-recovery-rollout-result-20260910.json",
+    "schema0006_compatible": true,
+    "source_commit": "8f83ac948e1583d5f90317aab94d405530937f0d"
+  },
+  "recovery_action": "On an unhealthy or ambiguous final promotion, first inspect actual revision/provisioning/execution state and preserve logs. Root-authorized recovery uses the prepared web and migration templates with the verified8f83 image, keeping named activation true and schema0006. It does not restore schema0005 or undo grants. No recovery apply has executed.",
+  "schema": "20260909_0006",
+  "schema_migration_execution": false,
+  "secret_update": false,
+  "source_and_ci_binding_script": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/bind_verified_image.py",
+  "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+  "source_tag": "service-image-demo-revision-qualified-20260910",
+  "status": "Prepared locally with an intentionally invalid final-image placeholder. No hosted operation has executed.",
+  "steps": [
+    {
+      "action": "After CI completes, run the local binder with the exact verified digest. It requires the fixed release receipt to contain that image and full source commit, verifies the admitted catalog hash, and creates new bound payloads without applying them. Root independently reviews release acceptance and final payload hashes.",
+      "id": "bind"
+    },
+    {
+      "action": "Read Azure identity, app/job templates and configuration, referenced secrets, writers and ready health again. Require equality with protected before snapshots for every preserved field; material drift requires reviewed regeneration. The old and new images are both schema0006-aware.",
+      "id": "drift"
+    },
+    {
+      "action": "Execute the protected read-only restricted-role ledger inspection via the existing manual job, pinning the current recovery image. Require schema0006, correct role privileges, balanced named/public/emergency accounting and a settled or explained pending-reservation state. Preserve raw results privately.",
+      "id": "before"
+    },
+    {
+      "action": "PATCH only the persistent manual job template using the bound candidate-migration.patch.json. Require the exact final digest and every other template/configuration/identity field unchanged. Do not start its migration entrypoint.",
+      "id": "job-image"
+    },
+    {
+      "action": "PATCH only the web template using bound candidate-web.patch.json. Require final ready/latest revision, exact image, provisioning Succeeded and healthy serving replicas. Inspect fresh GET state after an empty successful PATCH response before deciding whether another operation is needed.",
+      "id": "web-image"
+    },
+    {
+      "action": "Require health/live and health/ready, public/static/scenario/auth flows, exact eight admitted profiles and equal BYOK pool, and all funding settings unchanged. Confirm the previous recovery revision is no longer serving and has no active replica. Make no inference calls.",
+      "id": "hosted-readback"
+    },
+    {
+      "action": "Execute bound inspect-after.execution.json, using the final image with restricted read-only SQL. Verify schema0006 privileges, $50 named policy, preserved historical spending, future entitlements, program conservation and the independent emergency cap. Attribute any concurrent public traffic honestly.",
+      "id": "after"
+    },
+    {
+      "action": "Bind the separately approved synthetic-only native-client plan to this exact final ready revision and image. Complete real subscribed Codex and Claude workflows, browser readback, zero-credit and denial checks, and mandatory fixture retirement and repeated token revocation.",
+      "id": "native-acceptance"
+    },
+    {
+      "action": "Retain exact image/source, both persistent template hashes, ready revision, public catalog and health receipts, ledger before/after proof, and actual hosted native-client cleanup evidence. Remove only the temporary native credential file after authoritative cleanup.",
+      "id": "finish"
+    }
+  ]
+}

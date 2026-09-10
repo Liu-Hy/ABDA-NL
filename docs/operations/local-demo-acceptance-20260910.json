@@ -1,0 +1,126 @@
+{
+  "verified_at_utc": "2026-09-10T07:43:59.024901+00:00",
+  "source_commit": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+  "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+  "launcher_restart_completed": true,
+  "launcher_node": "dt-login03",
+  "origin": "http://127.0.0.1:8765",
+  "laptop_tunnel_required": "ssh delta-demo",
+  "llm_auth_required": true,
+  "auth_mode": "dev",
+  "openrouter_configuration_gap": false,
+  "checks": {
+    "served_assets_match_final_source": true,
+    "eight_funded_models_and_matching_byok_pool": true,
+    "question_insertion_preserves_existing_draft_at_cursor": true,
+    "multiple_context_chips": true,
+    "stale_context_blocks_request_and_preserves_draft": true,
+    "verified_evidence_expands_and_unverified_evidence_hidden": true,
+    "individual_derivation_inspector_accessible": true,
+    "export_contains_effective_scenario_pending_operations_and_matching_argument_graph": true,
+    "export_and_browser_storage_exclude_credentials": true,
+    "durable_history_reload_new_fork_and_account_isolation": true,
+    "simulated_outage_preserves_draft_and_non_llm_exploration": true,
+    "explicit_retry_recovers": true,
+    "mobile_question_focus_and_composer_visible": true,
+    "actual_anonymous_draft_editable_and_ask_requires_signin": true,
+    "actual_development_login_form_available": true
+  },
+  "evidence": [
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/local-restart-preflight-00d7731.json",
+      "sha256": "930e68bfb5d115db0145f28139dc68229323015f802b6c71055366bd6c3f820a"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/local-00d7731-chromium-074127/receipt.json",
+      "sha256": "601bceda9f51c54e2e5f35880a549d51a8bfd3121d8655c7eb63e7ab6cfad4a7"
+    },
+    {
+      "path": "artifacts/evals/final-release-acceptance-20260910/local-auth-browser-final-00d7731.json",
+      "sha256": "90c7b4c214fed80cd5ac08f42afbc2c22f2d53ecc4f416436f81954fbf44c76b"
+    }
+  ],
+  "browser_harness_sha256": "b3a537a0bab03987b5405800787e805e7f0cdab932d79cb16a132f28e03dc4a7",
+  "mobile_screenshot": "artifacts/evals/final-release-acceptance-20260910/local-00d7731-chromium-074127/mobile-question-composer.png",
+  "authentication_and_llm_responses_simulated_in_feature_checks": true,
+  "anonymous_auth_check_uses_actual_public_api_and_ui": true,
+  "real_inference_calls": 0,
+  "real_backend_writes": 0,
+  "real_accounts_created_or_changed": false,
+  "application_source_changes": false,
+  "retained_harness_failure": "artifacts/evals/final-release-acceptance-20260910/local-ui-harness-failure-00d7731-context-removal.json",
+  "browser_coverage_note": "Actual shared-launcher acceptance used Chromium. Exact final-source CI covers Chromium, Firefox, and WebKit separately.",
+  "final_source_confirmation": {
+    "verified_at_utc": "2026-09-10T08:24:00.885830+00:00",
+    "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+    "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+    "launcher_started_at": "2026-09-10T03:21:02.859510-05:00",
+    "active_server_pid": 681648,
+    "managed_process_group_verified": true,
+    "loopback_only": true,
+    "ready_and_live_health_status": 200,
+    "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+    "public_model_count": 8,
+    "funded_byok_pool_consistent": true,
+    "llm_auth_required": true,
+    "auth_mode": "dev",
+    "anonymous_trial_status": 401,
+    "all_eight_served_assets_match_source": true,
+    "all_static_tree_and_catalog_bytes_unchanged_from_comprehensive_browser_source": true,
+    "comprehensive_browser_acceptance_source": "00d773123e1e04481c68ebad7b10d6a93e70da86",
+    "evidence": [
+      {
+        "path": "artifacts/evals/final-release-acceptance-20260910/local-readonly-smoke-234ffc9-20260910T082129892431Z.json",
+        "sha256": "757c8ae32a84b358a6695ccb4af71951ce9a1f7621c0960dbf478ec4a0b7320d"
+      },
+      {
+        "path": "artifacts/evals/final-release-acceptance-20260910/local-active-process-234ffc9.json",
+        "sha256": "8aab91f0200406cc1140761a98bc515bd8908befce30277f4febe0a59725057b"
+      }
+    ],
+    "full_browser_acceptance_repeated": false,
+    "real_inference_calls": 0,
+    "backend_writes_by_smoke": 0,
+    "earlier_receipt_preserved": true
+  },
+  "hosted_acceptance": {
+    "summary": {
+      "path": "docs/operations/hosted-public-ui-acceptance-20260910.json",
+      "sha256": "f23de471221fe25b92d6f757950cf469654af602d1f76be79bbf903c16f479c9"
+    },
+    "raw_receipt": {
+      "path": "artifacts/evals/final-release-acceptance-20260910/hosted-234ffc9-20260910T082800034297Z/receipt.json",
+      "sha256": "c40794fa8e85ec57229d47d57ca9a60d1cab9a9a8fe1bc83eb9a60b6a547e686"
+    },
+    "markdown": "docs/operations/hosted-public-ui-acceptance-20260910.md",
+    "verified_at_utc": "2026-09-10T08:28:03.644749+00:00",
+    "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+    "checks_passed": true
+  },
+  "final_browser_coverage_clarification": {
+    "scope_proof": {
+      "path": "artifacts/evals/final-release-acceptance-20260910/ui-source-and-ci-scope-234ffc9.json",
+      "sha256": "516126868f62cd464073777feea85ff8ef868ba56a7ae8f17af6ffd194b140dc"
+    },
+    "image_ci": "44 tests from tests/test_browser_e2e.py passed in each of Chromium, Firefox and WebKit.",
+    "exploration_browser_workflows": "Eight workflows were verified separately during implementation; all frontend and exploration-test bytes are unchanged from that source. Served Chromium acceptance additionally covers the principal flows.",
+    "ci_followup": "One-line workflow correction adds the eight existing exploration workflows to every browser job; local collection is 52 tests. Remote execution awaits root commit/push.",
+    "ci_followup_result": {
+      "receipt": {
+        "path": "docs/operations/ui-browser-ci-addendum-20260910.json",
+        "sha256": "4d90616ed44d09895dcb770cfb3886a94363c1350f2191bd81e02cc5c42dfaf1"
+      },
+      "ci_source_commit": "07928fc307c6fe73c6177af8e566d915f2e002fd",
+      "deployed_runtime_source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+      "all_ci_jobs_successful": true,
+      "browser_checks_per_engine": 52,
+      "browser_engines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "codeql_security_findings": 0,
+      "browser_artifacts_with_verified_digests": 3
+    }
+  }
+}

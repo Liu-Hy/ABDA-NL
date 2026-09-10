@@ -3,9 +3,98 @@
 This record tracks implementation of the approved
 [review](../demo-revision-review-20260909.md). The starting revision was
 `85bd4ae75d09a55fb65d1cd254d2ab1d833e8e18` on `development`.
-The review is preserved as the investigation record. Implementation is in progress.
+The review is preserved as the investigation record. Implementation, paid
+qualification, deployment, and automated acceptance are complete.
 
-## Accepted scope and current work
+## September 10 completed release
+
+Commit `00d773123e1e04481c68ebad7b10d6a93e70da86` admits eight qualified models:
+Sonnet 5, Opus 5, GPT-5.6 Terra and Sol, Gemini 3.8 Flash and 3.1 Pro Preview,
+GLM 5.3, and Kimi K3. The stable `balanced` profile now selects Sonnet 5.
+DeepSeek is held out after repeated material source, refinement, reviewer, and
+provider failures. Haiku, Luna, and Flash-Lite remain excluded.
+
+The [qualification summary](model-qualification-20260910.md) binds 1,080 accepted
+observations to 45 cases, three repetitions, eight models, and all eleven
+application feature groups. The 456-observation chat suite ran against
+`a2001f6`. A later audit added 48 sensitivity observations covering rule suspension
+and preference changes. One GLM counterfactual ignored unequal preferences,
+so a single general GLM-only reminder was added in final runtime commit
+`234ffc97522b5d82e0a4a4d05082d88a4ab0c173`. Its complete 63-observation chat
+regression passed. Exact offline request/result replay proves compatibility for
+1,017 retained observations across all non-chat features and other models. All provider outputs and earlier failures remain
+preserved. Twenty-one phrase-matching adjudications and two explicit nonblocking
+assessments are separate from the original automatic scores.
+
+The final chat context supplies the status of each instantiated argument and
+its accepted defeaters beside its configured rule. It distinguishes potential
+undercutters from current causes. Quote handling preserves original source
+spans across adjacent retrieval chunks, supported boundary typography, explicit
+prefix citations, and paragraph boundaries. Corrected forward-reference meanings
+reach the reviewer before its call. Prompt changes address recorded failures
+with short general rules. No further tuning is needed after the final GLM review.
+
+Catalog promotion changes only admission, display, verified flags, and the
+balanced profile mapping. Models, request IDs, adapters, reasoning settings,
+limits, tariffs, and other models' prompts are unchanged from their qualified source.
+The admitted implementation fingerprint is
+`3fbbfeffa6fae65ad7bc79e6f32fc131cb56a51c0d833c46cc0cb90285150ce9`.
+
+Lifetime CloudBank testing cost $65.361387, with zero pending and $34.638613
+remaining under the original $100 cap. This includes retries, resumed runs,
+diagnostics, tuning, and the $0.048024 funded in-process MCP probe. No paid
+OpenRouter tests ran. The 48 added sensitivity observations used 49 successful calls, costing
+$0.746802. The final GLM regression used 64 successful Azure calls, costing
+$0.340694. Earlier Azure and verified CloudBank Vertex evidence remains preserved.
+
+The compatible hosted recovery completed at 06:40 UTC on September 10 with
+schema 0006, the registered administrator's $50 lifetime grant, four future
+entitlements, preserved spending and reservations, and automatic named
+activation. Both web and manual job use compatible code. Its
+[receipt](hosted-recovery-rollout-result-20260910.md) preserves exact image and
+accounting evidence. All eight hosted primary configurations and the referenced
+OpenRouter key now pass read-only readiness checks. The final image is healthy
+at `https://demo.abda-nl.org` in revision `abda-nl-stg-web--qualified-eight-0910`.
+The manual job uses the same image, previous replicas have drained, and the
+post-deployment ledger proof is identical to the pre-deployment proof. The
+[final rollout receipt](hosted-final-rollout-result-20260910.md) binds those checks.
+Exact-source CI, image security policy, both cryptographic provenance checks,
+and hosted public browser checks passed. Actual subscribed Codex and Claude
+Code clients each completed the six-tool hosted workflow, including a versioned
+edit and readback. Separate owner-browser checks confirmed the original saved
+projects and complete scenario and argument graph. Ownership, stale and invalid
+writes, missing server-LLM scope, repeated revocation, and cleanup passed.
+Both synthetic accounts are suspended and unverified, their projects are
+archived, all four tokens are revoked, and raw temporary token and cookie files
+are removed. All seven accounting tables remain unchanged. The
+[hosted native-client receipt](hosted-native-mcp-acceptance-result-20260910.md)
+preserves the successful phases and earlier failed harness attempts separately.
+The registered administrator's own browser sign-in remains a personal
+acceptance check; database and account-route verification are complete.
+
+The existing local development login remains available. Its private
+`ABDA_LLM_REQUIRE_AUTH=1` override enables funded quota deduction for signed-in
+users; the prior false setting routed correctly but skipped trial deduction.
+All other private configuration is preserved, including enabled fallback.
+The launcher restarted on final source `234ffc9` at 08:21 UTC. Final served
+assets and all eight model menus match source, health checks pass, and anonymous
+private trial access returns HTTP 401. Comprehensive UI acceptance remains
+applicable because the entire static tree and catalog are byte-identical to
+the tested `00d7731` source. See the [local acceptance record](local-demo-acceptance-20260910.md).
+The [UI requirements audit](ui-requirements-acceptance-20260910.md) maps every
+accepted frontend requirement to its exact evidence and records the limits of
+browser-local history, current-scenario forks, and injected-outage coverage.
+CI-only commit `07928fc307c6fe73c6177af8e566d915f2e002fd` adds the eight existing
+exploration workflows to browser CI. All 52 tests now pass in each of Chromium,
+Firefox, and WebKit. Both Python versions pass 1,454 tests with 53 skips,
+restricted-role PostgreSQL acceptance passes, and CodeQL reports zero findings.
+Application and test files are unchanged from the deployed runtime. The
+[CI addendum](ui-browser-ci-addendum-20260910.md) preserves this separate proof.
+
+The earlier chronological verification notes below describe their recorded
+checkpoints and are superseded by this integration status.
+
+## Accepted scope
 
 - Selected question items become editable drafts with removable context references.
 - Conversations have browser-local, account-scoped history, snapshot export,
@@ -20,26 +109,26 @@ The review is preserved as the investigation record. Implementation is in progre
 - Funded requests use Azure or GCP, followed by the same model on OpenRouter only
   after a qualifying provider failure. CloudBank gets at most one retry.
 - A single qualified catalog controls funded access, BYOK, and MCP admission.
-- Every selected model must pass application-specific feature tests. Prompts are
-  tuned when and only when recorded testing identifies a need.
+- Every selected model passed application-specific feature qualification.
+  Prompts were tuned when and only when recorded testing identified a need.
 - Evaluation uses one persistent $100 CloudBank budget across processes, retries,
   resumed runs, and tuning. Test processes do not receive OpenRouter credentials.
-- Subscribed Codex and Claude Code workflows need complete create, edit, apply,
-  and readback evidence. Their ordinary MCP tools work with zero ABDA model credit.
+- Subscribed Codex and Claude Code workflows have complete hosted create, edit,
+  apply, and readback evidence. Their ordinary MCP tools work with zero ABDA model credit.
 
 Haoyang subsequently removed Claude Haiku, GPT-5.6 Luna, and Gemini 3.5 Flash-Lite
 from the candidate pool and requested 2 or 3 stronger economical alternatives.
-Those three models are excluded from planned paid testing. Public benchmarks
+Those three models are excluded from qualification and public admission. Public benchmarks
 guide model selection; application tests do not recreate general benchmarks.
 
-Haoyang also requested Gemini 3.1 Pro. It is now a candidate alongside Gemini
+Haoyang also requested Gemini 3.1 Pro. It is now qualified and admitted alongside Gemini
 3.8 Flash. The live September 9 [LiveBench table](https://livebench.ai/)
 shows Pro High at 77.0 and $0.286 per successful task, compared with GLM 5.3
 at 76.1 and $0.450. These task costs retain the benchmark's own reasoning
 settings and are distinct from Azure/GCP token tariffs. GLM is an optional
 family choice, not the strongest value choice in this comparison.
 
-## Verification and deployment state
+## Earlier verification and deployment checkpoints
 
 The frontend's initial Chromium selection passed 19 tests. Firefox also passed
 the intercepted workflows and accessibility scan. WebKit cannot launch on this

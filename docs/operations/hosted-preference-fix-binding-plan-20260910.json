@@ -1,0 +1,72 @@
+{
+  "admitted_source_fingerprint": "3fbbfeffa6fae65ad7bc79e6f32fc131cb56a51c0d833c46cc0cb90285150ce9",
+  "catalog_sha256": "2a0090bbac38e18cbe189c8b088faba86154baeace1624fa3c9eb63bc6dc8c88",
+  "database_preflight_repeated": false,
+  "existing_database_preflight": "docs/operations/hosted-final-rollout-preflight-20260910.json",
+  "expected_ready_revision": "abda-nl-stg-web--qualified-eight-0910",
+  "image_apply": false,
+  "inference_calls": 0,
+  "infrastructure_reread": false,
+  "native_fixture_created": false,
+  "new_binding_script": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/bind_verified_image_234ffc97.py",
+  "new_binding_script_mode": "0o600",
+  "new_binding_script_sha256": "7a5658ee3085a7d9dfbac7ec570a089b1132e17f39f1a9ecf1edf278eab1fccf",
+  "new_bound_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/bound-234ffc97",
+  "new_ci_receipt": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-preferences-234ffc9/verified-release-summary.json",
+  "new_image": null,
+  "new_image_bound": false,
+  "original_draft_manifest": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/draft-manifest.json",
+  "original_draft_manifest_sha256": "7d67d2b3ebf036de6d420a426e8514f6fa2e63bc1136728db1ceaa58c31261d6",
+  "original_reviewed_payloads": {
+    "candidate-migration.draft.json": {
+      "mode": "0o600",
+      "sha256": "78b8310fa922fe7a4e5392225e83dbc76a770a75ac6e36192fd11a0b259f697d"
+    },
+    "candidate-web.draft.json": {
+      "mode": "0o600",
+      "sha256": "b75e133651c53196bf1aef968be46d0cee39ffb1312a66e2077229df66d9acfb"
+    },
+    "inspect-after.execution.draft.json": {
+      "mode": "0o600",
+      "sha256": "d11c017bdec80d1f002de36be5080dfbfbe4d0ce25fadec67befaa88e47fb929"
+    },
+    "inspect-before.execution.json": {
+      "mode": "0o600",
+      "sha256": "feac63bac5889cf133467facc9d38737d18b79deaf73468fdb516ef5f2b95455"
+    },
+    "recovery-migration.patch.json": {
+      "mode": "0o600",
+      "sha256": "f50d196bb6a50cbcbc5d0e09523a153b08c5f3631d17aefc2a0d2173d7157790"
+    },
+    "recovery-web.patch.json": {
+      "mode": "0o600",
+      "sha256": "523d2b7dc7f78edc3981d5cebf153aad88ecca3afc5a1a3184b0454a5ae02e85"
+    }
+  },
+  "pending_gates": [
+    "New exact-source CI, signature/provenance/security evidence and immutable image.",
+    "Complete GLM63 actual-answer acceptance.",
+    "Final new bound payload review and root release go."
+  ],
+  "prepared_utc": "2026-09-10T07:57:23.439949+00:00",
+  "preservation": {
+    "all_original_draft_payload_hashes_and_modes_verified": true,
+    "all_three_payload_types_change_only_image_on_copy": true,
+    "binding_logic_unchanged_except_source_fingerprint_and_receipt_constants": true,
+    "funding_identity_credit_and_all_other_settings_unchanged": true,
+    "prior_bound_manifest_and_payloads_untouched": true,
+    "web_suffix_unchanged": true
+  },
+  "prior_bound_manifest": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z/bound-00d77312/bound-manifest.json",
+  "prior_bound_manifest_sha256": "cec35f0aeca1e2758298389ce8c395fdf76735bdb92a5c0a528b0bcb1d2949ec",
+  "private_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-final-qualified-20260910T073609Z",
+  "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "source_tag": "service-image-demo-revision-preferences-20260910",
+  "status": "Prepared locally only. New image binding awaits the verified receipt and digest; hosted apply also requires complete GLM63 acceptance and root release go.",
+  "validation": {
+    "new_exact_image_only_copy_checks": 3,
+    "new_script_parses": true,
+    "new_source_and_receipt_constants_verified": true,
+    "prior_binding_safety_tests_passed": 8
+  }
+}

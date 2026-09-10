@@ -1,0 +1,153 @@
+{
+  "accounting_tables": {
+    "emergency_budgets": {
+      "count": 1,
+      "sha256": "b8776855ef15e9d42d047fede127dfc98deaea380076e034875d253331c752fe"
+    },
+    "emergency_usage_reservations": {
+      "count": 1,
+      "sha256": "0bdb31d6e614f6ad2cfbae4dca80e64a406de284d9d00ad446f87ed0f49f98ab"
+    },
+    "llm_usage_events": {
+      "count": 32,
+      "sha256": "fcbd93fb7be4fd0758919a1a13908aa84944ec37aab4e541f93109756ec976f8"
+    },
+    "named_credit_entitlements": {
+      "count": 5,
+      "sha256": "aa6539a93837a4d10991916df736bfc4a57af9aec09fe9618e589ce984eec4d7"
+    },
+    "trial_grants": {
+      "count": 1,
+      "sha256": "a4f7b2294699f6046f6c36c022ca807a0221596827780dc5f6b5c467472c6cd7"
+    },
+    "trial_programs": {
+      "count": 2,
+      "sha256": "cb4f78115c706f32b2b3e300ee5e18810d576243bec142c1934407f11eba5567"
+    },
+    "usage_reservations": {
+      "count": 30,
+      "sha256": "f7bbd63a878509599c6b3fb50e1f2dc8bd810db0f03134e0fa623542456b7a31"
+    }
+  },
+  "application_changes": false,
+  "browser_handoff": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/browser-sessions.json",
+  "browser_helper_owned_by": "Rawls",
+  "browser_sessions_removed_after_final_retirement": true,
+  "email_delivery": false,
+  "existing_tokens_remain_revoked": true,
+  "fresh_token_expiry_days": 1,
+  "fresh_token_scope": [
+    "projects:read",
+    "projects:write"
+  ],
+  "fresh_tokens_maximum": 2,
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:a9a0cf2cbef909624f853e120a44fd5714e3cd5168821d2d2ee4fd4ccc002d73",
+  "native_model_turns": 0,
+  "new_accounts": 0,
+  "new_projects": 0,
+  "offline_validation": {
+    "inference_calls": 0,
+    "network_calls": 0,
+    "result": "9 passed in 0.31s",
+    "test_path": "artifacts/evals/test_native_project_restoration_20260910.py",
+    "test_sha256": "60fbddbe7b3b16b310a6b5dff9a56d2a29e568987eb3c4ea8749bec02bbb54b3"
+  },
+  "old_raw_token_file_removed": true,
+  "plan_sha256": "9d522b75cc3c9f3c1bc7ebf852be8776145a9cb5f26ef0a13dde53e34f794091",
+  "prepared_utc": "2026-09-10T09:19:22.615250+00:00",
+  "prior_post_retirement_credential_cleanup": {
+    "path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-post-retirement-revocation.json",
+    "sha256": "c417ab9fc0793419aa4da239b964cae26b040072d1220bf0bbc53f854c8b9959"
+  },
+  "prior_read_only_cleanup_execution": "abda-nl-stg-migrate-o2cfour",
+  "prior_read_only_cleanup_report_sha256": "11b28925eef33ce8307f447a65c0d685bddb22680f072a39cf020b78330f41bf",
+  "prior_retirement_execution": "abda-nl-stg-migrate-vp9q2g7",
+  "prior_retirement_report_sha256": "1494c3211c44dcfca82d6483d47749ca2e0042893a5f472e1fb98637c958d1b8",
+  "private_diff": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97/verification-restoration.diff",
+  "private_directory": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-verification-only-234ffc97",
+  "protected_files": {
+    "collect_fixture_job.py": {
+      "mode": "0o600",
+      "sha256": "04cd45e4db8091624486a65fa073bb71e35a3d0855c719976016a6b0e24966ec"
+    },
+    "fixture-inspect.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "129a58abd945397e27550488dabaea7739867cc827da2b9848234df0e45b2faa"
+    },
+    "fixture-manifest.json": {
+      "mode": "0o600",
+      "sha256": "b6cb15cf9ab4f03d9936dfafff0c5532aa223fd9cdd287df52c129f1386fac2d"
+    },
+    "fixture-retire.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "e53cebf1608ad1635a4054e50bc0599feaae6661b9464f6bc758ad7afd6e86f4"
+    },
+    "fixture-setup.retry.execution.json": {
+      "mode": "0o600",
+      "sha256": "5a0b68f15d943278ec4133fab2d4caa351cfc7769204a76abc8cc878ac15a810"
+    },
+    "fixture_runner.py": {
+      "mode": "0o600",
+      "sha256": "f15a7ad01587cd327ffd65c60067a95adebf3755e96121b46788220f6076a69a"
+    },
+    "native-claude-code.json": {
+      "mode": "0o600",
+      "sha256": "ecf360db65101267ce8d46e22ead9f27807ff71ec338623c28e34d0806a4e895"
+    },
+    "native-codex.json": {
+      "mode": "0o600",
+      "sha256": "07b96da6ddf5b3334b307a5d47d0af563e3175981eae2acaa26c60b94fc4f754"
+    },
+    "native_fixture_jobs.py": {
+      "mode": "0o600",
+      "sha256": "a908f6af05d785d55d589de23c0b52fe482e1ed5da3129d98598a67b29f1a4a3"
+    },
+    "native_workflow.py": {
+      "mode": "0o600",
+      "sha256": "986f71207ec0c513c1cc396b94d69ac688a68e93d5d4efec56a9425ff79d87ae"
+    },
+    "readiness.py": {
+      "mode": "0o600",
+      "sha256": "0e5cb5ad189544a298f665545969a9954d3537f8f01cd473301e474374ee7ffa"
+    },
+    "verification-restoration.diff": {
+      "mode": "0o600",
+      "sha256": "acf3316db85f89e51869467eabeff3c1f12e7a784112f0153c53ae1392fa7d04"
+    },
+    "verification_workflow.py": {
+      "mode": "0o600",
+      "sha256": "387819167db51aac2e69eed5a3edbc4d55ba3ff8630a3bccc689f157db56bb41"
+    }
+  },
+  "real_administrator_session_signing": false,
+  "restore_changes": [
+    "Set only the same two suspended synthetic users active and verified, with updated timestamp.",
+    "Set only the exact two archived project rows archived_at=NULL. Preserve every other project field, including scenario, version3 and timestamps."
+  ],
+  "revision": "abda-nl-stg-web--qualified-eight-0910",
+  "same_two_archived_project_ids_from_successful_native_receipts": true,
+  "same_two_fixture_uuids_emails_display_names": true,
+  "sequence": [
+    "Fresh exact image/revision/identity and reviewed payload gates.",
+    "Run the setup override once, require authoritative setup and project-preservation/ledger proof.",
+    "Create two fresh read/write-only tokens, run independent owner HTTP and cross-owner/scope-denial checks.",
+    "Prepare synthetic browser-session handoff only after all protocol checks pass.",
+    "Rawls runs browser-only readback on proven dt-login03 with GET-only backend access and private stage diagnostics.",
+    "Always API archive/revoke cleanup, repeated401, restricted SQL retirement, final read-only ledger/resource proof, session rejection, and raw-token/cookie removal."
+  ],
+  "server_inference_calls": 0,
+  "source_commit": "234ffc97522b5d82e0a4a4d05082d88a4ab0c173",
+  "status": "prepared_not_applied",
+  "successful_native_receipts": {
+    "claude-code": {
+      "copy_byte_identical": true,
+      "original_path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-claude-code.json",
+      "sha256": "ecf360db65101267ce8d46e22ead9f27807ff71ec338623c28e34d0806a4e895"
+    },
+    "codex": {
+      "copy_byte_identical": true,
+      "original_path": "/u/haoyang/.local/share/abda-azure/rollouts/20260910-native-lifecycle-retry-234ffc97/native-codex.json",
+      "sha256": "07b96da6ddf5b3334b307a5d47d0af563e3175981eae2acaa26c60b94fc4f754"
+    }
+  }
+}
