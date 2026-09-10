@@ -17,40 +17,29 @@ from app.llm.providers import (
 
 def test_catalog_profiles_reference_valid_routes_and_models():
     catalog = load_model_catalog()
-    assert catalog.version == 3
-    assert set(catalog.profiles) == {"economy", "balanced", "quality"}
-    assert "claude-sonnet-5" in catalog.models
-    assert "gpt-5.6-sol" in catalog.models
-    assert "gemini-3.6-flash" in catalog.models
-    assert "gemini-3.7-flash" in catalog.models
+    assert catalog.version == 4
+    assert catalog.public_profiles()
     for profile in catalog.profiles.values():
         primary = catalog.routes[profile.primary_route]
         assert catalog.model_for_route(primary).structured_tools is True
+        assert primary.provider in {"azure-foundry", "gcp-vertex"}
+        assert primary.billing_source == "cloudbank"
         if profile.fallback_route:
             fallback = catalog.routes[profile.fallback_route]
             assert fallback.billing_source == "openrouter-emergency"
-
-    sonnet = catalog.models["claude-sonnet-5"]
-    assert sonnet.input_usd_per_million == 2
-    fallback = catalog.routes["openrouter-claude-sonnet-5"]
-    assert fallback.use_provider_reported_cost is True
-    assert str(fallback.billing_multiplier) == "1.055"
-    assert catalog.cost_ceiling_for_route(fallback).output_usd_per_million == 15
-    assert (
-        catalog.profiles["balanced"].fallback_route
-        == "openrouter-gemini-3.7-flash"
-    )
-    assert catalog.byok_defaults["google"].model == "gemini-3.7-flash"
-    for candidate in (
-        "cloudbank-claude-sonnet-5",
-        "cloudbank-gpt-5.6-terra",
-        "cloudbank-deepseek-v4-flash",
-        "cloudbank-qwen3.6-plus",
-    ):
-        route = catalog.routes[candidate]
-        assert route.provider == "azure-foundry"
-        assert route.billing_source == "cloudbank"
-        assert route.model_env is not None
+            assert fallback.provider == "openrouter"
+            assert fallback.model == primary.model
+            assert fallback.use_provider_reported_cost is True
+            assert fallback.billing_multiplier >= 1
+        if profile.public_ready:
+            assert profile.fallback_route
+            assert primary.verified and catalog.routes[profile.fallback_route].verified
+            model = catalog.model_for_route(primary)
+            assert model.input_usd_per_million <= 5
+            assert model.output_usd_per_million <= 25
+    assert catalog.public_model_ids() == {
+        catalog.routes[profile.primary_route].model for profile in catalog.public_profiles()
+    }
 
 
 def test_catalog_costs_round_up_to_whole_microusd():

@@ -23,13 +23,20 @@ def test_custom_scenario_context_never_reads_the_filesystem(monkeypatch):
         corpus.build_corpus_block(None, ["../../.env"], "Untrusted")
 
 
-def test_pdf_extraction_requires_a_resolved_executable(tmp_path, monkeypatch):
+def test_pdf_extraction_fallback_rejects_invalid_pdf(tmp_path, monkeypatch):
     document = tmp_path / "paper.pdf"
     document.write_bytes(b"%PDF-1.4\n")
     monkeypatch.setattr(corpus.shutil, "which", lambda _name: None)
 
-    with pytest.raises(CorpusLoadError, match="pdftotext not found"):
+    with pytest.raises(CorpusLoadError, match="source PDF text could not be extracted"):
         corpus._read_corpus_file(document)
+
+
+def test_pdf_extraction_falls_back_to_pypdf(monkeypatch):
+    from pathlib import Path
+    monkeypatch.setattr(corpus.shutil, "which", lambda _name: None)
+    document = next((Path(__file__).parents[1] / "examples" / "popov_v_hayashi" / "corpus").glob("*.pdf"))
+    assert "Popov" in corpus._read_corpus_file(document)
 
 
 def test_pdf_extraction_uses_the_resolved_executable(tmp_path, monkeypatch):

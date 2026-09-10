@@ -1,0 +1,173 @@
+{
+  "started_utc": "2026-09-10T02:47:01.989476+00:00",
+  "operation": "existing Fireworks DataZoneStandard capacity 10 to 100",
+  "deployments": [
+    {
+      "before": {
+        "name": "abda-glm-5-3",
+        "model": {
+          "callRateLimit": null,
+          "format": "Fireworks",
+          "name": "FW-GLM-5.3",
+          "publisher": null,
+          "source": null,
+          "sourceAccount": null,
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 10,
+          "family": null,
+          "name": "DataZoneStandard",
+          "size": null,
+          "tier": null
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 10.0,
+            "dynamicThrottlingEnabled": null,
+            "key": "request",
+            "matchPatterns": null,
+            "minCount": null,
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 10000.0,
+            "dynamicThrottlingEnabled": null,
+            "key": "token",
+            "matchPatterns": null,
+            "minCount": null,
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "patch_started_utc": "2026-09-10T02:47:08.143117+00:00",
+      "after": {
+        "name": "abda-glm-5-3",
+        "model": {
+          "format": "Fireworks",
+          "name": "FW-GLM-5.3",
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "DataZoneStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 100000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "verified_utc": "2026-09-10T02:47:10.440491+00:00",
+      "model_sku_guardrail_preserved": true
+    },
+    {
+      "before": {
+        "name": "abda-kimi-k3",
+        "model": {
+          "callRateLimit": null,
+          "format": "Fireworks",
+          "name": "FW-Kimi-K3",
+          "publisher": null,
+          "source": null,
+          "sourceAccount": null,
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 10,
+          "family": null,
+          "name": "DataZoneStandard",
+          "size": null,
+          "tier": null
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 10.0,
+            "dynamicThrottlingEnabled": null,
+            "key": "request",
+            "matchPatterns": null,
+            "minCount": null,
+            "renewalPeriod": 60.0
+          },
+          {
+            "count": 10000.0,
+            "dynamicThrottlingEnabled": null,
+            "key": "token",
+            "matchPatterns": null,
+            "minCount": null,
+            "renewalPeriod": 60.0
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "patch_started_utc": "2026-09-10T02:47:10.441147+00:00",
+      "after": {
+        "name": "abda-kimi-k3",
+        "model": {
+          "format": "Fireworks",
+          "name": "FW-Kimi-K3",
+          "version": "1"
+        },
+        "sku": {
+          "capacity": 100,
+          "name": "DataZoneStandard"
+        },
+        "status": "Succeeded",
+        "rate_limits": [
+          {
+            "count": 100,
+            "key": "request",
+            "renewalPeriod": 60
+          },
+          {
+            "count": 100000,
+            "key": "token",
+            "renewalPeriod": 60
+          }
+        ],
+        "guardrail": "Microsoft.DefaultV2",
+        "version_upgrade_option": "NoAutoUpgrade"
+      },
+      "verified_utc": "2026-09-10T02:47:12.826236+00:00",
+      "model_sku_guardrail_preserved": true
+    }
+  ],
+  "api_inference_calls": 0,
+  "source_changed": false,
+  "billing_type": "pay-per-token",
+  "billing_source": "https://learn.microsoft.com/en-us/azure/foundry/how-to/fireworks/enable-fireworks-models",
+  "feature_state": "Registered",
+  "quota_before": {
+    "currentValue": 20.0,
+    "limit": 2000.0,
+    "unit": "Count",
+    "scopeId": "eastus2",
+    "scopeType": "Classic"
+  },
+  "projected_total": 200,
+  "other_deployments_unchanged": true,
+  "quota_after": {
+    "currentValue": 200.0,
+    "limit": 2000.0,
+    "unit": "Count",
+    "scopeId": "eastus2",
+    "scopeType": "Classic"
+  },
+  "completed_utc": "2026-09-10T02:47:14.879418+00:00",
+  "success": true
+}

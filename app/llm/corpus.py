@@ -17,6 +17,7 @@ import shutil
 import json
 import re
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -40,9 +41,16 @@ def _read_corpus_file(path: Path) -> str:
     if path.suffix.lower() == ".pdf":
         executable = shutil.which("pdftotext")
         if executable is None:
-            raise CorpusLoadError(
-                "pdftotext not found; install poppler-utils or add a .txt variant"
-            )
+            from pypdf import PdfReader
+            try:
+                reader = PdfReader(path)
+                if len(reader.pages) > 300:
+                    raise CorpusLoadError("source PDF exceeds the 300-page extraction limit")
+                return "\n".join(page.extract_text() or "" for page in reader.pages)
+            except CorpusLoadError:
+                raise
+            except Exception as exc:
+                raise CorpusLoadError("source PDF text could not be extracted") from exc
         try:
             # The executable is resolved to an absolute path, and scenario
             # validation confines the document to a bundled corpus directory.
@@ -96,6 +104,7 @@ def build_corpus_block(
     budget_tokens: int = DEFAULT_BUDGET_TOKENS,
     sources: list[dict[str, str]] | None = None,
     query: str = "",
+    verified_spans: bool = False,
 ) -> str:
     """Return the corpus section of the chat system prompt.
 
@@ -104,6 +113,28 @@ def build_corpus_block(
     `CorpusLoadError` if no yaml exists and the raw corpus exceeds the
     budget.
     """
+    if verified_spans:
+        documents = [dict(source) for source in (sources or []) if source.get("text")]
+        if scenario_dir is None and corpus_files:
+            raise CorpusLoadError("a custom scenario cannot read local source documents")
+        if scenario_dir is not None:
+            directory = (scenario_dir / "corpus").resolve()
+            for filename in corpus_files:
+                path = (directory / filename).resolve()
+                if not path.is_relative_to(directory):
+                    raise CorpusLoadError("source document is outside the scenario corpus")
+                stat = path.stat()
+                text = _cached_source_text(path, stat.st_mtime_ns, stat.st_size)
+                if text:
+                    documents.append({"filename": filename, "text": text})
+        if documents:
+            return build_attached_context(documents, query, budget_tokens=budget_tokens)
+        return (
+            "# Source context\n\nNo external source documents are attached to this "
+            "user-authored scenario. Ground answers and edits in the supplied "
+            "statements, rules, user instructions, and computed argumentation state. "
+            "Do not invent document citations or claim to have consulted sources.\n"
+        )
     if sources:
         attached = build_attached_context(sources, query, budget_tokens=budget_tokens)
         if scenario_dir is None:
@@ -140,6 +171,12 @@ def build_corpus_block(
             f"{budget_tokens}-token budget; create corpus_summary.yaml to curate"
         )
     return _render_concat_corpus(scenario_title, raw_texts)
+
+
+@lru_cache(maxsize=32)
+def _cached_source_text(path: Path, mtime_ns: int, size: int) -> str:
+    del mtime_ns, size
+    return _read_corpus_file(path)
 
 
 def build_attached_context(sources: list[dict[str, str]], query: str, *, budget_tokens: int) -> str:

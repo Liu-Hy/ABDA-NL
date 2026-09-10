@@ -10,6 +10,7 @@ of exposing the rejected draft.
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -19,6 +20,7 @@ from typing import Any
 from app.llm.client import LLMClient, LLMResponse
 from app.llm.corpus import build_corpus_block
 from app.llm.prompts import load_prompt
+from app.llm.evidence import context_block, resolve_context_refs, source_evidence, supplied_sources
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +44,7 @@ class ChatTurnResult:
     cost_microusd: int = 0
     validator_flags: list[str] = field(default_factory=list)
     retried: bool = False
+    evidence: list[dict[str, Any]] = field(default_factory=list)
 
 
 # --- State block formatting -----------------------------------------------
@@ -82,11 +85,15 @@ def _format_labels(scenario: Any, af: dict[str, Any]) -> str:
         r = rules[rid]
         premises_str = ", ".join(f"`{p}`" for p in (r.premises or [])) or "(no premises)"
         ucs = undercutters.get(rid, [])
-        uc_str = f" — undercut by: {', '.join(f'`{u}`' for u in ucs)}" if ucs else ""
+        uc_str = f"; undercut by: {', '.join(f'`{u}`' for u in ucs)}" if ucs else ""
         kind = getattr(r, "type", "defeasible")
         block = getattr(r, "block", None)
         block_str = f", block={block}" if block is not None else ""
-        return f"    - `{rid}` ({kind}{block_str}): {premises_str} → `{r.conclusion}`{uc_str}"
+        active = kind == "strict" or getattr(r, "active", True)
+        return (
+            f"    - `{rid}` ({kind}{block_str}, {'active' if active else 'inactive'}): "
+            f"{premises_str} -> `{r.conclusion}`{uc_str}"
+        )
 
     lines = ["### Key conclusions — label, rules, and undercuts"]
     for conc_id, conc in (scenario.conclusions or {}).items():
@@ -121,29 +128,65 @@ def _format_assumptions(scenario: Any) -> str:
 
 
 def _format_attacks(af: dict[str, Any], scenario: Any) -> str:
-    """Summarise attacks between key-conclusion arguments."""
+    """Keep signed conclusions, argument identity, and grounded labels intact.
+
+    The engine's ``attacks`` have already passed its preference comparison.
+    They are defeat edges, including mutual edges between undecided arguments.
+    Collapsing arguments by unsigned conclusion loses both this distinction
+    and the difference between accepted and rejected attackers.
+    """
     attacks = af.get("attacks") or []
     arguments = {a["id"]: a for a in (af.get("arguments") or [])}
     key_conclusions = set((scenario.conclusions or {}).keys())
+    relevant_ids = {
+        argument_id
+        for argument_id, argument in arguments.items()
+        if argument.get("conclusion", "").lstrip("-") in key_conclusions
+    }
     seen: set[tuple[str, str, str]] = set()
-    pairs: list[str] = []
+    edges: list[dict[str, str]] = []
     for atk in attacks:
         from_arg = arguments.get(atk.get("from"))
         to_arg = arguments.get(atk.get("to"))
         if not from_arg or not to_arg:
             continue
-        src = from_arg.get("conclusion", "").lstrip("-")
-        dst = to_arg.get("conclusion", "").lstrip("-")
-        if src not in key_conclusions and dst not in key_conclusions:
+        if from_arg["id"] not in relevant_ids and to_arg["id"] not in relevant_ids:
             continue
-        key = (src, dst, atk.get("type", "rebut"))
+        key = (from_arg["id"], to_arg["id"], atk.get("type", "rebut"))
         if key in seen:
             continue
         seen.add(key)
-        pairs.append(f"- `{src}` {atk.get('type', 'rebut')}s argument for `{dst}`")
-    if not pairs:
-        return "### Attacks between key conclusions\n\n(none between key conclusions)"
-    return "### Attacks between key conclusions\n\n" + "\n".join(pairs)
+        edges.append({"from": key[0], "to": key[1], "type": key[2]})
+
+    # Include premises and the attacking arguments, even when their own
+    # conclusions are intermediate statements rather than key conclusions.
+    relevant_ids.update(edge[endpoint] for edge in edges for endpoint in ("from", "to"))
+    for argument_id in tuple(relevant_ids):
+        relevant_ids.update(arguments[argument_id].get("sub_arguments", []))
+    label_names = {"in": "accepted", "out": "rejected", "undec": "undecided"}
+    rows = []
+    for argument_id, argument in arguments.items():
+        if argument_id not in relevant_ids:
+            continue
+        rows.append({
+            "id": argument_id,
+            "conclusion": argument.get("conclusion"),
+            "description": argument.get("conclusion_nl", ""),
+            "top_rule": argument.get("top_rule"),
+            "premise_arguments": argument.get("premises", []),
+            "label": label_names.get(argument.get("label"), argument.get("label", "unknown")),
+        })
+    return (
+        "### Computed argument and defeat evidence\n\n"
+        "Each argument has its own identity, signed conclusion, and computed label. "
+        "Different arguments for the same conclusion can have different labels. "
+        "The listed edges are the engine's preference-permitted attacks (the defeat relation), "
+        "not all possible conflicts. An edge does not by itself make its source accepted or "
+        "its target rejected. Equal-preference arguments can defeat one another and both remain "
+        "undecided; neither then wins. An attacker labelled rejected does not establish that its "
+        "conclusion is accepted.\n"
+        + json.dumps({"arguments": rows, "defeat_edges": edges}, ensure_ascii=False).replace("<", "\\u003c")
+    )
 
 
 def _format_categories(scenario: Any) -> str:
@@ -261,6 +304,12 @@ def _format_edit_vocabulary(scenario: Any) -> str:
         for item_id, item in items.items():
             description = getattr(item, "description", "") or ""
             sections.append(f"- `{item_id}`: {description}")
+            fields = {
+                name: getattr(item, name)
+                for name in ("description", "negated_description", "category", "source", "block", "active")
+                if hasattr(item, name)
+            }
+            sections.append("  Current fields: " + json.dumps(fields, ensure_ascii=False).replace("<", "\\u003c"))
 
     sections.append("\n#### Rules")
     rules = getattr(scenario, "rules", None) or {}
@@ -273,6 +322,14 @@ def _format_edit_vocabulary(scenario: Any) -> str:
                 f"- `{rule_id}` ({rule.type}, block={rule.block}): "
                 f"{premises} -> `{rule.conclusion}`"
             )
+            fields = {
+                name: getattr(rule, name)
+                for name in (
+                    "type", "premises", "conclusion", "negated_description",
+                    "category", "source", "block", "active",
+                )
+            }
+            sections.append("  Current fields: " + json.dumps(fields, ensure_ascii=False).replace("<", "\\u003c"))
     return "\n".join(sections)
 
 
@@ -300,15 +357,17 @@ def build_system_prompt(
     *,
     scenario_dir: Path | None,
     query: str = "",
+    context_refs: list[dict[str, str]] | None = None,
 ) -> str:
     corpus_block = build_corpus_block(
         scenario_dir,
         list((scenario.corpus or [])),
         getattr(scenario, "title", "") or (scenario_dir.name if scenario_dir else "Custom scenario"),
-        sources=getattr(scenario, "sources", []), query=query,
+        sources=getattr(scenario, "sources", []), query=query, verified_spans=True,
     )
     scenario_block = build_scenario_block(scenario)
     state_block = build_state_block(scenario, af, diff_ops)
+    state_block += context_block(resolve_context_refs(scenario, af, context_refs or []))
     if scenario_dir is None or getattr(scenario, "sources", []):
         # A new scenario has no example documents to supply the meanings of
         # its identifiers. Include every authored statement and rule, rather
@@ -443,11 +502,17 @@ def run_turn(
     *,
     scenario_dir: Path | None,
     client: LLMClient,
+    context_refs: list[dict[str, str]] | None = None,
 ) -> ChatTurnResult:
     """Run one chat turn through the Proposer (+ one corrective
     retry)."""
     query = next((str(item.get("content", "")) for item in reversed(messages) if item.get("role") == "user"), "")
-    system_prompt = build_system_prompt(scenario, af, diff_ops, scenario_dir=scenario_dir, query=query)
+    system_prompt = build_system_prompt(scenario, af, diff_ops, scenario_dir=scenario_dir, query=query,
+                                        context_refs=context_refs)
+    passages = supplied_sources(system_prompt)
+    references = resolve_context_refs(scenario, af, context_refs or [])
+    formal_evidence = [{"kind": ref["kind"], "id": ref["id"], "verified": True}
+                       for ref in references if ref["kind"] in {"rule", "argument", "conclusion"}]
     conversation = _coerce_messages(messages)
 
     first: LLMResponse = client.complete(
@@ -457,6 +522,8 @@ def run_turn(
         cache=True,
     )
     issues = validate_response(first.text, scenario, af)
+    evidence, quotation_issues = source_evidence(first.text, passages)
+    issues.extend(quotation_issues)
 
     if not issues:
         return ChatTurnResult(
@@ -471,6 +538,7 @@ def run_turn(
             cost_microusd=first.cost_microusd,
             validator_flags=[],
             retried=False,
+            evidence=evidence + formal_evidence,
         )
 
     # Silent retry with corrective feedback.
@@ -491,6 +559,8 @@ def run_turn(
         for k in set(first.usage) | set(second.usage)
     }
     remaining = validate_response(second.text, scenario, af)
+    evidence, quotation_issues = source_evidence(second.text, passages)
+    remaining.extend(quotation_issues)
     safe_text = second.text
     stop_reason = second.stop_reason
     if remaining:
@@ -514,4 +584,5 @@ def run_turn(
         cost_microusd=first.cost_microusd + second.cost_microusd,
         validator_flags=remaining,
         retried=True,
+        evidence=[] if remaining else evidence + formal_evidence,
     )

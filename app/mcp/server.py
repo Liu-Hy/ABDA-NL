@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import logging
 import os
+import inspect
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import wraps
 from typing import Any, Iterator, Literal
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -343,16 +345,19 @@ def _legacy_llm_client():
 
 
 def _select_mcp_llm_client(
-    *, user: User, profile: str, request_id: str, request_kind: str
+    *, user: User, profile: str | None, request_id: str, request_kind: str
 ):
     if not _llm_enabled():
         raise MCPToolUserError("Language model tools are disabled on this server.")
     return select_request_llm_client(
-        LLMRequestOptions(profile=profile),
+        LLMRequestOptions(profile=profile or get_settings().llm_default_profile),
         user=user,
         request_id=request_id,
         request_kind=request_kind,
         legacy_factory=_legacy_llm_client,
+        # Personal MCP access is always account-funded, including on a local
+        # demo whose anonymous browser LLM setting is relaxed for development.
+        settings=replace(get_settings(), llm_require_auth=True),
     )
 
 
@@ -481,9 +486,9 @@ def create_project(
     name: str,
     source_scenario_id: str,
     description: str = "",
-    diff_ops: list[dict[str, Any]] | None = None,
+    diff_ops: list[DiffOp] | None = None,
 ) -> dict[str, Any]:
-    """Create a private project from an example. Requires projects:write."""
+    """Create a private project from an example. Requires projects:write; no ABDA credit."""
     with _tool_boundary("create_project"):
         operations = _validated_ops(diff_ops)
         with get_session_factory()() as session:
@@ -511,9 +516,13 @@ def create_project(
 def apply_project_ops(
     project_id: str,
     expected_version: int,
-    diff_ops: list[dict[str, Any]],
+    diff_ops: list[DiffOp],
 ) -> dict[str, Any]:
-    """Apply reviewed diff operations to a project. Requires projects:write."""
+    """Apply a user-approved edit at the observed version and recompute outcomes.
+
+    Requires projects:write; no ABDA credit or server LLM. Read the project first
+    to get its version and valid identifiers. Never apply a stale proposal.
+    """
     with _tool_boundary("apply_project_ops"):
         operations = _validated_ops(diff_ops)
         if not operations:
@@ -573,9 +582,13 @@ def ask_project(
     project_id: str,
     question: str,
     ctx: Context,
-    profile: Literal["balanced"] = "balanced",
+    profile: str | None = None,
 ) -> dict[str, Any]:
-    """Ask a grounded question about a project. Requires llm:use and trial credit."""
+    """Ask the ABDA server LLM about a project. Requires llm:use and ABDA credit.
+
+    This spends ABDA credit even with a Codex or Claude Code subscription. To
+    use your client's own model without ABDA credit, read get_project instead.
+    """
     with _tool_boundary("ask_project"):
         question = _bounded_text(question, "question")
         user, project, scenario, bundle = _load_project_for_llm(project_id)
@@ -622,9 +635,14 @@ def propose_project_edit(
     instruction: str,
     ctx: Context,
     existing_id: str | None = None,
-    profile: Literal["balanced"] = "balanced",
+    profile: str | None = None,
 ) -> dict[str, Any]:
-    """Propose but do not apply a project edit. Requires llm:use and trial credit."""
+    """Ask the ABDA server LLM for an edit, without applying it. Spends ABDA credit.
+
+    Requires llm:use even with a client subscription. The client's own model can
+    instead construct diff operations from get_project and apply them after
+    user approval, using projects:read and projects:write without ABDA credit.
+    """
     with _tool_boundary("propose_project_edit"):
         instruction = _bounded_text(instruction, "instruction")
         user, project, scenario, bundle = _load_project_for_llm(project_id)
@@ -683,6 +701,28 @@ class MCPRuntime:
     app: ASGIApp
 
 
+def _catalog_profile_tool(function):
+    """Expose the current shared model pool in each fresh MCP tool schema."""
+    from app.llm.catalog import public_profile_ids
+
+    signature = inspect.signature(function, eval_str=True)
+    if "profile" not in signature.parameters:
+        return function
+    profiles = public_profile_ids()
+    profile_type = Literal[profiles] | None if profiles else type(None)
+
+    @wraps(function)
+    def selected_model_tool(**kwargs):
+        return function(**kwargs)
+
+    selected_model_tool.__signature__ = signature.replace(parameters=[
+        parameter.replace(annotation=profile_type)
+        if parameter.name == "profile" else parameter
+        for parameter in signature.parameters.values()
+    ])
+    return selected_model_tool
+
+
 def create_mcp_runtime() -> MCPRuntime:
     """Create a fresh SDK runtime for one ASGI application lifespan."""
     settings = get_settings()
@@ -694,16 +734,21 @@ def create_mcp_runtime() -> MCPRuntime:
         ),
         instructions=(
             "ABDA-NL projects are private to the authenticated user. Read a project before "
-            "changing it. Every write requires the current expected_version and returns a new "
-            "version. Language model proposals never apply themselves and consume trial credit. "
-            "Review a proposed diff, then apply it explicitly. Never send provider API keys "
+            "changing it. Edits require the current expected_version and return a new version. "
+            "Read and project-write tools use no ABDA server LLM and work with zero ABDA credit. "
+            "With a Codex or Claude Code subscription, use your own model to explain the returned "
+            "formal outcomes or construct an edit. Show the proposed edit to the user, apply it "
+            "only when authorized, and read back the changed project and grounded outcomes. "
+            "ask_project and propose_project_edit invoke the ABDA server LLM, require llm:use, "
+            "and consume ABDA credit even with a client subscription. Language model proposals "
+            "never apply themselves. Never send provider API keys "
             "through MCP; browser BYOK keeps keys in one request."
         ),
         website_url=settings.public_base_url,
-        version="0.2.0",
+        version="0.3.0",
     )
     for function, tool_annotations in _TOOL_REGISTRATIONS:
-        server.add_tool(function, annotations=tool_annotations)
+        server.add_tool(_catalog_profile_tool(function), annotations=tool_annotations)
     transport_app = server.streamable_http_app(
         streamable_http_path="/",
         json_response=True,

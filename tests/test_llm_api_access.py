@@ -22,6 +22,7 @@ from app.llm.client import LLMResponse, LLMResponseValidationError
 from app.llm.providers import LLMProviderError
 from app.llm.routing import LLMRouteConfigurationError, LLMRouter
 from app.services.trials import InsufficientTrialCreditError
+from helpers.catalogs import admit_catalog_models
 
 
 class _StubRouter:
@@ -56,15 +57,19 @@ def _public_settings():
 
 def test_public_config_exposes_only_quality_gated_profile():
     config = build_llm_config(llm_enabled=True, settings=_public_settings())
-    assert [profile.id for profile in config.profiles] == ["balanced"]
-    assert config.default_profile == "balanced"
+    assert [profile.id for profile in config.profiles] == [
+        profile.id for profile in load_model_catalog().public_profiles()
+    ]
+    assert config.default_profile == _public_settings().llm_default_profile
     assert config.byok_enabled is True
     assert config.byok_keys_stored is False
 
 
 def test_development_config_also_hides_unvalidated_funded_profiles():
     config = build_llm_config(llm_enabled=True, settings=get_settings())
-    assert [profile.id for profile in config.profiles] == ["balanced"]
+    assert [profile.id for profile in config.profiles] == [
+        profile.id for profile in load_model_catalog().public_profiles()
+    ]
 
 
 def test_byok_request_representation_and_json_hide_secret():
@@ -545,7 +550,10 @@ def test_byok_api_call_is_audited_without_trial_deduction(monkeypatch):
         llm_retry_attempts=1,
         openrouter_failover_enabled=False,
     )
-    router = LLMRouter(settings=settings, session_factory=get_session_factory())
+    catalog = load_model_catalog()
+    model_id = catalog.byok_defaults["openai"].model
+    catalog = admit_catalog_models(catalog, model_id)
+    router = LLMRouter(settings=settings, catalog=catalog, session_factory=get_session_factory())
     _install_request_router(monkeypatch, router, settings)
     secret = "sk-session-only-integration-secret"
 
@@ -567,7 +575,7 @@ def test_byok_api_call_is_audited_without_trial_deduction(monkeypatch):
                     "byok": {
                         "provider": "openai",
                         "api_key": secret,
-                        "model": "gpt-5.6-terra",
+                        "model": model_id,
                     }
                 },
             },
@@ -577,7 +585,7 @@ def test_byok_api_call_is_audited_without_trial_deduction(monkeypatch):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["billing_source"] == "byok"
-    assert body["route"] == "byok:openai:gpt-5.6-terra"
+    assert body["route"] == f"byok:openai:{model_id}"
     assert before == after
     assert after["active"] is False
     assert seen_keys == [secret]

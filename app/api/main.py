@@ -115,12 +115,16 @@ def _preflight_llm_config(enable_llm: bool) -> None:
                 "the public default model profile must pass the quality gate"
             )
         route = catalog.routes[profile.primary_route]
-        if route.provider != "azure-foundry":
-            raise RuntimeError("the public funded route must use Azure Foundry")
+        if route.provider not in {"azure-foundry", "gcp-vertex"}:
+            raise RuntimeError("the public funded route must use CloudBank Azure or GCP")
+        if route.provider == "gcp-vertex":
+            if not (os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_PROJECT_ID")):
+                log.warning("CloudBank GCP configuration is unavailable; manual features remain usable")
+            return
         if route.adapter == "anthropic":
             api_key, auth_token, _ = foundry_credentials()
             if not (api_key or auth_token):
-                raise RuntimeError("the public Foundry route requires Azure credentials")
+                log.warning("CloudBank Azure credentials are unavailable; manual features remain usable")
         else:
             azure_key = (
                 os.getenv("AZURE_OPENAI_API_KEY")
@@ -133,15 +137,11 @@ def _preflight_llm_config(enable_llm: bool) -> None:
                 or ""
             ).strip()
             if not azure_key or not azure_endpoint:
-                raise RuntimeError(
-                    "the public Foundry route requires an Azure key and endpoint"
-                )
+                log.warning("CloudBank Azure configuration is unavailable; manual features remain usable")
         if settings.openrouter_failover_enabled and not (
             os.getenv("OPENROUTER_API_KEY") or ""
         ).strip():
-            raise RuntimeError(
-                "OpenRouter failover is enabled but OPENROUTER_API_KEY is not set"
-            )
+            log.warning("OpenRouter fallback is unavailable; manual features remain usable")
         return
 
     backend = resolve_backend()
@@ -425,12 +425,12 @@ def internal_metrics(
     emergency = session.get(EmergencyBudget, "openrouter")
     llm_events = int(session.scalar(select(func.count(LLMUsageEvent.id))) or 0)
     trial_reserved = int(
-        session.scalar(select(func.sum(TrialGrant.reserved_microusd))) or 0
+        session.scalar(select(func.sum(TrialGrant.reserved_microusd)).where(TrialGrant.program_key == "global")) or 0
     )
     trial_uncertain_count = int(
         session.scalar(
             select(func.count(UsageReservation.id)).where(
-                UsageReservation.status == "expired_charged"
+                UsageReservation.status == "expired_charged", UsageReservation.program_key == "global"
             )
         )
         or 0
@@ -438,7 +438,7 @@ def internal_metrics(
     trial_uncertain_cost = int(
         session.scalar(
             select(func.sum(UsageReservation.actual_microusd)).where(
-                UsageReservation.status == "expired_charged"
+                UsageReservation.status == "expired_charged", UsageReservation.program_key == "global"
             )
         )
         or 0
@@ -654,6 +654,7 @@ def _run_chat_request(
             [message.model_dump() for message in payload.messages],
             scenario_dir=scenario_dir,
             client=client,
+            context_refs=[ref.model_dump() for ref in payload.context_refs],
         )
     except HANDLED_LLM_ERRORS as exc:
         raise llm_http_exception(exc, byok=uses_byok) from exc
@@ -685,6 +686,7 @@ def _run_chat_request(
         usage=ChatUsage(**result.usage),
         latency_ms=result.latency_ms,
         retried=result.retried,
+        evidence=result.evidence,
     )
 
 

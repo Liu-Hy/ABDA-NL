@@ -17,6 +17,14 @@ _ID_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_]*$"
 # A literal is either an ID ("popov_has_poss") or "-" + ID ("-popov_has_poss").
 _LITERAL_PATTERN = r"^-?[a-zA-Z][a-zA-Z0-9_]*$"
 
+_SOURCE_DESCRIPTION = (
+    "Origin of this exact content. Preserve a source explicitly chosen by the user and existing "
+    "metadata unless a source change is requested. Cite a corpus filename only when the supplied "
+    "text supports this statement, not merely related background. For new user-stipulated facts "
+    "or assumptions, use 'user instruction' or omit source unless the supplied text establishes "
+    "their specific details."
+)
+
 _NEW_PREMISE_NOTES_SCHEMA: dict[str, Any] = {
     "type": "array",
     "description": (
@@ -83,7 +91,7 @@ _RULE_INPUT_SCHEMA: dict[str, Any] = {
                 },
                 "source": {
                     "type": "string",
-                    "description": "Where this rule comes from in the source material. Cite a filename from the corpus when possible.",
+                    "description": _SOURCE_DESCRIPTION,
                 },
                 "block": {
                     "type": "integer",
@@ -125,7 +133,7 @@ _FACT_INPUT_SCHEMA: dict[str, Any] = {
                 },
                 "negated_description": {"type": "string", "minLength": 1},
                 "category": {"type": "string"},
-                "source": {"type": "string"},
+                "source": {"type": "string", "description": _SOURCE_DESCRIPTION},
             },
         },
     },
@@ -153,7 +161,7 @@ _ASSUMPTION_INPUT_SCHEMA: dict[str, Any] = {
                 },
                 "negated_description": {"type": "string", "minLength": 1},
                 "category": {"type": "string"},
-                "source": {"type": "string"},
+                "source": {"type": "string", "description": _SOURCE_DESCRIPTION},
                 "active": {"type": "boolean"},
                 "block": {"type": "integer", "minimum": 1},
             },

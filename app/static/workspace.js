@@ -221,6 +221,7 @@ function handleWorkspaceTabKeydown(event) {
 }
 
 function renderAccountUI() {
+  if (syncConversationIdentity()) renderChat();
   const session = state.authSession || { authenticated: false, auth_mode: 'disabled' };
   const signedOut = byId('account-signed-out');
   const signedIn = byId('account-signed-in');
@@ -310,6 +311,7 @@ async function handleDevelopmentLogin(event) {
 
 async function handleLogout(event) {
   event.preventDefault();
+  saveConversationDraft();
   setWorkspaceStatus('account-status', 'Signing out...', 'info');
   resetBYOKKey();
   clearWorkspaceOneTimeSecrets();
@@ -320,6 +322,9 @@ async function handleLogout(event) {
   try {
     const result = await apiRequest('/api/auth/logout', { method: 'POST' });
     if (!result?.logout_url) throw new Error('The sign-out destination is unavailable.');
+    state.authSession = { authenticated: false, auth_mode: state.authSession.auth_mode, user: null };
+    syncConversationIdentity();
+    renderChat();
     window.location.assign(result.logout_url);
   } catch (error) {
     setWorkspaceStatus('account-status', error.message, 'error');
@@ -594,7 +599,9 @@ function renderChatAccess() {
   const button = byId('chat-send-btn');
   if (!note || !input || !button) return;
   const issue = llmAccessIssue();
-  input.disabled = Boolean(issue) || state.chatPending;
+  // A user can draft questions before obtaining access and while an answer
+  // is pending. Only explicit submission depends on access or availability.
+  input.disabled = false;
   button.disabled = Boolean(issue) || state.chatPending;
   if (!issue) {
     note.classList.remove('visible');

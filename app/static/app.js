@@ -51,6 +51,8 @@ const state = {
   // Chat
   chatMessages: [],     // [{role: 'user'|'assistant', content: str}, ...]
   chatPending: false,   // true while a /chat request is in flight
+  chatContextRefs: [],
+  chatDegraded: false,
   labelPulseIds: new Set(),  // proposition ids whose labels changed on last recompute
   labelPulseTimer: null,
 };
@@ -736,6 +738,13 @@ function renderAll() {
   if (gameModal && gameModal.classList.contains('visible') && gameConclusionId) {
     renderArgumentPicker();
   }
+  if (inspectorState && !inspectorState.historical && inspectorState.bundle !== state.bundle
+      && document.getElementById('modal-derivation')?.classList.contains('visible')) {
+    // Argument IDs belong to one bundle and can be reassigned on recomputation.
+    closeModal('modal-derivation');
+    inspectorState = null;
+    showGlobalStatus('The scenario changed. Inspect a derivation again to see its updated structure.', 'info');
+  }
 }
 
 function renderScenarioName() {
@@ -800,12 +809,13 @@ function renderConclusions() {
       ? `<button class="btn-explain" data-explain-id="${escapeAttr(id)}">Explain</button>`
       : `<button class="btn-explain" disabled title="${escapeAttr(title)}">Explain</button>`;
     const changed = state.labelPulseIds.has(id) ? ' label-changed' : '';
-    return `<div class="conclusion-card${changed}">
+    return `<div class="conclusion-card${changed}" data-element-kind="conclusion" data-element-id="${escapeAttr(id)}">
       <div class="conclusion-status-bar status-${label}">${badge}</div>
       <span class="conclusion-label">${escapeHtml(entry.description)}</span>
       <div class="conclusion-actions">
         ${explain}
-        <button type="button" class="rule-info" data-desc="${escapeAttr(entry.description)}" title="Ask about this conclusion" aria-label="Ask AI about ${escapeAttr(entry.description)}">?</button>
+        ${explainable ? `<button type="button" class="btn-explain" data-inspect-conclusion="${escapeAttr(id)}">Inspect</button>` : ''}
+        <button type="button" class="rule-info" data-context-kind="conclusion" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(entry.description)}" title="Add a question about this conclusion" aria-label="Add a question about ${escapeAttr(entry.description)}">?</button>
       </div>
     </div>`;
   }).join('');
@@ -959,9 +969,9 @@ function toggleCompactView() {
 }
 
 function renderFactLikeCard(id, entry, kind) {
-  const info = entry.source ? escapeAttr(entry.source) : 'Ask about this ' + kind;
+  const info = 'Add a question about this ' + kind;
   const desc = escapeAttr(entry.description);
-  const inlineId = `<span class="inline-id">[${escapeHtml(id)}]</span>`;
+  const inlineId = `<button type="button" class="inline-id element-inspect-link" data-open-element-kind="${kind}" data-open-element-id="${escapeAttr(id)}" title="Inspect formal representation and derivations">[${escapeHtml(id)}]</button>`;
   const text = `<span class="fact-text">${escapeHtml(entry.description)} ${inlineId}</span>`;
   const badge = state.compactView ? categoryBadge(entry.category) : '';
   if (kind === 'assumption') {
@@ -970,19 +980,19 @@ function renderFactLikeCard(id, entry, kind) {
     const cls = 'fact-card'
       + (divergent ? ' kb-divergent' : '')
       + (!active ? ' suspended' : '');
-    return `<div class="${cls}">
+    return `<div class="${cls}" data-element-kind="${kind}" data-element-id="${escapeAttr(id)}">
       ${text}
       ${badge}
-      <button type="button" class="rule-info" data-desc="${desc}" title="${info}" aria-label="Ask AI about this ${kind}: ${desc}">?</button>
+      <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add a question about this ${kind}: ${desc}">?</button>
       <input type="checkbox" ${active ? 'checked' : ''} ${state.readOnly ? 'disabled' : ''} data-asm-id="${escapeAttr(id)}" aria-label="${active ? 'Suspend' : 'Unsuspend'} assumption ${desc}" title="Active -- uncheck to deactivate this assumption">
     </div>`;
   }
   const divergent = isFactModified(id);
   const cls = 'fact-card' + (divergent ? ' kb-divergent' : '');
-  return `<div class="${cls}">
+  return `<div class="${cls}" data-element-kind="${kind}" data-element-id="${escapeAttr(id)}">
     ${text}
     ${badge}
-    <button type="button" class="rule-info" data-desc="${desc}" title="${info}" aria-label="Ask AI about this ${kind}: ${desc}">?</button>
+    <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add a question about this ${kind}: ${desc}">?</button>
   </div>`;
 }
 
@@ -1269,18 +1279,19 @@ function renderRuleCard(id, rule) {
   const checkbox = rule.type === 'defeasible'
     ? `<input type="checkbox" class="rule-active-toggle" data-rule-id="${escapeAttr(id)}" ${inactive ? '' : 'checked'} ${state.readOnly ? 'disabled' : ''} aria-label="${inactive ? 'Unsuspend' : 'Suspend'} rule ${escapeAttr(id)}" title="Active -- uncheck to deactivate this rule">`
     : '';
-  const info = rule.source ? escapeAttr(rule.source) : 'Ask about this rule';
+  const info = 'Add a question about this rule';
   const idInline = `<span class="inline-id">[${escapeHtml(id)}]</span>`;
 
   const badge = state.compactView ? categoryBadge(rule.category) : '';
   const editBtn = state.readOnly ? '' : `<button class="btn btn-small btn-rule-modify llm-only" data-edit-rule-id="${escapeAttr(id)}" title="Modify this rule via natural-language instruction">Modify</button>`;
-  return `<div class="${cls}">
+  return `<div class="${cls}" data-element-kind="rule" data-element-id="${escapeAttr(id)}">
     <div class="rule-body">
       <div class="rule-text">${body} ${idInline}</div>
     </div>
     <div class="rule-actions">
       ${badge}
-      <button type="button" class="rule-info" data-desc="${escapeAttr(plainBody)}" title="${info}" aria-label="Ask AI about rule ${escapeAttr(id)}">?</button>
+      <button type="button" class="btn btn-small" data-open-element-kind="rule" data-open-element-id="${escapeAttr(id)}" title="Inspect this rule and its individual derivations">Inspect</button>
+      <button type="button" class="rule-info" data-context-kind="rule" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(plainBody)}" title="${info}" aria-label="Add a question about rule ${escapeAttr(id)}">?</button>
       ${editBtn}
       ${checkbox}
     </div>
@@ -1313,16 +1324,32 @@ function filterKB(q) {
 /* ── Chat ─────────────────────────────────────────────── */
 
 function resetChatConversation() {
-  state.chatMessages = [];
-  state.chatPending = false;
+  syncConversationIdentity();
+  if (conversationStore.restoring) {
+    conversationStore.restoring = false;
+    return;
+  }
+  const input = document.getElementById('chat-input');
+  const draft = input?.value || '';
+  const refs = structuredClone(state.chatContextRefs || []);
+  saveConversationDraft();
+  const previous = activeConversation();
+  if (previous && !previous.messages.length && !previous.draft) {
+    state.chatPending = false;
+    return;
+  }
+  newConversationRecord();
+  state.chatContextRefs = refs;
+  if (input) input.value = draft;
+  saveConversationDraft();
 }
 
-async function apiPostChat(scenario_id, diff_ops, messages, signal) {
+async function apiPostChat(scenario_id, diff_ops, messages, signal, context_refs = []) {
   const project = state.activeProject;
   const path = project ? `/api/projects/${encodeURIComponent(project.id)}/chat` : '/chat';
   const payload = project
-    ? { expected_version: project.version, diff_ops, messages, llm: currentLLMOptions() }
-    : { scenario_id, diff_ops, messages, llm: currentLLMOptions() };
+    ? { expected_version: project.version, diff_ops, messages, context_refs, llm: currentLLMOptions() }
+    : { scenario_id, diff_ops, messages, context_refs, llm: currentLLMOptions() };
   const r = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1369,6 +1396,9 @@ function appendAssistantMarkdown(bubble, content) {
 function renderChat() {
   const container = document.getElementById('chat-messages');
   if (!container) return;
+  syncConversationIdentity();
+  renderConversationControls();
+  renderQuestionContext();
   container.replaceChildren();
   if (state.chatMessages.length === 0 && !state.chatPending) {
     const empty = document.createElement('div');
@@ -1377,12 +1407,12 @@ function renderChat() {
     const example = document.createElement('span');
     example.className = 'rule-info-demo';
     example.textContent = '?';
-    empty.append(example, ' next to any item to start.');
+    empty.append(example, ' next to any item to draft a question, then edit it and choose Ask.');
     container.append(empty);
     renderChatAccess();
     return;
   }
-  state.chatMessages.forEach(m => {
+  state.chatMessages.forEach((m, index) => {
     const message = document.createElement('div');
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
@@ -1392,6 +1422,7 @@ function renderChat() {
     } else {
       message.className = 'chat-msg chat-msg-assistant';
       appendAssistantMarkdown(bubble, m.content);
+      appendVerifiedEvidence(bubble, m);
       if (m.meta) {
         const meta = document.createElement('div');
         meta.className = 'chat-response-meta';
@@ -1400,6 +1431,7 @@ function renderChat() {
       }
     }
     message.append(bubble);
+    appendConversationTurnControls(message, m, index);
     container.append(message);
   });
   if (state.chatPending) {
@@ -1461,6 +1493,7 @@ function appendChangedContextNotice(conversation) {
 
 async function sendChatMessage(prefilledText) {
   if (state.chatPending) return;
+  syncConversationIdentity();
   const accessIssue = llmAccessIssue();
   if (accessIssue) {
     if (accessIssue.tab) openWorkspace(accessIssue.tab);
@@ -1475,24 +1508,46 @@ async function sendChatMessage(prefilledText) {
     text = (input?.value || '').trim();
   }
   if (!text) return;
-  if (input) input.value = '';
+  if (hasPendingStateRequest() || !state.bundle) {
+    showGlobalStatus('Wait for the scenario to finish updating before sending your question.', 'info');
+    return;
+  }
+  const selectedContext = structuredClone(state.chatContextRefs || []);
+  if (selectedContext.some(ref => !questionContextIsCurrent(ref))) {
+    showGlobalStatus('The selected items belong to an earlier scenario state. Remove those context items or select them again before asking. Your draft is unchanged.', 'info');
+    return;
+  }
 
   const conversation = state.chatMessages;
+  const record = activeConversation();
   const requestContext = captureModelViewContext();
   const requestUsesFundedAccess = state.llmAccess.mode !== 'byok';
-  conversation.push({ role: 'user', content: text });
   state.chatPending = true;
   renderChat();
   if (typeof prefilledText === 'string') revealChatForNarrowLayout();
-
-  // Trim history to the last CHAT_TURN_CAP messages before POSTing. The
-  // backend enforces its own cap; this just keeps the wire small.
-  const messages = conversation
-    .slice(-CHAT_TURN_CAP)
-    .map(message => ({ role: message.role, content: message.content }));
-
+  let snapshotId;
   try {
-    const resp = await apiPostChat(state.scenario_id, state.diff_ops, messages);
+    const snapshot = await captureConversationSnapshot(requestContext);
+    if (state.chatMessages !== conversation || !modelViewContextIsCurrent(requestContext)) {
+      showGlobalStatus('The scenario changed while preparing the question. Your draft was retained.', 'info');
+      return;
+    }
+    const comparableSnapshot = JSON.stringify({ ...snapshot, captured_at: null });
+    const existingSnapshot = Object.entries(record.snapshots).find(([, prior]) =>
+      JSON.stringify({ ...prior, captured_at: null }) === comparableSnapshot);
+    snapshotId = existingSnapshot?.[0] || conversationId();
+    if (!existingSnapshot) record.snapshots[snapshotId] = snapshot;
+    conversation.push({ role: 'user', content: text, snapshot_id: snapshotId,
+      context_refs: selectedContext.map(({ kind, id }) => ({ kind, id })) });
+    // Only clear the submitted draft, never text typed while its snapshot loaded.
+    if (input && input.value.trim() === text) input.value = '';
+    state.chatContextRefs = [];
+    saveConversationDraft();
+    renderChat();
+    const messages = conversation.filter(message => !message.local_notice)
+      .slice(-CHAT_TURN_CAP).map(message => ({ role: message.role, content: message.content }));
+    const resp = await apiPostChat(state.scenario_id, state.diff_ops, messages, undefined,
+      selectedContext.map(({ kind, id }) => ({ kind, id })));
     if (resp.billing_source !== 'byok' && state.authSession.authenticated) {
       refreshTrialBalanceQuietly();
     }
@@ -1507,7 +1562,10 @@ async function sendChatMessage(prefilledText) {
       role: 'assistant',
       content: resp.message,
       meta: `${source}, ${resp.model}${cost}, ${resp.latency_ms} ms`,
+      snapshot_id: snapshotId,
+      evidence: resp.evidence || [],
     });
+    state.chatDegraded = false;
   } catch (e) {
     if (requestUsesFundedAccess && state.authSession.authenticated) {
       refreshTrialBalanceQuietly();
@@ -1519,26 +1577,34 @@ async function sendChatMessage(prefilledText) {
     }
     conversation.push({
       role: 'assistant',
-      content: `_Chat error: ${e.message}_`,
+      content: `Chat could not finish: ${e.message}. Your question is retained. You can keep exploring the scenario and choose Ask to retry.`,
+      snapshot_id: snapshotId,
+      local_notice: true,
     });
+    if (input && !input.value.trim()) {
+      input.value = text;
+      state.chatContextRefs = selectedContext;
+    }
+    state.chatDegraded = e.status === 502 || e.status === 503 || e.status === 504 || !e.status;
   } finally {
     if (state.chatMessages === conversation) {
       state.chatPending = false;
+      saveConversationDraft();
       renderChat();
     }
   }
 }
 
 // Delegated click handler: any `.rule-info[data-desc]` anywhere in the left
-// panel pre-fills a chat question using the item's NL description and
-// auto-submits. The controls are hidden when LLM mode is disabled.
+// panel adds an editable question and explicit identity without submitting.
+// The controls are hidden when LLM mode is disabled.
 document.addEventListener('click', (e) => {
   const target = e.target.closest('.rule-info');
   if (!target) return;
   if (document.body.classList.contains('llm-disabled')) return;
   const desc = target.dataset.desc;
   if (!desc) return;
-  sendChatMessage(`Can you explain "${desc}"?`);
+  addQuestionDraft(desc, target.dataset.contextKind, target.dataset.contextId);
 });
 
 
@@ -2133,6 +2199,7 @@ function renderAFView() {
 
   body.innerHTML = `
     ${legend}
+    <p class="derivation-note">This overview groups arguments by conclusion and summarizes attacks. Inspect an individual derivation to see every premise, rule, and attack.</p>
     <p class="visually-hidden" id="af-graph-summary">${escapeHtml(graphSummary)}</p>
     <div class="af-toolbar">
       <div class="af-scope-control" role="group" aria-label="Argument graph scope">
@@ -2141,6 +2208,7 @@ function renderAFView() {
         <button type="button" class="af-scope-btn ${afScope==='all' ? 'active' : ''}" data-af-scope="all" aria-controls="af-svg-scroll" aria-pressed="${afScope==='all' ? 'true' : 'false'}" title="Show every argument in the AF">All conclusions</button>
       </div>
       <div class="af-zoom-controls" role="group" aria-label="Argument graph zoom">
+        <button type="button" class="btn btn-small" id="af-inspect-all">Inspect derivations</button>
         <button type="button" class="btn btn-small" data-af-zoom="out" aria-controls="af-svg-scroll" aria-label="Zoom out" title="Zoom out">−</button>
         <button type="button" class="btn btn-small" data-af-zoom="reset" aria-controls="af-svg-scroll" aria-label="Reset zoom to 100 percent" title="Reset to 100%">100%</button>
         <button type="button" class="btn btn-small" data-af-zoom="in" aria-controls="af-svg-scroll" aria-label="Zoom in" title="Zoom in">+</button>
@@ -2169,6 +2237,7 @@ function renderAFView() {
   applyAFZoom();
   wireAFZoom();
   wireAFTooltip();
+  document.getElementById('af-inspect-all')?.addEventListener('click', () => openDerivationInspector(state.bundle.af.arguments[0].id));
 }
 
 // Zoom state and controls. Scaling is done by resizing the SVG's width/
@@ -3268,82 +3337,6 @@ function renderGame() {
   renderGameMoves();
 }
 
-// Compact SVG sidebar showing the whole game tree as dots + connector
-// lines. One row per node (depth-first traversal), x = depth, y = row.
-// Fill colour mirrors the main tree's bar/badge palette; current focus
-// gets a heavier accent stroke. Clicking a dot refocuses.
-// Hidden when the tree is trivial (0 or 1 node) since there's nothing
-// to map.
-function renderMinimap() {
-  if (!gameRootId || !gameNodes[gameRootId]) return '';
-
-  const STEP_Y = 12;
-  const INDENT_X = 10;
-  const PAD = 8;
-  const R = 4;
-
-  // Depth-first traversal, honouring collapsed nodes so the minimap
-  // matches what's actually visible in the main tree.
-  const rows = [];
-  (function walk(nodeId, depth) {
-    const n = gameNodes[nodeId];
-    if (!n) return;
-    rows.push({ id: nodeId, depth });
-    if (n.collapsed) return;
-    for (const cid of n.children) walk(cid, depth + 1);
-  })(gameRootId, 0);
-
-  if (rows.length <= 1) return '';
-
-  const maxDepth = Math.max(...rows.map(r => r.depth));
-  const width = PAD * 2 + maxDepth * INDENT_X + R * 2;
-  const height = PAD * 2 + (rows.length - 1) * STEP_Y + R * 2;
-
-  const pos = {};
-  rows.forEach((r, i) => {
-    pos[r.id] = { x: PAD + R + r.depth * INDENT_X, y: PAD + R + i * STEP_Y };
-  });
-
-  let edges = '';
-  for (const r of rows) {
-    const node = gameNodes[r.id];
-    if (!node.parentId || !pos[node.parentId]) continue;
-    const p = pos[node.parentId];
-    const c = pos[r.id];
-    // L-shape: down from parent centre, then across to child centre.
-    edges += `<path d="M ${p.x} ${p.y + R} V ${c.y} H ${c.x - R}" stroke="#b0b6c0" stroke-width="1" fill="none"/>`;
-  }
-
-  const fillFor = (node) => {
-    if (node.type === 'cycle') return '#d4b857';
-    if (node.resolution === 'conceded' || node.resolution === 'uncontested') return '#5aa36f';
-    if (node.resolution === 'defeated' || node.resolution === 'retracted') return '#c45a5a';
-    if (node.resolution === 'undecided') return '#c4a850';
-    if (node.type === 'htb') return '#5a7a8a';
-    if (node.type === 'cb')  return '#8a7050';
-    return '#b0b6c0';
-  };
-
-  let dots = '';
-  for (const r of rows) {
-    const node = gameNodes[r.id];
-    const p = pos[r.id];
-    const isFocus = r.id === gameFocusId;
-    const stroke = isFocus ? '#2d5aa0' : 'rgba(0,0,0,0.2)';
-    const sw = isFocus ? 2 : 0.5;
-    const radius = isFocus ? R + 1 : R;
-    dots += `<circle cx="${p.x}" cy="${p.y}" r="${radius}" fill="${fillFor(node)}" stroke="${stroke}" stroke-width="${sw}" data-minimap-focus-id="${escapeAttr(r.id)}" style="cursor:pointer"></circle>`;
-  }
-
-  return `<div class="game-minimap" aria-hidden="true">
-    <div class="game-minimap-header">Tree</div>
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      ${edges}
-      ${dots}
-    </svg>
-  </div>`;
-}
-
 // Auto-resolve any off-path node that is stuck waiting on Continue --
 // no canonical moves available, no resolution yet. Mirrors what the
 // Continue button does: HTB → conceded, CB → uncontested, then
@@ -3812,7 +3805,7 @@ function wireMoveCardHandlers(root) {
   }
 }
 
-// Game-tree handlers (support-toggle, collapse-caret, minimap, and
+// Game-tree handlers (support-toggle, collapse-caret, and
 // focus-on-node-click). Bound once per renderGame() so they survive
 // even when the moves panel early-returns with "Exploration complete"
 // -- previously those early returns skipped wireMoveCardHandlers and
@@ -3823,9 +3816,6 @@ function bindGameTreeHandlers(root) {
   }
   for (const el of root.querySelectorAll('[data-toggle-collapse-id]')) {
     el.addEventListener('click', e => { e.stopPropagation(); toggleGameCollapse(el.dataset.toggleCollapseId); });
-  }
-  for (const el of root.querySelectorAll('[data-minimap-focus-id]')) {
-    el.addEventListener('click', e => { e.stopPropagation(); setGameFocus(el.dataset.minimapFocusId); });
   }
   for (const el of root.querySelectorAll('.game-node-focus[data-focus-id]')) {
     el.addEventListener('click', () => setGameFocus(el.dataset.focusId));

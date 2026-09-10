@@ -6,11 +6,13 @@ import hmac
 import json
 import logging
 import os
+import random
 import threading
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_CEILING
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
@@ -28,15 +30,22 @@ from app.llm.catalog import (
 from app.llm.client import (
     ClaudeClient,
     LLMClient,
+    LLMClientConfigurationError,
+    LLMRequestDeadlineError,
     LLMResponse,
     ToolCallResponse,
     close_llm_client,
+    invoke_before_deadline,
+    remaining_request_seconds,
 )
 from app.llm.providers import (
     GeminiClient,
     LLMProviderError,
     OpenAICompatibleClient,
     OpenAIResponsesClient,
+    VertexGeminiClient,
+    provider_error_is_terminal,
+    provider_http_error,
     transport_billing_uncertainty,
 )
 from app.services.llm_billing import (
@@ -52,23 +61,27 @@ from app.services.llm_billing import (
 log = logging.getLogger(__name__)
 
 
-OPENROUTER_REQUEST_MODELS = {
-    "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
-    "claude-sonnet-5": "anthropic/claude-sonnet-5",
-    "gpt-5.4-mini": "openai/gpt-5.4-mini",
-    "gpt-5.5": "openai/gpt-5.5",
-    "gpt-5.6-luna": "openai/gpt-5.6-luna",
-    "gpt-5.6-terra": "openai/gpt-5.6-terra",
-    "gpt-5.6-sol": "openai/gpt-5.6-sol",
-    "gemini-3.6-flash": "google/gemini-3.6-flash",
-    "gemini-3.7-flash": "google/gemini-3.7-flash",
-    "deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-    "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-}
-
-
 class LLMRouteConfigurationError(RuntimeError):
     pass
+
+
+class _UnavailableVerifiedRoute:
+    """A previously qualified deployment with a current configuration fault."""
+
+    def __init__(self, route: RouteSpec) -> None:
+        self.model = route.model
+        self.provider = route.provider
+        self.billing_source = route.billing_source
+        self.route = route.id
+
+    def complete(self, **_kwargs: Any) -> LLMResponse:
+        raise LLMProviderError("CloudBank deployment configuration is unavailable",
+                               provider=self.provider, status_code=401,
+                               error_type="provider_configuration")
+
+    def tool_call(self, **_kwargs: Any) -> ToolCallResponse:
+        self.complete()
+        raise AssertionError("unreachable")
 
 
 class BYOKValidationError(ValueError):
@@ -190,6 +203,38 @@ def _azure_v1_base_url() -> str:
     return f"{endpoint}/openai/v1"
 
 
+def _azure_route_override(route: RouteSpec) -> tuple[str, str] | None:
+    if not (route.endpoint_env or route.api_key_env):
+        return None
+    endpoint = _env(route.endpoint_env) if route.endpoint_env else None
+    key = _env(route.api_key_env) if route.api_key_env else None
+    if not endpoint or not key:
+        raise LLMRouteConfigurationError("both Azure route endpoint and API key must be configured")
+    try:
+        parsed = urlsplit(endpoint)
+        valid = (
+            route.provider == "azure-foundry" and parsed.scheme == "https"
+            and bool(parsed.hostname)
+            and parsed.hostname.endswith((".services.ai.azure.com", ".openai.azure.com"))
+            and parsed.username is None and parsed.password is None
+            and parsed.port in {None, 443} and not parsed.query and not parsed.fragment
+        )
+    except ValueError:
+        valid = False
+    if not valid:
+        raise LLMRouteConfigurationError("the Azure route endpoint must be an HTTPS Azure resource URL")
+    endpoint = endpoint.rstrip("/")
+    if route.adapter == "anthropic":
+        host = parsed.hostname
+        if host.endswith(".openai.azure.com"):
+            host = host.removesuffix(".openai.azure.com") + ".services.ai.azure.com"
+        prefix = parsed.path.split("/anthropic", 1)[0].rstrip("/") if "/anthropic" in parsed.path else ""
+        endpoint = f"https://{host}{prefix}/anthropic"
+    elif not endpoint.endswith("/openai/v1"):
+        endpoint += "/openai/v1"
+    return endpoint, key
+
+
 def _privacy_identifier(user_id: str | None, secret: str) -> str | None:
     if not user_id:
         return None
@@ -236,6 +281,7 @@ def _openrouter_provider_preferences(
         "require_parameters": True,
         "data_collection": "deny",
         "zdr": True,
+        "ignore": ["amazon-bedrock", "claude-on-aws"],
     }
     if pricing is not None:
         preferences["max_price"] = {
@@ -246,6 +292,12 @@ def _openrouter_provider_preferences(
 
 
 def _classified_error(exc: Exception, provider: str) -> LLMProviderError | None:
+    if isinstance(exc, LLMRequestDeadlineError):
+        return LLMProviderError(
+            str(exc), provider=provider, error_type=exc.error_type,
+            billing_uncertain=exc.billing_uncertain,
+            usage=exc.usage, provider_cost_microusd=exc.provider_cost_microusd,
+        )
     if isinstance(exc, LLMProviderError):
         return exc
     if isinstance(exc, (httpx.TimeoutException, httpx.TransportError)):
@@ -256,19 +308,17 @@ def _classified_error(exc: Exception, provider: str) -> LLMProviderError | None:
             outage_candidate=True,
             billing_uncertain=transport_billing_uncertainty(exc) is not False,
         )
-    status = getattr(exc, "status_code", None)
-    if isinstance(status, int):
-        retryable = status in {408, 409, 425, 429} or status >= 500
-        outage = status in {408, 425, 429} or status >= 500
-        return LLMProviderError(
-            f"{provider} returned HTTP {status}",
-            provider=provider,
-            status_code=status,
-            retryable=retryable,
-            outage_candidate=outage,
+    # Attribute or class-name matching can turn an accounting timeout or local
+    # authorization exception into permission to spend on another provider.
+    # Only the actual provider SDK's exceptions cross this boundary.
+    import anthropic
+
+    if isinstance(exc, anthropic.APIStatusError):
+        return provider_http_error(
+            provider, exc.status_code, headers=exc.response.headers,
+            data=exc.body if isinstance(exc.body, dict) else None,
         )
-    name = type(exc).__name__.lower()
-    if "timeout" in name or "connection" in name:
+    if isinstance(exc, anthropic.APIConnectionError):
         uncertainty = transport_billing_uncertainty(exc)
         return LLMProviderError(
             f"{provider} could not be reached",
@@ -297,6 +347,7 @@ class MeteredClient:
         charge_emergency: bool,
         spend_cap: LocalSpendCap | None = None,
         session_factory: sessionmaker[Session] | None = None,
+        deadline: float | None = None,
     ) -> None:
         self.inner = inner
         self.model_spec = model_spec
@@ -311,6 +362,9 @@ class MeteredClient:
         self.provider = getattr(inner, "provider", "unknown")
         self.billing_source = getattr(inner, "billing_source", "unknown")
         self.route = getattr(inner, "route", "unknown")
+        self.deadline = deadline
+        if deadline is not None:
+            inner.request_deadline = deadline
 
     def close(self) -> None:
         close_llm_client(self.inner)
@@ -342,11 +396,18 @@ class MeteredClient:
         cache: bool,
         tool: dict[str, Any] | None = None,
     ) -> LLMResponse | ToolCallResponse:
+        remaining_request_seconds(self.deadline, provider=self.provider)
+        if max_tokens < 1 or max_tokens > self.model_spec.max_output_tokens:
+            raise ValueError("requested output exceeds the selected model's token limit")
         estimated_input = _request_size_tokens(
             system=system,
             messages=messages,
             tool=tool,
         )
+        # Keep requests below long-context price tiers. Byte counting is an
+        # intentionally conservative upper bound on tokenized input.
+        if estimated_input > min(self.model_spec.context_tokens, 200_000):
+            raise ValueError("the conversation is too large; start a new conversation or shorten the request")
         amount = _multiply_cost_microusd(
             self.cost_ceiling.conservative_cost_microusd(
                 estimated_input_tokens=estimated_input,
@@ -377,6 +438,8 @@ class MeteredClient:
 
         try:
             call = getattr(self.inner, method)
+            if hasattr(self.inner, "request_dispatched"):
+                self.inner.request_dispatched = False
             kwargs: dict[str, Any] = {
                 "system": system,
                 "messages": messages,
@@ -385,7 +448,10 @@ class MeteredClient:
             }
             if tool is not None:
                 kwargs["tool"] = tool
-            response = call(**kwargs)
+            response = invoke_before_deadline(
+                lambda: call(**kwargs), deadline=self.deadline,
+                provider=self.provider, client=self.inner,
+            )
         except Exception as exc:
             classified = _classified_error(exc, self.provider)
             accounting_error = classified or exc
@@ -396,7 +462,7 @@ class MeteredClient:
                 accounting_error, "provider_cost_microusd", None
             )
             billing_uncertain = bool(
-                getattr(accounting_error, "billing_uncertain", False)
+                getattr(accounting_error, "billing_uncertain", classified is None)
             )
             has_usage = _has_positive_usage(failed_usage)
             if failed_provider_cost is not None or has_usage:
@@ -449,6 +515,9 @@ class MeteredClient:
                     diagnostic.kind,
                     diagnostic.location,
                 )
+                # Keep the reservation outstanding and stop. An accounting
+                # outage must never authorize another paid provider attempt.
+                raise RuntimeError("LLM failure accounting is unavailable") from accounting_exc
             if spend_reservation is not None:
                 if failed_cost:
                     self.spend_cap.settle(spend_reservation, failed_cost)
@@ -494,6 +563,13 @@ class MeteredClient:
                     )
                 else:
                     record_llm_event(session, event)
+        except Exception as accounting_exc:
+            diagnostic = exception_diagnostic(accounting_exc)
+            log.error(
+                "llm_success_accounting_failed route=%s exception=%s location=%s",
+                self.route, diagnostic.kind, diagnostic.location,
+            )
+            raise RuntimeError("LLM accounting is unavailable") from accounting_exc
         finally:
             if spend_reservation is not None:
                 self.spend_cap.settle(spend_reservation, actual_cost)
@@ -541,9 +617,10 @@ class MeteredClient:
 
 
 class RetryingClient:
-    def __init__(self, inner: LLMClient, *, attempts: int) -> None:
+    def __init__(self, inner: LLMClient, *, attempts: int, deadline: float | None = None) -> None:
         self.inner = inner
         self.attempts = attempts
+        self.deadline = deadline
         self.model = getattr(inner, "model", "unknown")
         self.provider = getattr(inner, "provider", "unknown")
         self.billing_source = getattr(inner, "billing_source", "unknown")
@@ -555,6 +632,11 @@ class RetryingClient:
     def _invoke(self, method: str, **kwargs: Any) -> Any:
         last_error: LLMProviderError | None = None
         for attempt in range(1, self.attempts + 1):
+            if self.deadline is not None and time.monotonic() >= self.deadline:
+                raise LLMProviderError(
+                    "The AI request deadline was reached", provider=self.provider,
+                    error_type="request_deadline", retryable=False, outage_candidate=False,
+                )
             try:
                 return getattr(self.inner, method)(**kwargs)
             except Exception as exc:
@@ -564,7 +646,13 @@ class RetryingClient:
                 last_error = classified
                 if not classified.retryable or attempt >= self.attempts:
                     raise classified from exc
-                delay = min(1.0, 0.15 * (2 ** (attempt - 1)))
+                # Retry jitter spreads load; it does not generate a security token.
+                delay = min(2.0, 0.15 * (2 ** (attempt - 1)) + random.uniform(0, 0.1))  # noqa: S311
+                retry_after = getattr(classified, "retry_after_seconds", None)
+                if retry_after is not None:
+                    delay = max(delay, min(2.0, max(0.0, retry_after)))
+                if self.deadline is not None:
+                    delay = min(delay, max(0.0, self.deadline - time.monotonic()))
                 log.info(
                     "llm_retry route=%s attempt=%d max_attempts=%d status=%s",
                     self.route,
@@ -587,6 +675,7 @@ class RetryingClient:
 @dataclass
 class _CircuitState:
     open_until: float = 0.0
+    probe_in_flight: bool = False
 
 
 class CircuitRegistry:
@@ -597,16 +686,27 @@ class CircuitRegistry:
     def primary_allowed(self, route: str) -> bool:
         with self._lock:
             state = self._states.setdefault(route, _CircuitState())
-            return time.monotonic() >= state.open_until
+            if time.monotonic() < state.open_until or state.probe_in_flight:
+                return False
+            if state.open_until:
+                state.probe_in_flight = True
+            return True
 
     def open(self, route: str, cooldown_seconds: int) -> None:
         with self._lock:
             state = self._states.setdefault(route, _CircuitState())
             state.open_until = time.monotonic() + cooldown_seconds
+            state.probe_in_flight = False
 
     def close(self, route: str) -> None:
         with self._lock:
-            self._states.setdefault(route, _CircuitState()).open_until = 0.0
+            state = self._states.setdefault(route, _CircuitState())
+            state.open_until = 0.0
+            state.probe_in_flight = False
+
+    def cancel_probe(self, route: str) -> None:
+        with self._lock:
+            self._states.setdefault(route, _CircuitState()).probe_in_flight = False
 
 
 _CIRCUITS = CircuitRegistry()
@@ -620,11 +720,15 @@ class FailoverClient:
         *,
         cooldown_seconds: int,
         circuits: CircuitRegistry = _CIRCUITS,
+        primary_verified: bool = False,
+        deadline: float | None = None,
     ) -> None:
         self.primary = primary
         self.fallback = fallback
         self.cooldown_seconds = cooldown_seconds
         self.circuits = circuits
+        self.primary_verified = primary_verified
+        self.deadline = deadline
         self.model = getattr(primary, "model", "unknown")
         self.provider = getattr(primary, "provider", "unknown")
         self.billing_source = getattr(primary, "billing_source", "unknown")
@@ -636,6 +740,9 @@ class FailoverClient:
             close_llm_client(self.fallback)
 
     def _invoke(self, method: str, **kwargs: Any) -> Any:
+        if self.deadline is not None and time.monotonic() >= self.deadline:
+            raise LLMProviderError("The AI request deadline was reached", provider=self.provider,
+                                   error_type="request_deadline")
         if self.fallback is None:
             return getattr(self.primary, method)(**kwargs)
         if self.circuits.primary_allowed(self.route):
@@ -644,7 +751,14 @@ class FailoverClient:
                 self.circuits.close(self.route)
                 return result
             except LLMProviderError as exc:
-                if not exc.outage_candidate:
+                qualified_operator_fault = (
+                    self.primary_verified and exc.status_code in {401, 403, 404}
+                    and exc.provider == self.provider
+                )
+                if exc.provider != self.provider or provider_error_is_terminal(exc) or (
+                    not exc.outage_candidate and not qualified_operator_fault
+                ):
+                    self.circuits.cancel_probe(self.route)
                     raise
                 self.circuits.open(self.route, self.cooldown_seconds)
                 log.error(
@@ -653,6 +767,12 @@ class FailoverClient:
                     getattr(self.fallback, "route", "unknown"),
                     self.cooldown_seconds,
                 )
+            except Exception:
+                self.circuits.cancel_probe(self.route)
+                raise
+        if self.deadline is not None and time.monotonic() >= self.deadline:
+            raise LLMProviderError("The AI request deadline was reached", provider=self.provider,
+                                   error_type="request_deadline")
         return getattr(self.fallback, method)(**kwargs)
 
     def complete(self, **kwargs: Any) -> LLMResponse:
@@ -680,6 +800,7 @@ class LLMRouter:
         model_spec = self.catalog.model_for_route(route)
         request_model = _env(route.model_env) if route.model_env else None
         request_model = request_model or route.request_model
+        override = _azure_route_override(route)
         if route.adapter == "anthropic":
             if route.provider != "azure-foundry":
                 raise LLMRouteConfigurationError("unsupported funded Anthropic route")
@@ -689,10 +810,13 @@ class LLMRouter:
                 billing_source=route.billing_source,
                 route=route.id,
                 sdk_max_retries=0,
+                timeout_seconds=45.0,
+                **({"base_url": override[0], "api_key": override[1], "auth_token": None}
+                   if override else {}),
             )
             return client, model_spec
         if route.provider == "azure-foundry":
-            key = _env("AZURE_OPENAI_API_KEY") or _env("AZURE_ANTHROPIC_API_KEY")
+            key = override[1] if override else _env("AZURE_OPENAI_API_KEY") or _env("AZURE_ANTHROPIC_API_KEY")
             if not key:
                 raise LLMRouteConfigurationError("the Azure API key is not configured")
             common: dict[str, Any] = {
@@ -701,14 +825,15 @@ class LLMRouter:
                 "provider": route.provider,
                 "billing_source": route.billing_source,
                 "route": route.id,
-                "base_url": _azure_v1_base_url(),
+                "base_url": override[0] if override else _azure_v1_base_url(),
                 "api_key": key,
                 "auth_style": "api-key",
+                "timeout_seconds": 45.0,
             }
             if route.adapter == "openai-responses":
                 client = OpenAIResponsesClient(
                     **common,
-                    reasoning_effort="low",
+                    reasoning_effort=model_spec.reasoning_effort,
                     safety_identifier=_privacy_identifier(
                         user_id, self.settings.session_secret
                     ),
@@ -716,6 +841,14 @@ class LLMRouter:
             else:
                 client = OpenAICompatibleClient(**common)
             return client, model_spec
+        if route.provider == "gcp-vertex" and route.adapter == "gemini-vertex":
+            project = _env("GOOGLE_CLOUD_PROJECT") or _env("GOOGLE_PROJECT_ID")
+            if not project:
+                raise LLMRouteConfigurationError("the CloudBank GCP project is not configured")
+            return VertexGeminiClient(
+                model=request_model, model_spec=model_spec, project=project,
+                location=_env("GOOGLE_CLOUD_LOCATION") or "global", route=route.id,
+            ), model_spec
         if route.provider == "openrouter":
             key = _env("OPENROUTER_API_KEY")
             if not key:
@@ -736,6 +869,7 @@ class LLMRouter:
                 provider_preferences=_openrouter_provider_preferences(
                     self.catalog.cost_ceiling_for_route(route)
                 ),
+                timeout_seconds=45.0,
             )
             return client, model_spec
         raise LLMRouteConfigurationError(f"unsupported route provider {route.provider!r}")
@@ -746,6 +880,7 @@ class LLMRouter:
         *,
         context: CallContext,
         spend_cap: LocalSpendCap | None = None,
+        deadline: float | None = None,
     ) -> LLMClient:
         raw, model_spec = self._raw_route(route, user_id=context.user_id)
         metered = MeteredClient(
@@ -758,8 +893,10 @@ class LLMRouter:
             charge_emergency=route.billing_source == "openrouter-emergency",
             spend_cap=spend_cap,
             session_factory=self.session_factory,
+            deadline=deadline,
         )
-        return RetryingClient(metered, attempts=self.settings.llm_retry_attempts)
+        attempts = 1 if route.provider == "openrouter" else min(2, self.settings.llm_retry_attempts)
+        return RetryingClient(metered, attempts=attempts, deadline=deadline)
 
     def funded(self, profile_id: str | None, *, context: CallContext) -> LLMClient:
         chosen = (profile_id or self.settings.llm_default_profile).strip().lower()
@@ -768,18 +905,26 @@ class LLMRouter:
         except KeyError as exc:
             raise LLMRouteConfigurationError(f"unknown model profile {chosen!r}") from exc
         primary_route = self.catalog.routes[profile.primary_route]
-        primary = self._metered_retrying(primary_route, context=context)
+        deadline = time.monotonic() + 180.0
+        try:
+            primary = self._metered_retrying(primary_route, context=context, deadline=deadline)
+        except (LLMRouteConfigurationError, LLMClientConfigurationError) as exc:
+            if not primary_route.verified:
+                raise LLMRouteConfigurationError("CloudBank route configuration is unavailable") from exc
+            primary = _UnavailableVerifiedRoute(primary_route)
         fallback: LLMClient | None = None
         if self.settings.openrouter_failover_enabled and profile.fallback_route:
             fallback_route = self.catalog.routes[profile.fallback_route]
             try:
-                fallback = self._metered_retrying(fallback_route, context=context)
+                fallback = self._metered_retrying(fallback_route, context=context, deadline=deadline)
             except LLMRouteConfigurationError:
                 log.warning("OpenRouter failover is enabled but not configured")
         return FailoverClient(
             primary,
             fallback,
             cooldown_seconds=self.settings.llm_circuit_cooldown_seconds,
+            primary_verified=primary_route.verified,
+            deadline=deadline,
         )
 
     def evaluation_route(
@@ -815,7 +960,15 @@ class LLMRouter:
         if not credential.api_key.strip() or len(credential.api_key) > 4096:
             raise BYOKValidationError("invalid provider API key")
         default = self.catalog.byok_defaults[provider]
-        model_id = (credential.model or default.model).strip()
+        admitted = [model for model in self.catalog.models.values()
+                    if model.id in self.catalog.public_model_ids()
+                    and (provider == "openrouter" or model.family == provider)]
+        if not admitted:
+            raise BYOKValidationError("no qualified models are available for this provider")
+        default_model = default.model if default.model in {model.id for model in admitted} else admitted[0].id
+        model_id = (credential.model or default_model).strip()
+        if model_id not in self.catalog.public_model_ids():
+            raise BYOKValidationError("the selected model has not passed application qualification")
         try:
             model_spec = self.catalog.models[model_id]
         except KeyError as exc:
@@ -826,8 +979,8 @@ class LLMRouter:
         request_model = (
             default.request_model if model_id == default.model else model_id
         )
-        if provider == "openrouter" and model_id != default.model:
-            request_model = OPENROUTER_REQUEST_MODELS.get(model_id, "")
+        if provider == "openrouter":
+            request_model = self.catalog.openrouter_models().get(model_id, "")
             if not request_model:
                 raise BYOKValidationError("unsupported OpenRouter model")
 
@@ -852,7 +1005,7 @@ class LLMRouter:
                 route=f"byok:openai:{model_id}",
                 base_url="https://api.openai.com/v1",
                 api_key=credential.api_key,
-                reasoning_effort="low",
+                reasoning_effort=model_spec.reasoning_effort,
                 safety_identifier=safety_identifier,
             )
         elif provider == "google":
@@ -876,7 +1029,7 @@ class LLMRouter:
                     or "https://github.com/idaks/ABDA-NL",
                     "X-Title": "ABDA-NL",
                 },
-                provider_preferences=_openrouter_provider_preferences(),
+                provider_preferences=_openrouter_provider_preferences(model_spec.pricing),
             )
         metered = MeteredClient(
             raw,

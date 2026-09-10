@@ -22,6 +22,7 @@ from app.db.models import (
     User,
 )
 from app.db.session import database_is_ready, get_session_factory
+from app.llm.catalog import RouteSpec
 from app.llm.client import LLMResponse, ToolCallResponse, close_llm_client
 from app.llm.providers import LLMProviderError
 from app.llm.routing import CallContext, CircuitRegistry, FailoverClient, LLMRouter
@@ -33,9 +34,6 @@ from app.services.trials import get_trial_balance
 _EMAIL_ENV = "ABDA_OUTAGE_DRILL_USER_EMAIL"
 _CONFIRMATION_ENV = "ABDA_OUTAGE_DRILL_CONFIRMATION"
 _CONFIRMATION = "RUN_STAGING_OPENROUTER_OUTAGE_DRILL"
-_PROFILE_ID = "balanced"
-_PRIMARY_ROUTE = "cloudbank-claude-sonnet-4-6"
-_FALLBACK_ROUTE = "openrouter-gemini-3.7-flash"
 _REQUEST_KIND_PREFIX = "outage-drill"
 _RESPONSE_MARKER = "ABDA_NL_OPENROUTER_DRILL_OK"
 _MAX_TOKENS = 2048
@@ -48,16 +46,16 @@ class OutageDrillError(RuntimeError):
 class _ForcedQualifyingOutage:
     """A zero-cost primary that exercises the real FailoverClient transition."""
 
-    model = "claude-sonnet-4-6"
-    provider = "azure-foundry"
-    billing_source = "cloudbank"
-    route = _PRIMARY_ROUTE
+    def __init__(self, route: RouteSpec) -> None:
+        self.model = route.model
+        self.provider = route.provider
+        self.billing_source = route.billing_source
+        self.route = route.id
 
-    @staticmethod
-    def _raise() -> None:
+    def _raise(self) -> None:
         raise LLMProviderError(
             "operator-injected qualifying staging outage",
-            provider="azure-foundry",
+            provider=self.provider,
             status_code=503,
             retryable=True,
             outage_candidate=True,
@@ -142,19 +140,21 @@ def _validate_settings(settings: Settings, expected_origin: str) -> None:
 
 
 def _validated_routes(router: LLMRouter) -> tuple[str, str]:
-    profile = router.catalog.profiles.get(_PROFILE_ID)
+    profile = router.catalog.profiles.get(router.settings.llm_default_profile)
     if profile is None or not profile.public_ready:
-        raise OutageDrillError("the balanced profile is not public-ready")
-    if profile.primary_route != _PRIMARY_ROUTE:
-        raise OutageDrillError("the balanced primary route changed")
-    if profile.fallback_route != _FALLBACK_ROUTE:
-        raise OutageDrillError("the balanced fallback route changed")
-    primary = router.catalog.routes[_PRIMARY_ROUTE]
-    fallback = router.catalog.routes[_FALLBACK_ROUTE]
-    if primary.provider != "azure-foundry" or primary.billing_source != "cloudbank":
-        raise OutageDrillError("the expected CloudBank primary route changed")
-    if fallback.provider != "openrouter" or fallback.billing_source != "openrouter-emergency":
-        raise OutageDrillError("the expected OpenRouter emergency route changed")
+        raise OutageDrillError("the configured profile is not public-ready")
+    primary = router.catalog.routes.get(profile.primary_route)
+    fallback = router.catalog.routes.get(profile.fallback_route)
+    if primary is None or fallback is None:
+        raise OutageDrillError("the configured profile needs a primary and fallback route")
+    if (primary.provider not in {"azure-foundry", "gcp-vertex"}
+            or primary.billing_source != "cloudbank" or not primary.verified):
+        raise OutageDrillError("the configured CloudBank route is not verified")
+    if (fallback.provider != "openrouter" or fallback.billing_source != "openrouter-emergency"
+            or not fallback.verified):
+        raise OutageDrillError("the configured OpenRouter emergency route is not verified")
+    if primary.model != fallback.model:
+        raise OutageDrillError("the primary and fallback must use the same model")
     return primary.id, fallback.id
 
 
@@ -227,6 +227,7 @@ def _audit_execution(
     user_id: str,
     request_id: str,
     request_kind: str,
+    fallback_route: str,
     before: dict[str, int | bool],
     response: LLMResponse,
 ) -> dict[str, int | bool]:
@@ -275,7 +276,7 @@ def _audit_execution(
     event = successful[0]
     if (
         event.provider != "openrouter"
-        or event.route != _FALLBACK_ROUTE
+        or event.route != fallback_route
         or event.billing_source != "openrouter-emergency"
         or event.request_kind != request_kind
     ):
@@ -319,7 +320,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "action": "openrouter-outage-drill",
         "environment": settings.environment,
         "public_origin": settings.public_base_url,
-        "profile": _PROFILE_ID,
+        "profile": settings.llm_default_profile,
         "primary_route": primary_route,
         "injected_primary_status": 503,
         "fallback_route": fallback_route,
@@ -350,7 +351,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         allow_emergency_spend=True,
     )
     client = FailoverClient(
-        _ForcedQualifyingOutage(),
+        _ForcedQualifyingOutage(router.catalog.routes[primary_route]),
         fallback,
         cooldown_seconds=settings.llm_circuit_cooldown_seconds,
         circuits=CircuitRegistry(),
@@ -385,6 +386,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         user_id=user_id,
         request_id=request_id,
         request_kind=request_kind,
+        fallback_route=fallback_route,
         before=before,
         response=response,
     )

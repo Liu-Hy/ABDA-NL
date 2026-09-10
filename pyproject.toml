@@ -16,6 +16,7 @@ dependencies = [
   "authlib>=1.6,<2",
   "email-validator>=2.2,<3",
   "fastapi>=0.128,<1",
+  "google-auth[requests]>=2.40,<3",
   "httpx>=0.28,<1",
   # Security floor for the MCP HTTP client (CVE-2026-84379/84380/84382).
   "httpx2>=2.12,<3",

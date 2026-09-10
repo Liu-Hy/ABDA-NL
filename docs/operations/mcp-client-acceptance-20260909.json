@@ -1,0 +1,165 @@
+{
+  "date_local": "2026-09-09",
+  "timezone": "America/Chicago",
+  "started_utc": "2026-09-10T02:20:53.479783+00:00",
+  "completed_utc": "2026-09-10T02:25:31.397670+00:00",
+  "environment": "local Delta demo on dt-login03, shared launcher, loopback HTTP MCP",
+  "git_head": "85bd4ae",
+  "uncommitted_working_tree": true,
+  "server": {
+    "name": "abda-nl",
+    "version": "0.3.0"
+  },
+  "tokens": {
+    "separate_accounts": true,
+    "count": 2,
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ],
+    "llm_use": false
+  },
+  "trial_credit_granted_microusd": 0,
+  "clients": [
+    {
+      "client": "codex",
+      "version": "codex-cli 0.153.4",
+      "model": "gpt-5.6-sol",
+      "subscription_authentication": true,
+      "status": "passed",
+      "tool_calls": [
+        "list_examples",
+        "get_example",
+        "create_project",
+        "get_project",
+        "apply_project_ops",
+        "get_project"
+      ],
+      "tool_transcript_sha256": "6fd1463aba54e3749b9f2ab9f0929a63ac30074c3a42c682f05210e22b0ab924",
+      "project_version_before": 1,
+      "project_version_after": 2,
+      "permit_active_before": true,
+      "permit_active_after": false,
+      "legal_today_before": "accepted",
+      "legal_today_after": "rejected",
+      "stale_version_rejected": true,
+      "invalid_operation_rejected": true,
+      "browser_readback_verified": true,
+      "cross_account_read_denied": true,
+      "cross_account_write_denied": true,
+      "browser_inference_requests": 0,
+      "cleanup_required": false,
+      "verified_helper_revocation": true
+    },
+    {
+      "client": "claude-code",
+      "version": "2.1.263 (Claude Code)",
+      "model": "claude-sonnet-5",
+      "subscription_authentication": true,
+      "status": "passed",
+      "tool_calls": [
+        "list_examples",
+        "get_example",
+        "create_project",
+        "get_project",
+        "apply_project_ops",
+        "get_project"
+      ],
+      "tool_transcript_sha256": "4c07243da8975b80de4e54e8868c9de6f15abdcefb65e2f039c51539dd9a94df",
+      "project_version_before": 1,
+      "project_version_after": 2,
+      "permit_active_before": true,
+      "permit_active_after": false,
+      "legal_today_before": "accepted",
+      "legal_today_after": "rejected",
+      "stale_version_rejected": true,
+      "invalid_operation_rejected": true,
+      "browser_readback_verified": true,
+      "cross_account_read_denied": true,
+      "cross_account_write_denied": true,
+      "browser_inference_requests": 0,
+      "cleanup_required": false,
+      "verified_helper_revocation": true
+    }
+  ],
+  "accounting": {
+    "unchanged": true,
+    "tables": {
+      "llm_usage_events": {
+        "row_count_before": 1038,
+        "row_count_after": 1038,
+        "canonical_row_sha256_before": "83c7ff53d11972da27f705633803f2fb39e76950540f1ea11b741cc522512fae",
+        "canonical_row_sha256_after": "83c7ff53d11972da27f705633803f2fb39e76950540f1ea11b741cc522512fae"
+      },
+      "usage_reservations": {
+        "row_count_before": 0,
+        "row_count_after": 0,
+        "canonical_row_sha256_before": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "canonical_row_sha256_after": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "emergency_usage_reservations": {
+        "row_count_before": 492,
+        "row_count_after": 492,
+        "canonical_row_sha256_before": "9d33231f295906b9ecf69015934ce767f37059ec5e016cf94ae690b1cc6407af",
+        "canonical_row_sha256_after": "9d33231f295906b9ecf69015934ce767f37059ec5e016cf94ae690b1cc6407af"
+      },
+      "trial_grants": {
+        "row_count_before": 0,
+        "row_count_after": 0,
+        "canonical_row_sha256_before": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "canonical_row_sha256_after": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "trial_programs": {
+        "row_count_before": 2,
+        "row_count_after": 2,
+        "canonical_row_sha256_before": "5ecd0f2726e419d810332fdba23016f5eb9085116680dae7c08b7b1f25f65fad",
+        "canonical_row_sha256_after": "5ecd0f2726e419d810332fdba23016f5eb9085116680dae7c08b7b1f25f65fad"
+      },
+      "emergency_budgets": {
+        "row_count_before": 1,
+        "row_count_after": 1,
+        "canonical_row_sha256_before": "ce2ffb08c20540fe98e3b1172c3958eef0253923597bc997f65e4cb5f5fb24bd",
+        "canonical_row_sha256_after": "ce2ffb08c20540fe98e3b1172c3958eef0253923597bc997f65e4cb5f5fb24bd"
+      }
+    }
+  },
+  "cleanup": {
+    "projects_archived": 3,
+    "tokens_revoked": 2,
+    "repeated_revocation_http_status": 204,
+    "repeated_mcp_authentication_http_status": 401,
+    "private_credentials_removed": true
+  },
+  "limitations": [
+    "Local launcher acceptance only; hosted service not tested.",
+    "Client reasoning used existing subscriptions; server LLM tools were denied by scope."
+  ],
+  "attempts": [
+    {
+      "client": "codex",
+      "attempt": 1,
+      "result": "passed"
+    },
+    {
+      "client": "claude-code",
+      "attempt": 1,
+      "result": "subscription_oauth_refresh_contention",
+      "project_created": false
+    },
+    {
+      "client": "claude-code",
+      "attempt": 2,
+      "result": "rejected_missing_explicit_get_project_calls",
+      "project_archived": true
+    },
+    {
+      "client": "claude-code",
+      "attempt": 3,
+      "result": "passed_after_acceptance_task_clarification"
+    }
+  ],
+  "focused_tests": {
+    "path": "tests/test_mcp_client_acceptance.py",
+    "passed": 21
+  }
+}

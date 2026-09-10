@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 from app.api.models import (
     MAX_DIFF_OPS,
     ChatMessage,
+    ChatContextRef,
     DiffOp,
     LLMRequestOptions,
 )
@@ -140,6 +141,7 @@ class ProjectWorkingStateRequest(BaseModel):
 class ProjectChatRequest(ProjectWorkingStateRequest):
     messages: List[ChatMessage] = Field(min_length=1, max_length=50)
     llm: Optional[LLMRequestOptions] = None
+    context_refs: List[ChatContextRef] = Field(default_factory=list, max_length=24)
 
 
 class ProjectProposeRequest(ProjectWorkingStateRequest):

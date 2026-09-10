@@ -6,8 +6,10 @@ from pathlib import Path
 import pytest
 
 from app.core.config import get_settings
+from app.evals.budget import PersistentSpendCap
 from app.evals.llm_eval import (
     _check_proposal,
+    _read_checkpoint,
     evaluate_chat,
     evaluate_case,
     evaluate_propose,
@@ -82,7 +84,7 @@ def _case(case_id: str) -> dict:
 
 def test_suite_is_versioned_and_hashable():
     suite, digest = load_suite(SUITE_PATH)
-    assert suite["version"] == 4
+    assert suite["version"] == 7
     assert suite["default_repetitions"] == 3
     assert suite["gates"]["min_case_pass_rate"] == 1.0
     assert len(suite["cases"]) >= 16
@@ -378,7 +380,7 @@ def test_openrouter_evaluation_requires_explicit_paid_permission():
 
 
 def test_evaluation_paid_cap_reserves_each_call_and_stops_remaining_cases(
-    monkeypatch,
+    monkeypatch, tmp_path,
 ):
     router = LLMRouter(settings=get_settings())
     calls = 0
@@ -437,16 +439,59 @@ def test_evaluation_paid_cap_reserves_each_call_and_stops_remaining_cases(
             "gates": {},
         },
         suite_hash="a" * 64,
-        route_ids=["openrouter-deepseek-v4-flash"],
+        route_ids=[next(route.id for route in router.catalog.routes.values() if route.provider == "azure-foundry")],
         router=router,
         repetitions=3,
         smoke=False,
         case_ids=set(),
-        allow_emergency_spend=True,
+        allow_emergency_spend=False,
         paid_run_cap_microusd=10,
+        spend_cap=PersistentSpendCap(path=tmp_path / "budget.sqlite3", run_limit_microusd=10),
     )
     assert calls == 2
     assert report["paid_spend_microusd"] == 5
     assert report["results"][0]["passed"] is True
     assert report["results"][1]["error"]["type"] == "PaidRunCapReached"
     assert report["results"][2]["skipped"] is True
+
+
+def test_checkpoint_preserves_partial_tail_and_recovers_complete_results(tmp_path):
+    path = tmp_path / "partial.checkpoint.jsonl"
+    path.write_bytes(b'{"run_id":"original","metadata":{}}\n{"result":{"case_id":"done"}}\n{"result":{"case_id":"interrupted')
+    header, results = _read_checkpoint(path)
+    assert header["run_id"] == "original"
+    assert results == [{"case_id": "done"}]
+    assert path.read_bytes().endswith(b'"done"}}\n')
+    tails = list(tmp_path.glob("*.partial-*"))
+    assert len(tails) == 1
+    assert tails[0].read_bytes() == b'{"result":{"case_id":"interrupted'
+
+
+def test_smoke_sub_budget_is_shared_by_both_funded_models(monkeypatch, tmp_path):
+    router = LLMRouter(settings=get_settings())
+    cap = PersistentSpendCap(path=tmp_path / "budget.sqlite3", run_limit_microusd=5_000_000)
+    dispatches = []
+
+    def fake_evaluate_case(case, *, route_id, repetition, spend_cap, **kwargs):
+        result = {
+            "case_id": case["id"], "kind": case["kind"], "route_id": route_id,
+            "repetition": repetition, "wall_time_ms": 1,
+        }
+        try:
+            reservation = spend_cap.reserve(3_000_000)
+        except PaidRunCapReached:
+            return {**result, "passed": False, "error": {"type": "PaidRunCapReached"}, "audit": {"provider_calls": 0, "cost_microusd": 0}}
+        dispatches.append(route_id)
+        spend_cap.settle(reservation, 2_500_000)
+        return {**result, "passed": True, "error": None, "audit": {"provider_calls": 1, "cost_microusd": 2_500_000}}
+
+    monkeypatch.setattr("app.evals.llm_eval.evaluate_case", fake_evaluate_case)
+    report = run_evaluation(
+        {"cases": [{"id": "shared-smoke", "kind": "chat"}]}, suite_hash="synthetic",
+        route_ids=["cloudbank-gpt-5.6-terra", "cloudbank-gpt-5.6-sol"], router=router,
+        repetitions=1, smoke=False, case_ids=set(), allow_emergency_spend=False,
+        paid_run_cap_microusd=5_000_000, spend_cap=cap,
+    )
+    assert dispatches == ["cloudbank-gpt-5.6-terra"]
+    assert report["paid_spend_microusd"] == 2_500_000
+    assert report["results"][1]["audit"]["provider_calls"] == 0

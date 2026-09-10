@@ -210,8 +210,13 @@ def upsert_verified_identity(
     }
     if session.get_bind().dialect.name == "sqlite":
         with _SQLITE_IDENTITY_LOCK:
-            return _upsert_verified_identity_with_retry(session, **kwargs)
-    return _upsert_verified_identity_with_retry(session, **kwargs)
+            user = _upsert_verified_identity_with_retry(session, **kwargs)
+    else:
+        user = _upsert_verified_identity_with_retry(session, **kwargs)
+    from app.services.trials import ensure_named_credit
+
+    ensure_named_credit(session, user)
+    return user
 
 
 def upsert_local_development_user(

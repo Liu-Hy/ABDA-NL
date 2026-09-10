@@ -73,6 +73,8 @@ class ModelSpec:
     context_tokens: int
     structured_tools: bool
     max_token_field: str = "max_tokens"  # noqa: S105  (request field, not a secret)
+    max_output_tokens: int = 16384
+    reasoning_effort: str | None = "low"
 
     @property
     def pricing(self) -> TokenPricing:
@@ -107,9 +109,12 @@ class RouteSpec:
     model: str
     request_model: str
     model_env: str | None = None
+    endpoint_env: str | None = None
+    api_key_env: str | None = None
     cost_ceiling: TokenPricing | None = None
     use_provider_reported_cost: bool = False
     billing_multiplier: Decimal = Decimal("1")
+    verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -138,6 +143,29 @@ class ModelCatalog:
     routes: dict[str, RouteSpec]
     profiles: dict[str, ProfileSpec]
     byok_defaults: dict[str, ByokDefault]
+
+    def public_profiles(self) -> tuple[ProfileSpec, ...]:
+        """The single qualified pool shared by funded, BYOK, and MCP access."""
+        return tuple(profile for profile in self.profiles.values() if profile.public_ready)
+
+    def public_model_ids(self) -> frozenset[str]:
+        return frozenset(
+            self.routes[profile.primary_route].model for profile in self.public_profiles()
+        )
+
+    def openrouter_models(self) -> dict[str, str]:
+        return {
+            route.model: route.request_model
+            for route in self.routes.values()
+            if route.provider == "openrouter"
+        }
+
+    def profile_for_model(self, model_id: str) -> ProfileSpec | None:
+        return next(
+            (profile for profile in self.public_profiles()
+             if self.routes[profile.primary_route].model == model_id),
+            None,
+        )
 
     def model_for_route(self, route: RouteSpec) -> ModelSpec:
         try:
@@ -214,6 +242,8 @@ def load_model_catalog(path: Path = CATALOG_PATH) -> ModelCatalog:
             context_tokens=int(item["context_tokens"]),
             structured_tools=bool(item.get("structured_tools", False)),
             max_token_field=str(item.get("max_token_field", "max_tokens")),
+            max_output_tokens=int(item.get("max_output_tokens", 16384)),
+            reasoning_effort=item.get("reasoning_effort", "low"),
         )
 
     routes: dict[str, RouteSpec] = {}
@@ -228,6 +258,8 @@ def load_model_catalog(path: Path = CATALOG_PATH) -> ModelCatalog:
             model=model_id,
             request_model=str(item.get("request_model") or model_id),
             model_env=str(item["model_env"]) if item.get("model_env") else None,
+            endpoint_env=str(item["endpoint_env"]) if item.get("endpoint_env") else None,
+            api_key_env=str(item["api_key_env"]) if item.get("api_key_env") else None,
             cost_ceiling=(
                 _token_pricing(item["cost_ceiling"], f"routes.{route_id}.cost_ceiling")
                 if item.get("cost_ceiling") is not None
@@ -240,6 +272,7 @@ def load_model_catalog(path: Path = CATALOG_PATH) -> ModelCatalog:
                 item.get("billing_multiplier", 1),
                 f"routes.{route_id}.billing_multiplier",
             ),
+            verified=bool(item.get("verified", False)),
         )
 
     profiles: dict[str, ProfileSpec] = {}
@@ -286,6 +319,7 @@ def _validate_catalog(catalog: ModelCatalog) -> None:
             "anthropic",
             "openai-compatible",
             "openai-responses",
+            "gemini-vertex",
         }:
             raise RuntimeError(f"route {route.id!r} has unsupported adapter {route.adapter!r}")
         if route.billing_multiplier < 1:
@@ -305,6 +339,23 @@ def _validate_catalog(catalog: ModelCatalog) -> None:
             raise RuntimeError(
                 f"profile {profile.id!r} references unknown fallback route"
             )
+        primary = catalog.routes[profile.primary_route]
+        if primary.provider not in {"azure-foundry", "gcp-vertex"} or primary.billing_source != "cloudbank":
+            raise RuntimeError(f"profile {profile.id!r} must use CloudBank Azure or GCP first")
+        if profile.fallback_route:
+            backup = catalog.routes[profile.fallback_route]
+            if backup.provider != "openrouter" or backup.model != primary.model:
+                raise RuntimeError(f"profile {profile.id!r} must fall back to the same model on OpenRouter")
+        if profile.public_ready:
+            if not profile.fallback_route:
+                raise RuntimeError(f"public profile {profile.id!r} requires a same-model backup")
+            if catalog.version >= 4 and not (primary.verified and catalog.routes[profile.fallback_route].verified):
+                raise RuntimeError(f"public profile {profile.id!r} requires verified deployments")
+            model = catalog.model_for_route(primary)
+            if not model.structured_tools or model.max_output_tokens < 1:
+                raise RuntimeError(f"public model {model.id!r} needs bounded structured output")
+            if model.input_usd_per_million > 5 or model.output_usd_per_million > 25:
+                raise RuntimeError(f"public model {model.id!r} exceeds the approved price tier")
     for default in catalog.byok_defaults.values():
         if default.model not in catalog.models:
             raise RuntimeError(
@@ -318,3 +369,7 @@ def _validate_catalog(catalog: ModelCatalog) -> None:
 
 def reset_model_catalog_cache() -> None:
     load_model_catalog.cache_clear()
+
+
+def public_profile_ids() -> tuple[str, ...]:
+    return tuple(profile.id for profile in load_model_catalog().public_profiles())

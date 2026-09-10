@@ -24,7 +24,6 @@ from app.llm.routing import (
     CallContext,
     LLMRouteConfigurationError,
     LLMRouter,
-    OPENROUTER_REQUEST_MODELS,
 )
 from app.services.emergency_budget import (
     EmergencyBudgetExceededError,
@@ -162,12 +161,13 @@ def _models_for_provider(
     if provider == "openrouter":
         model_ids = [
             model_id
-            for model_id in OPENROUTER_REQUEST_MODELS
-            if model_id in catalog.models
+            for model_id in catalog.models
+            if model_id in catalog.public_model_ids()
         ]
     else:
         model_ids = [
-            model.id for model in catalog.models.values() if model.family == provider
+            model.id for model in catalog.models.values()
+            if model.family == provider and model.id in catalog.public_model_ids()
         ]
     return [
         BYOKModelConfig(id=model_id, display_name=catalog.models[model_id].display_name)
@@ -189,19 +189,21 @@ def build_llm_config(
             display_name=profile.display_name,
             description=profile.description,
         )
-        for profile in active_catalog.profiles.values()
-        if profile.public_ready
+        for profile in active_catalog.public_profiles()
     ]
 
     providers: list[BYOKProviderConfig] = []
     if active_settings.llm_allow_byok:
         for provider, default in active_catalog.byok_defaults.items():
+            models = _models_for_provider(provider, active_catalog)
+            if not models:
+                continue
             providers.append(
                 BYOKProviderConfig(
                     id=provider,
                     display_name=default.display_name,
-                    default_model=default.model,
-                    models=_models_for_provider(provider, active_catalog),
+                    default_model=(default.model if default.model in {m.id for m in models} else models[0].id),
+                    models=models,
                 )
             )
 

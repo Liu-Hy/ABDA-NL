@@ -50,6 +50,7 @@ from app.services.llm_billing import (
     usage_event,
 )
 from app.services.trials import get_trial_balance
+from helpers.catalogs import admit_catalog_models
 
 
 @pytest.fixture
@@ -1067,19 +1068,18 @@ def test_byok_credential_never_exposes_key_in_repr():
 
 
 @pytest.mark.parametrize(
-    ("provider", "model_id", "client_name"),
+    ("provider", "client_name"),
     [
-        ("anthropic", "claude-sonnet-5", "ClaudeClient"),
-        ("openai", "gpt-5.6-terra", "OpenAIResponsesClient"),
-        ("google", "gemini-3.7-flash", "GeminiClient"),
-        ("openrouter", "claude-sonnet-5", "OpenAICompatibleClient"),
+        ("anthropic", "ClaudeClient"),
+        ("openai", "OpenAIResponsesClient"),
+        ("google", "GeminiClient"),
+        ("openrouter", "OpenAICompatibleClient"),
     ],
 )
 def test_byok_default_uses_provider_request_model(
     monkeypatch,
     billing_factory,
     provider,
-    model_id,
     client_name,
 ):
     from app.llm import routing as routing_module
@@ -1095,9 +1095,15 @@ def test_byok_default_uses_provider_request_model(
             self.route = kwargs["route"]
 
     catalog = load_model_catalog()
+    candidates = [catalog.routes[profile.primary_route].model for profile in catalog.profiles.values()
+                  if provider == "openrouter" or catalog.model_for_route(
+                      catalog.routes[profile.primary_route]).family == provider]
+    previous_default = catalog.byok_defaults[provider].model
+    model_id = previous_default if previous_default in candidates else candidates[0]
+    catalog = admit_catalog_models(catalog, model_id)
     defaults = dict(catalog.byok_defaults)
     defaults[provider] = replace(
-        defaults[provider], request_model="provider-specific-default"
+        defaults[provider], model=model_id, request_model="provider-specific-default"
     )
     catalog = replace(catalog, byok_defaults=defaults)
     monkeypatch.setattr(
@@ -1124,15 +1130,23 @@ def test_byok_default_uses_provider_request_model(
     )
 
     assert len(captured) == 1
-    assert captured[0]["model"] == "provider-specific-default"
+    expected_model = catalog.openrouter_models()[model_id] if provider == "openrouter" else "provider-specific-default"
+    assert captured[0]["model"] == expected_model
     assert captured[0]["route"] == f"byok:{provider}:{model_id}"
     if provider == "openrouter":
-        assert captured[0]["provider_preferences"] == {
+        preferences = captured[0]["provider_preferences"]
+        assert {key: preferences[key] for key in (
+            "sort", "allow_fallbacks", "require_parameters", "data_collection", "zdr",
+        )} == {
             "sort": "price",
             "allow_fallbacks": True,
             "require_parameters": True,
             "data_collection": "deny",
             "zdr": True,
+        }
+        assert preferences["max_price"] == {
+            "prompt": float(catalog.models[model_id].input_usd_per_million),
+            "completion": float(catalog.models[model_id].output_usd_per_million),
         }
     if provider == "anthropic":
         assert captured[0]["sdk_max_retries"] == 0
@@ -1193,6 +1207,12 @@ def test_byok_nondefault_direct_model_keeps_catalog_id(
             self.route = kwargs["route"]
 
     catalog = load_model_catalog()
+    nondefault = next(
+        catalog.routes[profile.primary_route].model for profile in catalog.profiles.values()
+        if catalog.models[catalog.routes[profile.primary_route].model].family == "openai"
+        and catalog.routes[profile.primary_route].model != catalog.byok_defaults["openai"].model
+    )
+    catalog = admit_catalog_models(catalog, nondefault)
     defaults = dict(catalog.byok_defaults)
     defaults["openai"] = replace(
         defaults["openai"], request_model="provider-specific-default"
@@ -1211,7 +1231,7 @@ def test_byok_nondefault_direct_model_keeps_catalog_id(
         BYOKCredential(
             provider="openai",
             api_key="test-key",
-            model="gpt-5.5",
+            model=nondefault,
         ),
         context=CallContext(
             user_id=billing_factory.user_id,
@@ -1222,19 +1242,22 @@ def test_byok_nondefault_direct_model_keeps_catalog_id(
     )
 
     assert len(captured) == 1
-    assert captured[0]["model"] == "gpt-5.5"
-    assert captured[0]["route"] == "byok:openai:gpt-5.5"
+    assert captured[0]["model"] == nondefault
+    assert captured[0]["route"] == f"byok:openai:{nondefault}"
 
 
 def test_byok_rejects_mismatched_provider_model(monkeypatch, billing_factory):
     settings = Settings.from_environment()
-    router = LLMRouter(settings=settings, session_factory=billing_factory)
+    catalog = load_model_catalog()
+    wrong_family_model = catalog.byok_defaults["openai"].model
+    catalog = admit_catalog_models(catalog, wrong_family_model, catalog.byok_defaults["anthropic"].model)
+    router = LLMRouter(settings=settings, catalog=catalog, session_factory=billing_factory)
     with pytest.raises(BYOKValidationError, match="does not match"):
         router.byok(
             BYOKCredential(
                 provider="anthropic",
                 api_key="test-key",
-                model="gpt-5.6-terra",
+                model=wrong_family_model,
             ),
             context=CallContext(
                 user_id=billing_factory.user_id,
@@ -1249,13 +1272,20 @@ def test_openrouter_byok_rejects_models_without_a_zdr_tool_route(
     monkeypatch, billing_factory
 ):
     settings = Settings.from_environment()
-    router = LLMRouter(settings=settings, session_factory=billing_factory)
+    catalog = load_model_catalog()
+    model_id = catalog.byok_defaults["openrouter"].model
+    catalog = admit_catalog_models(catalog, model_id)
+    # Simulate an operator removing a backup after qualification. Routing
+    # still rejects the request before any provider client is constructed.
+    catalog = replace(catalog, routes={key: route for key, route in catalog.routes.items()
+                      if route.model != model_id or route.provider != "openrouter"})
+    router = LLMRouter(settings=settings, catalog=catalog, session_factory=billing_factory)
     with pytest.raises(BYOKValidationError, match="unsupported OpenRouter model"):
         router.byok(
             BYOKCredential(
                 provider="openrouter",
                 api_key="test-key",
-                model="qwen3.6-plus",
+                model=model_id,
             ),
             context=CallContext(
                 user_id=billing_factory.user_id,
@@ -1264,3 +1294,124 @@ def test_openrouter_byok_rejects_models_without_a_zdr_tool_route(
                 charge_trial=False,
             ),
         )
+
+
+def test_funded_deadline_settles_uncertain_dispatch_on_request_thread(monkeypatch, billing_factory):
+    import threading
+    import time
+    from app.llm import routing as routing_module
+
+    released, finished = threading.Event(), threading.Event()
+    worker_threads, ledger_threads = [], []
+    caller_thread = threading.get_ident()
+
+    class StalledProvider(_SuccessfulClient):
+        def complete(self, **kwargs):
+            worker_threads.append(threading.get_ident())
+            self.calls += 1
+            try:
+                released.wait(2)
+                return _response("late output")
+            finally:
+                finished.set()
+        def close(self):
+            released.set()
+
+    original_settle = routing_module.settle_llm_call
+    def settle(*args, **kwargs):
+        ledger_threads.append(threading.get_ident())
+        return original_settle(*args, **kwargs)
+    monkeypatch.setattr(routing_module, "settle_llm_call", settle)
+    raw, backup = StalledProvider(), _SequenceClient([_response("must not run")])
+    deadline = time.monotonic() + .1
+    metered = MeteredClient(raw, model_spec=load_model_catalog().models["claude-sonnet-4-6"],
+        context=CallContext(billing_factory.user_id, "deadline-billed", "chat", True),
+        charge_emergency=False, session_factory=billing_factory, deadline=deadline)
+    client = FailoverClient(RetryingClient(metered, attempts=2, deadline=deadline), backup,
+        cooldown_seconds=15, circuits=CircuitRegistry(), deadline=deadline)
+    try:
+        with pytest.raises(LLMProviderError) as caught:
+            client.complete(system="system", messages=[{"role": "user", "content": "question"}], max_tokens=32)
+        assert caught.value.error_type == "request_deadline"
+        assert caught.value.billing_uncertain
+        assert finished.wait(.5)
+    finally:
+        released.set()
+    assert raw.calls == 1 and backup.calls == 0
+    assert ledger_threads == [caller_thread] and worker_threads[0] != caller_thread
+    with billing_factory() as session:
+        reservation = session.scalar(select(UsageReservation).where(UsageReservation.user_id == billing_factory.user_id))
+        event = session.scalar(select(LLMUsageEvent).where(LLMUsageEvent.request_id == "deadline-billed"))
+        assert reservation.status == "settled"
+        assert event.cost_microusd == reservation.reserved_microusd
+        assert event.cost_microusd > 0 and "request_deadline" in event.error_type
+
+
+def test_provider_timeout_still_retries_then_uses_backup_with_time_remaining(monkeypatch, billing_factory):
+    import time
+    monkeypatch.setattr("app.llm.routing.time.sleep", lambda _seconds: None)
+    deadline = time.monotonic() + 10
+    class TimeoutProvider(_SuccessfulClient):
+        def complete(self, **_kwargs):
+            self.calls += 1
+            raise httpx.ReadTimeout("provider timeout", request=httpx.Request("POST", "https://provider.test/messages"))
+    raw, backup = TimeoutProvider(), _SequenceClient([_response("same model backup")])
+    metered = MeteredClient(raw, model_spec=load_model_catalog().models["claude-sonnet-4-6"],
+        context=CallContext(billing_factory.user_id, "physical-timeout", "chat", True),
+        charge_emergency=False, session_factory=billing_factory, deadline=deadline)
+    client = FailoverClient(RetryingClient(metered, attempts=2, deadline=deadline), backup,
+        cooldown_seconds=15, circuits=CircuitRegistry(), deadline=deadline)
+    result = client.complete(system="system", messages=[{"role": "user", "content": "question"}], max_tokens=32)
+    assert result.text == "same model backup" and raw.calls == 2 and backup.calls == 1
+    with billing_factory() as session:
+        events = session.scalars(select(LLMUsageEvent).where(LLMUsageEvent.request_id == "physical-timeout")).all()
+        assert len(events) == 2 and all(event.cost_microusd > 0 for event in events)
+
+
+def test_accounting_transport_failure_never_authorizes_a_paid_backup(monkeypatch, billing_factory):
+    def unavailable(*_args, **_kwargs):
+        raise httpx.ReadTimeout("accounting transport unavailable")
+    monkeypatch.setattr("app.llm.routing.settle_llm_call", unavailable)
+    backup = _SequenceClient([_response("must not run")])
+    metered = MeteredClient(_SuccessfulClient(), model_spec=load_model_catalog().models["claude-sonnet-4-6"],
+        context=CallContext(billing_factory.user_id, "accounting-unavailable", "chat", True),
+        charge_emergency=False, session_factory=billing_factory)
+    client = FailoverClient(RetryingClient(metered, attempts=2), backup,
+        cooldown_seconds=15, circuits=CircuitRegistry())
+    with pytest.raises(RuntimeError, match="accounting is unavailable"):
+        client.complete(system="system", messages=[{"role": "user", "content": "question"}], max_tokens=32)
+    assert backup.calls == 0
+
+
+def test_gemini_long_context_price_tier_is_rejected_before_reservation(billing_factory):
+    raw = _SuccessfulClient()
+    client = MeteredClient(raw, model_spec=load_model_catalog().models["gemini-3.8-flash"],
+        context=CallContext(billing_factory.user_id, "long-context", "chat", True),
+        charge_emergency=False, session_factory=billing_factory)
+    with pytest.raises(ValueError, match="conversation is too large"):
+        client.complete(system="system", messages=[{"role": "user", "content": "x" * 200_000}], max_tokens=32)
+    assert raw.calls == 0
+    with billing_factory() as session:
+        assert session.scalar(select(UsageReservation)) is None
+
+
+def test_exhausted_abda_credit_never_dispatches_or_uses_backup(billing_factory):
+    from app.services.trials import InsufficientTrialCreditError
+
+    with billing_factory() as session:
+        grant = session.get(TrialGrant, billing_factory.user_id)
+        grant.spent_microusd = grant.granted_microusd
+        session.commit()
+    raw, backup = _SuccessfulClient(), _SequenceClient([_response("must not run")])
+    raw.provider, raw.billing_source, raw.route = "azure-foundry", "cloudbank", "primary"
+    metered = MeteredClient(raw, model_spec=load_model_catalog().models["claude-sonnet-4-6"],
+        context=CallContext(billing_factory.user_id, "user-credit-exhausted", "chat", True),
+        charge_emergency=False, session_factory=billing_factory)
+    client = FailoverClient(RetryingClient(metered, attempts=2), backup,
+        cooldown_seconds=15, circuits=CircuitRegistry(), primary_verified=True)
+    with pytest.raises(InsufficientTrialCreditError):
+        client.complete(system="system", messages=[{"role": "user", "content": "question"}], max_tokens=32)
+    assert raw.calls == 0 and backup.calls == 0
+    with billing_factory() as session:
+        assert session.scalar(select(UsageReservation)) is None
+        assert session.scalar(select(LLMUsageEvent)) is None

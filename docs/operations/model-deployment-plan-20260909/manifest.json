@@ -1,0 +1,96 @@
+{
+  "checked_at_utc": "2026-09-10T02:14:24Z",
+  "cloud_mutations_performed": false,
+  "inference_calls_performed": false,
+  "target": "Existing .env-matched Foundry resource and project, privately resolved",
+  "region": "eastus2",
+  "subscription_agreement": "EnterpriseAgreement",
+  "cloudbank_fireworks_award_coverage_proven": false,
+  "fireworks_azure_billing_documented": true,
+  "external_fireworks_account_required_by_documented_flow": false,
+  "feature": {
+    "namespace": "Microsoft.CognitiveServices",
+    "name": "Fireworks.EnableDeploy",
+    "current_state": "NotRegistered",
+    "approval_type": "AutoApproval",
+    "registration_metadata": null,
+    "terms_link": "https://aka.ms/fireworks-consent",
+    "registration_authorized": false
+  },
+  "deployments": [
+    {
+      "deployment_name": "abda-grok-4-6",
+      "request_body_file": "grok-4.6.json",
+      "region": "eastus2",
+      "requested_sku": "GlobalStandard",
+      "requested_capacity": 10,
+      "api_version": "2025-06-01",
+      "status": "live_model_and_sku_confirmed",
+      "ready_for_execution": false,
+      "preconditions": [
+        "Azure Grok4.6 retail or applicable EA price unverified"
+      ]
+    },
+    {
+      "deployment_name": "abda-glm-5-3",
+      "request_body_file": "fw-glm-5.3.candidate.json",
+      "region": "eastus2",
+      "requested_sku": "DataZoneStandard",
+      "requested_capacity": 10,
+      "api_version": "2025-06-01",
+      "status": "conditional_candidate",
+      "ready_for_execution": false,
+      "preconditions": [
+        "Fireworks terms/funding decision",
+        "Fireworks feature registration",
+        "Exact account model/SKU/capacity/quota unavailable before registration",
+        "Any Marketplace requirement returned after registration must be reviewed"
+      ]
+    },
+    {
+      "deployment_name": "abda-kimi-k3",
+      "request_body_file": "fw-kimi-k3.candidate.json",
+      "region": "eastus2",
+      "requested_sku": "DataZoneStandard",
+      "requested_capacity": 10,
+      "api_version": "2025-06-01",
+      "status": "conditional_candidate",
+      "ready_for_execution": false,
+      "preconditions": [
+        "Fireworks terms/funding decision",
+        "Fireworks feature registration",
+        "Exact account model/SKU/capacity/quota unavailable before registration",
+        "Any Marketplace requirement returned after registration must be reviewed"
+      ]
+    }
+  ],
+  "record_type": "historical pre-enablement inspection; see current_status_addendum",
+  "current_status_addendum": {
+    "verified_at_utc": "2026-09-10T02:47:15Z",
+    "user_authorization_received": true,
+    "fireworks_feature_state": "Registered",
+    "fireworks_deployments": [
+      {
+        "name": "abda-glm-5-3",
+        "model": "FW-GLM-5.3",
+        "version": "1",
+        "sku": "DataZoneStandard",
+        "capacity": 100,
+        "status": "Succeeded"
+      },
+      {
+        "name": "abda-kimi-k3",
+        "model": "FW-Kimi-K3",
+        "version": "1",
+        "sku": "DataZoneStandard",
+        "capacity": 100,
+        "status": "Succeeded"
+      }
+    ],
+    "quota_used": 200,
+    "quota_limit": 2000,
+    "cloudbank_award_reimbursement_independently_proven": false,
+    "paid_feature_qualification_separate": true,
+    "receipt": "fireworks-capacity-20260910.json"
+  }
+}

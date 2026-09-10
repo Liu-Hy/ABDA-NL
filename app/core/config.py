@@ -119,6 +119,7 @@ class Settings:
     trusted_hosts: tuple[str, ...]
     scenario_admin_emails: tuple[str, ...] = ()
     community_catalog_enabled: bool = True
+    named_credit_auto_activate: bool = True
 
     @property
     def is_production(self) -> bool:
@@ -209,6 +210,9 @@ class Settings:
             trial_budget_microusd=_integer(
                 "ABDA_TRIAL_BUDGET_MICROUSD", 500_000_000, minimum=0
             ),
+            named_credit_auto_activate=_truthy(
+                os.getenv("ABDA_NAMED_CREDIT_AUTO_ACTIVATE"), default=True,
+            ),
             llm_default_profile=(
                 os.getenv("ABDA_LLM_DEFAULT_PROFILE") or "balanced"
             ).strip().lower(),
@@ -224,9 +228,9 @@ class Settings:
             openrouter_budget_microusd=_integer(
                 "ABDA_OPENROUTER_BUDGET_MICROUSD", 500_000_000, minimum=0
             ),
-            llm_retry_attempts=_integer("ABDA_LLM_RETRY_ATTEMPTS", 3, minimum=1),
+            llm_retry_attempts=_integer("ABDA_LLM_RETRY_ATTEMPTS", 2, minimum=1),
             llm_circuit_cooldown_seconds=_integer(
-                "ABDA_LLM_CIRCUIT_COOLDOWN_SECONDS", 60, minimum=5
+                "ABDA_LLM_CIRCUIT_COOLDOWN_SECONDS", 15, minimum=5
             ),
             max_request_body_bytes=_integer(
                 "ABDA_MAX_REQUEST_BODY_BYTES", 2_000_000, minimum=65_536
@@ -278,9 +282,10 @@ class Settings:
             raise RuntimeError(
                 "trial user count multiplied by per-user grant exceeds the trial budget"
             )
-        if self.llm_default_profile not in {"economy", "balanced", "quality"}:
+        from app.llm.catalog import load_model_catalog
+        if self.llm_default_profile not in load_model_catalog().profiles:
             raise RuntimeError(
-                "ABDA_LLM_DEFAULT_PROFILE must be economy, balanced, or quality"
+                "ABDA_LLM_DEFAULT_PROFILE must name a catalog profile"
             )
         if self.llm_retry_attempts > 5:
             raise RuntimeError("ABDA_LLM_RETRY_ATTEMPTS cannot exceed 5")

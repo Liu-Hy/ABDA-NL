@@ -570,12 +570,27 @@ def _preserve_modify_rule_metadata(
             "suspend",
         ),
     }
+    field_scope = normalized
+    exclusive_scope = re.search(
+        r"\b(?:(?:change|modify|update|edit|replace|set|alter)\s+only|"
+        r"only\s+(?:change|modify|update|edit|replace|set|alter))\s+([^.;:\n]+)",
+        normalized,
+    )
+    if exclusive_scope:
+        # An explicit field list defines the scope. Later instructions such as
+        # "do not let the old source override this" do not authorize a source
+        # edit. Stop before the new value, which can itself contain field names.
+        field_scope = re.split(
+            r"\b(?:from|to|into|with|of|for|in)\b|=",
+            exclusive_scope.group(1),
+            maxsplit=1,
+        )[0]
     requested_fields = {
         field_name
         for field_name, terms in field_terms.items()
-        if any(term in normalized for term in terms)
+        if any(term in field_scope for term in terms)
     }
-    narrow_change = any(
+    narrow_change = exclusive_scope is not None or any(
         marker in normalized
         for marker in (
             "only by",

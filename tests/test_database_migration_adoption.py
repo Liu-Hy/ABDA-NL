@@ -74,7 +74,7 @@ def test_exact_revision_one_schema_is_backed_up_stamped_and_upgraded(
     with engine.connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "20260908_0005"
+        ).scalar_one() == "20260909_0006"
         assert connection.execute(
             text("SELECT email FROM users WHERE id = 'legacy-user'")
         ).scalar_one() == "legacy@example.edu"
@@ -135,7 +135,7 @@ def test_migration_command_needs_only_the_database_url(tmp_path):
     with engine.connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "20260908_0005"
+        ).scalar_one() == "20260909_0006"
     engine.dispose()
 
 
@@ -158,13 +158,13 @@ def test_operator_managed_database_must_be_at_application_head(
     monkeypatch.setenv("ABDA_AUTO_CREATE_DB", "0")
     reset_database_caches()
     reset_settings_cache()
-    with pytest.raises(RuntimeError, match="expected 20260908_0005"):
+    with pytest.raises(RuntimeError, match="expected 20260909_0006"):
         initialize_database()
 
 
 
 
-def test_catalog_expand_first_rollout_requires_explicit_disabled_flag(
+def test_named_credit_migration_is_required_even_with_catalog_disabled(
     tmp_path, monkeypatch, database_environment
 ):
     database_url = _point_application_at(monkeypatch, tmp_path / "catalog-bridge.db")
@@ -173,11 +173,12 @@ def test_catalog_expand_first_rollout_requires_explicit_disabled_flag(
     monkeypatch.setenv("ABDA_COMMUNITY_CATALOG_ENABLED", "false")
     reset_database_caches()
     reset_settings_cache()
-    initialize_database()
+    with pytest.raises(RuntimeError, match="expected 20260909_0006"):
+        initialize_database()
     assert not inspect(get_engine()).has_table("scenario_submissions")
     monkeypatch.setenv("ABDA_COMMUNITY_CATALOG_ENABLED", "true")
     reset_settings_cache()
-    with pytest.raises(RuntimeError, match="expected 20260908_0005"):
+    with pytest.raises(RuntimeError, match="expected 20260909_0006"):
         initialize_database()
     command.upgrade(_alembic_config(database_url), "head")
     initialize_database()
@@ -200,7 +201,7 @@ def test_operator_managed_database_at_application_head_starts(
     with get_engine().connect() as connection:
         assert connection.execute(
             text("SELECT version_num FROM alembic_version")
-        ).scalar_one() == "20260908_0005"
+        ).scalar_one() == "20260909_0006"
 
 
 def test_installed_package_does_not_require_repository_alembic_ini(

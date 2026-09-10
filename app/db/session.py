@@ -21,6 +21,7 @@ from app.db.models import Base, EmergencyBudget, TrialProgram
 
 log = logging.getLogger(__name__)
 LEGACY_SCHEMA_REVISIONS = (
+    "20260909_0006",
     "20260908_0005",
     "20260817_0004",
     "20260817_0003",
@@ -201,15 +202,6 @@ def _require_current_database_revision(
     expected = _application_alembic_heads(database_url)
     if current == expected:
         return
-    # Expand-first rollout: this image can serve the prior feature set while
-    # the single additive catalog migration runs. No catalog table is accessed
-    # until the feature is enabled. Other revision mismatches still fail closed.
-    if (
-        not get_settings().community_catalog_enabled
-        and current == frozenset({"20260817_0004"})
-        and expected == frozenset({"20260908_0005"})
-    ):
-        return
     current_label = ",".join(sorted(current)) or "none"
     expected_label = ",".join(sorted(expected)) or "none"
     raise RuntimeError(
@@ -347,7 +339,7 @@ def initialize_database() -> None:
     if not settings.auto_create_database:
         _require_current_database_revision(engine, settings.database_url)
     db_inspector = inspect(engine)
-    required = {"trial_programs", "emergency_budgets", "rate_limit_buckets"}
+    required = {"trial_programs", "emergency_budgets", "rate_limit_buckets", "named_credit_entitlements"}
     missing = sorted(name for name in required if not db_inspector.has_table(name))
     if missing:
         raise RuntimeError(
@@ -399,7 +391,11 @@ def initialize_database() -> None:
 
     from app.services.llm_billing import reconcile_stale_llm_reservations
     from app.services.rate_limits import delete_expired_rate_limits
+    from app.services.trials import initialize_named_credit
 
+    with get_session_factory()() as session:
+        initialize_named_credit(session)
+        session.commit()
     with get_session_factory()() as session:
         reconcile_stale_llm_reservations(session)
     with get_session_factory()() as session:
@@ -415,6 +411,7 @@ def database_is_ready() -> bool:
             or not db_inspector.has_table("trial_programs")
             or not db_inspector.has_table("emergency_budgets")
             or not db_inspector.has_table("rate_limit_buckets")
+            or not db_inspector.has_table("named_credit_entitlements")
         ):
             return False
         with get_session_factory()() as session:

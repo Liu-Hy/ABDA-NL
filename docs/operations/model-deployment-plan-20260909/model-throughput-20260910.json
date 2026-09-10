@@ -1,0 +1,441 @@
+{
+  "checked_utc": "2026-09-10T02:55:19.664508+00:00",
+  "cloud_mutations": false,
+  "inference_calls": 0,
+  "models": [
+    {
+      "route": "cloudbank-gpt-5.6-terra",
+      "deployment": "abda-gpt-5-6-terra",
+      "model": {
+        "format": "OpenAI",
+        "name": "gpt-5.6-terra",
+        "version": "2026-07-09"
+      },
+      "region": "eastus2",
+      "resource_scope": "default",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": 100
+      },
+      "status": "Succeeded",
+      "actual_rate_limits": [
+        {
+          "count": 100.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 100000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "sku_rate_limits_per_capacity_unit": [
+        {
+          "count": 1.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        },
+        {
+          "count": 1000.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        }
+      ],
+      "sku_capacity_limits": {
+        "allowedValues": null,
+        "default": 10,
+        "maximum": 1000000,
+        "minimum": null,
+        "step": null
+      },
+      "quota": {
+        "name": "OpenAI.GlobalStandard.gpt-5.6-terra",
+        "used": 100.0,
+        "limit": 10000.0,
+        "remaining": 9900.0,
+        "scope_id": "global",
+        "scope_type": "Global"
+      },
+      "usage_name_from_model_sku": "OpenAI.GlobalStandard.gpt-5.6-terra"
+    },
+    {
+      "route": "cloudbank-gpt-5.6-sol",
+      "deployment": "abda-gpt-5-6-sol",
+      "model": {
+        "format": "OpenAI",
+        "name": "gpt-5.6-sol",
+        "version": "2026-07-09"
+      },
+      "region": "eastus2",
+      "resource_scope": "default",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": 100
+      },
+      "status": "Succeeded",
+      "actual_rate_limits": [
+        {
+          "count": 100.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 100000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "sku_rate_limits_per_capacity_unit": [
+        {
+          "count": 1.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        },
+        {
+          "count": 1000.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        }
+      ],
+      "sku_capacity_limits": {
+        "allowedValues": null,
+        "default": 10,
+        "maximum": 1000000,
+        "minimum": null,
+        "step": null
+      },
+      "quota": {
+        "name": "OpenAI.GlobalStandard.gpt-5.6-sol",
+        "used": 100.0,
+        "limit": 10000.0,
+        "remaining": 9900.0,
+        "scope_id": "global",
+        "scope_type": "Global"
+      },
+      "usage_name_from_model_sku": "OpenAI.GlobalStandard.gpt-5.6-sol"
+    },
+    {
+      "route": "cloudbank-claude-sonnet-5",
+      "deployment": "abda-claude-sonnet-5",
+      "model": {
+        "format": "Anthropic",
+        "name": "claude-sonnet-5",
+        "version": "2"
+      },
+      "region": "eastus2",
+      "resource_scope": "default",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": 100
+      },
+      "status": "Succeeded",
+      "actual_rate_limits": [
+        {
+          "count": 100.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 100000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "sku_rate_limits_per_capacity_unit": [
+        {
+          "count": 1.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        },
+        {
+          "count": 1000.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        }
+      ],
+      "sku_capacity_limits": {
+        "allowedValues": null,
+        "default": 10,
+        "maximum": 1000000,
+        "minimum": null,
+        "step": null
+      },
+      "quota": {
+        "name": "AIServices.GlobalStandard.claude-sonnet-5.Azure",
+        "used": 100.0,
+        "limit": 10000.0,
+        "remaining": 9900.0,
+        "scope_id": "global",
+        "scope_type": "Global"
+      },
+      "usage_name_from_model_sku": "AIServices.GlobalStandard.claude-sonnet-5.Azure"
+    },
+    {
+      "route": "cloudbank-claude-opus-5",
+      "deployment": "claude-opus-5",
+      "model": {
+        "format": "Anthropic",
+        "name": "claude-opus-5",
+        "version": "2"
+      },
+      "region": "eastus2",
+      "resource_scope": "scoped-opus",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": 5000
+      },
+      "status": "Succeeded",
+      "actual_rate_limits": [
+        {
+          "count": 5000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 5000000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "sku_rate_limits_per_capacity_unit": [
+        {
+          "count": 1.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        },
+        {
+          "count": 1000.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        }
+      ],
+      "sku_capacity_limits": {
+        "allowedValues": null,
+        "default": 10,
+        "maximum": 1000000,
+        "minimum": null,
+        "step": null
+      },
+      "quota": {
+        "name": "AIServices.GlobalStandard.claude-opus-5.Azure",
+        "used": 5000.0,
+        "limit": 10000.0,
+        "remaining": 5000.0,
+        "scope_id": "global",
+        "scope_type": "Global"
+      },
+      "usage_name_from_model_sku": "AIServices.GlobalStandard.claude-opus-5.Azure"
+    },
+    {
+      "route": "cloudbank-deepseek-v4-flash-0731",
+      "deployment": "abda-deepseek-v4-flash-0731",
+      "model": {
+        "format": "DeepSeek",
+        "name": "DeepSeek-V4-Flash-0731",
+        "version": "2026-07-31"
+      },
+      "region": "eastus2",
+      "resource_scope": "default",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": 100
+      },
+      "status": "Succeeded",
+      "actual_rate_limits": [
+        {
+          "count": 100.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 100000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "sku_rate_limits_per_capacity_unit": [
+        {
+          "count": 1.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        },
+        {
+          "count": 1000.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        }
+      ],
+      "sku_capacity_limits": {
+        "allowedValues": null,
+        "default": 5000,
+        "maximum": 1000000,
+        "minimum": null,
+        "step": null
+      },
+      "quota": {
+        "name": "AIServices.GlobalStandard.DeepSeek-V4-Flash-0731",
+        "used": 100.0,
+        "limit": 10000.0,
+        "remaining": 9900.0,
+        "scope_id": "global",
+        "scope_type": "Global"
+      },
+      "usage_name_from_model_sku": "AIServices.GlobalStandard.DeepSeek-V4-Flash-0731"
+    },
+    {
+      "route": "cloudbank-glm-5.3",
+      "deployment": "abda-glm-5-3",
+      "model": {
+        "format": "Fireworks",
+        "name": "FW-GLM-5.3",
+        "version": "1"
+      },
+      "region": "eastus2",
+      "resource_scope": "default",
+      "sku": {
+        "name": "DataZoneStandard",
+        "capacity": 100
+      },
+      "status": "Succeeded",
+      "actual_rate_limits": [
+        {
+          "count": 100.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 100000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "sku_rate_limits_per_capacity_unit": [
+        {
+          "count": 1.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        },
+        {
+          "count": 1000.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        }
+      ],
+      "sku_capacity_limits": {
+        "allowedValues": null,
+        "default": 10,
+        "maximum": 1000000,
+        "minimum": null,
+        "step": null
+      },
+      "quota": {
+        "name": "AIServices.DataZoneStandard.Fireworks",
+        "used": 200.0,
+        "limit": 2000.0,
+        "remaining": 1800.0,
+        "scope_id": "eastus2",
+        "scope_type": "Classic"
+      },
+      "usage_name_from_model_sku": "AIServices.DataZoneStandard.Fireworks"
+    },
+    {
+      "route": "cloudbank-kimi-k3",
+      "deployment": "abda-kimi-k3",
+      "model": {
+        "format": "Fireworks",
+        "name": "FW-Kimi-K3",
+        "version": "1"
+      },
+      "region": "eastus2",
+      "resource_scope": "default",
+      "sku": {
+        "name": "DataZoneStandard",
+        "capacity": 100
+      },
+      "status": "Succeeded",
+      "actual_rate_limits": [
+        {
+          "count": 100.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "request",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        },
+        {
+          "count": 100000.0,
+          "dynamicThrottlingEnabled": null,
+          "key": "token",
+          "matchPatterns": null,
+          "minCount": null,
+          "renewalPeriod": 60.0
+        }
+      ],
+      "sku_rate_limits_per_capacity_unit": [
+        {
+          "count": 1.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        },
+        {
+          "count": 1000.0,
+          "renewalPeriod": 60.0,
+          "rules": null
+        }
+      ],
+      "sku_capacity_limits": {
+        "allowedValues": null,
+        "default": 10,
+        "maximum": 1000000,
+        "minimum": null,
+        "step": null
+      },
+      "quota": {
+        "name": "AIServices.DataZoneStandard.Fireworks",
+        "used": 200.0,
+        "limit": 2000.0,
+        "remaining": 1800.0,
+        "scope_id": "eastus2",
+        "scope_type": "Classic"
+      },
+      "usage_name_from_model_sku": "AIServices.DataZoneStandard.Fireworks"
+    }
+  ]
+}

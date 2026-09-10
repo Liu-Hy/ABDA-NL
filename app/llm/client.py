@@ -14,12 +14,126 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol, TypeVar
 from urllib.parse import urlparse
 
+import httpx
+
 log = logging.getLogger(__name__)
+
+
+class LLMClientConfigurationError(RuntimeError):
+    """A missing operator credential or endpoint, before provider dispatch."""
+
+
+class LLMRequestDeadlineError(RuntimeError):
+    """The shared request budget expired, without permission for another call."""
+
+    def __init__(
+        self, *, provider: str, billing_uncertain: bool = False,
+        usage: dict[str, int] | None = None, provider_cost_microusd: int | None = None,
+    ) -> None:
+        super().__init__("The AI request deadline was reached")
+        self.provider = provider
+        self.error_type = "request_deadline"
+        self.billing_uncertain = billing_uncertain
+        self.usage = dict(usage or {})
+        self.provider_cost_microusd = provider_cost_microusd
+
+
+def remaining_request_seconds(deadline: float | None, *, provider: str) -> float | None:
+    if deadline is None:
+        return None
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise LLMRequestDeadlineError(provider=provider)
+    return remaining
+
+
+def request_timeout(
+    configured: httpx.Timeout | float,
+    deadline: float | None,
+    *,
+    provider: str,
+) -> httpx.Timeout:
+    """Clip every physical HTTP phase to the remaining shared request budget."""
+    base = httpx.Timeout(configured)
+    remaining = remaining_request_seconds(deadline, provider=provider)
+    if remaining is None:
+        return base
+    return httpx.Timeout(**{
+        phase: min(value, remaining) if value is not None else remaining
+        for phase, value in base.as_dict().items()
+    })
+
+
+# A semaphore prevents an unbounded executor queue when providers are slow.
+# Only network work runs here. Reservations and settlement stay on the caller.
+_PROVIDER_WORKERS = ThreadPoolExecutor(max_workers=8, thread_name_prefix="abda-provider")
+_PROVIDER_SLOTS = threading.BoundedSemaphore(8)
+_ResponseT = TypeVar("_ResponseT")
+
+
+def invoke_before_deadline(
+    call: Callable[[], _ResponseT],
+    *,
+    deadline: float | None,
+    provider: str,
+    client: Any,
+) -> _ResponseT:
+    """Bound wall time as well as inactivity time, including streamed replies.
+
+    A remote request cannot be recalled after dispatch. If it outlives the
+    deadline, close its transport and let the caller settle the full reserved
+    ceiling. A late result never performs accounting or authorizes more work.
+    """
+    remaining = remaining_request_seconds(deadline, provider=provider)
+    if remaining is None:
+        return call()
+    if not _PROVIDER_SLOTS.acquire(timeout=remaining):
+        raise LLMRequestDeadlineError(provider=provider)
+    abandoned = threading.Event()
+
+    def run() -> _ResponseT:
+        try:
+            remaining_request_seconds(deadline, provider=provider)
+            result = call()
+            if time.monotonic() >= deadline:
+                raise LLMRequestDeadlineError(
+                    provider=provider,
+                    billing_uncertain=getattr(client, "request_dispatched", True),
+                    usage=getattr(result, "usage", None),
+                    provider_cost_microusd=getattr(result, "provider_cost_microusd", None),
+                )
+            return result
+        finally:
+            if abandoned.is_set():
+                close_llm_client(client)
+            _PROVIDER_SLOTS.release()
+
+    try:
+        remaining = remaining_request_seconds(deadline, provider=provider)
+        future = _PROVIDER_WORKERS.submit(run)
+    except BaseException:
+        _PROVIDER_SLOTS.release()
+        raise
+    try:
+        return future.result(timeout=max(0.0, deadline - time.monotonic()))
+    except FutureTimeoutError:
+        # Future.result also re-raises a provider's own TimeoutError. Such a
+        # physical timeout still permits retry while the shared budget lasts.
+        if future.done():
+            return future.result()
+        abandoned.set()
+        close_llm_client(client)
+        raise LLMRequestDeadlineError(
+            provider=provider,
+            billing_uncertain=getattr(client, "request_dispatched", True),
+        ) from None
 
 
 @dataclass
@@ -178,7 +292,7 @@ def _foundry_base_url() -> str:
         ).rstrip("/")
 
     if not endpoint:
-        raise RuntimeError(
+        raise LLMClientConfigurationError(
             "Foundry Claude endpoint is not configured; set "
             "AZURE_ANTHROPIC_ENDPOINT, ANTHROPIC_FOUNDRY_BASE_URL, "
             "ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT, or AZURE_OPENAI_ENDPOINT"
@@ -244,6 +358,7 @@ class ClaudeClient:
         billing_source: str | None = None,
         route: str | None = None,
         sdk_max_retries: int | None = None,
+        timeout_seconds: float = 45.0,
     ) -> None:
         # Lazy-import so non-LLM mode never pays the import cost.
         import anthropic
@@ -259,6 +374,10 @@ class ClaudeClient:
             if sdk_max_retries is not None
             else {}
         )
+        retry_options["timeout"] = timeout_seconds
+        self._timeout_seconds = timeout_seconds
+        self.request_deadline: float | None = None
+        self.request_dispatched = False
         if self.provider == "foundry":
             if not base_url:
                 configured_key, configured_token, configured_url = foundry_credentials()
@@ -266,7 +385,7 @@ class ClaudeClient:
                 auth_token = auth_token or configured_token
                 base_url = configured_url
             if not (api_key or auth_token):
-                raise RuntimeError(
+                raise LLMClientConfigurationError(
                     "Foundry Claude credentials are not configured; set "
                     "AZURE_ANTHROPIC_API_KEY, ANTHROPIC_FOUNDRY_API_KEY, "
                     "or AZURE_OPENAI_API_KEY"
@@ -311,7 +430,14 @@ class ClaudeClient:
             # `messages`) out of the cached prefix automatically.
             kwargs["cache_control"] = {"type": "ephemeral"}
 
+        kwargs["timeout"] = request_timeout(
+            getattr(self, "_timeout_seconds", 45.0),
+            getattr(self, "request_deadline", None),
+            provider=self.provider,
+        )
+
         start = time.monotonic()
+        self.request_dispatched = True
         with self._client.messages.stream(**kwargs) as stream:
             final = stream.get_final_message()
         latency_ms = int((time.monotonic() - start) * 1000)
@@ -376,7 +502,14 @@ class ClaudeClient:
         if cache:
             kwargs["cache_control"] = {"type": "ephemeral"}
 
+        kwargs["timeout"] = request_timeout(
+            getattr(self, "_timeout_seconds", 45.0),
+            getattr(self, "request_deadline", None),
+            provider=self.provider,
+        )
+
         start = time.monotonic()
+        self.request_dispatched = True
         with self._client.messages.stream(**kwargs) as stream:
             final = stream.get_final_message()
         latency_ms = int((time.monotonic() - start) * 1000)

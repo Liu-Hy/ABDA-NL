@@ -41,24 +41,32 @@ def test_readiness_probe(client: TestClient):
 
 
 def _assert_config(response, *, llm_enabled: bool):
+    from app.core.config import get_settings
+    from app.llm.catalog import load_model_catalog
+
+    catalog = load_model_catalog()
     assert response.status_code == 200
     body = response.json()
     assert body["llm_enabled"] is llm_enabled
     assert body["llm_auth_required"] is False
     assert body["byok_enabled"] is llm_enabled
     assert body["byok_keys_stored"] is False
-    assert body["default_profile"] == "balanced"
-    assert [profile["id"] for profile in body["profiles"]] == ["balanced"]
+    assert body["default_profile"] == get_settings().llm_default_profile
+    assert [profile["id"] for profile in body["profiles"]] == [profile.id for profile in catalog.public_profiles()]
     providers = {provider["id"]: provider for provider in body["byok_providers"]}
-    assert set(providers) == {"anthropic", "openai", "google", "openrouter"}
-    assert providers["openai"]["default_model"] == "gpt-5.6-terra"
+    public_models = catalog.public_model_ids()
+    expected_providers = {catalog.models[model].family for model in public_models}
+    expected_providers.intersection_update(catalog.byok_defaults)
+    if public_models:
+        expected_providers.add("openrouter")
+    assert set(providers) == expected_providers
     openrouter_models = {
         model["id"] for model in providers["openrouter"]["models"]
     }
-    assert "gemini-3.7-flash" in openrouter_models
-    assert "qwen3.6-plus" not in openrouter_models
-    assert "qwen3.6-flash" not in openrouter_models
+    assert openrouter_models == public_models
     assert all(provider["models"] for provider in providers.values())
+    assert all(provider["default_model"] in {model["id"] for model in provider["models"]}
+               for provider in providers.values())
 
 
 # --- static-asset cache headers ---

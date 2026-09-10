@@ -211,6 +211,12 @@ class ChatRequest(_StrictModel):
     diff_ops: List[DiffOp] = Field(default_factory=list, max_length=MAX_DIFF_OPS)
     messages: List[ChatMessage] = Field(min_length=1, max_length=50)
     llm: Optional[LLMRequestOptions] = None
+    context_refs: List["ChatContextRef"] = Field(default_factory=list, max_length=24)
+
+
+class ChatContextRef(_StrictModel):
+    kind: Literal["rule", "fact", "assumption", "conclusion", "argument"]
+    id: str = Field(min_length=1, max_length=200)
 
 class ChatUsage(BaseModel):
     input_tokens: int = 0
@@ -231,6 +237,7 @@ class ChatResponse(_StrictModel):
     usage: ChatUsage
     latency_ms: int
     retried: bool = False
+    evidence: list[dict] = Field(default_factory=list)
 
 # --- Propose ---
 

@@ -1,0 +1,15 @@
+{
+  "sku": {
+    "name": "GlobalStandard",
+    "capacity": 10
+  },
+  "properties": {
+    "model": {
+      "format": "xAI",
+      "name": "grok-4.6",
+      "version": "1"
+    },
+    "raiPolicyName": "Microsoft.DefaultV2",
+    "versionUpgradeOption": "NoAutoUpgrade"
+  }
+}

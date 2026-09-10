@@ -1393,9 +1393,8 @@ def test_mobile_item_question_reveals_chat(live_browser_server):
             question = page.locator(".rule-info[data-desc]").first
             expect(question).to_be_visible()
             question.click()
-            expect(page.locator("#chat-messages")).to_contain_text(
-                "This is a route-mocked mobile explanation."
-            )
+            expect(page.locator("#chat-input")).to_have_value(re.compile('Can you explain'))
+            expect(page.locator("#chat-messages")).not_to_contain_text("This is a route-mocked mobile explanation.")
             geometry = page.evaluate(
                 """() => {
                     const panel = document.getElementById('right-panel')
@@ -3034,9 +3033,8 @@ def test_research_workspace_in_browser(live_browser_server):
                 )
                 assert access_note.locator("button").count() == 0
                 shared_page.locator(".rule-info").first.click()
-                expect(shared_page.locator("#global-status")).to_contain_text(
-                    "Chat and edits are disabled in a shared read-only view."
-                )
+                expect(shared_page.locator("#chat-input")).to_have_value(re.compile('Can you explain'))
+                expect(shared_page.locator("#chat-send-btn")).to_be_disabled()
                 expect(shared_page.locator("#modal-workspace .modal-content")).to_be_hidden()
             finally:
                 shared_context.close()

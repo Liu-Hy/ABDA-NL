@@ -14,7 +14,7 @@ import app.api.account_routes as account_routes
 import app.mcp.server as mcp_module
 from app.api.main import app
 from app.core.config import get_settings
-from app.db.models import Base, MCPAccessToken, User
+from app.db.models import Base, LLMUsageEvent, MCPAccessToken, TrialGrant, UsageReservation, User
 from app.db.session import get_session_factory
 from app.services.mcp_tokens import (
     MCPTokenLimitError,
@@ -322,12 +322,13 @@ def test_mcp_wire_authentication_discovery_and_read_tools(client: TestClient):
     }
     assert tools["get_project"]["annotations"]["readOnlyHint"] is True
     assert tools["apply_project_ops"]["annotations"]["destructiveHint"] is True
-    assert tools["ask_project"]["inputSchema"]["properties"]["profile"][
-        "const"
-    ] == "balanced"
-    assert tools["propose_project_edit"]["inputSchema"]["properties"]["profile"][
-        "const"
-    ] == "balanced"
+    from app.llm.catalog import public_profile_ids
+    for name in ("ask_project", "propose_project_edit"):
+        profile_schema = tools[name]["inputSchema"]["properties"]["profile"]
+        selected = next(item for item in profile_schema["anyOf"] if item["type"] == "string")
+        assert selected.get("enum", [selected.get("const")]) == list(public_profile_ids())
+    operations = tools["apply_project_ops"]["inputSchema"]["properties"]["diff_ops"]
+    assert "toggle-assumption" in operations["items"]["discriminator"]["mapping"]
     assert "api_key" not in listing.text.lower()
 
     projects = _call_tool(client, token, "list_projects")["structuredContent"]
@@ -525,7 +526,8 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
 
     selected_client = ClosableClient()
 
-    def fake_select(options, *, user, request_id, request_kind, legacy_factory):
+    def fake_select(options, *, user, request_id, request_kind, legacy_factory, settings):
+        assert settings.llm_require_auth is True
         captured["profile"] = options.profile
         captured["user_id"] = user.id
         captured["request_id"] = request_id
@@ -595,3 +597,185 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
     unchanged = client.get(f"/api/projects/{project['id']}").json()
     assert unchanged["version"] == 1
     assert "smoke_visible" not in unchanged["scenario"]["facts"]
+
+
+@pytest.mark.parametrize("client_name", ["codex", "claude-code"])
+def test_subscribed_client_wire_workflow_needs_no_abda_credit(
+    client: TestClient, monkeypatch, client_name,
+):
+    """Protocol regression for either client, distinct from live client acceptance."""
+    user = _login(client, f"mcp-complete-{client_name}@example.edu")
+    token_record = _create_token(
+        client, name=f"{client_name} complete workflow",
+        scopes=["projects:read", "projects:write"],
+    )
+    token = token_record["token"]
+
+    def reject_hosted_llm(*_args, **_kwargs):
+        raise AssertionError("subscription-funded read/write must never invoke the ABDA LLM")
+
+    monkeypatch.setattr(mcp_module, "select_request_llm_client", reject_hosted_llm)
+    initialized = _initialize(client, token)
+    assert initialized.status_code == 200
+    assert "zero ABDA credit" in initialized.json()["result"]["instructions"]
+    examples = _call_tool(client, token, "list_examples")["structuredContent"]
+    assert any(item["id"] == "fire_prevention" for item in examples["examples"])
+    baseline = _call_tool(client, token, "get_example", {
+        "scenario_id": "fire_prevention", "include_argument_graph": True,
+    })["structuredContent"]
+    created = _call_tool(client, token, "create_project", {
+        "name": f"Disposable {client_name} scenario", "source_scenario_id": "fire_prevention",
+    })["structuredContent"]
+    observed = _call_tool(client, token, "get_project", {
+        "project_id": created["id"],
+    })["structuredContent"]
+    assert observed["version"] == 1
+    assert observed["af_summary"] == baseline["af_summary"]
+    edit = {"op": "toggle-assumption", "id": "smp_permit"}
+    changed = _call_tool(client, token, "apply_project_ops", {
+        "project_id": observed["id"], "expected_version": observed["version"],
+        "diff_ops": [edit],
+    })["structuredContent"]
+    assert changed["version"] == 2
+    assert changed["scenario"]["assumptions"]["smp_permit"]["active"] is False
+    assert changed["af_summary"]["labels_by_proposition"]["legal_today"] != (
+        baseline["af_summary"]["labels_by_proposition"]["legal_today"]
+    )
+    readback = _call_tool(client, token, "get_project", {
+        "project_id": observed["id"], "include_argument_graph": True,
+    })["structuredContent"]
+    browser = client.get(f"/api/projects/{observed['id']}").json()
+    assert browser["scenario"] == readback["scenario"] == changed["scenario"]
+    assert browser["af"] == readback["af"]
+    stale = _call_tool(client, token, "apply_project_ops", {
+        "project_id": observed["id"], "expected_version": 1, "diff_ops": [edit],
+    })
+    assert stale["isError"] is True
+    assert "changed since it was loaded" in stale["content"][0]["text"]
+    invalid = _call_tool(client, token, "apply_project_ops", {
+        "project_id": observed["id"], "expected_version": 2,
+        "diff_ops": [{"op": "toggle-assumption", "id": "does_not_exist"}],
+    })
+    assert invalid["isError"] is True
+    missing_scope = _call_tool(client, token, "ask_project", {
+        "project_id": observed["id"], "question": "Explain the changed conclusion.",
+    })
+    assert missing_scope["isError"] is True
+    assert "llm:use" in missing_scope["content"][0]["text"]
+    read_only = _create_token(client, name="Read scope only", scopes=["projects:read"])["token"]
+    denied = _call_tool(client, read_only, "apply_project_ops", {
+        "project_id": observed["id"], "expected_version": 2, "diff_ops": [edit],
+    })
+    assert denied["isError"] is True
+    assert "projects:write" in denied["content"][0]["text"]
+    _login(client, f"mcp-complete-outsider-{client_name}@example.edu")
+    outsider = _create_token(client, name="Isolated account", scopes=["projects:read", "projects:write"])
+    for name, arguments in (
+        ("get_project", {"project_id": observed["id"]}),
+        ("apply_project_ops", {"project_id": observed["id"], "expected_version": 2, "diff_ops": [edit]}),
+    ):
+        rejected = _call_tool(client, outsider["token"], name, arguments)
+        assert rejected["isError"] is True
+        assert "project not found" in rejected["content"][0]["text"]
+    _login(client, user["email"])
+    assert client.delete(f"/api/projects/{observed['id']}?expected_version=2").status_code == 204
+    assert client.delete(f"/api/mcp/tokens/{token_record['id']}").status_code == 204
+    for _ in range(2):
+        assert _mcp_request(client, token, "tools/call", {
+            "name": "list_projects", "arguments": {},
+        }).status_code == 401
+    with get_session_factory()() as session:
+        assert session.get(TrialGrant, user["id"]) is None
+        assert session.scalar(select(UsageReservation).where(UsageReservation.user_id == user["id"])) is None
+        assert session.scalar(select(LLMUsageEvent).where(LLMUsageEvent.user_id == user["id"])) is None
+
+
+def test_mcp_server_tools_charge_exact_real_ledger_and_reject_depleted_credit(
+    client: TestClient, monkeypatch,
+):
+    import app.api.llm_access as llm_access
+    from app.db.models import TrialProgram
+    from app.llm.catalog import load_model_catalog
+    from app.llm.client import LLMResponse, ToolCallResponse
+    from app.llm.routing import LLMRouter
+
+    user = _login(client, "mcp-real-metering@example.edu")
+    assert client.post("/api/trial/activate").status_code == 200
+    project = client.post("/api/projects", json={
+        "name": "Metered MCP project", "source_scenario_id": "fire_prevention",
+    }).json()
+    token = _create_token(client, name="Metered server tools", scopes=["projects:read", "llm:use"])["token"]
+    settings = replace(get_settings(), llm_require_auth=True, openrouter_failover_enabled=False)
+    monkeypatch.setattr(llm_access, "get_settings", lambda: settings)
+    monkeypatch.setattr(mcp_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(mcp_module, "_llm_enabled", lambda: True)
+    calls = []
+
+    class Provider:
+        def __init__(self, route):
+            self.model, self.provider = route.request_model, route.provider
+            self.route, self.billing_source = route.id, route.billing_source
+
+        def complete(self, **kwargs):
+            calls.append("chat")
+            return LLMResponse(
+                text="The formal result comes from the scenario's stated facts and rules.",
+                stop_reason="end_turn", usage={"input_tokens": 100, "output_tokens": 50},
+                latency_ms=1, model=self.model,
+            )
+
+        def tool_call(self, **kwargs):
+            name = kwargs["tool"]["name"]
+            calls.append(name)
+            payload = {"issues": []} if "review" in name else {
+                "id": "mcp_rule", "rule": {
+                    "type": "defeasible", "premises": ["heavy_fuels"],
+                    "conclusion": "conduct_burn", "category": "ecology", "block": 1,
+                },
+            }
+            return ToolCallResponse(
+                tool_name=name, tool_input=payload, stop_reason="tool_use",
+                usage={"input_tokens": 100, "output_tokens": 50}, latency_ms=1, model=self.model,
+            )
+
+    def raw_route(router, route, *, user_id):
+        assert route.provider != "openrouter"
+        return Provider(route), router.catalog.model_for_route(route)
+
+    monkeypatch.setattr(LLMRouter, "_raw_route", raw_route)
+    answer = _call_tool(client, token, "ask_project", {
+        "project_id": project["id"], "question": "Explain what this scenario says.",
+    })["structuredContent"]
+    proposal = _call_tool(client, token, "propose_project_edit", {
+        "project_id": project["id"], "task": "add-rule",
+        "instruction": "Add a rule that heavy fuels support conducting a burn.",
+    })["structuredContent"]
+    catalog = load_model_catalog()
+    profile = catalog.profiles[settings.llm_default_profile]
+    unit_cost = catalog.cost_ceiling_for_route(catalog.routes[profile.primary_route]).cost_microusd(
+        {"input_tokens": 100, "output_tokens": 50},
+    )
+    assert answer["cost_microusd"] == unit_cost
+    assert proposal["cost_microusd"] == 2 * unit_cost
+    assert len(calls) == 3
+    unchanged = client.get(f"/api/projects/{project['id']}").json()
+    assert unchanged["version"] == 1
+    assert "mcp_rule" not in unchanged["scenario"]["rules"]
+    with get_session_factory()() as session:
+        grant = session.get(TrialGrant, user["id"])
+        assert (grant.spent_microusd, grant.reserved_microusd) == (3 * unit_cost, 0)
+        events = list(session.scalars(select(LLMUsageEvent).where(LLMUsageEvent.user_id == user["id"])))
+        assert len(events) == 3
+        assert sum(event.cost_microusd for event in events) == 3 * unit_cost
+        program = session.get(TrialProgram, grant.program_key)
+        program.spent_microusd += grant.granted_microusd - grant.spent_microusd
+        grant.spent_microusd = grant.granted_microusd
+        session.commit()
+    for name, arguments in (
+        ("ask_project", {"project_id": project["id"], "question": "Explain again."}),
+        ("propose_project_edit", {"project_id": project["id"], "task": "add-fact", "instruction": "Add smoke."}),
+    ):
+        denied = _call_tool(client, token, name, arguments)
+        assert denied["isError"] is True
+        assert "remaining trial credit" in denied["content"][0]["text"]
+    assert len(calls) == 3

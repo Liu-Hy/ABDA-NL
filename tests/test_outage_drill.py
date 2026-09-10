@@ -20,9 +20,12 @@ from app.db.models import (
     User,
 )
 from app.llm.client import LLMResponse
+from app.llm.catalog import load_model_catalog
+from app.llm.routing import LLMRouter
 from app.llm.providers import LLMProviderError
 from app.services.emergency_budget import get_emergency_balance
 from app.services.trials import get_trial_balance
+from helpers.catalogs import admit_catalog_models
 
 
 EMAIL = "outage-drill@example.edu"
@@ -184,7 +187,7 @@ def test_outage_drill_reaches_fallback_and_reconciles_both_ledgers(
             select(LLMUsageEvent).where(LLMUsageEvent.request_id == output["request_id"])
         )
         assert event is not None
-        assert event.route == outage_drill._FALLBACK_ROUTE
+        assert event.route == output["fallback_route"]
     assert len(_SuccessfulOpenRouter.instances) == 1
     assert _SuccessfulOpenRouter.instances[0].closed is True
 
@@ -259,3 +262,41 @@ def test_outage_drill_refuses_wrong_origin_or_enabled_public_failover(
     monkeypatch.setattr(outage_drill, "get_settings", lambda: settings)
     assert outage_drill.main(["--expected-origin", ORIGIN]) == 1
     assert "must remain disabled" in capsys.readouterr().err
+
+
+def test_outage_drill_uses_the_configured_qualified_profile(drill_factory, monkeypatch, capsys):
+    _install_runtime(monkeypatch, drill_factory)
+    catalog = admit_catalog_models(load_model_catalog(), "gpt-5.6-sol")
+    chosen = next(profile for profile in catalog.public_profiles()
+        if catalog.routes[profile.primary_route].model == "gpt-5.6-sol")
+    settings = replace(outage_drill.get_settings(), llm_default_profile=chosen.id)
+    monkeypatch.setattr(outage_drill, "get_settings", lambda: settings)
+    monkeypatch.setattr(outage_drill, "LLMRouter", lambda **kwargs: LLMRouter(catalog=catalog, **kwargs))
+    assert outage_drill.main(["--expected-origin", ORIGIN]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["profile"] == chosen.id
+    assert output["primary_route"] == chosen.primary_route
+    assert output["fallback_route"] == chosen.fallback_route
+    assert not _SuccessfulOpenRouter.instances
+
+
+@pytest.mark.parametrize("fault", ["unqualified", "unverified-primary", "unverified-backup", "different-model", "aws"])
+def test_outage_drill_rejects_unqualified_or_mismatched_routes(drill_factory, monkeypatch, fault):
+    _install_runtime(monkeypatch, drill_factory)
+    catalog = load_model_catalog()
+    profile = catalog.profiles["balanced"]
+    routes, profiles = dict(catalog.routes), dict(catalog.profiles)
+    if fault == "unqualified":
+        profiles[profile.id] = replace(profile, public_ready=False)
+    elif fault == "unverified-primary":
+        routes[profile.primary_route] = replace(routes[profile.primary_route], verified=False)
+    elif fault == "unverified-backup":
+        routes[profile.fallback_route] = replace(routes[profile.fallback_route], verified=False)
+    elif fault == "different-model":
+        routes[profile.fallback_route] = replace(routes[profile.fallback_route], model="gpt-5.6-sol")
+    else:
+        routes[profile.primary_route] = replace(routes[profile.primary_route], provider="aws-bedrock")
+    router = LLMRouter(settings=outage_drill.get_settings(),
+        catalog=replace(catalog, profiles=profiles, routes=routes), session_factory=drill_factory)
+    with pytest.raises(outage_drill.OutageDrillError):
+        outage_drill._validated_routes(router)

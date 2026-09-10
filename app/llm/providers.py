@@ -3,17 +3,38 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+import os
+import re
 import time
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
 
 from app.llm.catalog import ModelSpec
-from app.llm.client import LLMResponse, ToolCallResponse
+from app.llm.client import (
+    LLMRequestDeadlineError,
+    LLMResponse,
+    ToolCallResponse,
+    remaining_request_seconds,
+    request_timeout,
+)
 
 
 log = logging.getLogger(__name__)
+
+
+_TERMINAL_ERROR_TYPES = frozenset({
+    "accounting_unavailable", "authentication_required",
+    "content_blocked", "content_filter", "content_policy_violation",
+    "invalid_request", "invalid_request_error", "invalid_response",
+    "request_deadline", "safety", "semantic_validation",
+    "trial_exhausted", "user_quota_exceeded",
+})
+# Provider quota codes on an HTTP 429 describe an unavailable API route. ABDA
+# credit exhaustion uses local reservation exceptions, before provider dispatch.
 
 
 class LLMProviderError(RuntimeError):
@@ -31,16 +52,50 @@ class LLMProviderError(RuntimeError):
         usage: dict[str, int] | None = None,
         provider_cost_microusd: int | None = None,
         billing_uncertain: bool = False,
+        retry_after_seconds: float | None = None,
     ) -> None:
         super().__init__(message)
         self.provider = provider
         self.status_code = status_code
-        self.retryable = retryable
-        self.outage_candidate = outage_candidate
+        terminal = str(error_type or "").lower() in _TERMINAL_ERROR_TYPES
+        self.retryable = retryable and not terminal
+        self.outage_candidate = outage_candidate and not terminal
         self.error_type = error_type
         self.usage = dict(usage or {})
         self.provider_cost_microusd = provider_cost_microusd
         self.billing_uncertain = billing_uncertain
+        self.retry_after_seconds = retry_after_seconds
+
+
+def provider_error_is_terminal(error: LLMProviderError) -> bool:
+    return str(error.error_type or "").lower() in _TERMINAL_ERROR_TYPES
+
+
+def parse_retry_after(headers: Any, *, now: float | None = None) -> float | None:
+    """Parse standard and Azure/Anthropic retry delays with a two-second cap."""
+    if not headers:
+        return None
+    for name, scale in (("retry-after-ms", 0.001), ("x-ms-retry-after-ms", 0.001),
+                        ("retry-after", 1.0)):
+        raw = headers.get(name)
+        if raw is None or len(str(raw)) > 128:
+            continue
+        value = str(raw).strip()
+        try:
+            delay = float(value) * scale
+        except ValueError:
+            if name != "retry-after":
+                continue
+            try:
+                parsed = parsedate_to_datetime(value)
+                if parsed.tzinfo is None:
+                    continue
+                delay = parsed.timestamp() - (time.time() if now is None else now)
+            except (TypeError, ValueError, OverflowError):
+                continue
+        if math.isfinite(delay):
+            return min(2.0, max(0.0, delay))
+    return None
 
 
 _NO_DISPATCH_TRANSPORT_ERRORS = (
@@ -164,7 +219,6 @@ _RETRYABLE_ERROR_TYPES = {
     "provider_unavailable",
     "server",
     "timeout",
-    "unmapped",
 }
 
 
@@ -188,8 +242,10 @@ def _provider_error_from_payload(
     metadata = raw_error.get("metadata")
     metadata = metadata if isinstance(metadata, dict) else {}
     error_type = str(
-        metadata.get("error_type") or data.get("error_type") or ""
-    ).strip()
+        metadata.get("error_type") or data.get("error_type") or raw_error.get("type")
+        or (raw_error.get("code") if isinstance(raw_error.get("code"), str) else "")
+        or ""
+    ).strip().lower()
     status = (
         _error_status(raw_error.get("code"))
         or _error_status(raw_error.get("status"))
@@ -201,6 +257,8 @@ def _provider_error_from_payload(
     outage = error_type in _RETRYABLE_ERROR_TYPES or (
         status in {408, 425, 429} or (status is not None and status >= 500)
     )
+    if status in {400, 401, 402, 403, 404, 422}:
+        retryable = outage = False
     label = error_type or (f"HTTP {status}" if status is not None else "an error")
     return LLMProviderError(
         f"{provider} returned {label}",
@@ -214,7 +272,17 @@ def _provider_error_from_payload(
     )
 
 
-def _http_provider_error(provider: str, status: int) -> LLMProviderError:
+def provider_http_error(
+    provider: str, status: int, *, headers: Any = None, data: dict[str, Any] | None = None,
+) -> LLMProviderError:
+    if data is not None:
+        # Anthropic SDK bodies sometimes contain the error object directly.
+        envelope = data if "error" in data else {"error": data}
+        error = _provider_error_from_payload(envelope, provider=provider, default_status=status)
+        if error is not None:
+            if error.retryable:
+                error.retry_after_seconds = parse_retry_after(headers)
+            return error
     retryable = status in {408, 409, 425, 429} or status >= 500
     outage = status in {408, 425, 429} or status >= 500
     return LLMProviderError(
@@ -223,7 +291,56 @@ def _http_provider_error(provider: str, status: int) -> LLMProviderError:
         status_code=status,
         retryable=retryable,
         outage_candidate=outage,
+        retry_after_seconds=parse_retry_after(headers) if retryable else None,
     )
+
+
+def _decode_provider_response(response: httpx.Response, *, provider: str) -> dict[str, Any]:
+    try:
+        data = response.json()
+    except ValueError as exc:
+        if response.status_code >= 400:
+            raise provider_http_error(provider, response.status_code, headers=response.headers) from exc
+        raise LLMProviderError(
+            f"{provider} returned an invalid JSON response", provider=provider,
+            error_type="invalid_response", billing_uncertain=True,
+        ) from exc
+    if response.status_code >= 400:
+        raise provider_http_error(
+            provider, response.status_code, headers=response.headers,
+            data=data if isinstance(data, dict) else None,
+        )
+    if not isinstance(data, dict):
+        raise LLMProviderError(
+            f"{provider} returned an unexpected response", provider=provider,
+            error_type="invalid_response", billing_uncertain=True,
+        )
+    error = _provider_error_from_payload(data, provider=provider)
+    if error is not None:
+        if error.retryable:
+            error.retry_after_seconds = parse_retry_after(response.headers)
+        raise error
+    return data
+
+
+def _post_json(client: Any, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    timeout = request_timeout(
+        client._client.timeout, client.request_deadline, provider=client.provider,
+    )
+    try:
+        client.request_dispatched = True
+        response = client._client.post(path, json=payload, timeout=timeout)
+    except httpx.TransportError as exc:
+        uncertain = transport_billing_uncertainty(exc) is not False
+        if client.request_deadline is not None and time.monotonic() >= client.request_deadline:
+            raise LLMRequestDeadlineError(
+                provider=client.provider, billing_uncertain=uncertain,
+            ) from exc
+        raise LLMProviderError(
+            f"{client.provider} could not be reached", provider=client.provider,
+            retryable=True, outage_candidate=True, billing_uncertain=uncertain,
+        ) from exc
+    return _decode_provider_response(response, provider=client.provider)
 
 
 def _text_content(value: Any) -> str:
@@ -269,6 +386,8 @@ class OpenAICompatibleClient:
         self.billing_source = billing_source
         self.route = route
         self.provider_preferences = dict(provider_preferences or {})
+        self.request_deadline: float | None = None
+        self.request_dispatched = False
         request_headers = dict(headers or {})
         if auth_style == "api-key":
             request_headers["api-key"] = api_key
@@ -287,64 +406,7 @@ class OpenAICompatibleClient:
         self._client.close()
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        try:
-            response = self._client.post("chat/completions", json=payload)
-        except (httpx.TimeoutException, httpx.TransportError) as exc:
-            raise LLMProviderError(
-                f"{self.provider} could not be reached",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=transport_billing_uncertainty(exc) is not False,
-            ) from exc
-        try:
-            data = response.json()
-        except ValueError as exc:
-            if response.status_code >= 400:
-                raise _http_provider_error(
-                    self.provider, response.status_code
-                ) from exc
-            raise LLMProviderError(
-                f"{self.provider} returned an invalid JSON response",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=True,
-            ) from exc
-        if not isinstance(data, dict):
-            if response.status_code >= 400:
-                raise _http_provider_error(self.provider, response.status_code)
-            raise LLMProviderError(
-                f"{self.provider} returned an unexpected response",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=True,
-            )
-        provider_error = _provider_error_from_payload(
-            data,
-            provider=self.provider,
-            default_status=(response.status_code if response.status_code >= 400 else None),
-        )
-        if provider_error is not None:
-            log.warning(
-                "llm_provider_error provider=%s route=%s status=%s type=%s",
-                self.provider,
-                self.route,
-                provider_error.status_code,
-                provider_error.error_type,
-            )
-            raise provider_error
-        if response.status_code >= 400:
-            status = response.status_code
-            log.warning(
-                "llm_provider_http_error provider=%s route=%s status=%d",
-                self.provider,
-                self.route,
-                status,
-            )
-            raise _http_provider_error(self.provider, status)
-        return data
+        return _post_json(self, "chat/completions", payload)
 
     def _base_payload(
         self,
@@ -374,12 +436,9 @@ class OpenAICompatibleClient:
         if not choices or not isinstance(choices[0], dict):
             usage, provider_cost, billing_uncertain = _response_billing_fields(data)
             raise LLMProviderError(
-                f"{provider} returned provider_unavailable",
+                f"{provider} returned no completion candidate",
                 provider=provider,
-                status_code=502,
-                retryable=True,
-                outage_candidate=True,
-                error_type="provider_unavailable",
+                error_type="invalid_response",
                 usage=usage,
                 provider_cost_microusd=provider_cost,
                 billing_uncertain=billing_uncertain,
@@ -552,52 +611,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
         self.safety_identifier = safety_identifier
 
     def _post_response(self, payload: dict[str, Any]) -> dict[str, Any]:
-        try:
-            response = self._client.post("responses", json=payload)
-        except (httpx.TimeoutException, httpx.TransportError) as exc:
-            raise LLMProviderError(
-                f"{self.provider} could not be reached",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=transport_billing_uncertainty(exc) is not False,
-            ) from exc
-        if response.status_code >= 400:
-            status = response.status_code
-            retryable = status in {408, 409, 425, 429} or status >= 500
-            outage = status in {408, 425, 429} or status >= 500
-            log.warning(
-                "llm_provider_http_error provider=%s route=%s status=%d api=responses",
-                self.provider,
-                self.route,
-                status,
-            )
-            raise LLMProviderError(
-                f"{self.provider} returned HTTP {status}",
-                provider=self.provider,
-                status_code=status,
-                retryable=retryable,
-                outage_candidate=outage,
-            )
-        try:
-            data = response.json()
-        except ValueError as exc:
-            raise LLMProviderError(
-                f"{self.provider} returned an invalid JSON response",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=True,
-            ) from exc
-        if not isinstance(data, dict):
-            raise LLMProviderError(
-                f"{self.provider} returned an unexpected response",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=True,
-            )
-        return data
+        return _post_json(self, "responses", payload)
 
     def _responses_payload(
         self,
@@ -811,6 +825,8 @@ class GeminiClient:
         self.provider = "google"
         self.billing_source = billing_source
         self.route = route or f"google:{model}"
+        self.request_deadline: float | None = None
+        self.request_dispatched = False
         self._client = httpx.Client(
             base_url=base_url.rstrip("/") + "/",
             headers={"x-goog-api-key": api_key},
@@ -832,49 +848,9 @@ class GeminiClient:
         return contents
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
-        path = f"models/{self.model}:generateContent"
-        try:
-            response = self._client.post(path, json=payload)
-        except (httpx.TimeoutException, httpx.TransportError) as exc:
-            raise LLMProviderError(
-                "Google Gemini could not be reached",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=transport_billing_uncertainty(exc) is not False,
-            ) from exc
-        if response.status_code >= 400:
-            status = response.status_code
-            retryable = status in {408, 409, 425, 429} or status >= 500
-            raise LLMProviderError(
-                f"Google Gemini returned HTTP {status}",
-                provider=self.provider,
-                status_code=status,
-                retryable=retryable,
-                outage_candidate=retryable,
-            )
-        try:
-            data = response.json()
-        except ValueError as exc:
-            raise LLMProviderError(
-                "Google Gemini returned invalid JSON",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=True,
-            ) from exc
-        if not isinstance(data, dict):
-            raise LLMProviderError(
-                "Google Gemini returned an unexpected response",
-                provider=self.provider,
-                retryable=True,
-                outage_candidate=True,
-                billing_uncertain=True,
-            )
-        return data
+        return _post_json(self, f"models/{self.model}:generateContent", payload)
 
-    @staticmethod
-    def _candidate(data: dict[str, Any]) -> dict[str, Any]:
+    def _candidate(self, data: dict[str, Any]) -> dict[str, Any]:
         candidates = data.get("candidates") or []
         if not candidates or not isinstance(candidates[0], dict):
             usage = GeminiClient._usage(data)
@@ -886,9 +862,9 @@ class GeminiClient:
                     if blocked
                     else "Google Gemini returned no candidate"
                 ),
-                provider="google",
-                retryable=not blocked,
-                outage_candidate=not blocked,
+                provider=self.provider,
+                retryable=False,
+                outage_candidate=False,
                 error_type="content_blocked" if blocked else "invalid_response",
                 usage=usage,
                 billing_uncertain=not any(value > 0 for value in usage.values()),
@@ -899,10 +875,19 @@ class GeminiClient:
     def _usage(data: dict[str, Any]) -> dict[str, int]:
         usage = _mapping(data.get("usageMetadata"))
         total_input = _nonnegative_int(usage.get("promptTokenCount"))
+        tool_input = _nonnegative_int(usage.get("toolUsePromptTokenCount"))
         cache_read = _nonnegative_int(usage.get("cachedContentTokenCount"))
+        generated = (
+            _nonnegative_int(usage.get("candidatesTokenCount"))
+            + _nonnegative_int(usage.get("thoughtsTokenCount"))
+        )
+        # totalTokenCount includes prompt, tool inputs, candidates, and thoughts.
+        # Preserve billable output when a provider omits an individual count.
+        generated = max(generated, _nonnegative_int(usage.get("totalTokenCount"))
+                        - total_input - tool_input)
         return {
-            "input_tokens": _exclusive_input_tokens(total_input, cache_read),
-            "output_tokens": _nonnegative_int(usage.get("candidatesTokenCount")),
+            "input_tokens": _exclusive_input_tokens(total_input, cache_read) + tool_input,
+            "output_tokens": generated,
             "cache_read_input_tokens": cache_read,
             "cache_creation_input_tokens": 0,
         }
@@ -914,10 +899,22 @@ class GeminiClient:
         messages: list[dict[str, Any]],
         max_tokens: int,
     ) -> dict[str, Any]:
+        if max_tokens < 1 or max_tokens > self.model_spec.max_output_tokens:
+            raise ValueError("requested output exceeds the selected model's token limit")
+        # The hard output cap includes thoughts. Never add a separate thinking
+        # allowance beyond the amount reserved by MeteredClient.
+        generation: dict[str, Any] = {
+            "maxOutputTokens": max_tokens, "temperature": 0, "candidateCount": 1,
+        }
+        if self.model.startswith("gemini-3") and self.model_spec.reasoning_effort:
+            effort = self.model_spec.reasoning_effort.lower()
+            if effort not in {"minimal", "low", "medium", "high"}:
+                raise ValueError("unsupported Gemini thinking level")
+            generation["thinkingConfig"] = {"thinkingLevel": effort.upper()}
         return {
             "systemInstruction": {"parts": [{"text": _flatten_system(system)}]},
             "contents": self._contents(messages),
-            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0},
+            "generationConfig": generation,
         }
 
     def complete(
@@ -1033,3 +1030,76 @@ class GeminiClient:
             billing_source=self.billing_source,
             route=self.route,
         )
+
+
+class VertexGeminiClient(GeminiClient):
+    """Gemini through the configured CloudBank GCP project, using OAuth/ADC."""
+
+    def __init__(
+        self, *, model: str, model_spec: ModelSpec, project: str,
+        location: str = "global", route: str | None = None,
+        token_provider: Any = None, timeout_seconds: float = 45.0,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
+        if not re.fullmatch(r"[a-z][a-z0-9-]{4,61}[a-z0-9]", project):
+            raise ValueError("a valid CloudBank GCP project is required")
+        if not re.fullmatch(r"[a-z][a-z0-9-]{1,62}", location):
+            raise ValueError("a valid Vertex AI location is required")
+        self.model = model
+        self.model_spec = model_spec
+        self.provider = "gcp-vertex"
+        self.billing_source = "cloudbank"
+        self.route = route or f"gcp-vertex:{model}"
+        self.request_deadline: float | None = None
+        self.request_dispatched = False
+        self.project = project
+        self._token_provider = token_provider or self._access_token
+        host = "aiplatform.googleapis.com" if location == "global" else f"{location}-aiplatform.googleapis.com"
+        self._client = httpx.Client(
+            base_url=f"https://{host}/v1/projects/{project}/locations/{location}/publishers/google/",
+            timeout=httpx.Timeout(timeout_seconds, connect=10.0), transport=transport,
+        )
+        self._credentials: Any = None
+
+    def _access_token(self) -> str:
+        # A short-lived token can be injected by the controlled evaluation
+        # launcher. Hosted deployments should use ADC/workload identity.
+        token = (os.getenv("GOOGLE_VERTEX_ACCESS_TOKEN") or "").strip()
+        if token:
+            return token
+        try:
+            import google.auth
+            from google.auth.transport.requests import Request
+            auth_request = Request()
+
+            def bounded_request(*args: Any, **kwargs: Any) -> Any:
+                remaining = remaining_request_seconds(self.request_deadline, provider=self.provider)
+                configured = kwargs.get("timeout")
+                bound = min(float(configured), 45.0) if isinstance(configured, (int, float)) else 45.0
+                kwargs["timeout"] = min(bound, remaining) if remaining is not None else bound
+                return auth_request(*args, **kwargs)
+
+            if self._credentials is None:
+                self._credentials, _ = google.auth.default(
+                    scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                    quota_project_id=self.project,
+                    request=bounded_request,
+                )
+            if not self._credentials.valid:
+                self._credentials.refresh(bounded_request)
+            if not self._credentials.token:
+                raise RuntimeError("no access token")
+            return str(self._credentials.token)
+        except LLMRequestDeadlineError:
+            raise
+        except Exception as exc:
+            raise LLMProviderError(
+                "CloudBank GCP authentication is unavailable", provider=self.provider,
+                status_code=401, error_type="provider_configuration",
+            ) from exc
+
+    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        remaining_request_seconds(self.request_deadline, provider=self.provider)
+        self._client.headers["Authorization"] = f"Bearer {self._token_provider()}"
+        self._client.headers["x-goog-user-project"] = self.project
+        return super()._post(payload)

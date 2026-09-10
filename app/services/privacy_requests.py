@@ -17,6 +17,7 @@ from app.db.models import (
     Identity,
     LLMUsageEvent,
     MCPAccessToken,
+    NamedCreditEntitlement,
     Project,
     ShareLink,
     TrialGrant,
@@ -253,6 +254,9 @@ def export_privacy_account(session: Session, email: str) -> dict[str, Any]:
         )
     )
     trial_grant = session.get(TrialGrant, user.id)
+    named_entitlement = session.scalar(select(NamedCreditEntitlement).where(
+        NamedCreditEntitlement.user_id == user.id
+    ))
     trial_reservations = list(
         session.scalars(
             select(UsageReservation)
@@ -277,6 +281,10 @@ def export_privacy_account(session: Session, email: str) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "exported_at": _time(utc_now()),
+        "named_credit_entitlement": (
+            {"email": named_entitlement.email, "bound_at": _time(named_entitlement.bound_at)}
+            if named_entitlement is not None else None
+        ),
         "account": {
             "email": user.email,
             "email_verified": user.email_verified,
@@ -452,12 +460,12 @@ def delete_privacy_account(
     reference = _validated_reference(request_reference)
     try:
         candidate = _find_user(session, email)
-        session.scalar(
-            select(TrialGrant).where(TrialGrant.user_id == candidate.id).with_for_update()
-        )
         user = session.scalar(select(User).where(User.id == candidate.id).with_for_update())
         if user is None:
             raise PrivacyAccountNotFoundError("no ABDA-NL account matches the verified address")
+        session.scalar(
+            select(TrialGrant).where(TrialGrant.user_id == candidate.id).with_for_update()
+        )
         summary = _summary_for_user(session, user)
         if summary.status != _DELETION_PENDING:
             raise PrivacyDeletionNotReadyError(

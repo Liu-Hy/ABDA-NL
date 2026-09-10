@@ -269,6 +269,18 @@ class TrialGrant(Base):
     )
 
 
+class NamedCreditEntitlement(Base):
+    """A one-time named allocation, permanently bound to an internal account."""
+
+    __tablename__ = "named_credit_entitlements"
+
+    email: Mapped[str] = mapped_column(String(320), primary_key=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), unique=True
+    )
+    bound_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
 class UsageReservation(Base):
     __tablename__ = "usage_reservations"
     __table_args__ = (

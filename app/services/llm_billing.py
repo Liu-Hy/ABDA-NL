@@ -223,7 +223,9 @@ def reconcile_stale_llm_reservations(session: Session) -> tuple[int, int]:
                         UsageReservation.status == "pending",
                         UsageReservation.expires_at <= now,
                     )
+                    .order_by(UsageReservation.id)
                     .with_for_update()
+                    .execution_options(populate_existing=True)
                 )
             )
             for reservation in trial_reservations:

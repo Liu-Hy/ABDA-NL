@@ -5,7 +5,11 @@ import argparse
 import hashlib
 import json
 import math
+import os
+import re
 import sys
+from copy import deepcopy
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
@@ -17,19 +21,25 @@ from sqlalchemy import select
 from app.core.config import get_settings, reset_settings_cache
 from app.db.models import LLMUsageEvent
 from app.db.session import initialize_database
+from app.evals.budget import MAX_CLOUDBANK_EVALUATION_MICROUSD, PersistentSpendCap
+from app.evals.evidence import RecordingClient, coverage_matrix, digest, implementation_fingerprint
+from app.evals.isolation import assert_no_openrouter_credentials, funded_network_only
 from app.llm.catalog import load_model_catalog, reset_model_catalog_cache
-from app.llm.chat_service import run_turn
+from app.llm.chat_service import MAX_TOKENS_PER_RESPONSE, run_turn
 from app.llm.client import close_llm_client
-from app.llm.edit_service import ProposerRetryExhausted, run_propose, run_review
-from app.llm.routing import CallContext, LLMRouter, LocalSpendCap
+from app.llm.edit_service import MAX_TOKENS_PER_PROPOSE, MAX_TOKENS_PER_REVIEW, ProposerRetryExhausted, run_propose, run_review
+from app.llm.routing import CallContext, LLMRouter
+from app.llm.corpus import _read_corpus_file
 from app.scenario.catalog import EXAMPLES_ROOT, load_bundled_scenario
 from app.scenario.diff_ops import apply as apply_ops
+from app.scenario.loader import scenario_from_dict
+from app.scenario.serialize import scenario_to_dict
 from app.scenario.state import compute_state_bundle
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SUITE = REPOSITORY_ROOT / "evals" / "llm_suite.yaml"
-DEFAULT_PAID_RUN_CAP_MICROUSD = 1_000_000
+DEFAULT_PAID_RUN_CAP_MICROUSD = MAX_CLOUDBANK_EVALUATION_MICROUSD
 
 
 class EvaluationConfigurationError(RuntimeError):
@@ -66,12 +76,35 @@ def load_suite(path: Path) -> tuple[dict[str, Any], str]:
             raise EvaluationConfigurationError(
                 f"case {case_id!r} must identify a scenario"
             )
+        if suite.get("requires_answer_review"):
+            if not case.get("features") or case.get("case_type") not in suite.get("required_case_types", []):
+                raise EvaluationConfigurationError(f"case {case_id!r} needs feature and case-type coverage metadata")
+            if case["kind"] == "propose" and not case.get("expected"):
+                raise EvaluationConfigurationError(f"case {case_id!r} needs concrete proposal expectations")
+    for feature in suite.get("required_features") or []:
+        covered = {case["case_type"] for case in cases if feature in case.get("features", [])}
+        missing = set(suite.get("required_case_types") or []) - covered
+        if missing:
+            raise EvaluationConfigurationError(f"feature {feature!r} lacks case types: {', '.join(sorted(missing))}")
+    missing_scenarios = set(suite.get("required_scenarios") or []) - {case["scenario_id"] for case in cases}
+    if missing_scenarios:
+        raise EvaluationConfigurationError("suite lacks bundled scenarios: " + ", ".join(sorted(missing_scenarios)))
     return suite, hashlib.sha256(data).hexdigest()
 
 
 def _scenario_for_case(case: dict[str, Any]):
     scenario_id = str(case["scenario_id"])
-    baseline = load_bundled_scenario(scenario_id)
+    if "scenario" in case:
+        baseline = scenario_from_dict(deepcopy(_mapping(case["scenario"], "scenario")))
+        scenario_dir = None
+    else:
+        baseline = load_bundled_scenario(scenario_id)
+        scenario_dir = EXAMPLES_ROOT / scenario_id
+    if case.get("scenario_overrides"):
+        raw = scenario_to_dict(baseline)
+        for name, value in _mapping(case["scenario_overrides"], "scenario_overrides").items():
+            raw[name] = deepcopy(value)
+        baseline = scenario_from_dict(raw)
     operations = case.get("diff_ops") or []
     if not isinstance(operations, list):
         raise EvaluationConfigurationError(
@@ -79,7 +112,62 @@ def _scenario_for_case(case: dict[str, Any]):
         )
     scenario = apply_ops(baseline, operations)
     bundle = compute_state_bundle(scenario)
-    return scenario, bundle, operations, EXAMPLES_ROOT / scenario_id
+    for literal, expected in _mapping(case.get("engine_expectations") or {}, "engine_expectations").items():
+        if bundle["af"]["labels_by_proposition"].get(literal) != expected:
+            raise EvaluationConfigurationError(f"case {case['id']!r} has an invalid deterministic expectation for {literal!r}")
+    return scenario, bundle, operations, scenario_dir
+
+
+def _normalize_quote(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _chat_semantic_checks(case, text, scenario, bundle, scenario_dir) -> dict[str, bool]:
+    """Check inspectable semantic facts without substituting keyword scores for review."""
+    checks: dict[str, bool] = {}
+    lower = text.casefold()
+    if case.get("forbidden_claims"):
+        checks["forbidden_claims_absent"] = not any(str(value).casefold() in lower for value in case["forbidden_claims"])
+    for number, assertion in enumerate(case.get("label_assertions") or []):
+        literal, expected = assertion["literal"], assertion["label"]
+        if bundle["af"]["labels_by_proposition"].get(literal) != expected:
+            raise EvaluationConfigurationError(f"case {case['id']} label assertion disagrees with the engine")
+        clauses = re.split(r"[.!?;\n]+", lower)
+        relevant = [clause for clause in clauses if any(str(phrase).casefold() in clause for phrase in assertion["phrases"])]
+        observed = []
+        for clause in relevant:
+            mentions = [match for phrase in assertion["phrases"] for match in re.finditer(re.escape(str(phrase).casefold()), clause)]
+            labels = list(re.finditer(r"\b(?:accepted|rejected|undecided|absent)\b", clause))
+            for mention in mentions:
+                if labels:
+                    label = min(labels, key=lambda value: min(abs(value.start() - mention.end()), abs(mention.start() - value.end())))
+                    negated = bool(re.search(r"\bnot\s+$", clause[max(0, label.start() - 5):label.start()]))
+                    observed.append(label.group() if not negated else "not " + label.group())
+        checks[f"label_{number}_{literal}"] = expected in observed
+    required_sources = case.get("required_exact_quotes") or []
+    if required_sources:
+        source_texts = {source["filename"]: source["text"] for source in getattr(scenario, "sources", [])}
+        for filename in scenario.corpus:
+            if scenario_dir is not None:
+                source_texts[filename] = _read_corpus_file(scenario_dir / "corpus" / filename)
+        quotes = [
+            (match.start(), match.end(), _normalize_quote(next(value for value in match.groups() if value is not None)))
+            for match in re.finditer(r'"([^"\n]+)"|“([^”\n]+)”|^>\s*(.+)$', text, re.MULTILINE)
+        ]
+        quotes = [(start, end, quote) for start, end, quote in quotes if len(quote.split()) >= 4]
+        for filename in required_sources:
+            source = _normalize_quote(source_texts.get(filename, ""))
+            checks[f"exact_quote_{filename}"] = any(
+                quote in source and filename in text[max(0, start - 200):end + 200]
+                for start, end, quote in quotes
+            )
+        checks["all_substantial_quotes_grounded"] = bool(quotes) and all(
+            any(quote in _normalize_quote(source) for source in source_texts.values())
+            for _, _, quote in quotes
+        )
+    if case.get("forbid_document_citations"):
+        checks["no_invented_source"] = not re.search(r"\[[^\]\n]+\.(?:txt|pdf|md)\]", text)
+    return checks
 
 
 def _concept_checks(
@@ -100,23 +188,34 @@ def _concept_checks(
 
 def evaluate_chat(case: dict[str, Any], client) -> dict[str, Any]:
     scenario, bundle, operations, scenario_dir = _scenario_for_case(case)
+    context_refs = deepcopy(case.get("context_refs") or [])
+    for rule_id in case.get("argument_rules") or []:
+        argument = next((item for item in bundle["af"]["arguments"] if item["top_rule"] == rule_id), None)
+        if argument is None:
+            raise EvaluationConfigurationError(f"case {case['id']} cannot select its expected argument")
+        context_refs.append({"kind": "argument", "id": argument["id"]})
     result = run_turn(
         scenario,
         bundle["af"],
         operations,
-        [{"role": "user", "content": str(case["question"])}],
+        deepcopy(case.get("history") or []) + [{"role": "user", "content": str(case["question"])}],
         scenario_dir=scenario_dir,
         client=client,
+        context_refs=context_refs,
     )
     concepts_passed, missing = _concept_checks(
         result.text, list(case.get("required_concepts") or [])
     )
     grounded = not result.validator_flags and result.stop_reason != "grounding_rejected"
+    semantic_checks = _chat_semantic_checks(case, result.text, scenario, bundle, scenario_dir)
     return {
-        "passed": grounded and concepts_passed,
+        "passed": grounded and concepts_passed and all(semantic_checks.values()),
         "grounded": grounded,
         "concepts_passed": concepts_passed,
         "missing_concepts": missing,
+        "semantic_checks": semantic_checks,
+        "engine_labels": bundle["af"]["labels_by_proposition"],
+        "context_refs": context_refs,
         "text": result.text,
         "retried": result.retried,
         "validator_flags": result.validator_flags,
@@ -143,6 +242,15 @@ def _check_proposal(operation: dict[str, Any], expected: dict[str, Any]) -> dict
         checks["op"] = operation.get("op") == expected["op"]
     if "id" in expected:
         checks["id"] = operation.get("id") == expected["id"]
+    if "source_origin" in expected:
+        if expected["source_origin"] != "user":
+            raise EvaluationConfigurationError("unsupported expected source origin")
+        payload = next((operation[key] for key in ("fact", "assumption", "rule") if isinstance(operation.get(key), dict)), {})
+        source = str(payload.get("source") or "").strip()
+        checks["source_origin"] = not source or (
+            bool(re.search(r"\buser\b", source, re.I))
+            and not re.search(r"\.(?:txt|pdf|md)\b", source, re.I)
+        )
     rule = operation.get("rule")
     if "premises_include" in expected:
         premises = set(rule.get("premises") or []) if isinstance(rule, dict) else set()
@@ -155,6 +263,16 @@ def _check_proposal(operation: dict[str, Any], expected: dict[str, Any]) -> dict
         checks["rule_fields"] = isinstance(rule, dict) and all(
             rule.get(field) == value for field, value in expected_fields.items()
         )
+    for field in ("fact", "assumption"):
+        if field + "_fields" in expected:
+            value = operation.get(field)
+            checks[field + "_fields"] = isinstance(value, dict) and all(
+                value.get(key) == item for key, item in expected[field + "_fields"].items()
+            )
+    if "id_not_in" in expected:
+        checks["no_id_collision"] = operation.get("id") not in expected["id_not_in"]
+    if "premises_equal" in expected:
+        checks["premises_equal"] = isinstance(rule, dict) and set(rule.get("premises") or []) == set(expected["premises_equal"])
     if "new_premise_notes_min" in expected:
         notes = operation.get("new_premise_notes") or []
         checks["new_premise_notes_min"] = (
@@ -172,6 +290,16 @@ def _check_proposal(operation: dict[str, Any], expected: dict[str, Any]) -> dict
 
 def evaluate_propose(case: dict[str, Any], client) -> dict[str, Any]:
     scenario, bundle, operations, scenario_dir = _scenario_for_case(case)
+    baseline = scenario_to_dict(scenario)
+    previous = None
+    if case.get("initial_instruction"):
+        # Refine clears the preview and submits a replacement instruction. It
+        # does not apply the old proposal or insert it into scenario history.
+        previous = run_propose(
+            scenario, bundle["af"], operations, task=str(case["task"]),
+            instruction=str(case["initial_instruction"]), existing_id=case.get("existing_id"),
+            scenario_dir=scenario_dir, client=client,
+        )
     result = run_propose(
         scenario,
         bundle["af"],
@@ -184,10 +312,29 @@ def evaluate_propose(case: dict[str, Any], client) -> dict[str, Any]:
     )
     expected = _mapping(case.get("expected") or {}, f"case {case['id']} expected")
     checks = _check_proposal(result.op, expected)
+    if case.get("forbidden_description_terms"):
+        description = _description_for_op(result.op).casefold()
+        checks["description_preserves_assertion_type"] = not any(
+            re.search(r"\b" + re.escape(str(term).casefold()) + r"\b", description)
+            for term in case["forbidden_description_terms"]
+        )
+    applied = apply_ops(scenario, [result.op])
+    checks["baseline_unchanged_until_apply"] = scenario_to_dict(scenario) == baseline
+    if case.get("preserve_rule_fields"):
+        original = baseline["rules"][case["existing_id"]]
+        updated = scenario_to_dict(applied)["rules"][case["existing_id"]]
+        checks["unrequested_rule_fields_preserved"] = all(
+            original.get(field) == updated.get(field) for field in case["preserve_rule_fields"]
+        )
+    labels_after = compute_state_bundle(applied)["af"]["labels_by_proposition"]
+    for literal, label in (case.get("expected_labels_after") or {}).items():
+        checks[f"engine_after_{literal}"] = labels_after.get(literal) == label
     return {
         "passed": bool(checks) and all(checks.values()),
         "checks": checks,
         "operation": result.op,
+        "initial_operation": previous.op if previous else None,
+        "engine_labels_after": labels_after,
         "proposer_attempts": result.proposer_attempts,
         "reviewed": result.reviewed,
         "review_issues": [issue.to_dict() for issue in result.review_issues],
@@ -259,6 +406,18 @@ def _audit_totals(router: LLMRouter, request_id: str) -> dict[str, Any]:
         ),
         "routes": sorted({event.route for event in events}),
         "models": sorted({event.model for event in events}),
+        "attempts": [
+            {
+                "id": event.id, "provider": event.provider, "model": event.model,
+                "route": event.route, "billing_source": event.billing_source,
+                "status": event.status, "cost_microusd": event.cost_microusd,
+                "latency_ms": event.latency_ms, "error_type": event.error_type,
+                "input_tokens": event.input_tokens, "output_tokens": event.output_tokens,
+                "cache_read_input_tokens": event.cache_read_input_tokens,
+                "cache_creation_input_tokens": event.cache_creation_input_tokens,
+            }
+            for event in events
+        ],
     }
 
 
@@ -269,15 +428,24 @@ def evaluate_case(
     route_id: str,
     repetition: int,
     allow_emergency_spend: bool,
-    spend_cap: LocalSpendCap | None = None,
+    spend_cap: PersistentSpendCap | None = None,
 ) -> dict[str, Any]:
+    assert_no_openrouter_credentials()
+    if allow_emergency_spend:
+        raise EvaluationConfigurationError("paid OpenRouter evaluations are prohibited")
+    if hasattr(router, "catalog"):
+        route = router.catalog.routes.get(route_id)
+        if route is None or route.provider not in {"azure-foundry", "gcp-vertex"} or route.billing_source != "cloudbank":
+            raise EvaluationConfigurationError("evaluation requires an isolated CloudBank route")
+        if not isinstance(spend_cap, PersistentSpendCap):
+            raise EvaluationConfigurationError("live evaluations require the persistent shared CloudBank budget")
     request_id = "eval-" + uuid4().hex
     started = datetime.now(timezone.utc)
     payload: dict[str, Any]
     error: dict[str, str] | None = None
     client = None
     try:
-        client = router.evaluation_route(
+        client = RecordingClient(router.evaluation_route(
             route_id,
             context=CallContext(
                 user_id=None,
@@ -287,13 +455,14 @@ def evaluate_case(
             ),
             allow_emergency_spend=allow_emergency_spend,
             spend_cap=spend_cap,
-        )
-        if case["kind"] == "chat":
-            payload = evaluate_chat(case, client)
-        elif case["kind"] == "propose":
-            payload = evaluate_propose(case, client)
-        else:
-            payload = evaluate_review(case, client)
+        ))
+        with funded_network_only():
+            if case["kind"] == "chat":
+                payload = evaluate_chat(case, client)
+            elif case["kind"] == "propose":
+                payload = evaluate_propose(case, client)
+            else:
+                payload = evaluate_review(case, client)
     except ProposerRetryExhausted as exc:
         payload = {
             "passed": False,
@@ -303,15 +472,23 @@ def evaluate_case(
         error = {"type": type(exc).__name__, "message": str(exc)}
     except Exception as exc:  # noqa: BLE001
         payload = {"passed": False}
-        error = {"type": type(exc).__name__, "message": str(exc)[:500]}
+        error = {
+            "type": type(exc).__name__,
+            "message": "application evaluation did not complete",
+            "status_code": getattr(exc, "status_code", None),
+        }
     finally:
         close_llm_client(client)
 
     audit = _audit_totals(router, request_id)
     finished = datetime.now(timezone.utc)
+    evidence = getattr(client, "calls", [])
     return {
         "case_id": case["id"],
         "kind": case["kind"],
+        "features": case.get("features", []),
+        "case_type": case.get("case_type", "unspecified"),
+        "scenario_id": case["scenario_id"],
         "route_id": route_id,
         "repetition": repetition,
         "request_id": request_id,
@@ -320,6 +497,10 @@ def evaluate_case(
         "wall_time_ms": int((finished - started).total_seconds() * 1000),
         "error": error,
         "audit": audit,
+        "calls": evidence,
+        "provider_configuration": getattr(client, "configuration", {}),
+        "evidence_sha256": digest(evidence),
+        "semantic_review": {"approved": False, "status": "pending answer inspection"},
         **payload,
     }
 
@@ -423,6 +604,27 @@ def _selected_cases(
     return cases
 
 
+def _read_checkpoint(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    data = path.read_bytes()
+    complete = data.rsplit(b"\n", 1)[0] + b"\n" if not data.endswith(b"\n") else data
+    if not data.endswith(b"\n"):
+        # A Slurm time limit can interrupt the last append. Preserve that tail
+        # for inspection, then resume only complete, fsynced case records.
+        if b"\n" not in data:
+            raise EvaluationConfigurationError("evaluation checkpoint has no complete header")
+        tail = data[len(complete):]
+        partial = path.with_name(path.name + ".partial-" + uuid4().hex)
+        partial.write_bytes(tail)
+        with path.open("r+b") as handle:
+            handle.truncate(len(complete))
+            handle.flush()
+            os.fsync(handle.fileno())
+    records = [json.loads(line) for line in complete.splitlines() if line.strip()]
+    if not records:
+        raise EvaluationConfigurationError("evaluation checkpoint is empty")
+    return records[0], [record["result"] for record in records[1:]]
+
+
 def run_evaluation(
     suite: dict[str, Any],
     *,
@@ -434,7 +636,16 @@ def run_evaluation(
     case_ids: set[str],
     allow_emergency_spend: bool,
     paid_run_cap_microusd: int,
+    spend_cap: PersistentSpendCap | None = None,
+    phase: str = "baseline",
+    checkpoint_path: Path | None = None,
+    resume: bool = False,
 ) -> dict[str, Any]:
+    assert_no_openrouter_credentials()
+    if allow_emergency_spend:
+        raise EvaluationConfigurationError("paid OpenRouter evaluations are prohibited by the CloudBank-only authorization")
+    if not 0 < paid_run_cap_microusd <= MAX_CLOUDBANK_EVALUATION_MICROUSD:
+        raise EvaluationConfigurationError("evaluation cap must be within the authorized $100")
     cases = _selected_cases(suite, smoke=smoke, case_ids=case_ids)
     gates = _mapping(suite.get("gates") or {}, "gates")
     catalog = router.catalog
@@ -443,47 +654,87 @@ def run_evaluation(
         raise EvaluationConfigurationError(
             "unknown routes: " + ", ".join(unknown_routes)
         )
+    if any(
+        catalog.routes[route_id].provider not in {"azure-foundry", "gcp-vertex"}
+        or catalog.routes[route_id].billing_source not in {"cloudbank", "cloudbank-azure", "cloudbank-gcp"}
+        for route_id in route_ids
+    ):
+        raise EvaluationConfigurationError("evaluation routes must be funded by CloudBank Azure or GCP")
 
     results: list[dict[str, Any]] = []
-    spend_cap = LocalSpendCap(paid_run_cap_microusd)
-    for route_id in route_ids:
-        route = catalog.routes[route_id]
-        paid = route.billing_source == "openrouter-emergency"
-        for repetition in range(1, repetitions + 1):
-            for case in cases:
-                if paid and spend_cap.reached:
-                    results.append(
-                        {
-                            "case_id": case["id"],
-                            "kind": case["kind"],
-                            "route_id": route_id,
-                            "repetition": repetition,
-                            "request_id": None,
-                            "passed": False,
-                            "skipped": True,
-                            "error": {
-                                "type": "PaidRunCapReached",
-                                "message": "the evaluation paid-route cap was reached",
-                            },
-                            "audit": {
-                                "provider_calls": 0,
-                                "cost_microusd": 0,
-                            },
-                            "wall_time_ms": 0,
-                        }
-                    )
-                    continue
-                result = evaluate_case(
-                    case,
-                    router=router,
-                    route_id=route_id,
-                    repetition=repetition,
-                    allow_emergency_spend=allow_emergency_spend,
-                    spend_cap=spend_cap if paid else None,
-                )
-                results.append(result)
+    fingerprint = implementation_fingerprint()
+    model_evidence = {
+        route_id: {
+            "route": asdict(catalog.routes[route_id]),
+            "model": asdict(catalog.model_for_route(catalog.routes[route_id])),
+            "deployment": (os.getenv(catalog.routes[route_id].model_env, "") if catalog.routes[route_id].model_env else "") or catalog.routes[route_id].request_model,
+            "prompt_sha256": {name: value for name, value in fingerprint["files"].items() if name.startswith("app/prompts/")},
+            "implementation_sha256": fingerprint["sha256"],
+            "physical_retry_attempts": router.settings.llm_retry_attempts,
+            "cache_requested": True,
+        }
+        for route_id in route_ids
+    }
+    run_id = spend_cap.run_id if spend_cap else uuid4().hex
+    metadata = {
+        "suite_sha256": suite_hash, "routes": route_ids, "repetitions": repetitions,
+        "case_ids": [case["id"] for case in cases], "phase": phase,
+        "implementation_sha256": fingerprint["sha256"], "run_limit_microusd": paid_run_cap_microusd,
+        "model_configuration_sha256": digest(model_evidence),
+    }
+    if resume:
+        if checkpoint_path is None or not checkpoint_path.is_file():
+            raise EvaluationConfigurationError("resume needs an existing evaluation checkpoint")
+        header, results = _read_checkpoint(checkpoint_path)
+        if header.get("metadata") != metadata:
+            raise EvaluationConfigurationError("resume must use the exact same code, prompts, suite, routes, cases, and settings")
+        run_id = header["run_id"]
+        if spend_cap is not None and spend_cap.run_id != run_id:
+            raise EvaluationConfigurationError("resumed evaluation must use its original budget run")
+    if spend_cap is not None and (spend_cap.run_limit_microusd != paid_run_cap_microusd or spend_cap.phase != phase):
+        raise EvaluationConfigurationError("evaluation budget view must match this run's cap and phase")
+    spend_cap = spend_cap or PersistentSpendCap(run_id=run_id, run_limit_microusd=paid_run_cap_microusd, phase=phase)
+    if checkpoint_path is not None:
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        if not resume:
+            with checkpoint_path.open("x", encoding="utf-8") as handle:
+                handle.write(json.dumps({"run_id": run_id, "metadata": metadata}, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
 
-    paid_spend = spend_cap.spent_microusd
+    def record(result):
+        results.append(result)
+        if checkpoint_path is not None:
+            with checkpoint_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"result": result}, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+
+    completed = {(result["route_id"], result["case_id"], result["repetition"]) for result in results}
+    with funded_network_only():
+        for route_id in route_ids:
+            for repetition in range(1, repetitions + 1):
+                for case in cases:
+                    if (route_id, case["id"], repetition) in completed:
+                        continue
+                    if spend_cap.reached:
+                        record(
+                            {
+                                "case_id": case["id"], "kind": case["kind"],
+                                "route_id": route_id, "repetition": repetition,
+                                "request_id": None, "passed": False, "skipped": True,
+                                "error": {"type": "PaidRunCapReached", "message": "the shared CloudBank evaluation cap was reached"},
+                                "audit": {"provider_calls": 0, "cost_microusd": 0}, "wall_time_ms": 0,
+                            }
+                        )
+                        continue
+                    result = evaluate_case(
+                        case, router=router, route_id=route_id, repetition=repetition,
+                        allow_emergency_spend=False, spend_cap=spend_cap,
+                    )
+                    record(result)
+
+    budget_snapshot = spend_cap.snapshot()
 
     summaries = {
         route_id: summarize_route(
@@ -494,25 +745,40 @@ def run_evaluation(
         for route_id in route_ids
     }
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "usage_contract": "exclusive-input-cache-v1",
-        "run_id": uuid4().hex,
+        "run_id": run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "suite_name": suite.get("name"),
         "suite_version": suite.get("version"),
         "suite_sha256": suite_hash,
+        "suite_definition": suite,
+        "implementation": fingerprint,
+        "implementation_unchanged": implementation_fingerprint()["sha256"] == fingerprint["sha256"],
         "catalog_version": catalog.version,
         "catalog_updated": catalog.updated,
         "routes": route_ids,
         "repetitions": repetitions,
         "smoke": smoke,
-        "allow_emergency_spend": allow_emergency_spend,
+        "allow_emergency_spend": False,
         "paid_run_cap_microusd": paid_run_cap_microusd,
-        "paid_spend_microusd": paid_spend,
+        "paid_spend_microusd": budget_snapshot["run_spent_microusd"],
+        "cloudbank_budget": budget_snapshot,
+        "route_configuration": {route_id: asdict(catalog.routes[route_id]) for route_id in route_ids},
+        "model_evidence": model_evidence,
+        "decoding_configuration": {
+            "chat_max_output_tokens": MAX_TOKENS_PER_RESPONSE, "propose_max_output_tokens": MAX_TOKENS_PER_PROPOSE,
+            "review_max_output_tokens": MAX_TOKENS_PER_REVIEW, "physical_retry_attempts": router.settings.llm_retry_attempts,
+            "cache_requested": True,
+        },
         "gates": gates,
         "summaries": summaries,
         "results": results,
-        "gate_passed": all(summary["gate_passed"] for summary in summaries.values()),
+        "coverage_matrix": coverage_matrix(suite, results, route_ids, repetitions=repetitions, configurations=model_evidence),
+        "application_accepted": False,
+        "prompt_tuning_policy": "Tune when and only when reviewed application failures demonstrate a need. Passing prompts remain unchanged.",
+        "automated_gate_passed": all(summary["gate_passed"] for summary in summaries.values()),
+        "gate_passed": all(summary["gate_passed"] for summary in summaries.values()) and not suite.get("requires_answer_review", False),
     }
 
 
@@ -533,6 +799,8 @@ def _parser() -> argparse.ArgumentParser:
         default=DEFAULT_PAID_RUN_CAP_MICROUSD,
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--phase", choices=("availability", "baseline", "tuning", "regression"), default="baseline")
+    parser.add_argument("--resume", action="store_true", help="resume the checkpoint beside --output without resetting spend")
     parser.add_argument("--no-fail-on-gate", action="store_true")
     return parser
 
@@ -544,9 +812,8 @@ def _default_output() -> Path:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    from app.cli.serve import _load_environment
-
-    _load_environment()
+    # This process must never load the root .env because it contains backup
+    # credentials. The separate funded launcher selects only funded settings.
     reset_settings_cache()
     reset_model_catalog_cache()
     catalog = load_model_catalog()
@@ -568,10 +835,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
+        assert_no_openrouter_credentials()
         suite, suite_hash = load_suite(args.suite.resolve())
         repetitions = args.repetitions or int(suite.get("default_repetitions", 1))
         initialize_database()
         router = LLMRouter(settings=get_settings(), catalog=catalog)
+        output = (args.output or _default_output()).resolve()
+        if args.resume and args.output is None:
+            raise EvaluationConfigurationError("--resume requires --output to identify the original checkpoint")
         report = run_evaluation(
             suite,
             suite_hash=suite_hash,
@@ -582,14 +853,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             case_ids=set(args.cases),
             allow_emergency_spend=args.allow_openrouter_spend,
             paid_run_cap_microusd=args.paid_run_cap_microusd,
+            phase=args.phase,
+            checkpoint_path=output.with_suffix(".checkpoint.jsonl"),
+            resume=args.resume,
         )
     except (EvaluationConfigurationError, RuntimeError, OSError) as exc:
         print(f"Evaluation could not start: {exc}", file=sys.stderr)
         return 2
 
-    output = (args.output or _default_output()).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output.write_text(json.dumps(report, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     summary = {
         "gate_passed": report["gate_passed"],
         "paid_spend_microusd": report["paid_spend_microusd"],

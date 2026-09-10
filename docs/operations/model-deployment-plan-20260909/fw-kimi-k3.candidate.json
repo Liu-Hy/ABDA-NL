@@ -1,0 +1,15 @@
+{
+  "sku": {
+    "name": "DataZoneStandard",
+    "capacity": 10
+  },
+  "properties": {
+    "model": {
+      "format": "Fireworks",
+      "name": "FW-Kimi-K3",
+      "version": "1"
+    },
+    "raiPolicyName": "Microsoft.DefaultV2",
+    "versionUpgradeOption": "NoAutoUpgrade"
+  }
+}

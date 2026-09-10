@@ -6,12 +6,71 @@ These tests verify that behavior.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import pytest
+
 from app.llm.edit_service import (
     _build_validator_retry_message,
     _coerce_modify_id,
+    _preserve_modify_rule_metadata,
     _shorten_id_hint,
 )
 from app.llm.edit_validator import MAX_ID_LEN, ValidationIssue
+
+
+@pytest.mark.parametrize(
+    ("instruction", "expected_changes"),
+    [
+        (
+            "Change only the conclusion of r_stack from stack_vets to -stack_vets. "
+            "I intentionally want the opposite conclusion; do not let the old "
+            "source wording override that choice.",
+            {"conclusion": "-stack_vets"},
+        ),
+        (
+            'In r_stack, change only source to "updated roster memo". Despite the '
+            "word updated, do not change its premises, conclusion, category, "
+            "strength, or type.",
+            {"source": "updated roster memo"},
+        ),
+        (
+            "Only update the category and source of r_stack. Leave its conclusion "
+            "and all other fields unchanged.",
+            {"category": "monitoring", "source": "updated roster memo"},
+        ),
+        (
+            'Change only source to "category and conclusion review".',
+            {"source": "updated roster memo"},
+        ),
+        (
+            "Change only `source` to the updated roster memo; leave its "
+            "conclusion and type unchanged.",
+            {"source": "updated roster memo"},
+        ),
+    ],
+)
+def test_explicit_narrow_edit_preserves_fields_mentioned_outside_its_scope(
+    instruction, expected_changes
+):
+    original = {
+        "type": "defeasible", "premises": ["experienced_staff"],
+        "conclusion": "stack_vets", "negated_description": "Do not stack veterans",
+        "category": "staffing", "source": "original roster memo", "block": 1,
+        "active": True,
+    }
+    scenario = SimpleNamespace(rules={"r_stack": SimpleNamespace(**original)})
+    proposed = {
+        "type": "strict", "premises": ["unrequested_condition"],
+        "conclusion": "-stack_vets", "negated_description": "unrequested wording",
+        "category": "monitoring", "source": "updated roster memo", "block": 9,
+        "active": False,
+    }
+    result = _preserve_modify_rule_metadata(
+        "modify-rule", {"id": "r_stack", "rule": proposed}, "r_stack", scenario,
+        instruction,
+    )
+    assert result["rule"] == original | expected_changes
 
 
 def _id_too_long_issue(long_id: str) -> ValidationIssue:

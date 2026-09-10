@@ -119,15 +119,35 @@
         <button class="chat-access-button" id="chat-access-button" type="button">Balanced</button>
       </div>
       <div class="chat-access-note" id="chat-access-note" role="status"></div>
+      <div class="conversation-toolbar" aria-label="Conversation controls">
+        <label class="visually-hidden" for="conversation-select">Saved conversations</label>
+        <select id="conversation-select" aria-label="Saved conversations"></select>
+        <button class="btn btn-small" id="conversation-new" type="button">New</button>
+        <button class="btn btn-small" id="conversation-export" type="button">Export</button>
+        <button class="btn btn-small" id="conversation-delete" type="button">Delete</button>
+      </div>
+      <div class="conversation-storage-note" id="conversation-storage-note" role="status"></div>
+      <div class="chat-degraded-note" id="chat-degraded-note" role="status" hidden></div>
       <div class="chat-messages" id="chat-messages" tabindex="0" aria-label="Conversation" aria-live="polite"></div>
       <div class="h-resize-handle" id="h-resize-chat" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize chat history and message composer" aria-controls="chat-messages chat-input-area" aria-orientation="horizontal" aria-valuemin="10" aria-valuemax="50" aria-valuenow="20"></div>
       <div class="chat-input-area" id="chat-input-area">
+        <div class="chat-context-items" id="chat-context-items" aria-label="Selected question context"></div>
         <label class="visually-hidden" for="chat-input">Ask about the current scenario</label>
         <textarea id="chat-input" rows="4" placeholder="Ask about the case, a rule, or a conclusion..."></textarea>
         <button class="btn btn-primary" id="chat-send-btn">Ask</button>
       </div>
     </section>
   </main>
+
+  <div class="modal-backdrop" id="modal-derivation">
+    <div class="modal-content modal-derivation-content" role="dialog" aria-modal="true" aria-labelledby="derivation-modal-title">
+      <div class="modal-header">
+        <span class="modal-title" id="derivation-modal-title">Inspect derivation</span>
+        <button class="modal-close" type="button" aria-label="Close derivation inspector">&times;</button>
+      </div>
+      <div class="modal-body" id="derivation-body"></div>
+    </div>
+  </div>
 
   <!-- Account, projects, model access, and MCP workspace -->
   <div class="modal-backdrop" id="modal-workspace">
@@ -386,7 +406,7 @@
   <div class="modal-backdrop" id="modal-af">
     <div class="modal-content modal-af-content">
       <div class="modal-header">
-        <span class="modal-title">Abstract Argumentation Framework</span>
+        <span class="modal-title">Conclusion overview</span>
         <button class="modal-close">&times;</button>
       </div>
       <div class="modal-body" id="af-modal-body"></div>
@@ -677,6 +697,7 @@
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
+  <script src="exploration.js"></script>
   <script src="workspace.js"></script>
   <script src="scenarios.js"></script>
   <script src="materials.js"></script>
