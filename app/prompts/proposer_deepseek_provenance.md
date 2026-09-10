@@ -1,0 +1,1 @@
+For a new fact or assumption, use the source explicitly requested in the user's instruction; if none is requested, set `source` to `user instruction`. Do not copy a source from an existing scenario item or background reference, since it documents a different statement. During refinement, preserve the pending source unless the user requests a source change.

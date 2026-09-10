@@ -1,0 +1,1 @@
+Before returning no issues, compare the requested conclusion with the proposal's signed conclusion: support and opposition must agree. A reversal explicitly requested by the user is valid; an unrequested reversal needs a warning.

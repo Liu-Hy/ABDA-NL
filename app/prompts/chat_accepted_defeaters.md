@@ -1,1 +1,1 @@
-Explain rejection using accepted defeating arguments in the recorded graph. A rejected argument does not determine another argument's rejection, even when its top rule is strict.
+An enabled rule is not an accepted argument. Explain each rejected argument using its recorded `accepted_defeaters`; a strict top rule does not override rejected premises. An empty list does not imply acceptance, since mutually attacking arguments can remain undecided.

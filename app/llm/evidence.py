@@ -64,6 +64,17 @@ def supplied_sources(corpus_block: str) -> dict[str, list[tuple[int, str]]]:
                 result.setdefault(document["filename"], []).append(
                     (int(excerpt["character_offset"]), str(excerpt["text"]))
                 )
+    # Retrieval can split even a word across consecutive transport chunks.
+    # Join only exact coordinate adjacency, never text separated by a gap.
+    for source, passages in result.items():
+        joined: list[tuple[int, str]] = []
+        for offset, text in sorted(passages, key=lambda item: item[0]):
+            if joined and joined[-1][0] + len(joined[-1][1]) == offset:
+                start, previous = joined[-1]
+                joined[-1] = (start, previous + text)
+            else:
+                joined.append((offset, text))
+        result[source] = joined
     return result
 
 
@@ -125,6 +136,60 @@ def _quote_sources(response: str, quote: re.Match[str], citations: list[re.Match
         group.append(item.group(1))
         end = item.end()
     return list(dict.fromkeys(group))
+
+
+def canonicalize_source_quotes(response: str, passages: dict[str, list[tuple[int, str]]]) -> str:
+    """Restore source typography without changing quoted words or attribution.
+
+    Sentence-initial capitalization and an ending comma versus period can
+    change when prose embeds a quotation. Restore the actual source span
+    before the strict validator checks it. Provider output remains untouched.
+    """
+    citations = list(_CITATION.finditer(response))
+    replacements = []
+    for match in _QUOTED.finditer(response):
+        if match.group(3) is not None:
+            continue
+        group = 1 if match.group(1) is not None else 2
+        quote = match.group(group)
+        if len(quote) < 8:
+            continue
+        sources = _quote_sources(response, match, citations)
+        if not sources:
+            # A later sentence can refer back to a source in its paragraph.
+            boundary = response.rfind("\n\n", 0, match.start())
+            start = boundary + 2 if boundary >= 0 else 0
+            end = response.find("\n\n", match.end())
+            sources = [item.group(1) for item in citations
+                       if start <= item.start() < (len(response) if end < 0 else end)]
+            if len(set(sources)) != 1:
+                continue
+        supplied = [passage for source in sources for passage in passages.get(source, [])]
+        if any(_quotation_span(text, quote) is not None for _, text in supplied):
+            continue
+        variants = {quote}
+        if re.match(r"[a-z]+\b", quote):
+            variants.add(quote[0].upper() + quote[1:])
+        if quote.endswith((",", ".")) and not quote.endswith(".."):
+            variants.update(value[:-1] + ("." if value.endswith(",") else ",")
+                            for value in tuple(variants))
+        matches = set()
+        for offset, text in supplied:
+            for variant in variants - {quote}:
+                span = _quotation_span(text, variant)
+                if span is None:
+                    continue
+                start, end = span
+                if variant[0] != quote[0]:
+                    preceding = text[:start].rstrip()
+                    if (preceding and preceding[-1] not in ".!?") or (not preceding and offset != 0):
+                        continue
+                matches.add(text[start:end])
+        if len(matches) == 1:
+            replacements.append((match.start(group), match.end(group), matches.pop()))
+    for start, end, replacement in reversed(replacements):
+        response = response[:start] + replacement + response[end:]
+    return response
 
 
 def source_evidence(response: str, passages: dict[str, list[tuple[int, str]]]) -> tuple[list[dict[str, Any]], list[str]]:

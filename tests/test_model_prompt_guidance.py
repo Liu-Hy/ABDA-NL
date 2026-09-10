@@ -12,7 +12,7 @@ from app.llm.client import LLMResponse, ToolCallResponse
 from app.llm.edit_service import (
     build_proposer_system_prompt, build_reviewer_system_prompt, run_propose,
 )
-from app.llm.prompts import model_prompt_guidance
+from app.llm.prompts import model_prompt_guidance, model_prompt_templates
 from app.llm.routing import FailoverClient, RetryingClient
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.state import compute_state_bundle
@@ -84,6 +84,7 @@ def test_guidance_uses_catalog_identity_for_funded_and_byok_clients(model):
              scenario_dir=SCENARIO_DIR, client=funded)
     assert client.requests[0]["system"] == build_system_prompt(
         scenario, af, [], scenario_dir=SCENARIO_DIR, query="Explain.",
+        include_accepted_defeaters="chat_accepted_defeaters" in model_prompt_templates(client, "chat"),
     ) + expected
 
 
@@ -103,7 +104,7 @@ def test_unknown_client_and_cyclic_wrapper_do_not_acquire_guidance():
 
 @pytest.mark.parametrize("model,proposer_changed,reviewer_changed", [
     ("claude-sonnet-5", True, True),
-    ("deepseek-v4-flash-0731", True, False),
+    ("deepseek-v4-flash-0731", True, True),
     ("glm-5.3", True, False),
     ("kimi-k3", True, False),
     ("claude-opus-5", False, False),

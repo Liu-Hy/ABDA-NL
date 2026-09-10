@@ -19,8 +19,8 @@ from typing import Any
 
 from app.llm.client import LLMClient, LLMResponse
 from app.llm.corpus import build_corpus_block
-from app.llm.prompts import load_prompt, model_prompt_guidance
-from app.llm.evidence import context_block, resolve_context_refs, source_evidence, supplied_sources
+from app.llm.prompts import load_prompt, model_prompt_guidance, model_prompt_templates
+from app.llm.evidence import canonicalize_source_quotes, context_block, resolve_context_refs, source_evidence, supplied_sources
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +127,9 @@ def _format_assumptions(scenario: Any) -> str:
     return "\n".join(lines)
 
 
-def _format_attacks(af: dict[str, Any], scenario: Any) -> str:
+def _format_attacks(
+    af: dict[str, Any], scenario: Any, *, include_accepted_defeaters: bool = False,
+) -> str:
     """Keep signed conclusions, argument identity, and grounded labels intact.
 
     The engine's ``attacks`` have already passed its preference comparison.
@@ -137,6 +139,16 @@ def _format_attacks(af: dict[str, Any], scenario: Any) -> str:
     """
     attacks = af.get("attacks") or []
     arguments = {a["id"]: a for a in (af.get("arguments") or [])}
+    accepted_defeaters: dict[str, set[str]] = {}
+    if include_accepted_defeaters:
+        # Join the full engine graph before filtering display edges. An
+        # included premise argument can have an incoming edge omitted from
+        # the key-conclusion view below.
+        for attack in attacks:
+            source = arguments.get(attack.get("from"))
+            target = attack.get("to")
+            if source and source.get("label") == "in" and target in arguments:
+                accepted_defeaters.setdefault(target, set()).add(source["id"])
     key_conclusions = set((scenario.conclusions or {}).keys())
     relevant_ids = {
         argument_id
@@ -163,19 +175,36 @@ def _format_attacks(af: dict[str, Any], scenario: Any) -> str:
     relevant_ids.update(edge[endpoint] for edge in edges for endpoint in ("from", "to"))
     for argument_id in tuple(relevant_ids):
         relevant_ids.update(arguments[argument_id].get("sub_arguments", []))
+    if include_accepted_defeaters:
+        # Keep every cited defeater and its supporting arguments resolvable,
+        # including attacks on an intermediate premise outside the key view.
+        pending = list(relevant_ids)
+        while pending:
+            argument_id = pending.pop()
+            argument = arguments[argument_id]
+            references = set(accepted_defeaters.get(argument_id, ()))
+            references.update(argument.get("premises", []))
+            references.update(argument.get("sub_arguments", []))
+            for reference in references:
+                if reference in arguments and reference not in relevant_ids:
+                    relevant_ids.add(reference)
+                    pending.append(reference)
     label_names = {"in": "accepted", "out": "rejected", "undec": "undecided"}
     rows = []
     for argument_id, argument in arguments.items():
         if argument_id not in relevant_ids:
             continue
-        rows.append({
+        row = {
             "id": argument_id,
             "conclusion": argument.get("conclusion"),
             "description": argument.get("conclusion_nl", ""),
             "top_rule": argument.get("top_rule"),
             "premise_arguments": argument.get("premises", []),
             "label": label_names.get(argument.get("label"), argument.get("label", "unknown")),
-        })
+        }
+        if include_accepted_defeaters:
+            row["accepted_defeaters"] = sorted(accepted_defeaters.get(argument_id, ()))
+        rows.append(row)
     return (
         "### Computed argument and defeat evidence\n\n"
         "Each argument has its own identity, signed conclusion, and computed label. "
@@ -273,11 +302,14 @@ def _format_diff_ops(diff_ops: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def build_state_block(scenario: Any, af: dict[str, Any], diff_ops: list[dict[str, Any]]) -> str:
+def build_state_block(
+    scenario: Any, af: dict[str, Any], diff_ops: list[dict[str, Any]], *,
+    include_accepted_defeaters: bool = False,
+) -> str:
     sections = [
         _format_labels(scenario, af),
         _format_assumptions(scenario),
-        _format_attacks(af, scenario),
+        _format_attacks(af, scenario, include_accepted_defeaters=include_accepted_defeaters),
         _format_categories(scenario),
     ]
     pending = _format_pending_propositions(scenario)
@@ -358,6 +390,7 @@ def build_system_prompt(
     scenario_dir: Path | None,
     query: str = "",
     context_refs: list[dict[str, str]] | None = None,
+    include_accepted_defeaters: bool = False,
 ) -> str:
     corpus_block = build_corpus_block(
         scenario_dir,
@@ -366,7 +399,9 @@ def build_system_prompt(
         sources=getattr(scenario, "sources", []), query=query, verified_spans=True,
     )
     scenario_block = build_scenario_block(scenario)
-    state_block = build_state_block(scenario, af, diff_ops)
+    state_block = build_state_block(
+        scenario, af, diff_ops, include_accepted_defeaters=include_accepted_defeaters,
+    )
     state_block += context_block(resolve_context_refs(scenario, af, context_refs or []))
     if scenario_dir is None or getattr(scenario, "sources", []):
         # A new scenario has no example documents to supply the meanings of
@@ -507,8 +542,11 @@ def run_turn(
     """Run one chat turn through the Proposer (+ one corrective
     retry)."""
     query = next((str(item.get("content", "")) for item in reversed(messages) if item.get("role") == "user"), "")
-    system_prompt = build_system_prompt(scenario, af, diff_ops, scenario_dir=scenario_dir, query=query,
-                                        context_refs=context_refs)
+    system_prompt = build_system_prompt(
+        scenario, af, diff_ops, scenario_dir=scenario_dir, query=query,
+        context_refs=context_refs,
+        include_accepted_defeaters="chat_accepted_defeaters" in model_prompt_templates(client, "chat"),
+    )
     system_prompt += model_prompt_guidance(client, "chat")
     passages = supplied_sources(system_prompt)
     references = resolve_context_refs(scenario, af, context_refs or [])
@@ -522,13 +560,14 @@ def run_turn(
         max_tokens=MAX_TOKENS_PER_RESPONSE,
         cache=True,
     )
-    issues = validate_response(first.text, scenario, af)
-    evidence, quotation_issues = source_evidence(first.text, passages)
+    first_text = canonicalize_source_quotes(first.text, passages)
+    issues = validate_response(first_text, scenario, af)
+    evidence, quotation_issues = source_evidence(first_text, passages)
     issues.extend(quotation_issues)
 
     if not issues:
         return ChatTurnResult(
-            text=first.text,
+            text=first_text,
             stop_reason=first.stop_reason,
             usage=first.usage,
             model=first.model,
@@ -545,7 +584,7 @@ def run_turn(
     # Silent retry with corrective feedback.
     log.info("chat_validator_retry issues=%d", len(issues))
     retry_conversation = conversation + [
-        {"role": "assistant", "content": first.text},
+        {"role": "assistant", "content": first_text},
         {"role": "user", "content": _corrective_retry_message(issues)},
     ]
     second: LLMResponse = client.complete(
@@ -559,10 +598,11 @@ def run_turn(
         k: first.usage.get(k, 0) + second.usage.get(k, 0)
         for k in set(first.usage) | set(second.usage)
     }
-    remaining = validate_response(second.text, scenario, af)
-    evidence, quotation_issues = source_evidence(second.text, passages)
+    second_text = canonicalize_source_quotes(second.text, passages)
+    remaining = validate_response(second_text, scenario, af)
+    evidence, quotation_issues = source_evidence(second_text, passages)
     remaining.extend(quotation_issues)
-    safe_text = second.text
+    safe_text = second_text
     stop_reason = second.stop_reason
     if remaining:
         log.warning("chat_validator_retry_still_flagged issues=%d", len(remaining))

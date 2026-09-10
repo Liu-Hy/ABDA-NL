@@ -779,6 +779,11 @@ def run_propose(
     if last_response is None:
         raise RuntimeError("a validated proposal is missing its provider response")
 
+    # Review the same complete operation that the preview and Apply receive.
+    # Validated forward-reference descriptions are part of that operation.
+    if accepted_notes and op.get("op") in {"add-rule", "modify-rule"}:
+        op["new_premise_notes"] = accepted_notes
+
     # --- Reviewer (advisory) ---
     review_issues: list[ReviewIssue] = []
     reviewed = False
@@ -812,16 +817,6 @@ def run_propose(
     # NL description in the warning so the user sees plain English.
     advisory_prefix = _advisory_to_review_issues(accepted_advisory, accepted_notes)
     review_issues = advisory_prefix + review_issues
-
-    # Attach the Proposer's forward-premise notes to the op so they
-    # travel with it through the UI and into diff_ops.apply. There,
-    # auto-declared propositions pick up the NL description from this
-    # list rather than falling back to a generic placeholder --
-    # critical for the promotion UX (user later says "add a fact that
-    # the store is open", Proposer sees the matching proposition
-    # description, reuses the id).
-    if accepted_notes and op.get("op") in {"add-rule", "modify-rule"}:
-        op["new_premise_notes"] = accepted_notes
 
     return ProposeResult(
         op=op,

@@ -1,1 +1,1 @@
-Preserve every explicitly requested field value, including activation and strength; when refining an unapplied proposal, retain its other fields unless the user changes them.
+Before calling the tool, compare the user's instruction with the complete payload. Include every requested field explicitly, even when the schema marks it optional; omission does not preserve a requested nondefault value. During refinement, retain pending fields the user did not change.

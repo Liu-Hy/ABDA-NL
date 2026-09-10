@@ -33,8 +33,8 @@ def load_prompt(name: str, **variables: str) -> str:
     return template.format(**variables)
 
 
-def model_prompt_guidance(client: Any, feature: str) -> str:
-    """Return only guidance justified by recorded failures for this model.
+def model_prompt_templates(client: Any, feature: str) -> tuple[str, ...]:
+    """Select only guidance justified by recorded failures for this model.
 
     Billing and retry wrappers can expose a deployment name in ``model``.
     Prefer the catalog identity carried by their inner metered client. A
@@ -69,12 +69,24 @@ def model_prompt_guidance(client: Any, feature: str) -> str:
         templates.append("chat_accepted_defeaters")
     if feature == "reviewer" and model == "claude-sonnet-5":
         templates.append("reviewer_sonnet_scope")
+    if feature == "reviewer" and model == "deepseek-v4-flash-0731":
+        templates.append("reviewer_deepseek_polarity")
     if feature == "proposer" and model in {
-        "claude-sonnet-5", "deepseek-v4-flash-0731", "glm-5.3", "kimi-k3",
+        "claude-sonnet-5", "glm-5.3", "kimi-k3",
     }:
         templates.append("proposer_stipulated_provenance")
+    if feature == "proposer" and model == "deepseek-v4-flash-0731":
+        templates.append("proposer_deepseek_provenance")
     if feature == "proposer" and model == "glm-5.3":
         templates.append("proposer_explicit_fields")
     if feature == "chat" and model == "gpt-5.6-terra":
         templates.append("chat_terra_mutual_defeats")
-    return "".join("\n\n" + load_prompt(name).strip() for name in templates)
+    return tuple(templates)
+
+
+def model_prompt_guidance(client: Any, feature: str) -> str:
+    """Render the selected model and feature guidance without changing scope."""
+    return "".join(
+        "\n\n" + load_prompt(name).strip()
+        for name in model_prompt_templates(client, feature)
+    )
