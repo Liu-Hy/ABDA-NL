@@ -1647,7 +1647,9 @@ def test_logout_discards_an_in_flight_private_workspace_refresh(
                 }"""
             )
             expect(page.get_by_text("Old account private project")).to_be_attached()
-            expect(page.get_by_text("Old account private chat")).to_be_attached()
+            expect(
+                page.locator("#chat-messages").get_by_text("Old account private chat")
+            ).to_be_attached()
 
             with page.expect_navigation(wait_until="domcontentloaded"):
                 page.locator("#logout-btn").click()
