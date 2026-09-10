@@ -68,7 +68,7 @@ def supplied_sources(corpus_block: str) -> dict[str, list[tuple[int, str]]]:
 
 
 _CITATION = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9_. -]{0,119}\.(?:txt|pdf|md))\]")
-_QUOTED = re.compile(r'"([^"]{8,})"|“([^”]{8,})”|^>\s*(.+)$', re.M)
+_QUOTED = re.compile(r'"([^"]*)"|“([^”]*)”|^>\s*(.+)$', re.M)
 
 
 def _quotation_span(text: str, quote: str) -> tuple[int, int] | None:
@@ -94,8 +94,20 @@ def _quote_sources(response: str, quote: re.Match[str], citations: list[re.Match
         after = len(response)
     local = [item for item in citations if before <= item.start() < after]
     quote_end = quote.start(3) if quote.group(3) is not None else quote.end()
-    following = [item for item in local if item.start() >= quote_end]
-    preceding = [item for item in local if item.end() <= quote.start()]
+    # A paragraph can mix scenario labels and source quotations. Bind a
+    # trailing citation only within the quote's sentence; a closing period
+    # immediately before the citation is still part of that sentence.
+    def following_is_local(item: re.Match[str]) -> bool:
+        if quote.group(3) is not None and item.start() < quote.end():
+            return True  # The citation is inside this blockquote.
+        gap = response[quote.end():item.start()]
+        return not re.search(r"[.!?][\"'’”)*_]*\s+(?=\S)", gap)
+
+    following = [item for item in local
+                 if item.start() >= quote_end and following_is_local(item)]
+    preceding = [item for item in local if item.end() <= quote.start()
+                 and not re.search(r"[.!?](?:[\"'’”)*_]*\s|$)",
+                                   response[item.end():quote.start()])]
     if following:
         selected = following[0]
     elif preceding:
@@ -122,6 +134,10 @@ def source_evidence(response: str, passages: dict[str, list[tuple[int, str]]]) -
     cited = list(dict.fromkeys(m.group(1) for m in citations))
     for match in _QUOTED.finditer(response):
         quote = next(part for part in match.groups() if part is not None).strip()
+        # Consume every complete quote pair before skipping short labels.
+        # Otherwise a short label's closing quote can open a spurious span.
+        if match.group(3) is None and len(quote) < 8:
+            continue
         if match.group(3) is not None:
             quote = _CITATION.sub("", quote).strip()
         attributed = _quote_sources(response, match, citations)

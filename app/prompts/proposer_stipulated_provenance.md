@@ -1,0 +1,1 @@
+Preserve any source explicitly requested by the user, including a source revision. For a new user-stipulated fact or assumption with no requested source, use `user instruction`; related reference material does not establish its provenance.

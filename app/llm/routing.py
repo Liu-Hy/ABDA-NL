@@ -73,6 +73,7 @@ class _UnavailableVerifiedRoute:
         self.provider = route.provider
         self.billing_source = route.billing_source
         self.route = route.id
+        self.settled_cost_microusd = 0
 
     def complete(self, **_kwargs: Any) -> LLMResponse:
         raise LLMProviderError("CloudBank deployment configuration is unavailable",
@@ -363,6 +364,7 @@ class MeteredClient:
         self.billing_source = getattr(inner, "billing_source", "unknown")
         self.route = getattr(inner, "route", "unknown")
         self.deadline = deadline
+        self.settled_cost_microusd = 0
         if deadline is not None:
             inner.request_deadline = deadline
 
@@ -518,6 +520,7 @@ class MeteredClient:
                 # Keep the reservation outstanding and stop. An accounting
                 # outage must never authorize another paid provider attempt.
                 raise RuntimeError("LLM failure accounting is unavailable") from accounting_exc
+            self.settled_cost_microusd += failed_cost
             if spend_reservation is not None:
                 if failed_cost:
                     self.spend_cap.settle(spend_reservation, failed_cost)
@@ -563,6 +566,7 @@ class MeteredClient:
                     )
                 else:
                     record_llm_event(session, event)
+            self.settled_cost_microusd += actual_cost
         except Exception as accounting_exc:
             diagnostic = exception_diagnostic(accounting_exc)
             log.error(
@@ -616,6 +620,25 @@ class MeteredClient:
         return result
 
 
+def _settled_cost_total(*clients: Any) -> int | None:
+    """Read committed cost only; raw clients can keep their own response metadata."""
+    unique = {id(client): client for client in clients if client is not None}
+    values = [getattr(client, "settled_cost_microusd", None) for client in unique.values()]
+    if not values or any(type(value) is not int for value in values):
+        return None
+    return sum(values)
+
+
+def _with_call_cost(result: Any, before: int | None, after: int | None) -> Any:
+    if (
+        isinstance(result, (LLMResponse, ToolCallResponse))
+        and before is not None
+        and after is not None
+    ):
+        result.cost_microusd = after - before
+    return result
+
+
 class RetryingClient:
     def __init__(self, inner: LLMClient, *, attempts: int, deadline: float | None = None) -> None:
         self.inner = inner
@@ -629,7 +652,16 @@ class RetryingClient:
     def close(self) -> None:
         close_llm_client(self.inner)
 
+    @property
+    def settled_cost_microusd(self) -> int | None:
+        return _settled_cost_total(self.inner)
+
     def _invoke(self, method: str, **kwargs: Any) -> Any:
+        before = self.settled_cost_microusd
+        result = self._invoke_attempts(method, **kwargs)
+        return _with_call_cost(result, before, self.settled_cost_microusd)
+
+    def _invoke_attempts(self, method: str, **kwargs: Any) -> Any:
         last_error: LLMProviderError | None = None
         for attempt in range(1, self.attempts + 1):
             if self.deadline is not None and time.monotonic() >= self.deadline:
@@ -739,7 +771,16 @@ class FailoverClient:
         if self.fallback is not None and self.fallback is not self.primary:
             close_llm_client(self.fallback)
 
+    @property
+    def settled_cost_microusd(self) -> int | None:
+        return _settled_cost_total(self.primary, self.fallback)
+
     def _invoke(self, method: str, **kwargs: Any) -> Any:
+        before = self.settled_cost_microusd
+        result = self._invoke_routes(method, **kwargs)
+        return _with_call_cost(result, before, self.settled_cost_microusd)
+
+    def _invoke_routes(self, method: str, **kwargs: Any) -> Any:
         if self.deadline is not None and time.monotonic() >= self.deadline:
             raise LLMProviderError("The AI request deadline was reached", provider=self.provider,
                                    error_type="request_deadline")

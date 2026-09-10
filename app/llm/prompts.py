@@ -65,6 +65,16 @@ def model_prompt_guidance(client: Any, feature: str) -> str:
         templates.append("chat_claude_argument_counts")
         if model == "claude-opus-5":
             templates.append("chat_opus_grounded_defeats")
+    if feature == "chat" and model in {"claude-sonnet-5", "deepseek-v4-flash-0731"}:
+        templates.append("chat_accepted_defeaters")
+    if feature == "reviewer" and model == "claude-sonnet-5":
+        templates.append("reviewer_sonnet_scope")
+    if feature == "proposer" and model in {
+        "claude-sonnet-5", "deepseek-v4-flash-0731", "glm-5.3", "kimi-k3",
+    }:
+        templates.append("proposer_stipulated_provenance")
+    if feature == "proposer" and model == "glm-5.3":
+        templates.append("proposer_explicit_fields")
     if feature == "chat" and model == "gpt-5.6-terra":
         templates.append("chat_terra_mutual_defeats")
     return "".join("\n\n" + load_prompt(name).strip() for name in templates)

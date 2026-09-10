@@ -113,11 +113,13 @@ def validate_op(op: dict[str, Any], scenario: Scenario) -> list[ValidationIssue]
         try:
             _validate_payload(payload_key, payload)
         except DiffOpError as e:
-            issues.append(ValidationIssue(
-                "schema",
-                f"{e}. The tool input must have sibling `id` and "
-                f"`{payload_key}` fields. Keep `id` outside `{payload_key}`.",
-            ))
+            message = str(e)
+            if not isinstance(op_id, str) or not op_id or "id" in payload:
+                message += (
+                    ". The tool input must have sibling `id` and "
+                    f"`{payload_key}` fields. Keep `id` outside `{payload_key}`."
+                )
+            issues.append(ValidationIssue("schema", message))
             # Schema failures often cascade into confusing downstream
             # errors; bail early and let the Proposer fix them first.
             return issues

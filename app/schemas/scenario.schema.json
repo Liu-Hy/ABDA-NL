@@ -142,7 +142,8 @@
         },
         "category": { "type": "string", "maxLength": 200 },
         "source": { "type": "string", "maxLength": 2000 },
-        "block": { "$ref": "#/$defs/block" }
+        "block": { "$ref": "#/$defs/block" },
+        "active": { "type": "boolean", "const": true }
       }
     },
     "defeasible_rule": {

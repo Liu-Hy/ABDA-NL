@@ -266,7 +266,18 @@ def diff_op_from_tool_input(task: str, tool_input: dict[str, Any]) -> dict[str, 
     op = {"op": task, "id": tool_input.get("id")}
     payload_key = {"add-rule": "rule", "modify-rule": "rule",
                    "add-fact": "fact", "add-assumption": "assumption"}[task]
-    op[payload_key] = tool_input.get(payload_key)
+    payload = tool_input.get(payload_key)
+    if task != "modify-rule" and isinstance(payload, dict):
+        # Optional text metadata on new items has the same meaning when
+        # omitted. Preserve malformed updates for validator feedback, since
+        # omitting a field in a replacement rule can clear existing metadata.
+        payload = {
+            key: value for key, value in payload.items()
+            if value is not None or key not in {
+                "negated_description", "category", "source",
+            }
+        }
+    op[payload_key] = payload
     return op
 
 

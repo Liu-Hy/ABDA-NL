@@ -332,8 +332,8 @@ def test_add_rule_rejects_missing_type_discriminator():
 
 
 def test_modify_rule_rejects_strict_active_false_via_schema():
-    # The schema's oneOf splits strict vs. defeasible; strict has no `active` field,
-    # so active:false on a strict payload must fail schema validation.
+    # The schema allows explicit activation of strict rules, but active:false
+    # must still fail validation.
     s = _load_baseline()
     bad = {"type": "strict", "premises": ["f1"], "conclusion": "p1", "active": False}
     with pytest.raises(DiffOpError):

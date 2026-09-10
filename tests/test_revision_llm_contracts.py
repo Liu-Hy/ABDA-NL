@@ -212,3 +212,36 @@ def test_multiline_answer_quote_is_checked_against_the_cited_source():
     assert not issues and evidence[0]["start"] == 3
     assert source_evidence('"The permit\nhad expired." [record.txt]',
                            {"record.txt": [(0, "The permit was valid.")]})[1]
+
+
+def test_scenario_label_does_not_borrow_a_source_citation_from_the_next_sentence():
+    sources = {"record.txt": [(7, "The permit had expired.")]}
+    answer = ('The "ready to proceed" rule is rejected. '
+              'The record says "The permit had expired." [record.txt]')
+    evidence, issues = source_evidence(answer, sources)
+    assert not issues
+    assert len(evidence) == 1 and evidence[0]["start"] == 7
+    assert evidence[0]["quote"] == "The permit had expired."
+    assert source_evidence(answer.replace("had expired", "was valid"), sources)[1]
+
+
+@pytest.mark.parametrize("short_label", ['"Go"', '"crispy"', '“Ready”'])
+def test_short_quote_pairs_cannot_turn_surrounding_prose_into_a_source_quote(short_label):
+    sources = {"record.txt": [(0, "The permit had expired.")]}
+    answer = (f'{short_label} is the selected rule. '
+              'The source says "The permit had expired." [record.txt]')
+    evidence, issues = source_evidence(answer, sources)
+    assert not issues
+    assert [item["quote"] for item in evidence] == ["The permit had expired."]
+    assert source_evidence(answer.replace("The permit", "the permit"), sources)[1]
+
+
+def test_two_quotes_with_a_shared_citation_and_multisentence_blockquotes_stay_checked():
+    sources = {"record.txt": [(0, "The permit had expired. The gate was closed.")]}
+    for answer in (
+        'The record says "The permit had expired." and "The gate was closed." [record.txt]',
+        '> The permit had expired. The gate was closed. [record.txt]',
+    ):
+        evidence, issues = source_evidence(answer, sources)
+        assert not issues and evidence
+        assert source_evidence(answer.replace("was closed", "was open"), sources)[1]

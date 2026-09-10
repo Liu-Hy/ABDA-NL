@@ -48,7 +48,7 @@ from app.llm.edit_validator import (
     split_issues,
     validate_op,
 )
-from app.llm.prompts import load_prompt
+from app.llm.prompts import load_prompt, model_prompt_guidance
 from app.scenario.diff_ops import _validated_rule_fields
 
 log = logging.getLogger(__name__)
@@ -476,6 +476,7 @@ def run_review(
         user_instruction=user_instruction,
         proposed_edit=proposed_edit,
     )
+    system_prompt += model_prompt_guidance(client, "reviewer")
     response: ToolCallResponse = client.tool_call(
         system=system_prompt,
         messages=[{"role": "user", "content": "Please review the proposed edit."}],
@@ -690,6 +691,7 @@ def run_propose(
     proposer_system = build_proposer_system_prompt(
         scenario, af, diff_ops, scenario_dir=scenario_dir, query=instruction
     )
+    proposer_system += model_prompt_guidance(client, "proposer")
     user_message = _build_user_message(task, instruction, existing_id)
     tool = tool_for(task)
 

@@ -71,8 +71,19 @@ def _validate_payload(defname: str, payload: Any) -> None:
     )
     if errors:
         first = errors[0]
+        type_context = ""
+        if defname == "rule" and isinstance(payload, dict):
+            rule_type = payload.get("type")
+            if isinstance(rule_type, str) and rule_type in {"strict", "defeasible"}:
+                branch_errors = sorted(
+                    _validator_for(f"{rule_type}_rule").iter_errors(payload),
+                    key=lambda error: list(error.absolute_path),
+                )
+                if branch_errors:
+                    first = branch_errors[0]
+                    type_context = f"{rule_type} rule: "
         path = "/".join([defname, *(str(p) for p in first.absolute_path)])
-        raise DiffOpError(f"invalid {defname} payload at /{path}: {first.message}")
+        raise DiffOpError(f"invalid {defname} payload at /{path}: {type_context}{first.message}")
 
 
 def apply(baseline: Scenario, ops: list[dict[str, Any]]) -> Scenario:

@@ -758,6 +758,7 @@ def test_mcp_server_tools_charge_exact_real_ledger_and_reject_depleted_credit(
     assert answer["cost_microusd"] == unit_cost
     assert proposal["cost_microusd"] == 2 * unit_cost
     assert len(calls) == 3
+
     unchanged = client.get(f"/api/projects/{project['id']}").json()
     assert unchanged["version"] == 1
     assert "mcp_rule" not in unchanged["scenario"]["rules"]
@@ -779,3 +780,194 @@ def test_mcp_server_tools_charge_exact_real_ledger_and_reject_depleted_credit(
         assert denied["isError"] is True
         assert "remaining trial credit" in denied["content"][0]["text"]
     assert len(calls) == 3
+
+
+@pytest.mark.parametrize("tool_name", ["ask_project", "propose_project_edit"])
+@pytest.mark.parametrize("backup_fails", [False, True])
+def test_mcp_provider_outage_settles_ledgers_and_preserves_project(
+    client: TestClient, monkeypatch, tmp_path, request, tool_name, backup_fails,
+):
+    """MCP wire calls use real billing; every physical provider is injected."""
+    import importlib
+    from decimal import ROUND_CEILING
+
+    import app.api.llm_access as llm_access
+    import app.db.session as db_session
+    import app.llm.routing as routing
+    from app.db.models import EmergencyBudget, EmergencyUsageReservation, TrialProgram
+    from app.llm.catalog import load_model_catalog
+    from app.llm.client import LLMResponse, ToolCallResponse
+    from app.llm.providers import LLMProviderError
+
+    # Keep these outage receipts and budgets separate from the module's other
+    # accounts, and route both HTTP dependencies and MCP sessions to this DB.
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'mcp-outage.db'}")
+    request.addfinalizer(engine.dispose)
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    for module in (db_session, mcp_module, routing, importlib.import_module("app.api.main")):
+        monkeypatch.setattr(module, "get_session_factory", lambda: factory)
+    settings = replace(
+        get_settings(), llm_require_auth=True, openrouter_failover_enabled=True,
+        llm_retry_attempts=2,
+    )
+    monkeypatch.setattr(llm_access, "get_settings", lambda: settings)
+    monkeypatch.setattr(mcp_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(mcp_module, "_llm_enabled", lambda: True)
+    monkeypatch.setattr(routing.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(routing._CIRCUITS, "_states", {})
+    with factory() as session:
+        session.add(TrialProgram(
+            key="global", enabled=True, max_users=1,
+            grant_microusd=5_000_000, budget_microusd=5_000_000,
+        ))
+        session.add(EmergencyBudget(
+            key="openrouter", enabled=True, hard_limit_microusd=5_000_000,
+        ))
+        session.commit()
+
+    user = _login(client, "mcp-outage@example.edu")
+    assert client.post("/api/trial/activate").status_code == 200
+    project = client.post("/api/projects", json={
+        "name": "Disposable MCP outage check", "source_scenario_id": "fire_prevention",
+    }).json()
+    token_record = _create_token(
+        client, name="Outage check", scopes=["projects:read", "projects:write", "llm:use"],
+    )
+    token = token_record["token"]
+    catalog = load_model_catalog()
+    profile = catalog.profiles[settings.llm_default_profile]
+    primary = catalog.routes[profile.primary_route]
+    backup = catalog.routes[profile.fallback_route]
+    assert primary.model == backup.model
+    assert primary.billing_source == "cloudbank"
+    assert backup.billing_source == "openrouter-emergency"
+    calls, opened = [], []
+    failed_usage = {"input_tokens": 30, "output_tokens": 0}
+    success_usage = {"input_tokens": 100, "output_tokens": 50}
+
+    class Provider:
+        def __init__(self, route):
+            self.model, self.provider = route.request_model, route.provider
+            self.route, self.billing_source = route.id, route.billing_source
+            self.closed = False
+            opened.append(self)
+
+        def close(self):
+            self.closed = True
+
+        def invoke(self):
+            calls.append(self.route)
+            if self.route == primary.id or backup_fails:
+                raise LLMProviderError(
+                    "injected provider outage", provider=self.provider,
+                    status_code=503, retryable=True, outage_candidate=True,
+                    error_type="server_error", usage=failed_usage,
+                )
+
+        def complete(self, **_kwargs):
+            self.invoke()
+            return LLMResponse(
+                text="Conducting the burn is undecided in the current scenario.",
+                stop_reason="end_turn", usage=success_usage, latency_ms=1, model=self.model,
+                provider=self.provider, route=self.route, billing_source=self.billing_source,
+            )
+
+        def tool_call(self, **kwargs):
+            self.invoke()
+            assert kwargs["tool"]["name"] == "propose_add_fact"
+            return ToolCallResponse(
+                tool_name="propose_add_fact", tool_input={
+                    "id": "backup_monitor", "fact": {
+                        "description": "a backup air-quality monitor is operating",
+                        "category": "air-quality", "source": "user instruction",
+                    },
+                },
+                stop_reason="tool_use", usage=success_usage, latency_ms=1, model=self.model,
+                provider=self.provider, route=self.route, billing_source=self.billing_source,
+            )
+
+    def raw_route(router, route, *, user_id):
+        assert user_id == user["id"]
+        assert route.id in {primary.id, backup.id}
+        return Provider(route), router.catalog.model_for_route(route)
+
+    monkeypatch.setattr(routing.LLMRouter, "_raw_route", raw_route)
+    arguments = {"project_id": project["id"]}
+    if tool_name == "ask_project":
+        arguments["question"] = "Is conducting the burn accepted?"
+    else:
+        arguments.update(task="add-fact", instruction="Add a fact that a backup monitor is operating.")
+    result = _call_tool(client, token, tool_name, arguments)
+    assert calls == [primary.id, primary.id, backup.id]
+    assert len(opened) == 2 and all(provider.closed for provider in opened)
+    if backup_fails:
+        assert result["isError"] is True
+        assert "temporarily unavailable" in result["content"][0]["text"]
+    else:
+        assert result.get("isError") is not True
+        output = result["structuredContent"]
+        assert output["route"] == backup.id
+        assert output["billing_source"] == "openrouter-emergency"
+        if tool_name == "propose_project_edit":
+            assert output["op"]["id"] == "backup_monitor"
+            assert output["expected_version"] == 1
+
+    unchanged = _call_tool(client, token, "get_project", {"project_id": project["id"]})[
+        "structuredContent"
+    ]
+    assert unchanged["version"] == 1
+    assert "backup_monitor" not in unchanged["scenario"]["facts"]
+
+    def cost(route, usage):
+        base = catalog.cost_ceiling_for_route(route).cost_microusd(usage)
+        return int((base * route.billing_multiplier).to_integral_value(rounding=ROUND_CEILING))
+
+    primary_cost = 2 * cost(primary, failed_usage)
+    backup_cost = cost(backup, failed_usage if backup_fails else success_usage)
+    request_kind = "mcp-chat" if tool_name == "ask_project" else "mcp-propose"
+    with factory() as session:
+        grant = session.get(TrialGrant, user["id"])
+        assert (grant.spent_microusd, grant.reserved_microusd) == (primary_cost + backup_cost, 0)
+        program = session.get(TrialProgram, "global")
+        assert program.spent_microusd == grant.spent_microusd
+        emergency = session.get(EmergencyBudget, "openrouter")
+        assert (emergency.spent_microusd, emergency.reserved_microusd) == (backup_cost, 0)
+        events = list(session.scalars(select(LLMUsageEvent).where(LLMUsageEvent.user_id == user["id"])))
+        assert len(events) == 3
+        assert sum(event.cost_microusd for event in events) == grant.spent_microusd
+        assert {event.request_kind for event in events} == {request_kind}
+        assert {event.request_id for event in events} == {"3"}
+        assert sum(event.status == "failed" for event in events) == (3 if backup_fails else 2)
+        reservations = list(session.scalars(select(UsageReservation)))
+        assert len(reservations) == 3
+        assert all(row.status == "settled" and row.finalized_at for row in reservations)
+        assert sum(row.actual_microusd for row in reservations) == grant.spent_microusd
+        emergency_rows = list(session.scalars(select(EmergencyUsageReservation)))
+        assert len(emergency_rows) == 1
+        assert emergency_rows[0].status == "settled"
+        assert emergency_rows[0].actual_microusd == backup_cost
+
+    # Deterministic edits remain usable after both providers fail and do not
+    # consume more credit. Archive and revoke while retaining the usage audit.
+    applied = _call_tool(client, token, "apply_project_ops", {
+        "project_id": project["id"], "expected_version": 1,
+        "diff_ops": [{"op": "toggle-assumption", "id": "smp_permit"}],
+    })["structuredContent"]
+    assert applied["version"] == 2
+    readback = _call_tool(client, token, "get_project", {"project_id": project["id"]})[
+        "structuredContent"
+    ]
+    assert readback["scenario"]["assumptions"]["smp_permit"]["active"] is False
+    assert readback["af_summary"]["labels_by_proposition"]["legal_today"] == "rejected"
+    assert calls == [primary.id, primary.id, backup.id]
+    assert client.delete(f"/api/projects/{project['id']}?expected_version=2").status_code == 204
+    assert client.delete(f"/api/mcp/tokens/{token_record['id']}").status_code == 204
+    assert _initialize(client, token).status_code == 401
+    with factory() as session:
+        assert session.get(MCPAccessToken, token_record["id"]).revoked_at is not None
+        assert len(list(session.scalars(select(LLMUsageEvent)))) == 3
+        assert not list(session.scalars(select(UsageReservation).where(UsageReservation.status == "pending")))
+        assert not list(session.scalars(select(EmergencyUsageReservation).where(
+            EmergencyUsageReservation.status == "pending",
+        )))

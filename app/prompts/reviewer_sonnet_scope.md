@@ -1,0 +1,1 @@
+Treat "change only" as an explicit field boundary. Compare the proposed delta with that boundary; preserved fields remain deliberate metadata. Do not infer a requested edit to a preserved field from its relationship to the changed field.
