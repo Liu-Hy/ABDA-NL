@@ -164,6 +164,30 @@ def test_internal_metrics_are_low_cardinality_and_include_budget_totals(
     assert 'route="<unmatched>"' in body
 
 
+def test_metrics_include_named_pool_and_uncertainty_without_arbitrary_route_labels(monkeypatch):
+    from app.db.models import LLMUsageEvent, TrialProgram
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine)
+    monkeypatch.setattr(main_module, "_require_metrics_access", lambda _request: None)
+    with factory() as session:
+        session.add(TrialProgram(key="administrators", enabled=True, max_users=5,
+            grant_microusd=50_000_000, budget_microusd=250_000_000,
+            activation_count=1, allocated_microusd=50_000_000, spent_microusd=789))
+        for route in ("cloudbank-claude-sonnet-5", "private-user-or-endpoint-value"):
+            session.add(LLMUsageEvent(provider="azure-foundry", route=route,
+                model="claude-sonnet-5", billing_source="cloudbank", request_kind="chat",
+                status="error", cost_microusd=321, latency_ms=1, error_type="timeout:billing_uncertain"))
+        session.commit()
+        body = main_module.internal_metrics(_network_request(), session).body.decode()
+    assert 'abda_credit_program_spent_microusd{program="administrators"} 789' in body
+    assert 'abda_llm_uncertain_microusd{route="cloudbank-claude-sonnet-5"} 321' in body
+    assert 'abda_llm_uncertain_microusd{route="other"} 321' in body
+    assert "private-user-or-endpoint-value" not in body
+    engine.dispose()
+
+
 def test_nonstandard_http_method_is_normalized_in_metrics_and_logs(
     client: TestClient,
     caplog,
@@ -428,6 +452,7 @@ def _production_environment(monkeypatch) -> None:
         "ABDA_AUTO_CREATE_DB": "0",
         "ABDA_SESSION_SECRET": "production-session-secret-at-least-32-characters",
         "ABDA_MCP_TOKEN_PEPPER": "production-mcp-pepper-different-and-long-enough",
+        "ABDA_CREDIT_ELIGIBILITY_PEPPER": "production-credit-pepper-distinct-and-stable-key",
         "ABDA_METRICS_TOKEN": "production-metrics-token-at-least-32-characters",
         "ABDA_PUBLIC_BASE_URL": "https://demo.abda-nl.org",
         "ABDA_OIDC_METADATA_URL": "https://login.example/.well-known/openid-configuration",
@@ -479,6 +504,10 @@ def test_production_normalizes_explicit_trusted_hostnames(monkeypatch):
     ("name", "value", "message"),
     [
         ("ABDA_COOKIE_SECURE", "0", "secure session cookies"),
+        ("ABDA_CREDIT_ELIGIBILITY_PEPPER", "", "require ABDA_CREDIT_ELIGIBILITY_PEPPER"),
+        ("ABDA_CREDIT_ELIGIBILITY_PEPPER", "short", "at least 32"),
+        ("ABDA_CREDIT_ELIGIBILITY_PEPPER", "production-session-secret-at-least-32-characters", "distinct, stable"),
+        ("ABDA_LLM_ALLOW_LEGACY_DEVELOPMENT", "1", "restricted to development"),
         ("ABDA_SESSION_COOKIE", "abda_session", "__Host-"),
         ("ABDA_ABUSE_PROTECTION_ENABLED", "0", "abuse protection"),
         ("ABDA_PUBLIC_BASE_URL", "https://example.org/path", "HTTPS origin"),

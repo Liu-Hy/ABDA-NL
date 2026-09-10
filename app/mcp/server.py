@@ -25,6 +25,7 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.responses import JSONResponse
+from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.abda_bridge import ArgumentComplexityError, ArgumentConstructionError
@@ -34,6 +35,7 @@ from app.api.llm_access import (
     select_request_llm_client,
 )
 from app.api.models import DiffOp, LLMRequestOptions
+from app.api.abuse import _client_subject
 from app.core.config import get_settings
 from app.services.scenario_submissions import list_published_scenarios, resolve_public_scenario
 from app.core.safe_logging import exception_diagnostic
@@ -49,6 +51,7 @@ from app.scenario.catalog import (
 )
 from app.scenario.diff_ops import DiffOpError, apply as apply_ops
 from app.scenario.loader import ScenarioValidationError, scenario_from_dict
+from app.scenario.materials import MaterialError
 from app.scenario.serialize import scenario_to_dict
 from app.scenario.state import compute_state_bundle
 from app.services.mcp_tokens import (
@@ -61,13 +64,14 @@ from app.services.projects import (
     ProjectNotFoundError,
     ProjectLimitError,
     ProjectVersionConflictError,
+    ProjectValidationError,
     ShareLinkLimitError,
     create_project as create_project_record,
     get_project as get_project_record,
     list_projects as list_project_records,
     update_project as update_project_record,
 )
-from app.services.rate_limits import consume_rate_limit
+from app.services.rate_limits import ACCOUNT_LLM_RATE_SCOPE, consume_rate_limit
 
 
 log = logging.getLogger(__name__)
@@ -109,6 +113,46 @@ class DatabaseTokenVerifier(TokenVerifier):
             )
 
         return await anyio.to_thread.run_sync(verify)
+
+
+class MCPAuthenticationRateLimitMiddleware:
+    """Bound transport authentication attempts before bearer verification.
+
+    Every transport request consumes a network slot, including valid tokens.
+    No positive authentication cache is used, so revocation takes effect on the
+    next allowed request. Browser token revocation uses a separate HTTP route.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        settings = get_settings()
+        if scope["type"] != "http" or not settings.abuse_protection_enabled:
+            await self.app(scope, receive, send)
+            return
+        subject = _client_subject(Request(scope), settings)
+
+        def consume():
+            with get_session_factory()() as session:
+                return consume_rate_limit(
+                    session, scope="mcp_transport_auth", subject=subject,
+                    # Transport includes initialization and protocol messages.
+                    # Keep its network ceiling distinct from per-account tools.
+                    limit=max(60, settings.anonymous_requests_per_minute * 2),
+                    window_seconds=60, secret=settings.session_secret,
+                )
+
+        result = await anyio.to_thread.run_sync(consume)
+        if not result.allowed:
+            response = JSONResponse(
+                {"error": "rate_limit_exceeded", "error_description": "Too many requests. Try again later."},
+                status_code=429,
+                headers={"Retry-After": str(result.retry_after_seconds), "Cache-Control": "no-store"},
+            )
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
 
 
 def _transport_security() -> TransportSecuritySettings:
@@ -223,9 +267,9 @@ def _tool_boundary(operation: str) -> Iterator[None]:
         ProjectVersionConflictError,
         ScenarioNotFoundError,
         ShareLinkLimitError,
+        ProjectValidationError,
+        MaterialError,
     ) as exc:
-        raise MCPToolUserError(str(exc)) from exc
-    except ValueError as exc:
         raise MCPToolUserError(str(exc)) from exc
     except Exception as exc:
         diagnostic = exception_diagnostic(exc)
@@ -315,7 +359,7 @@ def _load_project_for_llm(project_id: str) -> tuple[User, Project, Any, dict[str
         _limit_mcp(
             session,
             user,
-            "mcp_llm_request",
+            ACCOUNT_LLM_RATE_SCOPE,
             get_settings().llm_requests_per_minute,
         )
         project = get_project_record(session, user, project_id)
@@ -361,11 +405,20 @@ def _select_mcp_llm_client(
     )
 
 
-def _llm_error(exc: Exception) -> MCPToolUserError:
-    translated = llm_http_exception(exc, byok=False)
+_UNCERTAIN_BILLING_NOTICE = (
+    " Some usage was conservatively charged because the final provider cost is unconfirmed."
+)
+
+
+def _llm_error(exc: Exception, *, client=None) -> MCPToolUserError:
+    uncertain = getattr(client, "settled_billing_uncertain_count", 0) > 0
+    translated = llm_http_exception(exc, byok=False, billing_uncertain=uncertain)
     detail = translated.detail
     if isinstance(detail, dict):
-        return MCPToolUserError(str(detail.get("message") or "Language model request failed."))
+        message = str(detail.get("message") or "Language model request failed.")
+        if detail.get("billing_uncertain"):
+            message += _UNCERTAIN_BILLING_NOTICE
+        return MCPToolUserError(message)
     return MCPToolUserError("Language model request failed.")
 
 
@@ -610,7 +663,7 @@ def ask_project(
                 client=client,
             )
         except HANDLED_LLM_ERRORS as exc:
-            raise _llm_error(exc) from exc
+            raise _llm_error(exc, client=client) from exc
         finally:
             close_llm_client(client)
         return {
@@ -621,6 +674,8 @@ def ask_project(
             "billing_source": result.billing_source,
             "route": result.route,
             "cost_microusd": result.cost_microusd,
+            "billing_uncertain": bool(getattr(result, "billing_uncertain", False)),
+            "resolved_model_version": getattr(result, "resolved_model_version", None),
             "usage": result.usage,
             "latency_ms": result.latency_ms,
             "request_id": request_id,
@@ -666,11 +721,12 @@ def propose_project_edit(
                 client=client,
             )
         except ProposerRetryExhausted as exc:
-            raise MCPToolUserError(
-                "No valid edit was produced. Rephrase the instruction and try again."
-            ) from exc
+            message = "No valid edit was produced. Rephrase the instruction and try again."
+            if getattr(client, "settled_billing_uncertain_count", 0):
+                message += _UNCERTAIN_BILLING_NOTICE
+            raise MCPToolUserError(message) from exc
         except HANDLED_LLM_ERRORS as exc:
-            raise _llm_error(exc) from exc
+            raise _llm_error(exc, client=client) from exc
         finally:
             close_llm_client(client)
         return {
@@ -685,6 +741,8 @@ def propose_project_edit(
             "billing_source": result.billing_source,
             "route": result.route,
             "cost_microusd": result.cost_microusd,
+            "billing_uncertain": bool(getattr(result, "billing_uncertain", False)),
+            "resolved_model_version": getattr(result, "resolved_model_version", None),
             "usage": result.usage,
             "latency_ms": result.latency_ms,
             "request_id": request_id,
@@ -762,7 +820,7 @@ def create_mcp_runtime() -> MCPRuntime:
         context_app,
         backend=BearerAuthBackend(DatabaseTokenVerifier()),
     )
-    return MCPRuntime(server=server, app=authenticated_app)
+    return MCPRuntime(server=server, app=MCPAuthenticationRateLimitMiddleware(authenticated_app))
 
 
 class MCPApplicationProxy:

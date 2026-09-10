@@ -140,9 +140,15 @@ jobs:
       ABDA_DEPLOY_OIDC_ISSUER: https://example.invalid
       ABDA_DEPLOY_OIDC_CLIENT_ID: ci-client
       ABDA_DEPLOY_FOUNDRY_ENDPOINT: https://example.invalid/anthropic/v1/messages
+      ABDA_DEPLOY_FOUNDRY_OPENAI_ENDPOINT: https://example.invalid/openai/v1
+      ABDA_DEPLOY_FOUNDRY_OPUS_ENDPOINT: https://opus.example.invalid/anthropic/v1/messages
+      ABDA_DEPLOY_FOUNDRY_OPUS_API_KEY: ci-opus-key
+      ABDA_DEPLOY_GCP_PROJECT: access-ci-funding-test
+      ABDA_DEPLOY_GCP_ADC_JSON: '{"type":"service_account","project_id":"access-ci-funding-test","quota_project_id":"access-ci-funding-test"}'
       ABDA_DEPLOY_POSTGRES_HOST: abda-ci.postgres.database.azure.com
       ABDA_DEPLOY_SESSION_SECRET: ci-session-secret-with-more-than-32-characters
       ABDA_DEPLOY_MCP_TOKEN_PEPPER: ci-mcp-pepper-with-more-than-32-characters
+      ABDA_DEPLOY_CREDIT_ELIGIBILITY_PEPPER: ci-credit-eligibility-key-with-more-than-32-characters
       ABDA_DEPLOY_METRICS_TOKEN: ci-metrics-token-with-more-than-32-characters
       ABDA_DEPLOY_OIDC_CLIENT_SECRET: ci-oidc-secret
       ABDA_DEPLOY_FOUNDRY_API_KEY: ci-foundry-key

@@ -14,11 +14,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
-from typing import Any, Callable, Protocol, TypeVar
+from typing import Any, Callable, Mapping, Protocol, TypeVar
 from urllib.parse import urlparse
 
 import httpx
@@ -28,6 +29,14 @@ log = logging.getLogger(__name__)
 
 class LLMClientConfigurationError(RuntimeError):
     """A missing operator credential or endpoint, before provider dispatch."""
+
+
+class LLMAccountingUnavailableError(RuntimeError):
+    """Accounting failed and no further paid work is authorized."""
+
+
+class LLMRequestValidationError(ValueError):
+    """A known request limit was exceeded before provider dispatch."""
 
 
 class LLMRequestDeadlineError(RuntimeError):
@@ -52,6 +61,13 @@ def remaining_request_seconds(deadline: float | None, *, provider: str) -> float
     if remaining <= 0:
         raise LLMRequestDeadlineError(provider=provider)
     return remaining
+
+
+def resolved_model_version(value: Any) -> str | None:
+    """Retain bounded provider-returned identity without inventing a revision."""
+    if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/@+\-]{0,199}", value):
+        return value
+    return None
 
 
 def request_timeout(
@@ -92,8 +108,6 @@ def invoke_before_deadline(
     ceiling. A late result never performs accounting or authorizes more work.
     """
     remaining = remaining_request_seconds(deadline, provider=provider)
-    if remaining is None:
-        return call()
     if not _PROVIDER_SLOTS.acquire(timeout=remaining):
         raise LLMRequestDeadlineError(provider=provider)
     abandoned = threading.Event()
@@ -102,7 +116,7 @@ def invoke_before_deadline(
         try:
             remaining_request_seconds(deadline, provider=provider)
             result = call()
-            if time.monotonic() >= deadline:
+            if deadline is not None and time.monotonic() >= deadline:
                 raise LLMRequestDeadlineError(
                     provider=provider,
                     billing_uncertain=getattr(client, "request_dispatched", True),
@@ -122,7 +136,9 @@ def invoke_before_deadline(
         _PROVIDER_SLOTS.release()
         raise
     try:
-        return future.result(timeout=max(0.0, deadline - time.monotonic()))
+        return future.result(
+            timeout=None if deadline is None else max(0.0, deadline - time.monotonic())
+        )
     except FutureTimeoutError:
         # Future.result also re-raises a provider's own TimeoutError. Such a
         # physical timeout still permits retry while the shared budget lasts.
@@ -155,6 +171,8 @@ class LLMResponse:
     route: str = "unknown"
     cost_microusd: int = 0
     provider_cost_microusd: int | None = None
+    billing_uncertain: bool = False
+    resolved_model_version: str | None = None
 
 
 @dataclass
@@ -178,6 +196,8 @@ class ToolCallResponse:
     route: str = "unknown"
     cost_microusd: int = 0
     provider_cost_microusd: int | None = None
+    billing_uncertain: bool = False
+    resolved_model_version: str | None = None
 
 
 class LLMResponseValidationError(RuntimeError):
@@ -263,8 +283,8 @@ def resolve_claude_provider() -> str:
     return provider
 
 
-def _configured_env(name: str) -> str | None:
-    value = os.getenv(name)
+def _configured_env(name: str, environ: Mapping[str, str] | None = None) -> str | None:
+    value = (os.environ if environ is None else environ).get(name)
     if value is None:
         return None
     value = value.strip()
@@ -273,21 +293,21 @@ def _configured_env(name: str) -> str | None:
     return value
 
 
-def _foundry_base_url() -> str:
+def _foundry_base_url(environ: Mapping[str, str] | None = None) -> str:
     """Resolve an Azure resource/project endpoint to the Messages base URL."""
     explicit = (
-        _configured_env("AZURE_ANTHROPIC_ENDPOINT")
-        or _configured_env("ANTHROPIC_FOUNDRY_BASE_URL")
+        _configured_env("AZURE_ANTHROPIC_ENDPOINT", environ)
+        or _configured_env("ANTHROPIC_FOUNDRY_BASE_URL", environ)
     )
     if explicit:
         endpoint = explicit.rstrip("/")
     else:
-        resource = _configured_env("ANTHROPIC_FOUNDRY_RESOURCE")
+        resource = _configured_env("ANTHROPIC_FOUNDRY_RESOURCE", environ)
         if resource:
             return f"https://{resource}.services.ai.azure.com/anthropic"
         endpoint = (
-            _configured_env("ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT")
-            or _configured_env("AZURE_OPENAI_ENDPOINT")
+            _configured_env("ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT", environ)
+            or _configured_env("AZURE_OPENAI_ENDPOINT", environ)
             or ""
         ).rstrip("/")
 
@@ -311,18 +331,20 @@ def _foundry_base_url() -> str:
     return endpoint
 
 
-def foundry_credentials() -> tuple[str | None, str | None, str]:
+def foundry_credentials(
+    environ: Mapping[str, str] | None = None,
+) -> tuple[str | None, str | None, str]:
     """Return Foundry API-key/token auth and its Anthropic base URL."""
     api_key = (
-        _configured_env("AZURE_ANTHROPIC_API_KEY")
-        or _configured_env("ANTHROPIC_FOUNDRY_API_KEY")
-        or _configured_env("AZURE_OPENAI_API_KEY")
+        _configured_env("AZURE_ANTHROPIC_API_KEY", environ)
+        or _configured_env("ANTHROPIC_FOUNDRY_API_KEY", environ)
+        or _configured_env("AZURE_OPENAI_API_KEY", environ)
     )
     auth_token = (
-        _configured_env("ANTHROPIC_FOUNDRY_AUTH_TOKEN")
-        or _configured_env("AZURE_OPENAI_AUTH_TOKEN")
+        _configured_env("ANTHROPIC_FOUNDRY_AUTH_TOKEN", environ)
+        or _configured_env("AZURE_OPENAI_AUTH_TOKEN", environ)
     )
-    return api_key, auth_token, _foundry_base_url()
+    return api_key, auth_token, _foundry_base_url(environ)
 
 
 def _resolve_model() -> str:
@@ -364,9 +386,10 @@ class ClaudeClient:
         import anthropic
 
         self._anthropic = anthropic
-        self.provider = provider or resolve_claude_provider()
-        if self.provider not in {"anthropic", "foundry"}:
-            raise ValueError(f"unsupported Claude provider {self.provider!r}")
+        selected_provider = provider or resolve_claude_provider()
+        if selected_provider not in {"anthropic", "foundry", "azure-foundry"}:
+            raise ValueError(f"unsupported Claude provider {selected_provider!r}")
+        self.provider = "azure-foundry" if selected_provider == "foundry" else selected_provider
         if sdk_max_retries is not None and sdk_max_retries < 0:
             raise ValueError("sdk_max_retries cannot be negative")
         retry_options = (
@@ -378,7 +401,7 @@ class ClaudeClient:
         self._timeout_seconds = timeout_seconds
         self.request_deadline: float | None = None
         self.request_dispatched = False
-        if self.provider == "foundry":
+        if self.provider == "azure-foundry":
             if not base_url:
                 configured_key, configured_token, configured_url = foundry_credentials()
                 api_key = api_key or configured_key
@@ -399,11 +422,14 @@ class ClaudeClient:
         else:
             self._client = anthropic.Anthropic(
                 api_key=api_key or _configured_env("ANTHROPIC_API_KEY"),
+                base_url="https://api.anthropic.com",
+                # An ambient CLI auth token must not accompany a user's key.
+                auth_token=None,
                 **retry_options,
             )
         self.model = model or _resolve_model()
         self.billing_source = billing_source or (
-            "cloudbank" if self.provider == "foundry" else "server-configured"
+            "cloudbank" if self.provider == "azure-foundry" else "server-configured"
         )
         self.route = route or f"{self.provider}:{self.model}"
 
@@ -475,9 +501,10 @@ class ClaudeClient:
             usage=usage,
             latency_ms=latency_ms,
             model=self.model,
-            provider="azure-foundry" if self.provider == "foundry" else "anthropic",
+            provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
+            resolved_model_version=resolved_model_version(getattr(final, "model", None)),
         )
 
     def tool_call(
@@ -570,9 +597,10 @@ class ClaudeClient:
             usage=usage,
             latency_ms=latency_ms,
             model=self.model,
-            provider="azure-foundry" if self.provider == "foundry" else "anthropic",
+            provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
+            resolved_model_version=resolved_model_version(getattr(final, "model", None)),
         )
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+import logging
 from datetime import datetime
 
 from email_validator import EmailNotValidError, validate_email
@@ -19,6 +20,7 @@ class IdentityError(ValueError):
 
 
 _SQLITE_IDENTITY_LOCK = threading.RLock()
+log = logging.getLogger(__name__)
 
 
 def normalize_email(email: str) -> str:
@@ -213,9 +215,16 @@ def upsert_verified_identity(
             user = _upsert_verified_identity_with_retry(session, **kwargs)
     else:
         user = _upsert_verified_identity_with_retry(session, **kwargs)
-    from app.services.trials import ensure_named_credit
+    from app.services.trials import AutomaticCreditUnavailableError, ensure_named_credit
 
-    ensure_named_credit(session, user)
+    try:
+        ensure_named_credit(session, user)
+    except AutomaticCreditUnavailableError as exc:
+        # Authentication has committed independently. An exhausted or retired
+        # allocation cannot revoke access to private projects or self-funded use.
+        # Identity, account-state and accounting errors are deliberately not caught.
+        session.rollback()
+        log.info("automatic_credit_unavailable reason=%s", exc.code)
     return user
 
 

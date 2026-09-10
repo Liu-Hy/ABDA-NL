@@ -115,7 +115,7 @@ def test_make_llm_client_routes_claude_through_foundry(monkeypatch):
     client = make_llm_client()
 
     assert isinstance(client, ClaudeClient)
-    assert client.provider == "foundry"
+    assert client.provider == "azure-foundry"
     assert str(client._client.base_url).rstrip("/") == (
         "https://example.services.ai.azure.com/anthropic"
     )
@@ -128,6 +128,10 @@ def test_make_llm_client_routes_claude_through_foundry(monkeypatch):
 def test_preflight_disabled_llm_noop(monkeypatch):
     """Non-LLM mode must skip all preflight checks."""
     from app.api.main import _preflight_llm_config
+    from app.core import config as config_module
+    monkeypatch.setattr(config_module, "get_settings", lambda: replace(
+        get_settings(), llm_allow_legacy_development=True,
+    ))
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
@@ -136,6 +140,10 @@ def test_preflight_disabled_llm_noop(monkeypatch):
 
 def test_preflight_claude_without_key_raises(monkeypatch):
     from app.api.main import _preflight_llm_config
+    from app.core import config as config_module
+    monkeypatch.setattr(config_module, "get_settings", lambda: replace(
+        get_settings(), llm_allow_legacy_development=True,
+    ))
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ABDA_CLAUDE_PROVIDER", raising=False)
@@ -146,6 +154,10 @@ def test_preflight_claude_without_key_raises(monkeypatch):
 
 def test_preflight_claude_with_key_passes(monkeypatch):
     from app.api.main import _preflight_llm_config
+    from app.core import config as config_module
+    monkeypatch.setattr(config_module, "get_settings", lambda: replace(
+        get_settings(), llm_allow_legacy_development=True,
+    ))
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-dummy")
     monkeypatch.delenv("ABDA_CLAUDE_PROVIDER", raising=False)
@@ -155,6 +167,10 @@ def test_preflight_claude_with_key_passes(monkeypatch):
 
 def test_preflight_foundry_with_azure_key_passes(monkeypatch):
     from app.api.main import _preflight_llm_config
+    from app.core import config as config_module
+    monkeypatch.setattr(config_module, "get_settings", lambda: replace(
+        get_settings(), llm_allow_legacy_development=True,
+    ))
 
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")
     monkeypatch.setenv("ABDA_CLAUDE_PROVIDER", "foundry")
@@ -169,6 +185,10 @@ def test_preflight_foundry_with_azure_key_passes(monkeypatch):
 def test_preflight_ollama_skips_key_requirement(monkeypatch):
     """Ollama backend must not require ANTHROPIC_API_KEY."""
     from app.api.main import _preflight_llm_config
+    from app.core import config as config_module
+    monkeypatch.setattr(config_module, "get_settings", lambda: replace(
+        get_settings(), llm_allow_legacy_development=True,
+    ))
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("ABDA_LLM_BACKEND", "ollama")
@@ -193,6 +213,13 @@ def test_preflight_staging_allows_disabled_openrouter(monkeypatch):
         "https://example.services.ai.azure.com/anthropic",
     )
 
+    for name, value in {
+        "AZURE_OPENAI_ENDPOINT": "https://example.openai.azure.com",
+        "AZURE_OPUS5_ENDPOINT": "https://opus.services.ai.azure.com",
+        "AZURE_OPUS5_API_KEY": "fake-opus-key",
+        "GOOGLE_CLOUD_PROJECT": "funded-project",
+    }.items():
+        monkeypatch.setenv(name, value)
     _preflight_llm_config(True)
 
 

@@ -106,6 +106,14 @@ class RecordingClient:
             current = getattr(current, "inner", None)
         self._propagate_deadline()
 
+    @property
+    def settled_cost_microusd(self) -> int | None:
+        return getattr(self.inner, "settled_cost_microusd", None)
+
+    @property
+    def settled_billing_uncertain_count(self) -> int:
+        return getattr(self.inner, "settled_billing_uncertain_count", 0)
+
     def _propagate_deadline(self) -> None:
         if self.request_deadline is None:
             return

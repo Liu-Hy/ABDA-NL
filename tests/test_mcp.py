@@ -406,6 +406,149 @@ def test_mcp_read_tools_share_one_authenticated_rate_limit(
     assert "Too many requests" in rejected["content"][0]["text"]
 
 
+def test_mcp_authentication_is_throttled_before_lookup_and_keeps_revocation(
+    client: TestClient, monkeypatch,
+):
+    _login(client, "mcp-auth-throttle@example.edu")
+    issued = _create_token(client, name="Revocable under throttle", scopes=["projects:read"])
+    settings = replace(get_settings(), abuse_protection_enabled=True,
+                       anonymous_requests_per_minute=1, proxy_mode="azure-container-apps")
+    monkeypatch.setattr(mcp_module, "get_settings", lambda: settings)
+    original_consume = mcp_module.consume_rate_limit
+    now = [datetime(2026, 9, 10, 17, 0, 5, tzinfo=timezone.utc)]
+    observed_subjects = []
+
+    def consume(*args, **kwargs):
+        observed_subjects.append(kwargs["subject"])
+        return original_consume(*args, **kwargs, now=now[0])
+
+    monkeypatch.setattr(mcp_module, "consume_rate_limit", consume)
+    original_authenticate = mcp_module.authenticate_mcp_token
+    attempts = []
+
+    def authenticate(*args, **kwargs):
+        attempts.append(True)
+        return original_authenticate(*args, **kwargs)
+
+    monkeypatch.setattr(mcp_module, "authenticate_mcp_token", authenticate)
+    for index in range(60):
+        response = client.post("/mcp/", headers={
+            **_mcp_headers("abda_mcp_invalid"),
+            "X-Forwarded-For": f"192.0.2.{index + 1}, 198.51.100.43",
+        }, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+        assert response.status_code == 401
+    response = client.post("/mcp/", headers={
+        **_mcp_headers(issued["token"]), "X-Forwarded-For": "203.0.113.2, 198.51.100.43",
+    }, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    assert response.status_code == 429
+    assert response.headers["Retry-After"]
+    assert len(attempts) == 60
+    assert set(observed_subjects) == {"client:198.51.100.43"}
+    assert client.delete(f"/api/mcp/tokens/{issued['id']}").status_code == 204
+    now[0] += timedelta(minutes=1)
+    after_revoke = client.post("/mcp/", headers={
+        **_mcp_headers(issued["token"]), "X-Forwarded-For": "198.51.100.43",
+    }, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    assert after_revoke.status_code == 401
+    assert len(attempts) == 61
+
+
+@pytest.mark.parametrize("first_transport", ["http", "mcp"])
+def test_http_and_mcp_share_one_account_llm_bucket(client: TestClient, monkeypatch, first_transport):
+    from app.api import main as main_module, abuse
+
+    _login(client, f"mcp-shared-llm-{first_transport}@example.edu")
+    project = client.post("/api/projects", json={
+        "name": "Shared request limit", "source_scenario_id": "fire_prevention",
+    }).json()
+    issued = _create_token(client, name="Shared model requests", scopes=["llm:use"])
+    settings = replace(get_settings(), abuse_protection_enabled=True, llm_requests_per_minute=1)
+    monkeypatch.setattr(mcp_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(main_module, "ENABLE_LLM", True)
+    monkeypatch.setattr(mcp_module, "_llm_enabled", lambda: True)
+    original_consume = mcp_module.consume_rate_limit
+
+    def consume(*args, **kwargs):
+        return original_consume(*args, **kwargs,
+                                now=datetime(2026, 9, 10, 18, 0, 5, tzinfo=timezone.utc))
+
+    monkeypatch.setattr(mcp_module, "consume_rate_limit", consume)
+    monkeypatch.setattr(abuse, "consume_rate_limit", consume)
+    calls = []
+    result = dict(message="An isolated response.", stop_reason="end_turn", model="test-model",
+                  provider="test", billing_source="trial", route="test", cost_microusd=0,
+                  request_id="test", usage={"input_tokens": 1, "output_tokens": 1}, latency_ms=1)
+
+    def http_answer(*_args, **_kwargs):
+        calls.append("http")
+        return result
+
+    def mcp_answer(*_args, **_kwargs):
+        calls.append("mcp")
+        return SimpleNamespace(**{key: value for key, value in result.items() if key != "message"},
+                               text=result["message"], retried=False)
+
+    monkeypatch.setattr(main_module, "_run_chat_request", http_answer)
+    monkeypatch.setattr(mcp_module, "select_request_llm_client", lambda *_args, **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(mcp_module, "run_turn", mcp_answer)
+    previous = dict(app.dependency_overrides)
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        def http():
+            return client.post("/chat", json={
+                "scenario_id": "fire_prevention", "messages": [{"role": "user", "content": "Explain."}],
+            })
+
+        def mcp():
+            return _call_tool(client, issued["token"], "ask_project", {
+                "project_id": project["id"], "question": "Explain.",
+            })
+
+        if first_transport == "http":
+            assert http().status_code == 200
+            assert mcp()["isError"] is True
+        else:
+            assert mcp()["isError"] is False
+            assert http().status_code == 429
+        assert calls == [first_transport]
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous)
+
+
+def test_mcp_unexpected_value_error_is_sanitized_but_typed_validation_is_useful(
+    client: TestClient, monkeypatch, caplog,
+):
+    _login(client, "mcp-safe-errors@example.edu")
+    token = _create_token(client, name="Safe errors", scopes=["projects:write", "projects:read"])["token"]
+    invalid = _call_tool(client, token, "create_project", {
+        "name": "   ", "source_scenario_id": "fire_prevention",
+    })
+    assert invalid["isError"] is True
+    assert "project name cannot be empty" in invalid["content"][0]["text"]
+
+    def unexpected(*_args, **_kwargs):
+        raise ValueError("private-provider-secret-and-account-data")
+
+    monkeypatch.setattr(mcp_module, "list_project_records", unexpected)
+    response = _call_tool(client, token, "list_projects")
+    assert response["isError"] is True
+    assert "could not complete" in response["content"][0]["text"]
+    assert "private-provider-secret" not in str(response)
+    assert "private-provider-secret" not in caplog.text
+
+
+def test_mcp_model_error_retains_conservative_assessment_notice():
+    from app.llm.providers import LLMProviderError
+
+    error = LLMProviderError("private-provider-detail", provider="openrouter", status_code=503)
+    assessed = mcp_module._llm_error(error, client=SimpleNamespace(settled_billing_uncertain_count=1))
+    assert "conservatively charged" in str(assessed)
+    assert "private-provider-detail" not in str(assessed)
+    ordinary = mcp_module._llm_error(error, client=SimpleNamespace(settled_billing_uncertain_count=0))
+    assert "conservatively charged" not in str(ordinary)
+
+
 def test_mcp_scopes_optimistic_writes_and_cross_user_isolation(client: TestClient):
     _login(client, "mcp-writer@example.edu")
     read_token = _create_token(
@@ -550,6 +693,8 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
             billing_source="trial",
             route="test-route",
             cost_microusd=42,
+            billing_uncertain=True,
+            resolved_model_version="qualified-test-version",
             usage={"input_tokens": 10, "output_tokens": 5},
             latency_ms=12,
         )
@@ -571,6 +716,8 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
     assert proposed["op"]["id"] == "smoke_visible"
     assert proposed["expected_version"] == 1
     assert proposed["cost_microusd"] == 42
+    assert proposed["billing_uncertain"] is True
+    assert proposed["resolved_model_version"] == "qualified-test-version"
     assert captured["profile"] == "balanced"
     assert captured["user_id"] == user["id"]
     assert captured["request_kind"] == "mcp-propose"
@@ -584,6 +731,7 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
             provider="test-provider", billing_source="trial", route="test-route",
             cost_microusd=42, usage={"input_tokens": 10, "output_tokens": 5},
             latency_ms=12, retried=False,
+            billing_uncertain=True, resolved_model_version="qualified-test-version",
         )
 
     monkeypatch.setattr(mcp_module, "run_turn", fake_chat)
@@ -591,6 +739,8 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
         "project_id": project["id"], "question": "What is known?",
     })["structuredContent"]
     assert answer["message"] == "Grounded in this scenario."
+    assert answer["billing_uncertain"] is True
+    assert answer["resolved_model_version"] == "qualified-test-version"
     assert (captured["chat_scenario_dir"] is None) is custom
     assert captured["request_kind"] == "mcp-chat"
 
@@ -824,6 +974,9 @@ def test_mcp_provider_outage_settles_ledgers_and_preserves_project(
         session.add(EmergencyBudget(
             key="openrouter", enabled=True, hard_limit_microusd=5_000_000,
         ))
+        from app.services.credit_eligibility import initialize_credit_eligibility
+
+        initialize_credit_eligibility(session)
         session.commit()
 
     user = _login(client, "mcp-outage@example.edu")

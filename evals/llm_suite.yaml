@@ -1,4 +1,4 @@
-version: 7
+version: 8
 name: abda-public-model-gate
 default_repetitions: 3
 requires_answer_review: true
@@ -632,3 +632,36 @@ cases:
     question: I renamed the selected statement and changed its description. Explain what is now calibrated, and use the current description rather than the old conversation wording.
     required_concepts: [[humidity], [calibrat]]
     forbidden_claims: [temperature sensor is calibrated]
+
+  - id: fire-suspended-permit-rule
+    kind: chat
+    features: [sensitivity]
+    case_type: routine
+    split: supplemental_unseen
+    scenario_id: fire_prevention
+    diff_ops: [{op: toggle-rule, id: r_permit_gives_legal}]
+    engine_expectations: {legal_today: rejected, conduct_burn: undecided, smp_permit: accepted, forecast_exceed: absent}
+    context_refs: [{kind: rule, id: r_permit_gives_legal}, {kind: conclusion, id: legal_today}, {kind: conclusion, id: conduct_burn}]
+    question: I suspended the rule that turns an SMP permit into permission to burn, while leaving the permit assumption on. What are the current labels for permission to burn today and the overall decision to conduct the burn? Explain what changed and whether the forecast-exceedance rule caused it.
+    label_assertions:
+      - {literal: legal_today, label: rejected, phrases: [legal_today, permission to burn, permission, permitted, legal today]}
+      - {literal: conduct_burn, label: undecided, phrases: [conduct_burn, conduct the burn, conducting the burn, overall decision, burn decision]}
+    required_concepts:
+      - [suspended, inactive, disabled, switched off, turned off]
+      - [prudential, sensitive, community, exposure]
+  - id: fried-chicken-strengthened-home-preference
+    kind: chat
+    features: [sensitivity]
+    case_type: edge
+    split: supplemental_unseen
+    scenario_id: fried_chicken_v1
+    diff_ops: [{op: set-block, target: rule, id: togo_by_default, block: 2}]
+    engine_expectations: {order_to_go: accepted, crispy: accepted, have_airfryer: accepted}
+    context_refs: [{kind: rule, id: togo_by_default}, {kind: rule, id: dinein_by_default}, {kind: conclusion, id: order_to_go}, {kind: conclusion, id: crispy}]
+    question: In V1 I changed only the home-ordering default rule from preference block 1 to block 2, leaving the restaurant default and air fryer unchanged. What are the current labels for ordering to-go and crispiness? Explain what happens to the competing restaurant-default argument and whether its rule has been suspended.
+    label_assertions:
+      - {literal: order_to_go, label: accepted, phrases: [order_to_go, ordering to-go, to-go, take-away, takeaway, takeout]}
+      - {literal: crispy, label: accepted, phrases: [crispy, crispiness]}
+    required_concepts:
+      - [preference, stronger, higher, block 2, priority]
+      - [restaurant, dine-in, dine in, dinein]

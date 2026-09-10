@@ -6,6 +6,7 @@ import argparse
 import base64
 from copy import deepcopy
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,11 +16,13 @@ import subprocess
 import sys
 
 
-SUBSCRIPTION = "00e62f6e-2174-40b2-b428-8ebfd7c2ac54"
-TENANT = "040f05eb-33ab-462f-af54-fb4bedb055ae"
-OPERATOR = "hliu2@cloudbank.org"
-GROUP = "abda-nl-staging"
-APP = "abda-nl-stg-web"
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.services.credit_policy import NAMED_CREDIT_EMAILS
+from deploy.azure.rollout_target import RolloutTarget, TargetError, load_target
+
 MARKER = "ABDA_NAMED_CREDIT_READ_ONLY "
 
 # The deployed image supplies its existing restricted database credentials.
@@ -29,17 +32,14 @@ import json, os
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
-EMAILS = (
-    "hl57@illinois.edu", "ludaesch@illinois.edu", "bowers@gonzaga.edu",
-    "caminadam@cardiff.ac.uk", "tmcphill@illinois.edu",
-)
+EMAILS = APPROVED_EMAILS
 
 def main():
     database = os.environ.get("ABDA_DATABASE_URL")
     if not database:
         database = URL.create("postgresql+psycopg", username=os.environ["ABDA_DATABASE_APP_LOGIN"],
             password=os.environ["ABDA_DATABASE_APP_PASSWORD"], host=os.environ["ABDA_POSTGRES_HOST"],
-            port=5432, database="abda", query={"sslmode": "require"})
+            port=5432, database=os.environ["ABDA_DATABASE_NAME"], query={"sslmode": "require"})
     engine = create_engine(database, connect_args={"connect_timeout": 15})
     if engine.dialect.name != "postgresql":
         raise RuntimeError("this inspection requires the hosted PostgreSQL database")
@@ -110,22 +110,27 @@ try:
 except Exception:
     print("ABDA_NAMED_CREDIT_INSPECTION_FAILED", flush=True)
     raise SystemExit(1)
-'''
+'''.replace("APPROVED_EMAILS", repr(NAMED_CREDIT_EMAILS))
 
 
 class InspectionError(RuntimeError):
     """Messages are fixed and contain no raw Azure or database output."""
 
 
-def read_only_job_template(application: dict, job: dict, postgres: dict) -> dict:
+def read_only_job_template(
+    application: dict, job: dict, postgres: dict, *, target: RolloutTarget,
+) -> dict:
     """Render one execution override using only the restricted application DB role."""
     web = application.get("properties", {}).get("template", {}).get("containers", [])
-    if (application.get("name") != APP or len(web) != 1 or web[0].get("name") != "web"
+    target.require_resource(application, "Microsoft.App/containerApps", target.app)
+    target.require_resource(job, "Microsoft.App/jobs", target.job)
+    target.require_resource(postgres, "Microsoft.DBforPostgreSQL/flexibleServers", target.postgres)
+    if (len(web) != 1 or web[0].get("name") != "web"
             or not re.fullmatch(r"ghcr\.io/liu-hy/abda-nl@sha256:[0-9a-f]{64}", web[0].get("image", ""))):
         raise InspectionError("the existing immutable web image boundary changed")
     properties = job["properties"]
     config = properties["configuration"]
-    if (job.get("name") != "abda-nl-stg-migrate" or config.get("triggerType") != "Manual"
+    if (config.get("triggerType") != "Manual"
             or config.get("replicaRetryLimit") != 0
             or config.get("manualTriggerConfig") != {"parallelism": 1, "replicaCompletionCount": 1}
             or "app-database-password" not in {item["name"] for item in config.get("secrets", [])}):
@@ -136,10 +141,10 @@ def read_only_job_template(application: dict, job: dict, postgres: dict) -> dict
     container = template["containers"][0]
     entries = {entry["name"]: entry for entry in container.get("env", [])}
     login = entries.get("ABDA_DATABASE_APP_LOGIN", {}).get("value")
-    if login != "abda_app" or postgres.get("name") != "abda-nl-stg-postgres-bgjhpbgw":
+    if login != target.app_login:
         raise InspectionError("the existing restricted PostgreSQL boundary changed")
     host = postgres.get("fullyQualifiedDomainName")
-    if not isinstance(host, str) or not host.endswith(".postgres.database.azure.com"):
+    if host != f"{target.postgres}.postgres.database.azure.com":
         raise InspectionError("the existing PostgreSQL hostname is invalid")
     encoded = base64.b64encode(RUNNER.encode()).decode()
     container.update(image=web[0]["image"],
@@ -147,7 +152,8 @@ def read_only_job_template(application: dict, job: dict, postgres: dict) -> dict
                      args=["-c", f"exec(__import__('base64').b64decode('{encoded}'))"],
                      env=[{"name": "ABDA_DATABASE_APP_LOGIN", "value": login},
                           {"name": "ABDA_DATABASE_APP_PASSWORD", "secretRef": "app-database-password"},
-                          {"name": "ABDA_POSTGRES_HOST", "value": host}])
+                          {"name": "ABDA_POSTGRES_HOST", "value": host},
+                          {"name": "ABDA_DATABASE_NAME", "value": target.database}])
     return template
 
 
@@ -170,12 +176,14 @@ def azure(command: list[str], environment: dict[str, str], *, timeout: int = 60)
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target-file", required=True, type=Path)
     parser.add_argument("--expected-revision", required=True)
     parser.add_argument("--output", type=Path, help="create a mode-600 sanitized JSON receipt")
     parser.add_argument("--write-job-template", type=Path,
                         help="prepare an execution-only read-only probe; do not start the job")
     args = parser.parse_args(argv)
     try:
+        target = load_target(args.target_file)
         environment = dict(os.environ)
         environment.update(
             AZURE_CONFIG_DIR=str(Path.home() / ".local/share/abda-azure/config"),
@@ -183,34 +191,46 @@ def main(argv: list[str] | None = None) -> int:
             AZURE_EXTENSION_USE_DYNAMIC_INSTALL="no",
         )
         identity = json.loads(azure(["account", "show", "--output", "json"], environment))
-        if (identity.get("id"), identity.get("tenantId"), identity.get("user", {}).get("name", "").lower(), identity.get("state")) != (SUBSCRIPTION, TENANT, OPERATOR, "Enabled"):
-            raise InspectionError("the Azure session is outside the authorized identity boundary")
-        application = json.loads(azure(["containerapp", "show", "--name", APP,
-            "--resource-group", GROUP, "--output", "json"], environment))
+        target.require_identity(identity)
+        application = json.loads(azure(["containerapp", "show", "--name", target.app,
+            "--resource-group", target.resource_group, "--subscription", target.subscription,
+            "--output", "json"], environment))
+        target.require_resource(application, "Microsoft.App/containerApps", target.app)
         properties = application["properties"]
-        if properties.get("latestReadyRevisionName") != args.expected_revision:
+        if (properties.get("latestReadyRevisionName") != args.expected_revision
+                or properties.get("latestRevisionName") != args.expected_revision
+                or properties.get("provisioningState") != "Succeeded"):
             raise InspectionError("the live ready revision changed; inspect it before proceeding")
         containers = properties["template"]["containers"]
         if len(containers) != 1 or containers[0]["name"] != "web":
             raise InspectionError("the existing web container contract changed")
         if args.write_job_template:
-            job = json.loads(azure(["containerapp", "job", "show", "--name", "abda-nl-stg-migrate",
-                "--resource-group", GROUP, "--output", "json"], environment))
-            postgres = json.loads(azure(["postgres", "flexible-server", "show", "--name", "abda-nl-stg-postgres-bgjhpbgw",
-                "--resource-group", GROUP, "--output", "json"], environment))
-            template = read_only_job_template(application, job, postgres)
+            job = json.loads(azure(["containerapp", "job", "show", "--name", target.job,
+                "--resource-group", target.resource_group, "--subscription", target.subscription,
+                "--output", "json"], environment))
+            postgres = json.loads(azure(["postgres", "flexible-server", "show", "--name", target.postgres,
+                "--resource-group", target.resource_group, "--subscription", target.subscription,
+                "--output", "json"], environment))
+            template = read_only_job_template(application, job, postgres, target=target)
             descriptor = os.open(args.write_job_template, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(descriptor, "w") as stream:
                 json.dump(template, stream, indent=2)
+            runner_path = args.write_job_template.with_suffix(".runner.py")
+            descriptor = os.open(runner_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "w") as stream:
+                stream.write(RUNNER)
             print("READ_ONLY_NAMED_CREDIT_JOB_TEMPLATE_READY job_started=false administrator_secret_used=false")
+            print("runner_sha256=" + hashlib.sha256(RUNNER.encode()).hexdigest())
             return 0
-        replicas = json.loads(azure(["containerapp", "replica", "list", "--name", APP,
-            "--resource-group", GROUP, "--revision", args.expected_revision, "--output", "json"], environment))
+        replicas = json.loads(azure(["containerapp", "replica", "list", "--name", target.app,
+            "--resource-group", target.resource_group, "--subscription", target.subscription,
+            "--revision", args.expected_revision, "--output", "json"], environment))
         if not replicas:
             raise InspectionError("the expected live revision has no replica")
         encoded = base64.b64encode(RUNNER.encode()).decode()
         command = shlex.join(["/opt/venv/bin/python", "-c", f"exec(__import__('base64').b64decode('{encoded}'))"])
-        output = azure(["containerapp", "exec", "--name", APP, "--resource-group", GROUP,
+        output = azure(["containerapp", "exec", "--name", target.app, "--resource-group", target.resource_group,
+            "--subscription", target.subscription,
             "--revision", args.expected_revision, "--replica", replicas[0]["name"],
             "--container", "web", "--command", command], environment, timeout=60)
         receipts = [line.partition(MARKER)[2].strip() for line in output.splitlines() if MARKER in line]
@@ -220,7 +240,8 @@ def main(argv: list[str] | None = None) -> int:
         if report.get("database_read_only") is not True:
             raise InspectionError("the database did not confirm a read-only transaction")
         report.update(inspected_utc=datetime.now(timezone.utc).isoformat(),
-                      application=APP, revision=args.expected_revision,
+                      application=target.app, revision=args.expected_revision,
+                      runner_sha256=hashlib.sha256(RUNNER.encode()).hexdigest(),
                       image=containers[0]["image"], cloud_resources_changed=False)
         rendered = json.dumps(report, indent=2) + "\n"
         if args.output:
@@ -229,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
                 stream.write(rendered)
         print(rendered, end="")
         return 0
-    except InspectionError as error:
+    except (InspectionError, TargetError) as error:
         print(f"Named credit inspection stopped: {error}", file=sys.stderr)
     except Exception:
         print("Named credit inspection failed; raw Azure and database output was suppressed.", file=sys.stderr)

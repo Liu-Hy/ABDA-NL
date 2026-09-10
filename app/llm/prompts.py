@@ -79,6 +79,8 @@ def model_prompt_templates(client: Any, feature: str) -> tuple[str, ...]:
         templates.append("proposer_deepseek_provenance")
     if feature == "proposer" and model == "glm-5.3":
         templates.append("proposer_explicit_fields")
+    if feature == "proposer_modify" and model in {"gemini-3.8-flash", "glm-5.3"}:
+        templates.append("proposer_optional_fields")
     if feature == "chat" and model == "gpt-5.6-terra":
         templates.append("chat_terra_mutual_defeats")
     if feature == "chat" and model == "glm-5.3":

@@ -27,12 +27,17 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from app.llm.chat_service import build_edit_state_block, build_scenario_block
-from app.llm.client import LLMClient, ToolCallResponse
+from app.llm.client import (
+    LLMClient, LLMRequestDeadlineError, LLMResponseValidationError, ToolCallResponse,
+)
+from app.llm.providers import LLMProviderError
 from app.llm.corpus import build_corpus_block
 from app.llm.edit_schemas import (
     PROPOSER_TOOLS,
@@ -119,12 +124,13 @@ class ProposeResult:
     cost_microusd: int = 0
     # Number of Proposer attempts the Validator required (1 = no retry).
     proposer_attempts: int = 1
-    # True if the LLM Reviewer was called on this op (False for trivial
-    # edits where it's skipped).
+    # True only if an advisory review completed successfully.
     reviewed: bool = False
     # Advisory issues from the Reviewer, severity-tagged. Empty list =
     # clean review or skipped Reviewer.
     review_issues: list[ReviewIssue] = field(default_factory=list)
+    billing_uncertain: bool = False
+    resolved_model_version: str | None = None
 
 
 @dataclass
@@ -139,6 +145,20 @@ class ReviewResult:
     billing_source: str
     route: str
     cost_microusd: int
+    billing_uncertain: bool = False
+    resolved_model_version: str | None = None
+
+
+class EditInputError(ValueError):
+    """Invalid edit request with a safe user-facing explanation."""
+
+
+class ReviewResponseValidationError(ValueError):
+    """A billable reviewer response does not contain valid advisory issues."""
+
+    def __init__(self, response: ToolCallResponse) -> None:
+        super().__init__("The advisory reviewer returned an invalid response.")
+        self.response = response
 
 
 # --- Prompt builders -------------------------------------------------------
@@ -467,7 +487,7 @@ def run_review(
     scenario_dir: Path | None,
     client: LLMClient,
 ) -> ReviewResult:
-    """Run one Reviewer turn. Never blocks; returns advisory issues."""
+    """Run one review; the proposal caller handles expected review failures."""
     system_prompt = build_reviewer_system_prompt(
         scenario,
         af,
@@ -485,14 +505,22 @@ def run_review(
         cache=True,
     )
 
+    payload = response.tool_input
+    raw_issues = payload.get("issues") if isinstance(payload, dict) else None
+    if response.tool_name != REVIEWER_TOOL["name"] or not isinstance(raw_issues, list):
+        raise ReviewResponseValidationError(response)
     issues: list[ReviewIssue] = []
-    for raw in response.tool_input.get("issues") or []:
-        if not isinstance(raw, dict):
-            continue
-        sev = str(raw.get("severity", "")).strip()
-        msg = str(raw.get("message", "")).strip()
-        if not msg or sev not in {"blocker", "warning", "note"}:
-            continue
+    for raw in raw_issues:
+        if (
+            not isinstance(raw, dict)
+            or not isinstance(raw.get("severity"), str)
+            or raw.get("severity") not in {"blocker", "warning", "note"}
+            or not isinstance(raw.get("message"), str)
+            or not raw["message"].strip()
+        ):
+            raise ReviewResponseValidationError(response)
+        sev = raw["severity"]
+        msg = raw["message"].strip()
         if _is_validator_territory_review(msg):
             log.info("review_issue_discarded reason=validator_territory")
             continue
@@ -535,6 +563,8 @@ def run_review(
         billing_source=response.billing_source,
         route=response.route,
         cost_microusd=response.cost_microusd,
+        billing_uncertain=response.billing_uncertain,
+        resolved_model_version=response.resolved_model_version,
     )
 
 
@@ -568,13 +598,11 @@ def _preserve_modify_rule_metadata(
     scenario: Any,
     instruction: str,
 ) -> dict[str, Any]:
-    """Carry forward unrequested fields on a rule edit.
+    """Preserve omitted fields without interpreting the instruction as a field ACL.
 
-    The modify tool always replaces the complete rule. Models can therefore
-    erase or rewrite provenance and preference metadata even when the user
-    requested a narrow change. Omission means unchanged. Optional metadata
-    changes also require the instruction to name that concern. A future
-    explicit field-removal operation can represent intentional deletion.
+    The full proposal is visible in preview and advisory review before Apply.
+    Explicit values must survive, including paraphrased requests and removals.
+    Never mutate the provider's original payload while completing omissions.
     """
     if task != "modify-rule" or not existing_id:
         return op
@@ -582,89 +610,25 @@ def _preserve_modify_rule_metadata(
     proposed = op.get("rule")
     if current is None or not isinstance(proposed, dict):
         return op
-    normalized = instruction.casefold()
-    field_terms = {
-        "type": ("type", "strict", "defeasible"),
-        "premises": ("premise", "condition", "require", "when ", "if "),
-        "conclusion": ("conclusion", "conclude", "then ", "result"),
-        "negated_description": (
-            "negated description",
-            "negative description",
-            "does not apply wording",
-        ),
-        "category": ("category",),
-        "source": ("source", "citation", "cite", "provenance", "attribute"),
-        "block": ("block", "strength", "stronger", "weaker", "priority", "tier"),
-        "active": (
-            "active",
-            "inactive",
-            "activate",
-            "deactivate",
-            "enable",
-            "disable",
-            "suspend",
-        ),
-    }
-    field_scope = normalized
-    exclusive_scope = re.search(
-        r"\b(?:(?:change|modify|update|edit|replace|set|alter)\s+only|"
-        r"only\s+(?:change|modify|update|edit|replace|set|alter))\s+([^.;:\n]+)",
-        normalized,
-    )
-    if exclusive_scope:
-        # An explicit field list defines the scope. Later instructions such as
-        # "do not let the old source override this" do not authorize a source
-        # edit. Stop before the new value, which can itself contain field names.
-        field_scope = re.split(
-            r"\b(?:from|to|into|with|of|for|in)\b|=",
-            exclusive_scope.group(1),
-            maxsplit=1,
-        )[0]
-    requested_fields = {
-        field_name
-        for field_name, terms in field_terms.items()
-        if any(term in field_scope for term in terms)
-    }
-    narrow_change = exclusive_scope is not None or any(
-        marker in normalized
-        for marker in (
-            "only by",
-            "only change",
-            "change only",
-            "keep every other",
-            "keep all other",
-            "leave everything else",
-            "nothing else",
-            "no other field",
-        )
-    )
-    optional_fields = {
-        "negated_description",
-        "category",
-        "source",
-        "block",
-        "active",
-    }
-    for field_name in field_terms:
-        should_restore = field_name not in proposed
-        should_restore = should_restore or (
-            field_name in optional_fields and field_name not in requested_fields
-        )
-        should_restore = should_restore or (
-            narrow_change and field_name not in requested_fields
-        )
-        if not should_restore:
+    # Optional null or blank text means a clear. The scenario's replacement
+    # schema represents that as an absent property, not JSON null.
+    completed = {key: deepcopy(value) for key, value in proposed.items()
+                 if key not in {"source", "category", "negated_description"}
+                 or not (value is None or isinstance(value, str) and not value.strip())}
+    for field_name in (
+        "type", "premises", "conclusion", "negated_description",
+        "category", "source", "block", "active",
+    ):
+        if field_name in proposed:
+            continue
+        # A type change to strict drops inherited activation metadata. An
+        # explicit inactive strict proposal must still reach the validator.
+        if field_name == "active" and completed.get("type") == "strict":
             continue
         value = getattr(current, field_name)
-        if value is None:
-            proposed.pop(field_name, None)
-        elif isinstance(value, list):
-            proposed[field_name] = list(value)
-        else:
-            proposed[field_name] = value
-    if proposed.get("type") == "strict":
-        proposed.pop("active", None)
-    return op
+        if value is not None:
+            completed[field_name] = deepcopy(value)
+    return {**op, "rule": completed}
 
 
 def run_propose(
@@ -684,17 +648,22 @@ def run_propose(
     Validator-clean op within `MAX_PROPOSER_ATTEMPTS` tries.
     """
     if task not in VALID_TASKS:
-        raise ValueError(f"unknown edit task: {task!r}; valid: {sorted(VALID_TASKS)}")
+        raise EditInputError(f"unknown edit task: {task!r}; valid: {sorted(VALID_TASKS)}")
     if not instruction or not instruction.strip():
-        raise ValueError("instruction must be a non-empty string")
+        raise EditInputError("instruction must be a non-empty string")
 
     proposer_system = build_proposer_system_prompt(
         scenario, af, diff_ops, scenario_dir=scenario_dir, query=instruction
     )
     proposer_system += model_prompt_guidance(client, "proposer")
+    if task == "modify-rule":
+        proposer_system += model_prompt_guidance(client, "proposer_modify")
     user_message = _build_user_message(task, instruction, existing_id)
     tool = tool_for(task)
 
+    settled_before = getattr(client, "settled_cost_microusd", None)
+    uncertain_before = getattr(client, "settled_billing_uncertain_count", 0)
+    billing_uncertain = False
     usages: list[dict[str, int]] = []
     latencies: list[int] = []
     costs: list[int] = []
@@ -721,6 +690,7 @@ def run_propose(
         usages.append(response.usage)
         latencies.append(response.latency_ms)
         costs.append(response.cost_microusd)
+        billing_uncertain |= response.billing_uncertain
         last_response = response
 
         candidate = _coerce_modify_id(
@@ -791,25 +761,59 @@ def run_propose(
     final_provider = last_response.provider
     final_billing_source = last_response.billing_source
     final_route = last_response.route
+    final_version = last_response.resolved_model_version
     if not is_trivial_edit(op):
-        review = run_review(
-            scenario,
-            af,
-            diff_ops,
-            user_instruction=instruction,
-            proposed_edit=op,
-            scenario_dir=scenario_dir,
-            client=client,
-        )
-        review_issues = review.issues
-        reviewed = True
-        usages.append(review.usage)
-        latencies.append(review.latency_ms)
-        costs.append(review.cost_microusd)
-        final_model = review.model
-        final_provider = review.provider
-        final_billing_source = review.billing_source
-        final_route = review.route
+        review_started = time.monotonic()
+        try:
+            review = run_review(
+                scenario,
+                af,
+                diff_ops,
+                user_instruction=instruction,
+                proposed_edit=op,
+                scenario_dir=scenario_dir,
+                client=client,
+            )
+        except (
+            LLMProviderError, LLMRequestDeadlineError, LLMResponseValidationError,
+            ReviewResponseValidationError,
+        ) as exc:
+            # The paid, validated proposal remains usable. Accounting,
+            # configuration and programming errors deliberately propagate.
+            log.warning("advisory_review_unavailable error_type=%s", type(exc).__name__)
+            review_issues = [ReviewIssue(
+                severity="warning",
+                message="The advisory review was unavailable. Check the complete proposal before applying it.",
+            )]
+            latencies.append(round((time.monotonic() - review_started) * 1000))
+            if isinstance(exc, ReviewResponseValidationError):
+                usages.append(exc.response.usage)
+                costs.append(exc.response.cost_microusd)
+                billing_uncertain |= exc.response.billing_uncertain
+            else:
+                usages.append(getattr(exc, "usage", {}))
+        else:
+            review_issues = review.issues
+            reviewed = True
+            usages.append(review.usage)
+            latencies.append(review.latency_ms)
+            costs.append(review.cost_microusd)
+            billing_uncertain |= review.billing_uncertain
+            final_model = review.model
+            final_provider = review.provider
+            final_billing_source = review.billing_source
+            final_route = review.route
+            final_version = review.resolved_model_version
+
+    total_cost = sum(costs)
+    settled_after = getattr(client, "settled_cost_microusd", None)
+    if isinstance(settled_before, int) and isinstance(settled_after, int):
+        # Metered counters include failed physical attempts whose responses did
+        # not return, including a reviewer timeout after provider dispatch.
+        total_cost = max(total_cost, settled_after - settled_before)
+    billing_uncertain |= (
+        getattr(client, "settled_billing_uncertain_count", 0) > uncertain_before
+    )
 
     # Prepend Validator-advisory issues (e.g. unknown_premise) as
     # severity=warning so they render in the same UI panel as Reviewer
@@ -827,8 +831,10 @@ def run_propose(
         provider=final_provider,
         billing_source=final_billing_source,
         route=final_route,
-        cost_microusd=sum(costs),
-        proposer_attempts=len(latencies) - (1 if reviewed else 0),
+        cost_microusd=total_cost,
+        billing_uncertain=billing_uncertain,
+        resolved_model_version=final_version,
+        proposer_attempts=attempt,
         reviewed=reviewed,
         review_issues=review_issues,
     )

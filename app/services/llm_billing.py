@@ -202,13 +202,16 @@ def usage_event(
     )
 
 
-def reconcile_stale_llm_reservations(session: Session) -> tuple[int, int]:
+def reconcile_stale_llm_reservations(
+    session: Session, *, apply: bool = True,
+) -> tuple[int, int]:
     """Conservatively charge expired reservations after a crash or worker loss.
 
     Once a provider request may have started, the database cannot prove that it
     was not billed. Charging the full conservative reservation keeps both hard
     budgets safe. A normal provider failure is released synchronously before it
-    can become stale.
+    can become stale. Operator previews use ``apply=False`` and roll back all
+    changes. Expiry never establishes that the provider waived the charge.
     """
     now = datetime.now(timezone.utc)
 
@@ -228,20 +231,31 @@ def reconcile_stale_llm_reservations(session: Session) -> tuple[int, int]:
                     .execution_options(populate_existing=True)
                 )
             )
+            # Lock every affected grant before retaining a shared program lock.
+            # Otherwise a fresh reservation could hold a later grant while
+            # waiting for a program already held by this multi-account sweep.
+            grants = {item.user_id: item for item in session.scalars(
+                select(TrialGrant).where(TrialGrant.user_id.in_(
+                    {item.user_id for item in trial_reservations}
+                )).order_by(TrialGrant.user_id).with_for_update()
+                .execution_options(populate_existing=True)
+            )}
+            programs = {item.key: item for item in session.scalars(
+                select(TrialProgram).where(TrialProgram.key.in_(
+                    {item.program_key for item in trial_reservations}
+                )).order_by(TrialProgram.key).with_for_update()
+                .execution_options(populate_existing=True)
+            )}
             for reservation in trial_reservations:
-                grant = session.scalar(
-                    select(TrialGrant)
-                    .where(TrialGrant.user_id == reservation.user_id)
-                    .with_for_update()
-                )
-                program = session.scalar(
-                    select(TrialProgram)
-                    .where(TrialProgram.key == reservation.program_key)
-                    .with_for_update()
-                )
-                if grant is None or program is None:
+                grant = grants.get(reservation.user_id)
+                program = programs.get(reservation.program_key)
+                if (
+                    grant is None or program is None
+                    or grant.program_key != reservation.program_key
+                    or grant.reserved_microusd < reservation.reserved_microusd
+                ):
                     raise RuntimeError(
-                        "cannot reconcile a stale trial reservation with missing accounting records"
+                        "cannot reconcile a stale trial reservation with missing or inconsistent accounting records"
                     )
                 grant.reserved_microusd -= reservation.reserved_microusd
                 grant.spent_microusd += reservation.reserved_microusd
@@ -258,18 +272,22 @@ def reconcile_stale_llm_reservations(session: Session) -> tuple[int, int]:
                         EmergencyUsageReservation.status == "pending",
                         EmergencyUsageReservation.expires_at <= now,
                     )
+                    .order_by(EmergencyUsageReservation.id)
                     .with_for_update()
+                    .execution_options(populate_existing=True)
                 )
             )
+            budgets = {item.key: item for item in session.scalars(
+                select(EmergencyBudget).where(EmergencyBudget.key.in_(
+                    {item.budget_key for item in emergency_reservations}
+                )).order_by(EmergencyBudget.key).with_for_update()
+                .execution_options(populate_existing=True)
+            )}
             for reservation in emergency_reservations:
-                budget = session.scalar(
-                    select(EmergencyBudget)
-                    .where(EmergencyBudget.key == reservation.budget_key)
-                    .with_for_update()
-                )
-                if budget is None:
+                budget = budgets.get(reservation.budget_key)
+                if budget is None or budget.reserved_microusd < reservation.reserved_microusd:
                     raise RuntimeError(
-                        "cannot reconcile a stale emergency reservation with a missing budget"
+                        "cannot reconcile a stale emergency reservation with a missing or inconsistent budget"
                     )
                 budget.reserved_microusd -= reservation.reserved_microusd
                 budget.spent_microusd += reservation.reserved_microusd
@@ -277,7 +295,7 @@ def reconcile_stale_llm_reservations(session: Session) -> tuple[int, int]:
                 reservation.actual_microusd = reservation.reserved_microusd
                 reservation.finalized_at = utc_now()
                 emergency_count += 1
-            session.commit()
+            session.commit() if apply else session.rollback()
             return trial_count, emergency_count
         except Exception:
             session.rollback()

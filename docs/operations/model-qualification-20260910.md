@@ -58,7 +58,7 @@ were replayed offline with identical complete requests and deterministic results
 Those retained observations cover 1,425 logical calls. Guidance checks across all
 63 catalog-model/feature combinations confirm that only GLM chat changed.
 
-All 1,080 selected observations passed manual material-correctness review. The
+All 1,080 selected observations passed AI agent answer-by-answer assessment for material correctness. This was not human review. The
 original automatic results remain separate: 1,057 passed and 23 require explicit
 assessment. Twenty-one are narrow phrase-matching false negatives. One Sonnet
 answer correctly quotes both reference documents and additionally quotes an
@@ -70,8 +70,10 @@ That grouping-metadata omission remains a visible, nonblocking limitation.
 No raw score, operation, or provider response is rewritten to hide these cases.
 
 Prompt changes address recorded failures with short general rules. Chat context
-puts each instantiated argument's label and accepted defeaters beside its
-configured rule, distinguishing potential undercutters from current causes.
+puts each instantiated argument's label beside its configured rule. The explicit
+accepted-defeater list is enabled only for Sonnet 5 and the internal DeepSeek
+candidate, where diagnosed causal mistakes justified it; other passing prompts
+keep their previous representation.
 Quote handling preserves exact source spans across adjacent retrieval chunks,
 supported boundary typography, explicit prefix citations, and paragraph boundaries.
 Corrected forward-reference meanings reach the reviewer before its call.

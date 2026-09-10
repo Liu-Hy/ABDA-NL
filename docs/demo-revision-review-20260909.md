@@ -1,5 +1,12 @@
 # Review of the demo revision ideas
 
+For an independent code review, start with the two consolidated documents:
+[requirements](demo-revision-contract.md) and
+[review guide](demo-revision-review-guide.md). They distinguish user intent,
+engineering choices, and evidence limits. This file preserves the investigation
+and subsequent implementation reports; its status labels are dated
+self-assessments, not independent approval.
+
 ## Implementation update, September 10, 2026
 
 Haoyang subsequently authorized implementation and parallel subagents. The

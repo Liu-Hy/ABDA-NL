@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -37,6 +40,8 @@ UNAVAILABLE_ALERT_NAME = f"{RESOURCE_PREFIX}-web-unavailable"
 APPLICATION_INSIGHTS_NAME = f"{RESOURCE_PREFIX}-availability"
 READINESS_TEST_NAME = f"{RESOURCE_PREFIX}-public-ready"
 READINESS_ALERT_NAME = f"{RESOURCE_PREFIX}-public-ready-failed"
+ROUTING_ALERT_SUFFIXES = ("llm-configuration", "llm-circuit", "llm-fallback-spend")
+SCHEDULED_QUERY_API_VERSION = "2023-12-01"
 
 
 class GateFailure(RuntimeError):
@@ -189,7 +194,7 @@ def validate_metric_definitions(definitions: Any) -> None:
         raise GateFailure("the required metric aggregation is unavailable")
 
 
-def validate_what_if(document: Any) -> list[tuple[str, str]]:
+def validate_what_if(document: Any, *, routing_alerts_only: bool = False) -> list[tuple[str, str]]:
     if not isinstance(document, dict):
         raise GateFailure("the Azure what-if response is malformed")
     payload = document.get("properties", document)
@@ -206,6 +211,11 @@ def validate_what_if(document: Any) -> list[tuple[str, str]]:
         _resource_id("Microsoft.Insights/webtests", READINESS_TEST_NAME).lower(),
         _resource_id("Microsoft.Insights/metricAlerts", READINESS_ALERT_NAME).lower(),
     }
+    if routing_alerts_only:
+        allowed = {
+            _resource_id("Microsoft.Insights/scheduledQueryRules", f"{RESOURCE_PREFIX}-{suffix}").lower()
+            for suffix in ROUTING_ALERT_SUFFIXES
+        }
     known = {"Create", "Delete", "Deploy", "Ignore", "Modify", "NoChange", "Unsupported"}
     mutations: list[tuple[str, str]] = []
     for change in changes:
@@ -464,11 +474,234 @@ def validate_readiness_alert(
 
 
 def _verify_hash(path: Path, expected: str) -> None:
-    import hashlib
-
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     if digest != expected:
         raise GateFailure(f"immutable source hash mismatch for {path.name}")
+
+
+def prepare_local_source(
+    root: Path, *, module: Path, parameters: Path, module_sha256: str, parameters_sha256: str,
+) -> tuple[Path, Path]:
+    """Freeze both explicitly reviewed local files before compilation or Azure calls."""
+    if not all(re.fullmatch(r"[0-9a-f]{64}", digest)
+               for digest in (module_sha256, parameters_sha256)):
+        raise GateFailure("both local source SHA-256 values are required")
+    source = root / "reviewed-source"
+    source.mkdir()
+    copied: list[Path] = []
+    for path, name, digest in ((module, "observability.bicep", module_sha256),
+                               (parameters, "observability.bicepparam", parameters_sha256)):
+        destination = source / name
+        destination.write_bytes(path.read_bytes())
+        _verify_hash(destination, digest)
+        copied.append(destination)
+    return copied[0], copied[1]
+
+
+def _routing_parameters(threshold_microusd: int) -> dict[str, Any]:
+    if type(threshold_microusd) is not int or not 100_000 <= threshold_microusd <= 10_000_000:
+        raise GateFailure("the fallback notification threshold must be between $0.10 and $10")
+    return {
+        "location": LOCATION, "resourcePrefix": RESOURCE_PREFIX, "appName": APP_NAME,
+        "logWorkspaceName": LOG_WORKSPACE_NAME, "publicReadinessUrl": PUBLIC_READINESS_URL,
+        "alertEmail": ALERT_EMAIL, "routingAlertsOnly": True,
+        "fallbackSpendThresholdMicrousd": threshold_microusd,
+    }
+
+
+def validate_compiled_routing_bundle(bundle: Any, threshold_microusd: int) -> tuple[str, str]:
+    """Bind runtime parameters and retain only the three active scheduled rules."""
+    try:
+        if not isinstance(bundle, dict):
+            raise TypeError
+        template_text, parameters_text = bundle["templateJson"], bundle["parametersJson"]
+        template, parameters = json.loads(template_text), json.loads(parameters_text)
+        if not isinstance(template, dict) or not isinstance(parameters, dict):
+            raise TypeError
+        if not isinstance(parameters.get("parameters"), dict):
+            raise TypeError
+        observed = {name: item["value"] for name, item in parameters["parameters"].items()}
+    except (TypeError, ValueError, KeyError) as exc:
+        raise GateFailure("the compiled local alert bundle is malformed") from exc
+    if bundle.get("templateSpecId") or observed != _routing_parameters(threshold_microusd):
+        raise GateFailure("the compiled local alert parameters differ from the reviewed target")
+    resources = template.get("resources")
+    if not isinstance(resources, list):
+        raise GateFailure("the compiled local alert resources are malformed")
+    scheduled = []
+    for resource in resources:
+        if not isinstance(resource, dict):
+            raise GateFailure("the compiled local alert resource is malformed")
+        if resource.get("type") == "Microsoft.Insights/scheduledQueryRules":
+            if resource.get("condition") not in (None, True):
+                raise GateFailure("a routing alert is unexpectedly conditional")
+            if resource.get("apiVersion") != SCHEDULED_QUERY_API_VERSION:
+                raise GateFailure("the scheduled-query API version changed")
+            scheduled.append(resource)
+        elif resource.get("condition") != "[not(parameters('routingAlertsOnly'))]":
+            raise GateFailure("the local template contains another active resource")
+    expected_names = {f"[format('{{0}}-{suffix}', parameters('resourcePrefix'))]" for suffix in ROUTING_ALERT_SUFFIXES}
+    if len(scheduled) != 3 or {resource.get("name") for resource in scheduled} != expected_names:
+        raise GateFailure("the local template must contain the three exact routing alerts")
+    # Remove inactive legacy resources from the deployment payload too. Clear
+    # their dependencies and outputs; the receiver is verified as pre-existing.
+    for resource in scheduled:
+        resource.pop("dependsOn", None)
+    template["resources"] = scheduled
+    template.pop("outputs", None)
+    return json.dumps(template, sort_keys=True), parameters_text
+
+
+def routing_alert_contracts(threshold_microusd: int = 1_000_000) -> dict[str, dict[str, Any]]:
+    _routing_parameters(threshold_microusd)
+    base_query = f'ContainerAppConsoleLogs_CL\n| where ContainerAppName_s == "{APP_NAME}"\n'
+    queries = (
+        base_query + '| where Log_s contains "llm_configuration_unavailable"\n'
+        '| extend Route = extract("route=([^ ]+)", 1, Log_s)\n'
+        '| extend Route = iff(isempty(Route), "public-routes", Route)\n'
+        '| project TimeGenerated, Route',
+        base_query + '| where Log_s contains "llm_circuit_open "\n'
+        '| extend Route = extract("primary=([^ ]+)", 1, Log_s)\n'
+        '| where isnotempty(Route)\n'
+        '| summarize Opens = count() by Route, bin(TimeGenerated, 5m)',
+        base_query + '| where Log_s contains "llm_fallback_spend "\n'
+        '| extend SpentMicrousd = tolong(extract("cost_microusd=([0-9]+)", 1, Log_s))\n'
+        '| where SpentMicrousd > 0\n| project TimeGenerated, SpentMicrousd',
+    )
+    return {
+        suffix: {
+            "query": query, "severity": severity, "windowSize": window,
+            "timeAggregation": aggregation, "threshold": threshold,
+            "metricMeasureColumn": measure,
+            "dimensions": [{"name": "Route", "operator": "Include", "values": ["*"]}] if index < 2 else [],
+            "failingPeriods": {"numberOfEvaluationPeriods": 3 if index == 1 else 1,
+                               "minFailingPeriodsToAlert": 2 if index == 1 else 1},
+        }
+        for index, (suffix, query, severity, window, aggregation, threshold, measure) in enumerate(zip(
+            ROUTING_ALERT_SUFFIXES, queries, (1, 2, 2), ("PT5M", "PT5M", "PT15M"),
+            ("Count", "Total", "Total"), (1, 1, threshold_microusd), (None, "Opens", "SpentMicrousd"),
+            strict=True,
+        ))
+    }
+
+
+def validate_routing_alert(alert: Any, *, suffix: str, threshold_microusd: int = 1_000_000) -> None:
+    expected = routing_alert_contracts(threshold_microusd)[suffix]
+    expected_id = _resource_id("Microsoft.Insights/scheduledQueryRules", f"{RESOURCE_PREFIX}-{suffix}")
+    if not isinstance(alert, dict) or str(alert.get("id", "")).lower() != expected_id.lower():
+        raise GateFailure("a deployed routing alert identity changed")
+    if _normalize_location(alert.get("location")) != LOCATION or alert.get("kind") != "LogAlert":
+        raise GateFailure("a deployed routing alert region or kind changed")
+    properties = alert.get("properties")
+    if not isinstance(properties, dict):
+        raise GateFailure("a deployed routing alert has malformed properties")
+    if properties.get("enabled") is not True or properties.get("severity") != expected["severity"]:
+        raise GateFailure("a deployed routing alert is disabled or has changed severity")
+    if properties.get("evaluationFrequency") != "PT5M" or properties.get("windowSize") != expected["windowSize"]:
+        raise GateFailure("a deployed routing alert evaluation window changed")
+    if properties.get("autoMitigate") is not True or properties.get("skipQueryValidation") is not False:
+        raise GateFailure("a deployed routing alert resolution or query validation changed")
+    if properties.get("overrideQueryTimeRange") or properties.get("muteActionsDuration") not in (None, "PT0S"):
+        raise GateFailure("a deployed routing alert overrides its reviewed evaluation or notifications")
+    if properties.get("targetResourceTypes") or properties.get("provisioningState") not in (None, "Succeeded"):
+        raise GateFailure("a deployed routing alert target mapping or provisioning changed")
+    scopes = properties.get("scopes")
+    if not isinstance(scopes, list):
+        raise GateFailure("a deployed routing alert has malformed scopes")
+    scopes = [str(value).lower() for value in scopes]
+    workspace_id = _resource_id("Microsoft.OperationalInsights/workspaces", LOG_WORKSPACE_NAME)
+    if scopes != [workspace_id.lower()]:
+        raise GateFailure("a deployed routing alert workspace changed")
+    actions = properties.get("actions")
+    if not isinstance(actions, dict) or not isinstance(actions.get("actionGroups"), list):
+        raise GateFailure("a deployed routing alert has malformed actions")
+    action_id = _resource_id("Microsoft.Insights/actionGroups", ACTION_GROUP_NAME)
+    if [str(value).lower() for value in actions.get("actionGroups", [])] != [action_id.lower()] or actions.get("customProperties") or actions.get("actionProperties"):
+        raise GateFailure("a deployed routing alert action destination or payload changed")
+    criteria = properties.get("criteria")
+    if not isinstance(criteria, dict):
+        raise GateFailure("a deployed routing alert has malformed criteria")
+    criteria = criteria.get("allOf")
+    if not isinstance(criteria, list) or len(criteria) != 1 or not isinstance(criteria[0], dict):
+        raise GateFailure("a deployed routing alert condition changed")
+    criterion = criteria[0]
+    if " ".join(str(criterion.get("query", "")).split()) != " ".join(expected["query"].split()):
+        raise GateFailure("a deployed routing alert query changed")
+    for key in ("timeAggregation", "threshold", "metricMeasureColumn", "dimensions", "failingPeriods"):
+        if criterion.get(key) != expected[key]:
+            raise GateFailure("a deployed routing alert threshold, measure, or dimensions changed")
+    if criterion.get("operator") != "GreaterThanOrEqual" or criterion.get("resourceIdColumn"):
+        raise GateFailure("a deployed routing alert operator or target mapping changed")
+
+
+def routing_main(arguments: Sequence[str]) -> int:
+    """Review or verify local routing alerts. Deployment needs the explicit flag."""
+    parser = argparse.ArgumentParser(description="Review three hash-bound model-routing alerts; never send a test email.")
+    parser.add_argument("--local-template", type=Path, required=True)
+    parser.add_argument("--template-sha256", required=True)
+    parser.add_argument("--local-parameters", type=Path, required=True)
+    parser.add_argument("--parameters-sha256", required=True)
+    parser.add_argument("--fallback-alert-microusd", type=int, default=1_000_000)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--deploy-reviewed-routing-alerts", action="store_true")
+    mode.add_argument("--verify-only", action="store_true")
+    args = parser.parse_args(arguments)
+    try:
+        _routing_parameters(args.fallback_alert_microusd)
+        with tempfile.TemporaryDirectory(prefix="abda-routing-alerts-") as temporary:
+            root = Path(temporary)
+            _, parameters = prepare_local_source(root, module=args.local_template, parameters=args.local_parameters,
+                module_sha256=args.template_sha256, parameters_sha256=args.parameters_sha256)
+            _ensure_bicep()
+            environment = _deployment_environment()
+            environment.update(ABDA_DEPLOY_ROUTING_ALERTS_ONLY="true",
+                               ABDA_DEPLOY_FALLBACK_ALERT_MICROUSD=str(args.fallback_alert_microusd))
+            compiled = _run(("az", "bicep", "build-params", "--file", str(parameters), "--stdout"),
+                            env=environment).stdout
+            template_text, parameters_text = validate_compiled_routing_bundle(
+                json.loads(compiled), args.fallback_alert_microusd)
+            template_path, parameters_path = root / "routing-alerts.json", root / "parameters.json"
+            template_path.write_text(template_text, encoding="utf-8")
+            parameters_path.write_text(parameters_text, encoding="utf-8")
+            validate_identity(_az_json(("account", "show")))
+            provider = _az_json(("provider", "show", "--namespace", "Microsoft.Insights"))
+            if (provider or {}).get("registrationState") != "Registered":
+                raise GateFailure("Microsoft.Insights must already be registered; no registration was attempted")
+            validate_app(_az_json(("containerapp", "show", "--name", APP_NAME, "--resource-group", RESOURCE_GROUP)))
+            workspace_id = _resource_id("Microsoft.OperationalInsights/workspaces", LOG_WORKSPACE_NAME)
+            validate_log_workspace(_resource_json(workspace_id, "2023-09-01"))
+            group_id = _resource_id("Microsoft.Insights/actionGroups", ACTION_GROUP_NAME)
+            validate_action_group(_resource_json(group_id, "2023-01-01"))
+            deployment = ("--name", f"{DEPLOYMENT_NAME}-routing", "--resource-group", RESOURCE_GROUP,
+                          "--template-file", str(template_path), "--parameters", str(parameters_path))
+            mutations: list[tuple[str, str]] = []
+            if not args.verify_only:
+                _az_json(("deployment", "group", "validate", *deployment), timeout=300)
+                what_if = _az_json(("deployment", "group", "what-if", *deployment,
+                    "--result-format", "ResourceIdOnly", "--no-pretty-print"), timeout=600)
+                mutations = validate_what_if(what_if, routing_alerts_only=True)
+                if args.deploy_reviewed_routing_alerts:
+                    _az_json(("deployment", "group", "create", *deployment, "--mode", "Incremental"), timeout=900)
+            if args.verify_only or args.deploy_reviewed_routing_alerts:
+                for suffix in ROUTING_ALERT_SUFFIXES:
+                    alert_id = _resource_id("Microsoft.Insights/scheduledQueryRules", f"{RESOURCE_PREFIX}-{suffix}")
+                    validate_routing_alert(_resource_json(alert_id, SCHEDULED_QUERY_API_VERSION),
+                                           suffix=suffix, threshold_microusd=args.fallback_alert_microusd)
+            print(json.dumps({
+                "result": "ROUTING_ALERTS_VERIFIED" if args.verify_only or args.deploy_reviewed_routing_alerts else "ROUTING_ALERTS_PREVIEWED",
+                "template_sha256": args.template_sha256, "parameters_sha256": args.parameters_sha256,
+                "compiled_template_sha256": hashlib.sha256(template_text.encode()).hexdigest(),
+                "subscription_id": SUBSCRIPTION_ID, "resource_group": RESOURCE_GROUP,
+                "mutations": mutations, "deployed": args.deploy_reviewed_routing_alerts,
+                "threshold_microusd": args.fallback_alert_microusd,
+                "test_email_sent": False, "model_provider_called": False,
+            }, sort_keys=True))
+            return 0
+    except (GateFailure, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        print(f"Routing alert verification stopped: {type(exc).__name__}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 130
 
 
 def _prepare_source(root: Path) -> tuple[Path, Path]:
@@ -817,4 +1050,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(routing_main(sys.argv[1:]) if len(sys.argv) > 1 else main())

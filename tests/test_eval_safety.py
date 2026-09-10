@@ -222,8 +222,8 @@ def test_evaluation_rejects_openrouter_even_with_legacy_permission_flag(tmp_path
 
 
 def test_funded_launcher_excludes_direct_and_backup_credentials():
-    values = funded_environment({"AZURE_OPENAI_API_KEY": "funded", "OPENROUTER_API_KEY": "backup", "ANTHROPIC_API_KEY": "direct", "GOOGLE_VERTEX_PROJECT": "project", "ABDA_DATABASE_URL": "production"})
-    assert values == {"AZURE_OPENAI_API_KEY": "funded", "GOOGLE_VERTEX_PROJECT": "project"}
+    values = funded_environment({"AZURE_OPENAI_API_KEY": "funded", "OPENROUTER_API_KEY": "backup", "ANTHROPIC_API_KEY": "direct", "GOOGLE_CLOUD_PROJECT": "project", "ABDA_DATABASE_URL": "production"})
+    assert values == {"AZURE_OPENAI_API_KEY": "funded", "GOOGLE_CLOUD_PROJECT": "project"}
 
 
 def test_evaluator_refuses_process_with_backup_key(monkeypatch):

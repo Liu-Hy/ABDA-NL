@@ -24,7 +24,7 @@ from app.db.models import (
     utc_now,
 )
 from app.llm.catalog import load_model_catalog
-from app.llm.client import LLMResponse, ToolCallResponse
+from app.llm.client import LLMRequestValidationError, LLMResponse, ToolCallResponse
 from app.llm.providers import LLMProviderError
 from app.llm.routing import (
     BYOKCredential,
@@ -1158,6 +1158,8 @@ def test_funded_anthropic_uses_only_the_metered_retry_layer(
 ):
     from app.llm import routing as routing_module
 
+    monkeypatch.setenv("AZURE_ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("AZURE_ANTHROPIC_ENDPOINT", "https://example.services.ai.azure.com/anthropic")
     captured: list[dict[str, object]] = []
 
     class CapturedClaudeClient:
@@ -1347,6 +1349,57 @@ def test_funded_deadline_settles_uncertain_dispatch_on_request_thread(monkeypatc
         assert event.cost_microusd > 0 and "request_deadline" in event.error_type
 
 
+def test_byok_slow_correction_uses_shared_deadline_without_funded_charges(monkeypatch, billing_factory):
+    import threading
+    import time
+    from app.llm import routing as routing_module
+
+    released = threading.Event()
+
+    class UserProvider:
+        def __init__(self, **kwargs):
+            self.model = kwargs["model"]
+            self.provider, self.billing_source, self.route = "openai", "byok", kwargs["route"]
+            self.calls = 0
+            self.request_dispatched = False
+
+        def complete(self, **_kwargs):
+            self.calls += 1
+            self.request_dispatched = True
+            if self.calls > 1:
+                released.wait(1)
+            return LLMResponse(text="answer", stop_reason="stop", usage={"input_tokens": 1, "output_tokens": 1},
+                latency_ms=1, model=self.model, provider=self.provider,
+                billing_source=self.billing_source, route=self.route)
+
+        def close(self):
+            released.set()
+
+    monkeypatch.setattr(routing_module, "OpenAIResponsesClient", UserProvider)
+    router = LLMRouter(settings=replace(Settings.from_environment(), llm_allow_byok=True), session_factory=billing_factory)
+    client = router.byok(BYOKCredential("openai", "fake-user-key"),
+        context=CallContext(billing_factory.user_id, "byok-shared-deadline", "propose", True))
+    deadline = time.monotonic() + .15
+    client.deadline = client.inner.deadline = client.inner.inner.request_deadline = deadline
+    kwargs = {"system": "test", "messages": [], "max_tokens": 32}
+    try:
+        assert client.complete(**kwargs).text == "answer"
+        with pytest.raises(LLMProviderError) as caught:
+            client.complete(**kwargs)
+        assert caught.value.error_type == "request_deadline"
+        assert client.inner.inner.calls == 2
+        assert time.monotonic() < deadline + .5
+    finally:
+        released.set()
+    with billing_factory() as session:
+        events = session.scalars(select(LLMUsageEvent).where(LLMUsageEvent.request_id == "byok-shared-deadline")).all()
+        assert len(events) == 2 and all(event.billing_source == "byok" for event in events)
+        assert events[1].status == "failed" and "request_deadline" in events[1].error_type
+        assert session.get(TrialGrant, billing_factory.user_id).spent_microusd == 0
+        assert session.get(EmergencyBudget, "openrouter").spent_microusd == 0
+        assert not session.scalars(select(UsageReservation)).all()
+
+
 def test_provider_timeout_still_retries_then_uses_backup_with_time_remaining(monkeypatch, billing_factory):
     import time
     monkeypatch.setattr("app.llm.routing.time.sleep", lambda _seconds: None)
@@ -1383,16 +1436,29 @@ def test_accounting_transport_failure_never_authorizes_a_paid_backup(monkeypatch
     assert backup.calls == 0
 
 
-def test_gemini_long_context_price_tier_is_rejected_before_reservation(billing_factory):
+@pytest.mark.parametrize("max_tokens,content", [(32, "x" * 200_000), (0, "short"), (100_000, "short")])
+def test_request_limits_are_safe_user_errors_before_reservation_or_fallback(billing_factory, max_tokens, content):
+    from app.api.llm_access import HANDLED_LLM_ERRORS, llm_http_exception
+
     raw = _SuccessfulClient()
-    client = MeteredClient(raw, model_spec=load_model_catalog().models["gemini-3.8-flash"],
+    metered = MeteredClient(raw, model_spec=load_model_catalog().models["gemini-3.8-flash"],
         context=CallContext(billing_factory.user_id, "long-context", "chat", True),
         charge_emergency=False, session_factory=billing_factory)
-    with pytest.raises(ValueError, match="conversation is too large"):
-        client.complete(system="system", messages=[{"role": "user", "content": "x" * 200_000}], max_tokens=32)
-    assert raw.calls == 0
+    backup = _SequenceClient([_response("must not run")])
+    client = FailoverClient(RetryingClient(metered, attempts=2), backup,
+        cooldown_seconds=15, circuits=CircuitRegistry(), primary_verified=True)
+    with pytest.raises(LLMRequestValidationError) as caught:
+        client.complete(system="system", messages=[{"role": "user", "content": content}], max_tokens=max_tokens)
+    assert isinstance(caught.value, HANDLED_LLM_ERRORS)
+    for byok in (True, False):
+        response = llm_http_exception(caught.value, byok=byok)
+        assert response.status_code == 400
+        assert response.detail["code"] == "llm_request_too_large"
+        assert "billing_uncertain" not in response.detail
+    assert raw.calls == backup.calls == 0
     with billing_factory() as session:
         assert session.scalar(select(UsageReservation)) is None
+        assert session.scalar(select(LLMUsageEvent)) is None
 
 
 def test_exhausted_abda_credit_never_dispatches_or_uses_backup(billing_factory):

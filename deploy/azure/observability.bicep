@@ -19,6 +19,14 @@ param publicReadinessUrl string = 'https://demo.abda-nl.org/health/ready'
 @description('Monitored operator address that receives Azure alert notifications.')
 param alertEmail string = 'support@abda-nl.org'
 
+@description('Only manage the three model-routing log alerts, retaining the existing availability resources and receiver.')
+param routingAlertsOnly bool = false
+
+@description('Settled emergency-provider spend in a fifteen-minute window that notifies operators, in millionths of a dollar. This does not change a spending cap.')
+@minValue(100000)
+@maxValue(10000000)
+param fallbackSpendThresholdMicrousd int = 1000000
+
 param tags object = {
   application: 'ABDA-NL'
   purpose: 'COMMA-2026-research-demo'
@@ -39,7 +47,7 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' exis
   name: logWorkspaceName
 }
 
-resource operatorActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+resource operatorActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = if (!routingAlertsOnly) {
   name: actionGroupName
   location: 'global'
   tags: tags
@@ -56,7 +64,7 @@ resource operatorActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
   }
 }
 
-resource serverErrorAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+resource serverErrorAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (!routingAlertsOnly) {
   name: serverErrorAlertName
   location: 'global'
   tags: tags
@@ -104,7 +112,7 @@ resource serverErrorAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   }
 }
 
-resource unavailableAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+resource unavailableAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (!routingAlertsOnly) {
   name: unavailableAlertName
   location: 'global'
   tags: tags
@@ -144,7 +152,7 @@ resource unavailableAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   }
 }
 
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = if (!routingAlertsOnly) {
   name: applicationInsightsName
   location: location
   kind: 'web'
@@ -158,7 +166,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-resource readinessTest 'Microsoft.Insights/webtests@2022-06-15' = {
+resource readinessTest 'Microsoft.Insights/webtests@2022-06-15' = if (!routingAlertsOnly) {
   name: readinessTestName
   location: location
   tags: union(tags, {
@@ -196,7 +204,7 @@ resource readinessTest 'Microsoft.Insights/webtests@2022-06-15' = {
   }
 }
 
-resource readinessAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+resource readinessAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (!routingAlertsOnly) {
   name: readinessAlertName
   location: 'global'
   tags: union(tags, {
@@ -228,9 +236,136 @@ resource readinessAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   }
 }
 
+// Only sanitized event names, bounded route identifiers, timestamps, and
+// aggregate counts or costs reach alert results. Logs are not invoice evidence.
+var routeConfigurationQuery = format('''
+ContainerAppConsoleLogs_CL
+| where ContainerAppName_s == "{0}"
+| where Log_s contains "llm_configuration_unavailable"
+| extend Route = extract("route=([^ ]+)", 1, Log_s)
+| extend Route = iff(isempty(Route), "public-routes", Route)
+| project TimeGenerated, Route
+''', appName)
+
+var routeCircuitQuery = format('''
+ContainerAppConsoleLogs_CL
+| where ContainerAppName_s == "{0}"
+| where Log_s contains "llm_circuit_open "
+| extend Route = extract("primary=([^ ]+)", 1, Log_s)
+| where isnotempty(Route)
+| summarize Opens = count() by Route, bin(TimeGenerated, 5m)
+''', appName)
+
+var fallbackSpendQuery = format('''
+ContainerAppConsoleLogs_CL
+| where ContainerAppName_s == "{0}"
+| where Log_s contains "llm_fallback_spend "
+| extend SpentMicrousd = tolong(extract("cost_microusd=([0-9]+)", 1, Log_s))
+| where SpentMicrousd > 0
+| project TimeGenerated, SpentMicrousd
+''', appName)
+
+resource routeConfigurationAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+  name: '${resourcePrefix}-llm-configuration'
+  location: location
+  kind: 'LogAlert'
+  tags: tags
+  properties: {
+    description: 'ABDA-NL has unavailable local provider configuration. Restore CloudBank configuration before enabling funded requests.'
+    severity: 1
+    enabled: true
+    scopes: [logWorkspace.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    autoMitigate: true
+    skipQueryValidation: false
+    criteria: {
+      allOf: [{
+        query: routeConfigurationQuery
+        timeAggregation: 'Count'
+        operator: 'GreaterThanOrEqual'
+        threshold: 1
+        dimensions: [{name: 'Route', operator: 'Include', values: ['*']}]
+        failingPeriods: {numberOfEvaluationPeriods: 1, minFailingPeriodsToAlert: 1}
+      }]
+    }
+    actions: {
+      actionGroups: [resourceId('Microsoft.Insights/actionGroups', actionGroupName)]
+    }
+  }
+  dependsOn: [operatorActionGroup]
+}
+
+resource routeCircuitAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+  name: '${resourcePrefix}-llm-circuit'
+  location: location
+  kind: 'LogAlert'
+  tags: tags
+  properties: {
+    description: 'ABDA-NL opened the same funded route circuit in at least two five-minute periods out of three. Investigate provider health and emergency usage.'
+    severity: 2
+    enabled: true
+    scopes: [logWorkspace.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    autoMitigate: true
+    skipQueryValidation: false
+    criteria: {
+      allOf: [{
+        query: routeCircuitQuery
+        metricMeasureColumn: 'Opens'
+        timeAggregation: 'Total'
+        operator: 'GreaterThanOrEqual'
+        threshold: 1
+        dimensions: [{name: 'Route', operator: 'Include', values: ['*']}]
+        failingPeriods: {numberOfEvaluationPeriods: 3, minFailingPeriodsToAlert: 2}
+      }]
+    }
+    actions: {
+      actionGroups: [resourceId('Microsoft.Insights/actionGroups', actionGroupName)]
+    }
+  }
+  dependsOn: [operatorActionGroup]
+}
+
+resource fallbackSpendAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+  name: '${resourcePrefix}-llm-fallback-spend'
+  location: location
+  kind: 'LogAlert'
+  tags: tags
+  properties: {
+    description: 'ABDA-NL settled emergency-provider charges reached the reviewed fifteen-minute notification threshold. Amounts can include conservative timeout assessments.'
+    severity: 2
+    enabled: true
+    scopes: [logWorkspace.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    autoMitigate: true
+    skipQueryValidation: false
+    criteria: {
+      allOf: [{
+        query: fallbackSpendQuery
+        metricMeasureColumn: 'SpentMicrousd'
+        timeAggregation: 'Total'
+        operator: 'GreaterThanOrEqual'
+        threshold: fallbackSpendThresholdMicrousd
+        dimensions: []
+        failingPeriods: {numberOfEvaluationPeriods: 1, minFailingPeriodsToAlert: 1}
+      }]
+    }
+    actions: {
+      actionGroups: [resourceId('Microsoft.Insights/actionGroups', actionGroupName)]
+    }
+  }
+  dependsOn: [operatorActionGroup]
+}
+
 output actionGroupName string = operatorActionGroup.name
 output serverErrorAlertName string = serverErrorAlert.name
 output unavailableAlertName string = unavailableAlert.name
 output applicationInsightsName string = applicationInsights.name
 output readinessTestName string = readinessTest.name
 output readinessAlertName string = readinessAlert.name
+output routeConfigurationAlertName string = routeConfigurationAlert.name
+output routeCircuitAlertName string = routeCircuitAlert.name
+output fallbackSpendAlertName string = fallbackSpendAlert.name

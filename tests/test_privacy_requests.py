@@ -39,6 +39,7 @@ from app.services.privacy_requests import (
     public_summary,
 )
 from app.services.mcp_tokens import MCPTokenError, create_mcp_token
+from app.services.credit_eligibility import initialize_credit_eligibility
 from app.services.projects import (
     ProjectNotFoundError,
     ShareLinkNotFoundError,
@@ -213,6 +214,7 @@ def _populate(factory: sessionmaker[Session]) -> str:
                 created_at=now,
             )
         )
+        initialize_credit_eligibility(session)
         session.commit()
         return user.id
 

@@ -10,6 +10,10 @@ A shared prompt change requires regression across all affected models and
 features. Cases marked `split: regression` provide examples to hold aside while
 diagnosing and tuning failures.
 
+Version 8 commits all 45 cases, including rule suspension and preference changes
+previously held in the two-case September 10 supplement. The old 43-case and
+supplemental receipts keep their original suite definitions and hashes.
+
 The suite covers all six bundled examples, custom and imported scenarios,
 grounded chat, selected-item questions, corpus questions, sensitivity, all four
 proposal tasks, refinement, and semantic review. Every feature has routine,
@@ -17,7 +21,7 @@ ambiguous, adversarial, and edge cases. Three repetitions are the default.
 Automatic checks include exact quotations against source text, label claims
 against computed state, edit polarity and targets, field preservation, pending
 proposition promotion, and unchanged state before Apply. Answers and operations
-also require identified review for grounding, semantic fidelity, usefulness,
+also require identified AI agent answer-by-answer assessment for grounding, semantic fidelity, usefulness,
 and presentation before a model receives application acceptance.
 
 The evaluation budget is one lifetime maximum of $100 (100,000,000 microUSD),

@@ -48,7 +48,15 @@ def test_frontend_ids_labels_and_assets_are_self_contained():
     duplicates = [value for value, count in Counter(inventory.ids).items() if count > 1]
     assert duplicates == []
     assert set(inventory.label_targets) <= set(inventory.ids)
-    assert inventory.scripts[-6:] == ["app.js", "exploration.js", "workspace.js", "scenarios.js", "materials.js", "curation.js"]
+    assert inventory.scripts[-7:] == [
+        "app.js",
+        "conversation-storage.js",
+        "exploration.js",
+        "workspace.js",
+        "scenarios.js",
+        "materials.js",
+        "curation.js",
+    ]
     assert all("://" not in source for source in inventory.scripts)
     assert all("://" not in source for source in inventory.stylesheets)
 
@@ -203,12 +211,21 @@ def test_public_policy_pages_are_linked_and_script_free():
 
     privacy = (STATIC_ROOT / "privacy.html").read_text(encoding="utf-8")
     terms = (STATIC_ROOT / "terms.html").read_text(encoding="utf-8")
-    assert "Last updated September 9, 2026" in privacy
+    for policy in (privacy, terms):
+        assert "Last updated September 10, 2026" in policy
     assert "Suggesting a public example" in privacy
     assert "retained for up to 30 days" in privacy
     assert "retained for 7 days" in privacy
     assert "complete it within 30 days" in privacy
     assert "not analyzed as research data" in privacy
+    assert "keyed eligibility markers" in privacy
+    assert "for the lifetime of the credit program" in privacy
+    assert "These markers remain after account deletion" in privacy
+    assert "they do not retain project or conversation content" in privacy
+    assert "CloudBank-funded Microsoft Azure or Google Cloud" in privacy
+    assert "Deleting and recreating an account does not renew eligibility" in terms
+    assert "including for named administrator allocations" in terms
+    assert "Signing in and using your own provider key remain available" in terms
     assert 'href="mailto:privacy@abda-nl.org"' in privacy
     assert 'href="mailto:support@abda-nl.org"' in terms
 

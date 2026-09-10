@@ -84,10 +84,13 @@ def _case(case_id: str) -> dict:
 
 def test_suite_is_versioned_and_hashable():
     suite, digest = load_suite(SUITE_PATH)
-    assert suite["version"] == 7
+    assert suite["version"] == 8
     assert suite["default_repetitions"] == 3
     assert suite["gates"]["min_case_pass_rate"] == 1.0
-    assert len(suite["cases"]) >= 16
+    assert len(suite["cases"]) == 45
+    assert {"fire-suspended-permit-rule", "fried-chicken-strengthened-home-preference"} <= {
+        case["id"] for case in suite["cases"]
+    }
     assert len(digest) == 64
 
 

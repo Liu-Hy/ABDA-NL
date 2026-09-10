@@ -892,7 +892,7 @@ async function saveProjectChanges() {
   } catch (error) {
     if (error.code === 'project_version_conflict' && state.activeProject === project) {
       openWorkspace('projects');
-      setWorkspaceStatus('projects-status', 'This project changed in another tab. Reopen it before saving again.', 'error');
+      setWorkspaceStatus('projects-status', 'This project changed in another editor or connected tool. Reopen it before saving again.', 'error');
     } else if (error.code === 'project_version_conflict') {
       showGlobalStatus(`Project "${project.name}" changed before the save completed. Reopen it before saving again.`, 'error');
     } else {

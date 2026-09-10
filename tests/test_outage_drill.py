@@ -289,9 +289,9 @@ def test_outage_drill_rejects_unqualified_or_mismatched_routes(drill_factory, mo
     if fault == "unqualified":
         profiles[profile.id] = replace(profile, public_ready=False)
     elif fault == "unverified-primary":
-        routes[profile.primary_route] = replace(routes[profile.primary_route], verified=False)
+        routes[profile.primary_route] = replace(routes[profile.primary_route], funded_feature_qualified=False)
     elif fault == "unverified-backup":
-        routes[profile.fallback_route] = replace(routes[profile.fallback_route], verified=False)
+        routes[profile.fallback_route] = replace(routes[profile.fallback_route], configuration_confirmed=False)
     elif fault == "different-model":
         routes[profile.fallback_route] = replace(routes[profile.fallback_route], model="gpt-5.6-sol")
     else:

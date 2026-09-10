@@ -17,6 +17,7 @@ from app.core.config import get_settings
 from app.db.models import Base, Identity, ShareLink, TrialProgram, User
 from app.llm.client import LLMResponse, ToolCallResponse
 from app.services.accounts import IdentityError, normalize_email, upsert_verified_identity
+from app.services.credit_eligibility import initialize_credit_eligibility
 from app.services.trials import (
     InsufficientTrialCreditError,
     TrialUnavailableError,
@@ -533,6 +534,7 @@ def test_reopened_project_chat_and_propose_use_saved_state(
     fake = _ProjectLLM()
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
     monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     chat = client.post(
         f"/api/projects/{project['id']}/chat",
@@ -574,6 +576,7 @@ def test_custom_project_chat_and_propose_need_no_bundled_corpus(client: TestClie
     fake = _ProjectLLM()
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
     monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
     chat = client.post(f"/api/projects/{project['id']}/chat", json={
         "expected_version": 1, "diff_ops": [],
         "messages": [{"role": "user", "content": "Should we have a picnic?"}],
@@ -672,6 +675,7 @@ def accounting_factory(tmp_path):
                 budget_microusd=15_000_000,
             )
         )
+        initialize_credit_eligibility(session)
         session.commit()
     yield factory
     engine.dispose()

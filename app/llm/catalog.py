@@ -114,7 +114,12 @@ class RouteSpec:
     cost_ceiling: TokenPricing | None = None
     use_provider_reported_cost: bool = False
     billing_multiplier: Decimal = Decimal("1")
-    verified: bool = False
+    # These record distinct evidence from the catalog's dated assessment.
+    # Configuration presence for a new process is checked separately at boot.
+    metadata_confirmed: bool = False
+    configuration_confirmed: bool = False
+    funded_feature_qualified: bool = False
+    live_inference_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -272,7 +277,10 @@ def load_model_catalog(path: Path = CATALOG_PATH) -> ModelCatalog:
                 item.get("billing_multiplier", 1),
                 f"routes.{route_id}.billing_multiplier",
             ),
-            verified=bool(item.get("verified", False)),
+            metadata_confirmed=bool(item.get("metadata_confirmed", False)),
+            configuration_confirmed=bool(item.get("configuration_confirmed", False)),
+            funded_feature_qualified=bool(item.get("funded_feature_qualified", False)),
+            live_inference_verified=bool(item.get("live_inference_verified", False)),
         )
 
     profiles: dict[str, ProfileSpec] = {}
@@ -349,8 +357,15 @@ def _validate_catalog(catalog: ModelCatalog) -> None:
         if profile.public_ready:
             if not profile.fallback_route:
                 raise RuntimeError(f"public profile {profile.id!r} requires a same-model backup")
-            if catalog.version >= 4 and not (primary.verified and catalog.routes[profile.fallback_route].verified):
-                raise RuntimeError(f"public profile {profile.id!r} requires verified deployments")
+            if catalog.version >= 4:
+                backup = catalog.routes[profile.fallback_route]
+                if not (primary.metadata_confirmed and primary.configuration_confirmed
+                        and primary.funded_feature_qualified and primary.live_inference_verified):
+                    raise RuntimeError(f"public profile {profile.id!r} requires funded feature qualification")
+                if not (backup.metadata_confirmed and backup.configuration_confirmed):
+                    raise RuntimeError(f"public profile {profile.id!r} requires backup configuration and metadata")
+                # Paid backup tests are a separate release decision. Never turn
+                # metadata or mocked contracts into a claim of live inference.
             model = catalog.model_for_route(primary)
             if not model.structured_tools or model.max_output_tokens < 1:
                 raise RuntimeError(f"public model {model.id!r} needs bounded structured output")

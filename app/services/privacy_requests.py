@@ -18,6 +18,7 @@ from app.db.models import (
     LLMUsageEvent,
     MCPAccessToken,
     NamedCreditEntitlement,
+    CreditEligibilityMarker,
     Project,
     ShareLink,
     TrialGrant,
@@ -81,6 +82,7 @@ class PrivacyDeletionReceipt:
     retained_trial_granted_microusd: int
     retained_trial_spent_microusd: int
     deleted_scenario_submission_count: int = 0
+    retained_credit_eligibility_marker_count: int = 0
 
 
 def _normalized_email(email: str) -> str:
@@ -285,6 +287,16 @@ def export_privacy_account(session: Session, email: str) -> dict[str, Any]:
             {"email": named_entitlement.email, "bound_at": _time(named_entitlement.bound_at)}
             if named_entitlement is not None else None
         ),
+        "introductory_credit_eligibility": {
+            "retention": "credit_program_lifetime",
+            "purpose": "prevent_repeat_introductory_grants_after_account_deletion",
+            "markers": [
+                {"kind": item.kind, "claimed_at": _time(item.claimed_at)}
+                for item in session.scalars(select(CreditEligibilityMarker).where(
+                    CreditEligibilityMarker.user_id == user.id,
+                ).order_by(CreditEligibilityMarker.kind, CreditEligibilityMarker.claimed_at))
+            ],
+        },
         "account": {
             "email": user.email,
             "email_verified": user.email_verified,
@@ -480,6 +492,19 @@ def delete_privacy_account(
                 "the account has unsettled model reservations; wait for settlement and inspect again"
             )
 
+        # Retain only keyed eligibility markers for the credit program lifetime.
+        # Seed the current verified identifiers before removing their source rows.
+        # The old display fingerprint is not used as an anti-abuse identifier.
+        from app.services.credit_eligibility import (
+            remember_granted_identity, retained_marker_count,
+        )
+
+        remember_granted_identity(session, user)
+        eligibility_markers = retained_marker_count(session, user)
+        session.execute(update(CreditEligibilityMarker).where(
+            CreditEligibilityMarker.user_id == user.id,
+        ).values(user_id=None))
+
         session.execute(
             update(LLMUsageEvent).where(LLMUsageEvent.user_id == user.id).values(user_id=None)
         )
@@ -516,6 +541,7 @@ def delete_privacy_account(
             anonymized_emergency_reservation_count=summary.emergency_reservation_count,
             retained_trial_granted_microusd=summary.trial_granted_microusd,
             retained_trial_spent_microusd=summary.trial_spent_microusd,
+            retained_credit_eligibility_marker_count=eligibility_markers,
         )
     except Exception:
         session.rollback()

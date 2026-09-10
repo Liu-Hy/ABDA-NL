@@ -20,6 +20,7 @@ from app.db.models import RateLimitBucket
 
 
 log = logging.getLogger(__name__)
+ACCOUNT_LLM_RATE_SCOPE = "llm_request"
 _SQLITE_RATE_LIMIT_LOCK = threading.RLock()
 _RATE_LIMIT_CLEANUP_LOCK = threading.Lock()
 _RATE_LIMIT_CLEANUP_INTERVAL_SECONDS = 60 * 60

@@ -21,6 +21,10 @@ class ProjectNotFoundError(LookupError):
     pass
 
 
+class ProjectValidationError(ValueError):
+    """A bounded project input error safe to disclose to the requesting owner."""
+
+
 class ProjectVersionConflictError(RuntimeError):
     pass
 
@@ -48,16 +52,16 @@ _SQLITE_PROJECT_LOCK = threading.RLock()
 def _clean_name(name: str) -> str:
     cleaned = name.strip()
     if not cleaned:
-        raise ValueError("project name cannot be empty")
+        raise ProjectValidationError("project name cannot be empty")
     if len(cleaned) > 120:
-        raise ValueError("project name cannot exceed 120 characters")
+        raise ProjectValidationError("project name cannot exceed 120 characters")
     return cleaned
 
 
 def _clean_description(description: str) -> str:
     cleaned = description.strip()
     if len(cleaned) > 4000:
-        raise ValueError("project description cannot exceed 4000 characters")
+        raise ProjectValidationError("project description cannot exceed 4000 characters")
     return cleaned
 
 
@@ -68,16 +72,16 @@ def normalize_project_scenario(raw: dict, source_scenario_id: str | None) -> dic
         json.dumps(normalized, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     )
     if encoded_size > MAX_PROJECT_SCENARIO_BYTES:
-        raise ValueError(
+        raise ProjectValidationError(
             f"project scenario cannot exceed {MAX_PROJECT_SCENARIO_BYTES} encoded bytes"
         )
     project_corpus = list(normalized.get("corpus") or [])
     if source_scenario_id:
         source = load_bundled_scenario(source_scenario_id)
         if project_corpus != list(source.corpus or []):
-            raise ValueError("project corpus must match its immutable source example")
+            raise ProjectValidationError("project corpus must match its immutable source example")
     elif project_corpus:
-        raise ValueError("a project with corpus files must name a bundled source example")
+        raise ProjectValidationError("a project with corpus files must name a bundled source example")
     # Enforce portability at save time, including full bundled PDF text and
     # curated context, not just the user's newly attached documents.
     from app.scenario.portable import export_scenario
@@ -204,9 +208,9 @@ def update_project(
     scenario: dict | None = None,
 ) -> Project:
     if expected_version < 1:
-        raise ValueError("expected_version must be positive")
+        raise ProjectValidationError("expected_version must be positive")
     if name is None and description is None and scenario is None:
-        raise ValueError("provide a name, description, or scenario to update")
+        raise ProjectValidationError("provide a name, description, or scenario to update")
     _lock_active_owner(session, owner.id)
     values: dict = {"version": expected_version + 1, "updated_at": utc_now()}
     if name is not None:
@@ -323,7 +327,7 @@ def _create_share_link(
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         if expires_at <= utc_now():
-            raise ValueError("share-link expiration must be in the future")
+            raise ProjectValidationError("share-link expiration must be in the future")
     token = secrets.token_urlsafe(32)
     link = ShareLink(
         project_id=project.id,

@@ -644,6 +644,7 @@ function setBundle(bundle, options = {}) {
   } else {
     state.labelPulseIds = new Set();
   }
+  state.labelChangedIds = new Set(state.labelPulseIds);
   state.bundle = bundle;
   state.renderedDiffOps = state.diff_ops.slice();
 }
@@ -811,7 +812,7 @@ function renderConclusions() {
     const changed = state.labelPulseIds.has(id) ? ' label-changed' : '';
     return `<div class="conclusion-card${changed}" data-element-kind="conclusion" data-element-id="${escapeAttr(id)}">
       <div class="conclusion-status-bar status-${label}">${badge}</div>
-      <span class="conclusion-label">${escapeHtml(entry.description)}</span>
+      <span class="conclusion-label">${escapeHtml(entry.description)}${state.labelChangedIds?.has(id) ? '<span class="label-change-note">Status changed</span>' : ''}</span>
       <div class="conclusion-actions">
         ${explain}
         ${explainable ? `<button type="button" class="btn-explain" data-inspect-conclusion="${escapeAttr(id)}">Inspect</button>` : ''}
@@ -1344,8 +1345,8 @@ function resetChatConversation() {
   saveConversationDraft();
 }
 
-async function apiPostChat(scenario_id, diff_ops, messages, signal, context_refs = []) {
-  const project = state.activeProject;
+async function apiPostChat(scenario_id, diff_ops, messages, signal, context_refs = [], context = null) {
+  const project = context ? context.activeProject : state.activeProject;
   const path = project ? `/api/projects/${encodeURIComponent(project.id)}/chat` : '/chat';
   const payload = project
     ? { expected_version: project.version, diff_ops, messages, context_refs, llm: currentLLMOptions() }
@@ -1362,6 +1363,7 @@ async function apiPostChat(scenario_id, diff_ops, messages, signal, context_refs
     const err = new Error(msg);
     err.status = r.status;
     err.code = body?.detail?.code || body?.errors?.[0]?.code || null;
+    err.billing_uncertain = body?.detail?.billing_uncertain === true;
     throw err;
   }
   return body;
@@ -1421,6 +1423,12 @@ function renderChat() {
       bubble.textContent = String(m.content ?? '');
     } else {
       message.className = 'chat-msg chat-msg-assistant';
+      if (m.earlier_state) {
+        const earlier = document.createElement('p');
+        earlier.className = 'chat-response-meta';
+        earlier.textContent = 'Answer for the earlier scenario saved with this question.';
+        bubble.append(earlier);
+      }
       appendAssistantMarkdown(bubble, m.content);
       appendVerifiedEvidence(bubble, m);
       if (m.meta) {
@@ -1484,16 +1492,18 @@ function modelViewContextIsCurrent(context) {
   );
 }
 
-function appendChangedContextNotice(conversation) {
-  conversation.push({
-    role: 'assistant',
-    content: 'The scenario changed before this answer arrived. Ask again to use the current state.',
-  });
+function announceChat(text) {
+  const announcement = document.getElementById('chat-announcement');
+  if (announcement) announcement.textContent = text;
 }
 
 async function sendChatMessage(prefilledText) {
   if (state.chatPending) return;
   syncConversationIdentity();
+  const startingEpoch = conversationStore.epoch;
+  await conversationStore.ready;
+  await currentScenarioSignature().promise;
+  if (state.chatPending || startingEpoch !== conversationStore.epoch) return;
   const accessIssue = llmAccessIssue();
   if (accessIssue) {
     if (accessIssue.tab) openWorkspace(accessIssue.tab);
@@ -1501,35 +1511,38 @@ async function sendChatMessage(prefilledText) {
     return;
   }
   const input = document.getElementById('chat-input');
-  let text;
-  if (typeof prefilledText === 'string') {
-    text = prefilledText.trim();
-  } else {
-    text = (input?.value || '').trim();
-  }
+  const text = (typeof prefilledText === 'string' ? prefilledText : input?.value || '').trim();
   if (!text) return;
   if (hasPendingStateRequest() || !state.bundle) {
     showGlobalStatus('Wait for the scenario to finish updating before sending your question.', 'info');
     return;
   }
   const selectedContext = structuredClone(state.chatContextRefs || []);
-  if (selectedContext.some(ref => !questionContextIsCurrent(ref))) {
-    showGlobalStatus('The selected items belong to an earlier scenario state. Remove those context items or select them again before asking. Your draft is unchanged.', 'info');
+  if (selectedContext.length > 24) {
+    showGlobalStatus('A question can include up to 24 context items. Remove extra items before asking.', 'info');
     return;
   }
-
-  const conversation = state.chatMessages;
+  if (selectedContext.some(ref => !questionContextIsCurrent(ref))) {
+    showGlobalStatus('The selected items belong to an earlier scenario state. Use Refresh on each earlier context item, or remove it, before asking. Your draft is unchanged.', 'info');
+    return;
+  }
   const record = activeConversation();
+  const conversation = record.messages;
+  const epoch = conversationStore.epoch;
   const requestContext = captureModelViewContext();
   const requestUsesFundedAccess = state.llmAccess.mode !== 'byok';
+  const available = () => epoch === conversationStore.epoch && !conversationStore.deleted.has(record.id)
+    && conversationStore.records.includes(record);
+  const visible = () => available() && activeConversation() === record;
+  record.pending = true;
   state.chatPending = true;
   renderChat();
   if (typeof prefilledText === 'string') revealChatForNarrowLayout();
   let snapshotId;
   try {
     const snapshot = await captureConversationSnapshot(requestContext);
-    if (state.chatMessages !== conversation || !modelViewContextIsCurrent(requestContext)) {
-      showGlobalStatus('The scenario changed while preparing the question. Your draft was retained.', 'info');
+    if (!visible() || !modelViewContextIsCurrent(requestContext)) {
+      if (available()) showGlobalStatus('The scenario changed while preparing the question. Your draft was retained.', 'info');
       return;
     }
     const comparableSnapshot = JSON.stringify({ ...snapshot, captured_at: null });
@@ -1539,58 +1552,61 @@ async function sendChatMessage(prefilledText) {
     if (!existingSnapshot) record.snapshots[snapshotId] = snapshot;
     conversation.push({ role: 'user', content: text, snapshot_id: snapshotId,
       context_refs: selectedContext.map(({ kind, id }) => ({ kind, id })) });
-    // Only clear the submitted draft, never text typed while its snapshot loaded.
     if (input && input.value.trim() === text) input.value = '';
     state.chatContextRefs = [];
     saveConversationDraft();
+    persistConversations(record);
     renderChat();
+    announceChat('Question sent. Waiting for an answer.');
     const messages = conversation.filter(message => !message.local_notice)
       .slice(-CHAT_TURN_CAP).map(message => ({ role: message.role, content: message.content }));
-    const resp = await apiPostChat(state.scenario_id, state.diff_ops, messages, undefined,
-      selectedContext.map(({ kind, id }) => ({ kind, id })));
-    if (resp.billing_source !== 'byok' && state.authSession.authenticated) {
-      refreshTrialBalanceQuietly();
-    }
-    if (state.chatMessages !== conversation) return;
-    if (!modelViewContextIsCurrent(requestContext)) {
-      appendChangedContextNotice(conversation);
-      return;
-    }
+    const resp = await apiPostChat(requestContext.scenarioId, requestContext.diffOps, messages, undefined,
+      selectedContext.map(({ kind, id }) => ({ kind, id })), requestContext);
+    await refreshConversationRecords();
+    if (!available()) return;
+    if (resp.billing_source !== 'byok' && state.authSession.authenticated) refreshTrialBalanceQuietly();
+    const earlier = !visible() || !modelViewContextIsCurrent(requestContext);
     const source = resp.billing_source === 'byok' ? 'Own key' : 'Funded';
     const cost = resp.cost_microusd > 0 ? `, ${formatUSD(resp.cost_microusd)}` : '';
-    conversation.push({
-      role: 'assistant',
-      content: resp.message,
-      meta: `${source}, ${resp.model}${cost}, ${resp.latency_ms} ms`,
-      snapshot_id: snapshotId,
-      evidence: resp.evidence || [],
-    });
-    state.chatDegraded = false;
+    const assessment = resp.billing_uncertain ? '. Cost conservatively assessed because complete provider usage was unavailable.' : '';
+    conversation.push({ role: 'assistant', content: resp.message,
+      meta: `${source}, ${resp.model}${cost}, ${resp.latency_ms} ms${assessment}`,
+      snapshot_id: snapshotId, evidence: resp.evidence || [], earlier_state: earlier });
+    if (visible()) {
+      state.chatDegraded = false;
+      announceChat((earlier ? 'Answer for the earlier scenario. ' : '') + resp.message);
+    } else {
+      record.unread = true;
+      conversationStore.notice = `An answer arrived in "${record.title}" for its saved scenario. Select that conversation to read it.`;
+      announceChat(conversationStore.notice);
+    }
   } catch (e) {
-    if (requestUsesFundedAccess && state.authSession.authenticated) {
-      refreshTrialBalanceQuietly();
-    }
-    if (state.chatMessages !== conversation) return;
-    if (!modelViewContextIsCurrent(requestContext)) {
-      appendChangedContextNotice(conversation);
-      return;
-    }
-    conversation.push({
-      role: 'assistant',
-      content: `Chat could not finish: ${e.message}. Your question is retained. You can keep exploring the scenario and choose Ask to retry.`,
-      snapshot_id: snapshotId,
-      local_notice: true,
-    });
-    if (input && !input.value.trim()) {
-      input.value = text;
-      state.chatContextRefs = selectedContext;
-    }
-    state.chatDegraded = e.status === 502 || e.status === 503 || e.status === 504 || !e.status;
+    await refreshConversationRecords();
+    if (!available()) return;
+    if (requestUsesFundedAccess && state.authSession.authenticated) refreshTrialBalanceQuietly();
+    const assessment = e.billing_uncertain === true
+      ? ' Cost conservatively assessed because complete provider usage was unavailable.' : '';
+    conversation.push({ role: 'assistant',
+      content: `Chat could not finish: ${e.message}.${assessment} Your question is retained. You can keep exploring the scenario and choose Ask to retry.`,
+      snapshot_id: snapshotId, local_notice: true });
+    if (visible()) {
+      if (input && !input.value.trim()) {
+        input.value = text;
+        state.chatContextRefs = selectedContext;
+      }
+      state.chatDegraded = e.status === 502 || e.status === 503 || e.status === 504 || !e.status;
+      announceChat(`The answer could not finish.${assessment} Your question was retained.`);
+    } else record.unread = true;
   } finally {
-    if (state.chatMessages === conversation) {
-      state.chatPending = false;
-      saveConversationDraft();
-      renderChat();
+    record.pending = false;
+    if (available()) {
+      if (visible()) {
+        state.chatPending = false;
+        saveConversationDraft();
+        renderChat();
+      }
+      persistConversations(record);
+      renderConversationControls();
     }
   }
 }
@@ -2395,43 +2411,14 @@ function getArgumentsConcluding(conclusionId) {
   return (state.bundle.af.arguments || []).filter(a => a.conclusion === conclusionId);
 }
 
-// A "canonical argument" is a (top_rule, conclusion) pair. Different
-// Cartesian-product derivations that share this pair differ only in
-// their sub-argument substructure and are treated as one logical
-// argument throughout the game explorer -- picker, tree, and moves
-// panel all operate at this level so the user doesn't see duplicates
-// like "Popov has possession of the ball [a42]" and "... [a43]" for
-// what is, to them, the same bb1a-based claim.
-function canonicalKey(arg) {
-  return arg ? arg.top_rule + '::' + arg.conclusion : '';
+// Explain follows individual engine derivations. Sharing a top rule does not
+// imply sharing premises, attacks, or a grounded label.
+function gameArgumentKey(arg) {
+  return arg?.id || '';
 }
 
-function getVariantsOf(argId) {
-  const arg = getArgumentById(argId);
-  if (!arg) return [];
-  const key = canonicalKey(arg);
-  return (state.bundle.af.arguments || []).filter(a => canonicalKey(a) === key);
-}
-
-// Canonical attackers: union of attackers across every variant of
-// the canonical target, then deduped by the attacker's own canonical
-// key. One entry per distinct (attacker_top_rule, attacker_conclusion).
-function getCanonicalAttackerIds(argId) {
-  const variants = getVariantsOf(argId).map(a => a.id);
-  const variantSet = new Set(variants);
-  const attackerIds = new Set();
-  for (const e of state.bundle.af.attacks || []) {
-    if (variantSet.has(e.to)) attackerIds.add(e.from);
-  }
-  const seen = new Set();
-  const result = [];
-  for (const aid of attackerIds) {
-    const a = getArgumentById(aid);
-    if (!a) continue;
-    const key = canonicalKey(a);
-    if (!seen.has(key)) { seen.add(key); result.push(aid); }
-  }
-  return result;
+function getGameAttackerIds(argId) {
+  return [...new Set(getAttackersOf(argId).map(edge => edge.from))];
 }
 
 // Arguments concluding this proposition that are consistent with the
@@ -2459,15 +2446,7 @@ function getCandidateRootArguments(conclusionId) {
   if (status === 'rejected' && matching.length === 0) {
     matching = getArgumentsConcluding('-' + conclusionId).filter(a => a.label === 'in');
   }
-  // Dedupe by canonical key (top_rule + conclusion) so Cartesian
-  // variants of the same logical argument show as one picker entry.
-  const seen = new Set();
-  const out = [];
-  for (const a of matching) {
-    const key = canonicalKey(a);
-    if (!seen.has(key)) { seen.add(key); out.push(a); }
-  }
-  return out;
+  return matching;
 }
 
 // --- Modal open / close ---------------------------------------------
@@ -2647,9 +2626,11 @@ async function sendPropose() {
     if (!modelViewContextIsCurrent(requestContext)) {
       editState.lastProposal = null;
       document.getElementById('edit-preview').innerHTML = '';
+      const assessment = body.billing_uncertain === true || body.detail?.billing_uncertain === true
+        ? ' Cost conservatively assessed because complete provider usage was unavailable.' : '';
       _setEditStatus(
         'error',
-        'The scenario changed before this proposal arrived. Request a new proposal for the current state.',
+        `The scenario changed before this proposal arrived. Request a new proposal for the current state.${assessment}`,
       );
       return;
     }
@@ -2659,7 +2640,7 @@ async function sendPropose() {
     }
     editState.lastProposal = body;
     _renderProposal(body);
-    _setEditStatus('ok', `Proposed in ${body.latency_ms} ms${body.proposer_attempts > 1 ? ` (${body.proposer_attempts} attempts)` : ''}.`);
+    _setEditStatus('ok', `Proposed in ${body.latency_ms} ms${body.proposer_attempts > 1 ? ` (${body.proposer_attempts} attempts)` : ''}.${body.billing_uncertain ? ' Cost conservatively assessed because complete provider usage was unavailable.' : ''}`);
   } catch (e) {
     if (requestUsesFundedAccess && state.authSession.authenticated) {
       refreshTrialBalanceQuietly();
@@ -2809,13 +2790,17 @@ function _renderProposal(body) {
     }
   }
 
-  // Metadata strip: category, source, block (when present).
+  // Show explicit values and removals so postprocessing cannot conceal a change.
   const meta = op.rule || op.fact || op.assumption || {};
-  const metaBits = [];
-  if (meta.category) metaBits.push(`Category: ${escapeHtml(meta.category)}`);
-  if (meta.source) metaBits.push(`Source: ${escapeHtml(meta.source)}`);
-  if (meta.block && meta.block !== 1) metaBits.push(`Block: ${meta.block}`);
-  if (meta.active === false) metaBits.push('Inactive');
+  const prior = kind === 'modify-rule' ? state.bundle.scenario.rules?.[op.id] || {} : null;
+  const displayValue = (key, value) => key === 'active' && typeof value === 'boolean'
+    ? (value ? 'Active' : 'Inactive') : value == null || value === '' ? 'None' : String(value);
+  const fields = { category: 'Category', source: 'Source', block: 'Preference block', active: 'Status', negated_description: 'Negated description' };
+  const metaBits = Object.entries(fields).filter(([key]) => Object.hasOwn(meta, key) || (prior && Object.hasOwn(prior, key))).map(([key, label]) => {
+    const value = displayValue(key, meta[key] ?? ({ active: true, block: 1 }[key]));
+    const previous = prior ? displayValue(key, prior[key] ?? ({ active: true, block: 1 }[key])) : '';
+    return `${label}: ${prior && previous !== value ? `${escapeHtml(previous)} → ` : ''}${escapeHtml(value)}`;
+  });
   const metaHtml = metaBits.length ? `<div class="edit-prop-meta">${metaBits.join(' · ')}</div>` : '';
 
   // Advisory Reviewer issues.
@@ -2827,7 +2812,7 @@ function _renderProposal(body) {
       return `<li class="edit-issue edit-issue-${escapeAttr(sev)}"><span class="edit-issue-icon">${icon}</span><span>${escapeHtml(iss.message)}</span></li>`;
     }).join('');
     issuesHtml = `
-      <div class="edit-issues-heading">Reviewer notes (advisory — you can still Apply):</div>
+      <div class="edit-issues-heading">${body.reviewed === false ? 'Advisory review unavailable. Check the proposal before applying.' : 'Reviewer notes (advisory, you can still Apply):'}</div>
       <ul class="edit-issues">${rows}</ul>
     `;
   }
@@ -2866,7 +2851,9 @@ function _renderEditError(status, body) {
   // couldn't fix across 3 attempts) plus other 4xx/5xx.
   const detail = body?.detail;
   const msg = detail?.message || detail || body?.detail || `Error ${status}`;
-  _setEditStatus('error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+  const assessment = detail?.billing_uncertain === true
+    ? ' Cost conservatively assessed because complete provider usage was unavailable.' : '';
+  _setEditStatus('error', (typeof msg === 'string' ? msg : JSON.stringify(msg)) + assessment);
 }
 
 // --- Save as new scenario ---------------------------------------------
@@ -3338,7 +3325,7 @@ function renderGame() {
 }
 
 // Auto-resolve any off-path node that is stuck waiting on Continue --
-// no canonical moves available, no resolution yet. Mirrors what the
+// no moves available, no resolution yet. Mirrors what the
 // Continue button does: HTB → conceded, CB → uncontested, then
 // propagate. Running this on focus-change prevents two downstream
 // problems: (a) the stuck-on-"Resolving…" panel when the user backs up
@@ -3462,7 +3449,7 @@ function renderGameNode(node) {
   // AF -- not just those already attacked in the current game tree. This
   // keeps the set of visible supports stable independent of which branch
   // the user has explored, and matches what the moves panel offers: any
-  // sub-arg whose canonical key has at least one incoming attack edge
+  // sub-argument with at least one incoming attack edge
   // somewhere in the AF is dialectically relevant.
   //
   // Explanation-only mode (rejected-via-strict) and accepted conclusions
@@ -3479,7 +3466,7 @@ function renderGameNode(node) {
     const sid = 'support-' + node.id;
     supportHtml = `<div class="game-supports">
       <button type="button" class="game-supports-toggle" data-supports-id="${sid}" aria-controls="${sid}" aria-expanded="false">
-        <span class="game-supports-arrow" id="arrow-${sid}">▶</span> Premises and subarguments:
+        <span class="game-supports-arrow" id="arrow-${sid}">▶</span> ${showFullDerivation ? 'Premises and subarguments' : 'Contested premises and subarguments'}:
       </button>
       <div class="game-supports-list" id="${sid}" style="display:none">
         ${supports.map(s => `<div class="game-support-card">
@@ -3553,34 +3540,12 @@ function renderAttackInfo(cbNode) {
   return `<div class="game-attack-info">Attacks: ${target} <span class="game-attack-type">(${desc})</span></div>`;
 }
 
-// Identify the sub-arguments of a node's arg (including the arg itself)
-// that have at least one incoming attack edge somewhere in the AF. A
-// match against any Cartesian variant of the sub-arg's canonical key
-// counts -- we want canonical-level dialectical relevance, not
-// variant-level. This is what drives the visibility of the "Supporting
-// arguments" panel: we surface every premise whose chain contains an
-// attackable node, regardless of whether the user has played an attack
-// against it yet.
+// Only premises of this derivation with an actual incoming engine edge.
 function getAttackableSubArgIds(node) {
   const arg = getArgumentById(node.argId);
-  const out = new Set();
-  if (!arg) return out;
-  const allArgs = state.bundle.af.arguments || [];
-  const attacks = state.bundle.af.attacks || [];
-  const idsByKey = new Map();
-  for (const a of allArgs) {
-    const k = canonicalKey(a);
-    if (!idsByKey.has(k)) idsByKey.set(k, new Set());
-    idsByKey.get(k).add(a.id);
-  }
-  const ownSubs = [arg.id, ...(arg.sub_arguments || [])];
-  for (const sid of ownSubs) {
-    const s = getArgumentById(sid);
-    if (!s) continue;
-    const variantIds = idsByKey.get(canonicalKey(s)) || new Set([sid]);
-    if (attacks.some(e => variantIds.has(e.to))) out.add(sid);
-  }
-  return out;
+  if (!arg) return new Set();
+  const targets = new Set((state.bundle.af.attacks || []).map(edge => edge.to));
+  return new Set([arg.id, ...(arg.sub_arguments || [])].filter(id => targets.has(id)));
 }
 
 // True iff sub-arg with id `subArgId`, or any of its transitive
@@ -3846,12 +3811,12 @@ function toggleSupports(id) {
 
 // --- Move helpers ----------------------------------------------------
 
-function getGameUsedCanonicalKeys(node) {
+function getGameUsedArgumentIds(node) {
   const used = new Set();
   let cur = node;
   while (cur) {
     const arg = getArgumentById(cur.argId);
-    if (arg) used.add(canonicalKey(arg));
+    if (arg) used.add(gameArgumentKey(arg));
     cur = cur.parentId ? gameNodes[cur.parentId] : null;
   }
   return used;
@@ -3864,44 +3829,34 @@ function getGameUsedCanonicalKeys(node) {
 //   target UNDEC → show UNDEC attackers (why UNDEC: the tie-makers;
 //                  OUT attackers were defeated elsewhere and aren't
 //                  why this is undecided)
-// An attacker's "label" at the canonical level is the strongest label
-// any of its Cartesian variants carries (in > undec > out), matching
-// how proposition labels aggregate in the backend.
-function canonicalLabelOf(argId) {
-  const labels = new Set(getVariantsOf(argId).map(a => a.label));
-  if (labels.has('in')) return 'in';
-  if (labels.has('undec')) return 'undec';
-  return 'out';
-}
-
-function _getGameCanonicalMoves(node) {
+function getGameMoves(node) {
   const target = getArgumentById(node.argId);
-  const canonicalIds = getCanonicalAttackerIds(node.argId);
-  const usedKeys = getGameUsedCanonicalKeys(node);
+  const attackerIds = getGameAttackerIds(node.argId);
+  const usedKeys = getGameUsedArgumentIds(node);
   const childKeys = new Set();
   for (const cid of node.children) {
     const carg = getArgumentById(gameNodes[cid].argId);
-    if (carg) childKeys.add(canonicalKey(carg));
+    if (carg) childKeys.add(gameArgumentKey(carg));
   }
   const relevantLabel = target && { in: 'out', out: 'in', undec: 'undec' }[target.label];
-  return canonicalIds.filter(aid => {
+  return attackerIds.filter(aid => {
     const a = getArgumentById(aid);
-    const key = a ? canonicalKey(a) : null;
+    const key = a ? gameArgumentKey(a) : null;
     if (!key || usedKeys.has(key) || childKeys.has(key)) return false;
     if (!relevantLabel) return true;
-    return canonicalLabelOf(aid) === relevantLabel;
+    return a.label === relevantLabel;
   });
 }
 
 // HTB and CB both face the same structural problem: given this node,
-// what canonical attackers have not yet appeared in the branch? The
+// what attackers have not yet appeared in the branch? The
 // HTB/CB distinction is semantic, not structural.
-function getGameCBs(htbNode)  { return _getGameCanonicalMoves(htbNode); }
-function getGameHTBs(cbNode)  { return _getGameCanonicalMoves(cbNode); }
+function getGameCBs(htbNode)  { return getGameMoves(htbNode); }
+function getGameHTBs(cbNode)  { return getGameMoves(cbNode); }
 
 // Find arguments in the AF that would attack `targetArgId` (rebut or
 // undercut) but have no attack edge against it because a rule preference
-// filtered the attack out. Dedupes by canonical key.
+// filtered the attack out. Retains each actual derivation.
 function getSuppressedAttackersOf(targetArgId) {
   const af = state.bundle.af;
   const target = getArgumentById(targetArgId);
@@ -3920,7 +3875,7 @@ function getSuppressedAttackersOf(targetArgId) {
   const seen = new Set();
   const out = [];
   for (const a of suppressed) {
-    const k = canonicalKey(a);
+    const k = gameArgumentKey(a);
     if (!seen.has(k)) { seen.add(k); out.push(a); }
   }
   return out;
@@ -3948,11 +3903,11 @@ function preferenceDisclosureFor(argId) {
 }
 
 function getGameCycleAttackers(node) {
-  const canonicalIds = getCanonicalAttackerIds(node.argId);
-  const usedKeys = getGameUsedCanonicalKeys(node);
-  return canonicalIds.filter(aid => {
+  const attackerIds = getGameAttackerIds(node.argId);
+  const usedKeys = getGameUsedArgumentIds(node);
+  return attackerIds.filter(aid => {
     const a = getArgumentById(aid);
-    return a && usedKeys.has(canonicalKey(a));
+    return a && usedKeys.has(gameArgumentKey(a));
   });
 }
 

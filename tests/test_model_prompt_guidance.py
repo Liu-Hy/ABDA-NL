@@ -140,3 +140,36 @@ def test_actual_edit_pipeline_keeps_guidance_scoped_to_observed_model_and_featur
         guidance = model_prompt_guidance(wrapped, feature)
         assert bool(guidance) is changed
         assert request["system"] == base + guidance
+
+
+@pytest.mark.parametrize("model", [
+    "claude-sonnet-5", "claude-opus-5", "gpt-5.6-terra", "gpt-5.6-sol",
+    "gemini-3.1-pro-preview", "gemini-3.8-flash", "glm-5.3", "kimi-k3",
+])
+def test_optional_field_reminder_reaches_only_affected_models_rule_modifications(model):
+    from app.llm.prompts import load_prompt
+
+    scenario = load_bundled_scenario("fire_prevention")
+    af = compute_state_bundle(scenario)["af"]
+    rule_id = next(iter(scenario.rules))
+
+    class ModifyingClient(CapturingClient):
+        def tool_call(self, **kwargs):
+            response = super().tool_call(**kwargs)
+            if kwargs["tool"]["name"] != "review_edit":
+                response.tool_input = {"id": rule_id, "rule": {"category": "monitoring"}}
+            return response
+
+    client = ModifyingClient(model)
+    wrapped = FailoverClient(RetryingClient(client, attempts=2), None, cooldown_seconds=0)
+    instruction = "Change only the category to monitoring."
+    run_propose(scenario, af, [], task="modify-rule", instruction=instruction,
+                existing_id=rule_id, scenario_dir=SCENARIO_DIR, client=wrapped)
+    reminder = "\n\n" + load_prompt("proposer_optional_fields").strip()
+    expected = build_proposer_system_prompt(
+        scenario, af, [], scenario_dir=SCENARIO_DIR, query=instruction,
+    ) + model_prompt_guidance(wrapped, "proposer")
+    if model in {"gemini-3.8-flash", "glm-5.3"}:
+        expected += reminder
+    assert client.requests[0]["system"] == expected
+    assert all(reminder not in request["system"] for request in client.requests[1:])

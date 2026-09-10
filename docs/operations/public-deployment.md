@@ -283,10 +283,12 @@ export ABDA_DEPLOY_OIDC_CLIENT_SECRET
 
 ## 5. Load application secrets and provider configuration
 
-Generate the three independent random secrets once, store them in the private
+Generate four independent random secrets once, store them in the private
 operator password manager, and reuse them during ordinary redeployments.
 Rotating the MCP pepper intentionally invalidates all MCP credentials. Use
-hidden prompts so none of the five secret values enters shell history.
+hidden prompts so secret values stay out of shell history. The credit eligibility
+key must remain stable for the program lifetime, including recovery images;
+changing it makes retained markers unusable and startup fails closed.
 
 ```bash
 read -rsp 'ABDA session secret: ' ABDA_DEPLOY_SESSION_SECRET
@@ -295,12 +297,24 @@ export ABDA_DEPLOY_SESSION_SECRET
 read -rsp 'ABDA MCP token pepper: ' ABDA_DEPLOY_MCP_TOKEN_PEPPER
 printf '\n'
 export ABDA_DEPLOY_MCP_TOKEN_PEPPER
+read -rsp 'Stable credit eligibility key: ' ABDA_DEPLOY_CREDIT_ELIGIBILITY_PEPPER
+printf '\n'
+export ABDA_DEPLOY_CREDIT_ELIGIBILITY_PEPPER
 read -rsp 'ABDA metrics bearer token: ' ABDA_DEPLOY_METRICS_TOKEN
 printf '\n'
 export ABDA_DEPLOY_METRICS_TOKEN
 
 export ABDA_DEPLOY_FOUNDRY_ENDPOINT='https://RESOURCE.services.ai.azure.com/anthropic'
-export ABDA_DEPLOY_CLAUDE_DEPLOYMENT='claude-sonnet-4-6'
+export ABDA_DEPLOY_FOUNDRY_OPENAI_ENDPOINT='https://RESOURCE.openai.azure.com'
+export ABDA_DEPLOY_CLAUDE_DEPLOYMENT='claude-sonnet-5'
+export ABDA_DEPLOY_FOUNDRY_OPUS_ENDPOINT='https://OPUS_RESOURCE.services.ai.azure.com'
+read -rsp 'Scoped Opus deployment key: ' ABDA_DEPLOY_FOUNDRY_OPUS_API_KEY
+printf '\n'
+export ABDA_DEPLOY_FOUNDRY_OPUS_API_KEY
+export ABDA_DEPLOY_GCP_PROJECT='CLOUDBANK_PROJECT'
+read -rsp 'Verified funded ADC JSON: ' ABDA_DEPLOY_GCP_ADC_JSON
+printf '\n'
+export ABDA_DEPLOY_GCP_ADC_JSON
 read -rsp 'CloudBank Foundry API key: ' ABDA_DEPLOY_FOUNDRY_API_KEY
 printf '\n'
 export ABDA_DEPLOY_FOUNDRY_API_KEY
@@ -313,11 +327,13 @@ export ABDA_DEPLOY_OPENROUTER_BUDGET_MICROUSD='500000000'
 For the currently validated route, obtain the endpoint from the private
 `ANTHROPIC_FOUNDRY_BASE_URL` or `ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT` value,
 the deployment name from
-`ANTHROPIC_FOUNDRY_CLAUDE_SONNET_4_6_MODEL`, and the key from
+`ANTHROPIC_FOUNDRY_CLAUDE_SONNET_5_MODEL`, and the key from
 `AZURE_OPENAI_API_KEY`. These are source names only. Never print their values
 to copy them from a shared terminal.
 
-The deployment uses the currently validated CloudBank primary. A newer model is
+The template supplies all public Azure and GCP routes, including the separate
+Opus credential and the funded ADC secret mount. The GCP project and ADC quota
+project must match the verified CloudBank billing setup. A newer model is
 not selected merely because it appears in the Foundry catalog. Follow
 [the model promotion runbook](model-promotion.md) after CloudBank deploys a
 candidate.

@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from app.scenario.loader import scenario_from_dict
+from app.scenario.loader import load_scenario, scenario_from_dict
 from app.scenario.portable import export_scenario
 from app.scenario.state import compute_state_bundle
 
@@ -89,7 +89,10 @@ def explorer_browser():
                 runtime["held"].append(route)
                 return
             status = runtime["chat_status"]
-            payload = response if status == 200 else {"detail": {"code": "llm_unavailable", "message": "Both model routes failed"}}
+            payload = response if status == 200 else runtime.get("chat_error", {"detail": {"code": "llm_unavailable", "message": "Both model routes failed"}})
+        elif path.endswith("/propose"):
+            status = runtime.get("propose_status", 503)
+            payload = runtime.get("propose_error", {"detail": {"code": "llm_unavailable", "message": "Both model routes failed"}})
         elif path == "/favicon.ico":
             route.fulfill(status=204)
             return
@@ -109,14 +112,20 @@ def explorer_browser():
         context.route("**/*", route_request)
         page = context.new_page()
         page.on("pageerror", lambda error: runtime["errors"].append(str(error)))
-        page.goto("http://abda.test/")
+        page.goto("https://abda.test/")
         expect(page.locator("#scenario-name")).to_have_text(scenario["title"])
         expect(page.locator("#chat-send-btn")).to_be_enabled()
+        _wait_for_history(page)
         yield page, runtime
         assert runtime["errors"] == []
         assert runtime["unexpected"] == []
         context.close()
         browser.close()
+
+
+def _wait_for_history(page, owner="researcher-a"):
+    page.wait_for_function("owner => conversationStore.owner === owner", arg=owner)
+    page.evaluate("() => conversationStore.ready")
 
 
 def test_question_insertion_preserves_draft_and_requires_explicit_submit(explorer_browser):
@@ -223,7 +232,8 @@ def test_history_export_snapshot_fork_reload_and_account_isolation(explorer_brow
     expect(page.locator("#chat-messages")).not_to_contain_text("Which conclusion changed?")
     expect(page.locator("#chat-input")).to_have_value("")
     page.locator("#chat-input").fill("Other account draft")
-    assert "Which conclusion changed?" not in page.evaluate("localStorage.getItem('abda-conversations-v1:researcher-b')")
+    page.evaluate("() => flushConversationWrites()")
+    assert "Which conclusion changed?" not in json.dumps(page.evaluate("() => conversationHistory.list('researcher-b')"))
     page.evaluate("""() => { state.authSession = {authenticated: false, auth_mode: 'dev', user: null}; renderAccountUI(); }""")
     expect(page.locator("#chat-input")).to_have_value("")
     expect(page.locator("#conversation-storage-note")).to_contain_text("this tab while signed out")
@@ -239,7 +249,7 @@ def test_individual_derivations_preserve_shared_top_rules_and_navigation(explore
     page.locator('[data-inspect-conclusion="c"]').click()
     select = page.locator("#derivation-argument-select")
     expect(select.locator("option")).to_have_count(len(bundle["af"]["arguments"]))
-    select.select_option(candidates[0]["id"])
+    expect(select).to_have_value(candidates[0]["id"])
     expect(page.locator(".derivation-summary")).to_contain_text(candidates[0]["id"])
     expect(page.locator("#derivation-body")).to_contain_text("Incoming attacks")
     expect(page.locator("#derivation-body")).to_contain_text("p, a => c [top]")
@@ -276,6 +286,37 @@ def test_provider_failure_preserves_question_and_non_llm_actions(explorer_browse
     assert len(runtime["chat_requests"]) == 2
 
 
+def test_provider_failure_drafts_reuse_immutable_snapshot_encoding(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    runtime["chat_status"] = 503
+    page.locator("#chat-input").fill("A question whose request fails")
+    page.locator("#chat-send-btn").click()
+    expect(page.locator("#chat-degraded-note")).to_be_visible()
+    page.evaluate("() => flushConversationWrites()")
+    page.evaluate("""async () => {
+        const digest = crypto.subtle.digest.bind(crypto.subtle);
+        window.__historyDigestCalls = 0;
+        crypto.subtle.digest = (...args) => {
+            window.__historyDigestCalls++;
+            return digest(...args);
+        };
+        for (const text of ['Revised draft', 'Another draft', 'Final saved draft']) {
+            document.querySelector('#chat-input').value = text;
+            saveConversationDraft();
+            await flushConversationWrites();
+        }
+    }""")
+    assert page.evaluate("window.__historyDigestCalls") == 0
+    saved = page.evaluate("() => conversationHistory.list('researcher-a')")
+    record = saved["records"][0]["record"]
+    assert record["draft"] == "Final saved draft"
+    assert len(record["snapshots"]) == 1
+    snapshot = next(iter(record["snapshots"].values()))
+    assert snapshot["scenario"]["scenario"]["sources"][0]["text"].startswith("Complete source text.")
+
+
 def test_mobile_stale_context_retains_text_and_makes_no_model_request(explorer_browser):
     from playwright.sync_api import expect
 
@@ -292,7 +333,7 @@ def test_mobile_stale_context_retains_text_and_makes_no_model_request(explorer_b
     assert runtime["chat_requests"] == []
     expect(page.locator("#chat-input")).to_have_value(draft)
     expect(page.locator("#global-status")).to_contain_text("earlier scenario state")
-    page.locator(".chat-context-chip button").click()
+    page.get_by_role("button", name=re.compile("^Remove .* from question context$")).click()
     expect(page.locator(".chat-context-chip")).to_have_count(0)
 
 
@@ -325,9 +366,374 @@ def test_new_delete_and_storage_failure_are_explicit(explorer_browser):
     expect(page.locator("#chat-input")).to_have_value("A saved draft")
     page.once("dialog", lambda dialog: dialog.accept())
     page.locator("#conversation-delete").click()
-    stored = page.evaluate("JSON.parse(localStorage.getItem('abda-conversations-v1:researcher-a'))")
-    assert original_id not in {record["id"] for record in stored["records"]}
-    page.evaluate("""() => { Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); }; }""")
+    page.wait_for_function("id => !conversationStore.records.some(record => record.id === id)", arg=original_id)
+    stored = page.evaluate("() => conversationHistory.list('researcher-a')")
+    assert original_id not in {item["record"]["id"] for item in stored["records"]}
+    page.evaluate("""() => {
+        window.__historySave = conversationHistory.save;
+        conversationHistory.save = async () => { throw new DOMException('Full', 'QuotaExceededError'); };
+    }""")
     page.locator("#chat-input").fill("Still editable when storage is full")
     expect(page.locator("#conversation-storage-note")).to_contain_text("History could not be saved")
     expect(page.locator("#chat-input")).to_have_value("Still editable when storage is full")
+    expect(page.locator("#conversation-export-all")).to_be_visible()
+    with page.expect_download() as recovery:
+        page.locator("#conversation-export-all").click()
+    exported = json.loads(Path(recovery.value.path()).read_text())
+    assert any(record["draft"] == "Still editable when storage is full" for record in exported["conversations"])
+    page.evaluate("() => { conversationHistory.save = window.__historySave; }")
+    page.locator("#conversation-retry-save").click()
+    expect(page.locator("#conversation-retry-save")).to_be_hidden()
+
+
+def test_cross_tab_history_keeps_concurrent_edits_and_deleted_records_stay_deleted(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    page.locator("#chat-input").fill("Original shared draft")
+    page.evaluate("() => flushConversationWrites()")
+    original_id = page.evaluate("conversationStore.activeId")
+    other = page.context.new_page()
+    other.goto("https://abda.test/")
+    expect(other.locator("#chat-input")).to_have_value("Original shared draft")
+    try:
+        page.locator("#chat-input").fill("Version from the first tab")
+        page.evaluate("clearTimeout(conversationStore.timer)")
+        other.locator("#chat-input").fill("Version from the second tab")
+        other.evaluate("clearTimeout(conversationStore.timer)")
+        page.evaluate("() => flushConversationWrites()")
+        other.evaluate("() => flushConversationWrites()")
+        saved = page.evaluate("() => conversationHistory.list('researcher-a')")
+        assert {item["record"]["draft"] for item in saved["records"]} == {
+            "Version from the first tab", "Version from the second tab",
+        }
+        expect(other.locator("#conversation-storage-note")).to_contain_text("Both versions were kept")
+        expect(page.locator("#conversation-select option")).to_have_count(2)
+        stale = next(item for item in saved["records"] if item["record"]["id"] == original_id)
+        page.locator("#conversation-select").select_option(original_id)
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("#conversation-delete").click()
+        page.wait_for_function("id => conversationStore.deleted.has(id)", arg=original_id)
+        result = other.evaluate("payload => conversationHistory.save('researcher-a', payload.record, payload.revision)", stale)
+        assert result["deleted"] is True
+        other.reload()
+        _wait_for_history(other)
+        saved = other.evaluate("() => conversationHistory.list('researcher-a')")
+        assert original_id not in {item["record"]["id"] for item in saved["records"]}
+        assert "Version from the second tab" in json.dumps(saved)
+    finally:
+        other.close()
+
+
+def test_creating_conversations_in_two_tabs_does_not_overwrite_other_history(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    other = page.context.new_page()
+    other.goto("https://abda.test/")
+    _wait_for_history(other)
+    try:
+        page.locator("#chat-input").fill("First independent conversation")
+        other.locator("#chat-input").fill("Second independent conversation")
+        page.evaluate("() => flushConversationWrites()")
+        other.evaluate("() => flushConversationWrites()")
+        page.locator("#chat-input").press("End")
+        page.locator("#chat-input").type(" updated")
+        page.evaluate("() => flushConversationWrites()")
+        saved = page.evaluate("() => conversationHistory.list('researcher-a')")
+        assert {item["record"]["draft"] for item in saved["records"]} == {
+            "First independent conversation updated", "Second independent conversation",
+        }
+        expect(page.locator("#conversation-select option")).to_have_count(2)
+    finally:
+        other.close()
+
+
+@pytest.mark.parametrize("transition", ["reset", "new", "delete", "account", "signout", "remote_delete"])
+def test_late_answers_keep_the_captured_history_without_resurrection_or_account_leaks(explorer_browser, transition):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    runtime["hold_chat"] = True
+    page.locator("#chat-input").fill("Question about the captured scenario")
+    page.locator("#chat-send-btn").click()
+    page.wait_for_function("activeConversation().messages.length === 1")
+    page.evaluate("() => flushConversationWrites()")
+    original_id = page.evaluate("conversationStore.activeId")
+    if transition == "reset":
+        page.locator("#reset-btn").click()
+    elif transition == "new":
+        page.locator("#conversation-new").click()
+    elif transition == "delete":
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.locator("#conversation-delete").click()
+        page.wait_for_function("id => conversationStore.deleted.has(id)", arg=original_id)
+    elif transition == "remote_delete":
+        page.evaluate("id => conversationHistory.remove('researcher-a', id)", original_id)
+    else:
+        page.evaluate("user => { state.authSession = {authenticated: !!user, user: user ? {id: user} : null}; renderAccountUI(); }",
+                      "researcher-b" if transition == "account" else None)
+    page.wait_for_timeout(50)
+    assert len(runtime["held"]) == 1
+    runtime["held"].pop().fulfill(status=200, content_type="application/json", body=json.dumps(runtime["response"]))
+    page.wait_for_function("!conversationStore.records.some(record => record.pending)")
+    page.evaluate("() => flushConversationWrites()")
+    if transition in {"reset", "new"}:
+        expect(page.locator("#chat-messages")).not_to_contain_text(runtime["response"]["message"])
+        page.locator("#conversation-select").select_option(original_id)
+        expect(page.locator("#chat-messages")).to_contain_text(runtime["response"]["message"])
+        expect(page.locator("#chat-messages")).to_contain_text("earlier scenario saved with this question")
+        page.reload()
+        expect(page.locator("#chat-messages")).to_contain_text(runtime["response"]["message"])
+    else:
+        awaitable = page.evaluate("() => conversationHistory.list('researcher-a')")
+        assert runtime["response"]["message"] not in json.dumps(awaitable)
+        expect(page.locator("#chat-messages")).not_to_contain_text(runtime["response"]["message"])
+
+
+def test_legacy_migration_shared_source_dedup_and_empty_drafts(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    portable = export_scenario(runtime["bundle"]["scenario"], None)
+    snapshot = {"scenario": portable, "af": runtime["bundle"]["af"], "pending_ops": [], "captured_at": "2026-09-10T00:00:00Z"}
+    record = {"id": "legacy-record", "title": "Legacy discussion", "draft": "Unsent legacy draft", "context_refs": [],
+              "messages": [{"role": "user", "content": "Saved legacy question", "snapshot_id": "s1"}],
+              "snapshots": {"s1": snapshot}}
+    page.evaluate("record => localStorage.setItem('abda-conversations-v1:researcher-a', JSON.stringify({version:1,active_id:record.id,records:[record]}))", record)
+    page.reload()
+    expect(page.locator("#chat-input")).to_have_value("Unsent legacy draft")
+    assert page.evaluate("localStorage.getItem('abda-conversations-v1:researcher-a')") is None
+    with page.expect_download() as download:
+        page.locator("#conversation-export").click()
+    exported = json.loads(Path(download.value.path()).read_text())["conversation"]
+    assert exported["snapshots"]["s1"] == snapshot
+    assert scenario_from_dict(exported["snapshots"]["s1"]["scenario"]["scenario"])
+    # A tab running the old assets may write v1 again after migration. Keep its
+    # later edits without overwriting the already migrated record.
+    late_legacy = deepcopy(record)
+    late_legacy["draft"] = "Later edit from an older tab"
+    page.evaluate("record => localStorage.setItem('abda-conversations-v1:researcher-a', JSON.stringify({version:1,active_id:record.id,records:[record]}))", late_legacy)
+    page.reload()
+    _wait_for_history(page)
+    migrated = page.evaluate("() => conversationHistory.list('researcher-a')")
+    assert {item["record"]["draft"] for item in migrated["records"]} == {
+        "Unsent legacy draft", "Later edit from an older tab",
+    }
+    page.evaluate("""async () => {
+        const original = structuredClone(activeConversation());
+        for (let index = 0; index < 8; index++) {
+            const record = structuredClone(original);
+            record.id = `distinct-${index}`;
+            record.snapshots.s1.scenario.scenario.title = `Scenario edit ${index}`;
+            await conversationHistory.save('researcher-a', record, 0);
+        }
+    }""")
+    parts = page.evaluate("""() => new Promise(resolve => {
+      const opening = indexedDB.open('abda-conversations',1);
+      opening.onsuccess = () => {
+        const read = opening.result.transaction('blobs').objectStore('blobs').getAll();
+        read.onsuccess = () => { opening.result.close(); resolve(read.result); };
+      };
+    })""")
+    assert sum("Complete source text." in part["data"] for part in parts) == 1
+    page.locator("#conversation-new").click()
+    for _ in range(4):
+        page.locator("#conversation-new").click()
+    assert page.evaluate("conversationStore.records.filter(record => !conversationHasContent(record)).length") == 1
+
+
+def test_stale_refresh_limit_and_forked_context_keep_editable_text(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    rule = page.locator('[data-context-kind="rule"][data-context-id="r1"]')
+    rule.click()
+    original = page.locator("#chat-input").input_value()
+    page.evaluate("() => { state.bundle = structuredClone(state.bundle); state.bundle.scenario.title = 'Changed'; renderAll(); }")
+    rule.click()
+    expect(page.locator("#chat-input")).to_have_value(original)
+    expect(page.locator(".chat-context-chip")).to_have_count(1)
+    expect(page.locator(".chat-context-stale")).to_have_count(0)
+    page.locator("#chat-send-btn").click()
+    expect(page.locator(".chat-msg-assistant")).to_contain_text("The claim is undecided")
+    page.get_by_role("button", name="Edit and fork with current scenario", exact=True).click()
+    expect(page.locator(".chat-context-stale")).to_have_count(1)
+    page.get_by_role("button", name="Refresh rule r1 for the current scenario").click()
+    expect(page.locator(".chat-context-stale")).to_have_count(0)
+    page.evaluate("() => { for (let i = 0; i < 24; i++) addQuestionDraft('Extra context', 'rule', `extra-${i}`); }")
+    expect(page.locator(".chat-context-chip")).to_have_count(24)
+    expect(page.locator("#global-status")).to_contain_text("up to 24 context items")
+    assert len(runtime["chat_requests"]) == 1
+
+
+def test_saved_context_uses_compact_state_signatures_without_losing_reload_identity(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    page.locator('[data-context-kind="rule"][data-context-id="r1"]').click()
+    page.locator('[data-context-kind="rule"][data-context-id="r2"]').click()
+    page.evaluate("() => flushConversationWrites()")
+    saved = page.evaluate("() => conversationHistory.list('researcher-a')")
+    refs = saved["records"][0]["record"]["context_refs"]
+    assert len(refs) == 2
+    assert refs[0]["scenario_signature"] == refs[1]["scenario_signature"]
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", refs[0]["scenario_signature"])
+    page.reload()
+    _wait_for_history(page)
+    page.evaluate("() => currentScenarioSignature().promise")
+    expect(page.locator(".chat-context-chip")).to_have_count(2)
+    expect(page.locator(".chat-context-stale")).to_have_count(0)
+
+
+def test_evidence_roles_cost_notice_and_announcements_do_not_conflate_assurance(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    runtime["response"]["billing_uncertain"] = True
+    runtime["response"]["evidence"] = [
+        {"kind": "source", "source": "record.txt", "quote": "Quotation", "start": 0, "end": 9, "verified": True, "evidence_role": "quotation"},
+        {"kind": "source", "source": "record.txt", "quote": "Context", "start": 9, "end": 16, "verified": True, "evidence_role": "context"},
+        {"kind": "source", "source": "record.txt", "quote": "Legacy", "start": 16, "end": 22, "verified": True},
+    ]
+    page.locator("#chat-input").fill("Inspect the evidence")
+    page.locator("#chat-send-btn").click()
+    expect(page.locator("#chat-messages")).to_contain_text("Cost conservatively assessed")
+    page.locator(".chat-evidence summary").click()
+    expect(page.locator(".chat-evidence")).to_contain_text("Quotation matched")
+    expect(page.locator(".chat-evidence")).to_contain_text("Suggested reading context")
+    expect(page.locator(".chat-evidence")).to_contain_text("Supplied source excerpt")
+    page.evaluate("""() => {
+        window.__announcementChanges = 0;
+        new MutationObserver(() => window.__announcementChanges++).observe(
+            document.querySelector('#chat-announcement'), {childList:true,subtree:true});
+        renderChat(); renderAll(); renderChat();
+    }""")
+    assert page.evaluate("window.__announcementChanges") == 0
+    assert page.locator("#chat-messages").get_attribute("aria-live") is None
+
+
+def test_changed_label_cue_survives_reduced_motion_and_unrelated_render(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    updated = deepcopy(runtime["bundle"]["scenario"])
+    updated["rules"]["objection"]["active"] = False
+    bundle = compute_state_bundle(scenario_from_dict(updated))
+    page.evaluate("bundle => { setBundle(bundle, {pulseLabels:true}); indexBundle(); renderAll(); }", bundle)
+    card = page.locator('[data-element-kind="conclusion"][data-element-id="c"]')
+    expect(card).to_contain_text("Status changed")
+    page.wait_for_timeout(1000)
+    page.evaluate("renderAll()")
+    expect(card).to_contain_text("Status changed")
+
+
+def test_explain_uses_actual_derivation_attacks_instead_of_sibling_edges(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    scenario = {
+        "title": "Different branches of one top rule", "facts": {"f": {"description": "A verified record"}},
+        "propositions": {"p": {"description": "A premise"}}, "conclusions": {"c": {"description": "The conclusion"}},
+        "rules": {
+            "ra": {"type": "defeasible", "premises": ["f"], "conclusion": "p"},
+            "rb": {"type": "strict", "premises": ["f"], "conclusion": "p"},
+            "top": {"type": "strict", "premises": ["p"], "conclusion": "c"},
+            "attack": {"type": "defeasible", "premises": ["f"], "conclusion": "-ra"},
+            "defense": {"type": "strict", "premises": ["f"], "conclusion": "ra"},
+        },
+    }
+    bundle = compute_state_bundle(scenario_from_dict(scenario))
+    roots = [arg for arg in bundle["af"]["arguments"] if arg["conclusion"] == "c"]
+    unattacked = next(arg for arg in roots if "rb" in arg["rules_used"])
+    attacked = next(arg for arg in roots if "ra" in arg["rules_used"])
+    attacker = next(arg for arg in bundle["af"]["arguments"] if arg["top_rule"] == "attack")
+    assert {edge["to"] for edge in bundle["af"]["attacks"] if edge["from"] == attacker["id"]} >= {attacked["id"]}
+    assert not any(edge["to"] == unattacked["id"] for edge in bundle["af"]["attacks"])
+    page.evaluate("bundle => { setBundle(bundle); indexBundle(); renderAll(); openExplainModal('c'); }", bundle)
+    expect(page.locator(".game-picker-card")).to_have_count(2)
+    page.locator(f'.game-picker-card[data-arg-id="{unattacked["id"]}"]').click()
+    assert page.evaluate("getGameCBs(gameNodes[gameRootId])") == []
+    page.evaluate("openExplainModal('c')")
+    page.locator(f'.game-picker-card[data-arg-id="{attacked["id"]}"]').click()
+    page.locator(f'[data-move="cb"][data-arg="{attacker["id"]}"]').click()
+    expect(page.locator(".game-attack-info")).to_contain_text("undercuts rule [ra]")
+
+
+@pytest.mark.parametrize("example", ["fire_prevention", "fried_chicken_v1", "fried_chicken_v2", "medical_ppi", "nba_rebuild", "popov_v_hayashi"])
+def test_inspector_initial_literal_is_correct_for_every_bundled_example(explorer_browser, example):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    bundle = compute_state_bundle(load_scenario(STATIC.parents[1] / "examples" / example / "scenario.yaml"))
+    page.evaluate("bundle => { setBundle(bundle); indexBundle(); renderAll(); }", bundle)
+    for literal in bundle["scenario"]["conclusions"]:
+        matches = [arg for arg in bundle["af"]["arguments"] if arg["conclusion"] == literal]
+        page.evaluate("literal => openDerivationForConclusion(literal)", literal)
+        if matches:
+            selected = page.locator("#derivation-argument-select").input_value()
+            assert selected in {arg["id"] for arg in matches}
+            expect(page.locator(".derivation-summary code")).to_have_text(literal)
+        else:
+            expect(page.locator("#derivation-argument-select")).to_have_value("")
+            expect(page.locator("#derivation-body")).to_contain_text("No derivation uses this element")
+        page.keyboard.press("Escape")
+
+
+def test_proposal_preview_exposes_changed_metadata_and_unavailable_review(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    page.evaluate("""() => {
+        const rule = state.bundle.scenario.rules.top;
+        rule.active = false; rule.block = 2; rule.source = 'Old memo';
+        rule.negated_description = 'Old negation';
+        openEditModal('modify-rule', 'top');
+        const replacement = {...rule, active:true, block:1, negated_description:'New negation'};
+        delete replacement.source;
+        _renderProposal({ op: {op: 'modify-rule', id:'top', rule: replacement},
+            reviewed:false, review_issues:[{severity:'warning',message:'The advisory review was unavailable.'}] });
+    }""")
+    preview = page.locator("#edit-preview")
+    expect(preview).to_contain_text("Status: Inactive → Active")
+    expect(preview).to_contain_text("Preference block: 2 → 1")
+    expect(preview).to_contain_text("Source: Old memo → None")
+    expect(preview).to_contain_text("Negated description: Old negation → New negation")
+    expect(preview).to_contain_text("Advisory review unavailable")
+
+
+@pytest.mark.parametrize("billing_uncertain", [False, True])
+def test_total_failures_show_only_confirmed_conservative_assessments(explorer_browser, billing_uncertain):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    detail = {"code": "llm_unavailable", "message": "Both model routes failed"}
+    if billing_uncertain:
+        detail["billing_uncertain"] = True
+    runtime["chat_status"] = 503
+    runtime["chat_error"] = {"detail": detail}
+    runtime["propose_error"] = {"detail": detail}
+    page.locator("#chat-input").fill("Keep this question after an outage")
+    page.locator("#chat-send-btn").click()
+    expect(page.locator("#chat-degraded-note")).to_be_visible()
+    expect(page.locator("#chat-input")).to_have_value("Keep this question after an outage")
+    chat = page.locator(".chat-msg-assistant")
+    if billing_uncertain:
+        expect(chat).to_contain_text("Cost conservatively assessed")
+        expect(page.locator("#chat-announcement")).to_contain_text("Cost conservatively assessed")
+    else:
+        expect(chat).not_to_contain_text("Cost conservatively assessed")
+    assert "$" not in chat.inner_text()
+    page.evaluate("openEditModal('modify-rule', 'top')")
+    instruction = "Keep this edit instruction after an outage"
+    page.locator("#edit-instruction").fill(instruction)
+    page.locator('[data-edit-action="propose"]').click()
+    expect(page.locator("#edit-status")).to_contain_text("Both model routes failed")
+    if billing_uncertain:
+        expect(page.locator("#edit-status")).to_contain_text("Cost conservatively assessed")
+    else:
+        expect(page.locator("#edit-status")).not_to_contain_text("Cost conservatively assessed")
+    expect(page.locator("#edit-instruction")).to_have_value(instruction)
+    assert page.evaluate("editState.lastProposal") is None
+    expect(page.locator("#edit-preview")).to_be_empty()
+    assert "$" not in page.locator("#edit-status").inner_text()

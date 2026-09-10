@@ -15,11 +15,13 @@ import httpx
 
 from app.llm.catalog import ModelSpec
 from app.llm.client import (
+    LLMClientConfigurationError,
     LLMRequestDeadlineError,
     LLMResponse,
     ToolCallResponse,
     remaining_request_seconds,
     request_timeout,
+    resolved_model_version,
 )
 
 
@@ -456,6 +458,10 @@ class OpenAICompatibleClient:
         if self.provider_preferences:
             payload["provider"] = self.provider_preferences
         payload[self.model_spec.max_token_field] = max_tokens
+        if self.provider == "openrouter" and self.model_spec.family == "google":
+            # Preserve the decoding setting qualified through Vertex. Keep this
+            # explicit because an omitted value uses the upstream default.
+            payload["temperature"] = 0
         effort = self.model_spec.reasoning_effort
         if effort and self.provider == "openrouter" and self.model_spec.family in {
             "openai", "google", "z-ai", "moonshotai",
@@ -551,6 +557,7 @@ class OpenAICompatibleClient:
             usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("model") or self.model),
+            resolved_model_version=resolved_model_version(data.get("model")),
             provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
@@ -659,6 +666,7 @@ class OpenAICompatibleClient:
             usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("model") or self.model),
+            resolved_model_version=resolved_model_version(data.get("model")),
             provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
@@ -802,6 +810,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
             usage=self._responses_usage(data),
             latency_ms=latency_ms,
             model=str(data.get("model") or self.model),
+            resolved_model_version=resolved_model_version(data.get("model")),
             provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
@@ -890,6 +899,7 @@ class OpenAIResponsesClient(OpenAICompatibleClient):
             usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("model") or self.model),
+            resolved_model_version=resolved_model_version(data.get("model")),
             provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
@@ -1079,6 +1089,7 @@ class GeminiClient:
             usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("modelVersion") or self.model),
+            resolved_model_version=resolved_model_version(data.get("modelVersion")),
             provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
@@ -1149,6 +1160,7 @@ class GeminiClient:
             usage=usage,
             latency_ms=latency_ms,
             model=str(data.get("modelVersion") or self.model),
+            resolved_model_version=resolved_model_version(data.get("modelVersion")),
             provider=self.provider,
             billing_source=self.billing_source,
             route=self.route,
@@ -1190,6 +1202,7 @@ class VertexGeminiClient(GeminiClient):
         token = (os.getenv("GOOGLE_VERTEX_ACCESS_TOKEN") or "").strip()
         if token:
             return token
+        from google.auth.exceptions import DefaultCredentialsError
         try:
             import google.auth
             from google.auth.transport.requests import Request
@@ -1215,6 +1228,10 @@ class VertexGeminiClient(GeminiClient):
             return str(self._credentials.token)
         except LLMRequestDeadlineError:
             raise
+        except DefaultCredentialsError as exc:
+            # Failed ADC discovery is absent local configuration, not evidence
+            # that a configured authentication service rejected a request.
+            raise LLMClientConfigurationError("CloudBank GCP credentials are not configured") from exc
         except Exception as exc:
             raise LLMProviderError(
                 "CloudBank GCP authentication is unavailable", provider=self.provider,

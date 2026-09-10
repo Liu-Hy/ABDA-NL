@@ -120,6 +120,8 @@ class Settings:
     scenario_admin_emails: tuple[str, ...] = ()
     community_catalog_enabled: bool = True
     named_credit_auto_activate: bool = True
+    credit_eligibility_pepper: str = LOCAL_SESSION_SECRET
+    llm_allow_legacy_development: bool = False
 
     @property
     def is_production(self) -> bool:
@@ -196,6 +198,9 @@ class Settings:
             mcp_token_pepper=(
                 os.getenv("ABDA_MCP_TOKEN_PEPPER") or session_secret
             ).strip(),
+            credit_eligibility_pepper=(
+                os.getenv("ABDA_CREDIT_ELIGIBILITY_PEPPER") or session_secret
+            ).strip(),
             public_base_url=public_base_url,
             oidc_metadata_url=(os.getenv("ABDA_OIDC_METADATA_URL") or "").strip() or None,
             oidc_issuer=(os.getenv("ABDA_OIDC_ISSUER") or "").strip().rstrip("/") or None,
@@ -217,6 +222,9 @@ class Settings:
                 os.getenv("ABDA_LLM_DEFAULT_PROFILE") or "balanced"
             ).strip().lower(),
             llm_allow_byok=_truthy(os.getenv("ABDA_LLM_ALLOW_BYOK"), default=True),
+            llm_allow_legacy_development=_truthy(
+                os.getenv("ABDA_LLM_ALLOW_LEGACY_DEVELOPMENT"), default=False
+            ),
             llm_require_auth=_truthy(
                 os.getenv("ABDA_LLM_REQUIRE_AUTH"),
                 default=environment in {"staging", "production"},
@@ -278,6 +286,8 @@ class Settings:
             raise RuntimeError("ABDA_SESSION_SECRET must contain at least 32 characters")
         if len(self.mcp_token_pepper) < 32:
             raise RuntimeError("ABDA_MCP_TOKEN_PEPPER must contain at least 32 characters")
+        if len(self.credit_eligibility_pepper) < 32:
+            raise RuntimeError("ABDA_CREDIT_ELIGIBILITY_PEPPER must contain at least 32 characters")
         if self.trial_max_users * self.trial_grant_microusd > self.trial_budget_microusd:
             raise RuntimeError(
                 "trial user count multiplied by per-user grant exceeds the trial budget"
@@ -325,6 +335,8 @@ class Settings:
             if missing:
                 raise RuntimeError(f"OIDC mode requires {', '.join(missing)}")
         if self.environment in {"staging", "production"}:
+            if self.llm_allow_legacy_development:
+                raise RuntimeError("legacy direct LLM access is restricted to development and test")
             if self.auth_mode != "oidc":
                 raise RuntimeError("staging and production require ABDA_AUTH_MODE=oidc")
             if not self.llm_require_auth:
@@ -346,6 +358,16 @@ class Settings:
             if self.mcp_token_pepper == self.session_secret:
                 raise RuntimeError(
                     "ABDA_MCP_TOKEN_PEPPER must differ from ABDA_SESSION_SECRET"
+                )
+            if not (os.getenv("ABDA_CREDIT_ELIGIBILITY_PEPPER") or "").strip():
+                raise RuntimeError(
+                    "staging and production require ABDA_CREDIT_ELIGIBILITY_PEPPER"
+                )
+            if self.credit_eligibility_pepper in {
+                LOCAL_SESSION_SECRET, self.session_secret, self.mcp_token_pepper,
+            }:
+                raise RuntimeError(
+                    "ABDA_CREDIT_ELIGIBILITY_PEPPER must be a distinct, stable secret"
                 )
             if not self.public_base_url:
                 raise RuntimeError("staging and production require an HTTPS public base URL")

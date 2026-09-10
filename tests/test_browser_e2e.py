@@ -1659,7 +1659,7 @@ def test_logout_discards_an_in_flight_private_workspace_refresh(
             browser.close()
 
 
-def test_switching_scenarios_discards_an_in_flight_chat_response(
+def test_switching_scenarios_preserves_an_in_flight_answer_in_its_conversation(
     live_browser_server,
 ):
     from playwright.sync_api import expect, sync_playwright
@@ -1712,12 +1712,17 @@ def test_switching_scenarios_discards_an_in_flight_chat_response(
             expect(page.locator("#scenario-name")).to_have_text("Prescribed Burn")
             assert page.evaluate("state.chatMessages.length") == 0
             assert page.evaluate("state.chatPending") is False
-            assert "Private answer from the old scenario" not in page.locator("body").inner_text()
+            assert "Private answer from the old scenario" not in page.locator("#chat-messages").inner_text()
+            saved = page.evaluate("conversationStore.records.find(record => record.messages.some(message => message.content === 'Private answer from the old scenario'))")
+            assert saved["messages"][-1]["earlier_state"] is True
+            page.locator("#conversation-select").select_option(saved["id"])
+            expect(page.locator("#chat-messages")).to_contain_text("Private answer from the old scenario")
+            expect(page.locator("#chat-messages")).to_contain_text("earlier scenario saved with this question")
         finally:
             browser.close()
 
 
-def test_editing_the_current_scenario_discards_an_in_flight_chat_response(
+def test_editing_the_current_scenario_labels_an_in_flight_answer_as_earlier_state(
     live_browser_server,
 ):
     from playwright.sync_api import expect, sync_playwright
@@ -1770,11 +1775,11 @@ def test_editing_the_current_scenario_discards_an_in_flight_chat_response(
                 }"""
             )
 
-            assert "Answer computed from the state before the edit" not in page.locator(
-                "body"
-            ).inner_text()
             expect(page.locator("#chat-messages")).to_contain_text(
-                "The scenario changed before this answer arrived"
+                "Answer computed from the state before the edit"
+            )
+            expect(page.locator("#chat-messages")).to_contain_text(
+                "earlier scenario saved with this question"
             )
             assert page.evaluate("state.chatPending") is False
         finally:

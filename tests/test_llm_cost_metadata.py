@@ -12,8 +12,7 @@ from app.llm.catalog import load_model_catalog
 from app.llm.client import LLMResponse, ToolCallResponse
 from app.llm.providers import LLMProviderError
 from app.llm.routing import (
-    CallContext, CircuitRegistry, FailoverClient, MeteredClient, RetryingClient,
-    _UnavailableVerifiedRoute,
+    CallContext, CircuitRegistry, FailoverClient, LLMRouteConfigurationError, MeteredClient, RetryingClient,
 )
 
 
@@ -127,6 +126,7 @@ def test_retry_response_includes_known_or_conservative_failure_cost(billed_clien
         assert costs[0] == 7
     assert response.cost_microusd == sum(costs) == h.client.settled_cost_microusd
     assert response.provider_cost_microusd == 11
+    assert response.billing_uncertain is uncertain
     assert len(h.primary_raw.calls) == 2 and h.backup_raw.calls == []
 
 
@@ -161,20 +161,40 @@ def test_open_circuit_reports_only_new_backup_cost(billed_clients):
 
 
 @pytest.mark.parametrize('verified', [False, True])
-def test_configuration_placeholder_never_invents_a_primary_charge(billed_clients, verified):
+def test_missing_configuration_never_authorizes_a_backup_charge(billed_clients, verified):
     h = billed_clients([], [11])
-    client = FailoverClient(_UnavailableVerifiedRoute(h.route), h.backup,
+    class Unconfigured:
+        model = h.route.model
+        route = h.route.id
+        provider = h.route.provider
+        settled_cost_microusd = 0
+
+        def complete(self, **_kwargs):
+            raise LLMRouteConfigurationError('configuration is unavailable')
+
+    client = FailoverClient(Unconfigured(), h.backup,
                             cooldown_seconds=60, circuits=h.circuits, primary_verified=verified)
-    if verified:
-        response = invoke(client)
-        assert response.cost_microusd == sum(ledger(h)) == 11
-        assert client.settled_cost_microusd == 11
-    else:
-        with pytest.raises(LLMProviderError, match='configuration is unavailable'):
-            invoke(client)
-        assert ledger(h) == [] and h.backup_raw.calls == []
-        assert client.settled_cost_microusd == 0
+    with pytest.raises(LLMRouteConfigurationError, match='configuration is unavailable'):
+        invoke(client)
+    assert ledger(h) == [] and h.backup_raw.calls == []
+    assert client.settled_cost_microusd == 0
     assert h.primary_raw.calls == []
+
+
+def test_runtime_missing_local_credential_releases_reservation_without_a_usage_event(billed_clients, monkeypatch):
+    from app.llm.client import LLMClientConfigurationError
+
+    h = billed_clients([], [11])
+    h.primary_raw.request_dispatched = False
+
+    def missing(**_kwargs):
+        raise LLMClientConfigurationError("local credentials missing")
+
+    monkeypatch.setattr(h.primary_raw, "complete", missing)
+    with pytest.raises(LLMRouteConfigurationError):
+        invoke(h.client)
+    assert ledger(h) == []
+    assert h.primary.settled_cost_microusd == 0 and not h.backup_raw.calls
 
 
 def test_failed_request_cost_is_not_reused_by_later_success(billed_clients):
@@ -185,6 +205,22 @@ def test_failed_request_cost_is_not_reused_by_later_success(billed_clients):
     response = invoke(h.client)
     assert response.cost_microusd == 5
     assert h.client.settled_cost_microusd == sum(ledger(h)) == 22
+
+
+def test_billing_uncertainty_does_not_leak_into_later_calls(billed_clients):
+    h = billed_clients([outage(uncertain=True), 11, 13])
+    first = invoke(h.client)
+    later = invoke(h.client)
+    assert first.billing_uncertain
+    assert not later.billing_uncertain
+
+
+def test_primary_uncertain_charge_is_visible_on_backup_success(billed_clients, caplog):
+    h = billed_clients([outage(uncertain=True), outage()], [11])
+    response = invoke(h.client)
+    assert response.billing_uncertain
+    assert response.cost_microusd == sum(ledger(h))
+    assert "llm_fallback_spend route=cost-backup cost_microusd=11" in caplog.text
 
 
 @pytest.mark.parametrize('provider_failed', [False, True])

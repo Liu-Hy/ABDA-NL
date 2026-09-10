@@ -148,11 +148,11 @@ def _validated_routes(router: LLMRouter) -> tuple[str, str]:
     if primary is None or fallback is None:
         raise OutageDrillError("the configured profile needs a primary and fallback route")
     if (primary.provider not in {"azure-foundry", "gcp-vertex"}
-            or primary.billing_source != "cloudbank" or not primary.verified):
-        raise OutageDrillError("the configured CloudBank route is not verified")
+            or primary.billing_source != "cloudbank" or not primary.funded_feature_qualified):
+        raise OutageDrillError("the configured CloudBank route is not feature-qualified")
     if (fallback.provider != "openrouter" or fallback.billing_source != "openrouter-emergency"
-            or not fallback.verified):
-        raise OutageDrillError("the configured OpenRouter emergency route is not verified")
+            or not (fallback.metadata_confirmed and fallback.configuration_confirmed)):
+        raise OutageDrillError("the configured OpenRouter route lacks metadata or configuration confirmation")
     if primary.model != fallback.model:
         raise OutageDrillError("the primary and fallback must use the same model")
     return primary.id, fallback.id

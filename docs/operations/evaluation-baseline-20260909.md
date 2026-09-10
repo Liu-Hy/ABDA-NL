@@ -632,3 +632,23 @@ demonstrated failure. This is application qualification with an iterative
 development history, not a claim of a universal untouched holdout, general
 model ranking or guaranteed correctness of future answers. Hosted rollout
 and native-client acceptance retain their separately scoped receipts.
+
+
+## Traceability correction after the consolidated review
+
+The GLM proposer provenance reminder has direct failure evidence, in addition
+to its separately diagnosed explicit-field omissions. In
+`artifacts/evals/full-qualification-final-20260909/cloudbank-glm-5.3.json`,
+`propose-fire-monitor-fact:1` attributes the newly stipulated temporary monitor
+to documents about an existing monitor (evidence hash
+`9d063ecef9229a30091ef6d22858f9f4187ce0c980699aa3fb57da2c76ec6627`).
+`propose-medical-alternative-assumption:2` attributes the new patient-specific
+assumption to general drug-class guidance (evidence hash
+`26abb3670a84a23b6eee358ab473fcb355930f401347afd8dbfae78d96ec3fed`).
+The original agent assessments mark both as unsupported provenance. The report
+SHA-256 is `09d9d8a6d141d6c2581c4f4a4adaac05398109d4227ce07de98f100e5ec1f5db`;
+its `glm-evaluation-answer-reviews.json` SHA-256 is
+`779861659c4cc29ae21eb511e31068dbf6a8a00bb2e0f5819004410724c98577`.
+These immutable records justify retaining the short shared provenance rule.
+Earlier wording that summarized only GLM field loss was incomplete. No new
+prompt tuning or inference was needed to establish this provenance.

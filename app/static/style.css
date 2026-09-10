@@ -739,6 +739,7 @@ body.llm-disabled .left-panel { width: 100%; }
 .conversation-toolbar { display: flex; flex-wrap: wrap; gap: .35rem; padding: .45rem .7rem; border-bottom: 1px solid var(--border); }
 .conversation-toolbar select { flex: 1 1 120px; min-width: 0; max-width: 100%; font: inherit; font-size: .76rem; padding: .35rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .conversation-storage-note { font-size: .69rem; line-height: 1.4; color: var(--text-dim); padding: .3rem .75rem; }
+.label-change-note { display: block; margin-top: .15rem; font-size: .7rem; font-weight: 600; color: var(--text-dim); }
 .chat-degraded-note { font-size: .78rem; line-height: 1.4; padding: .6rem .75rem; background: #fff4d8; border-block: 1px solid #d6b354; color: #59460e; }
 .chat-context-items { display: flex; flex-wrap: wrap; gap: .3rem; grid-column: 1 / -1; grid-row: 1; align-self: start; }
 .chat-context-items:empty { display: none; }

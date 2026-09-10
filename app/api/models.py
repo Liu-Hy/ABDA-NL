@@ -226,6 +226,8 @@ class ChatUsage(BaseModel):
 
 
 class ChatResponse(_StrictModel):
+    billing_uncertain: bool = False
+    resolved_model_version: str | None = None
     message: str
     stop_reason: str
     model: str
@@ -278,6 +280,8 @@ class SaveScenarioResponse(_StrictModel):
     af: dict
 
 class ProposeResponse(_StrictModel):
+    billing_uncertain: bool = False
+    resolved_model_version: str | None = None
     op: dict  # a ready-to-apply diff_op
     stop_reason: str
     model: str

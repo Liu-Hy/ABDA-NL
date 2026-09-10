@@ -125,10 +125,13 @@
         <button class="btn btn-small" id="conversation-new" type="button">New</button>
         <button class="btn btn-small" id="conversation-export" type="button">Export</button>
         <button class="btn btn-small" id="conversation-delete" type="button">Delete</button>
+        <button class="btn btn-small" id="conversation-export-all" type="button" hidden>Export all</button>
+        <button class="btn btn-small" id="conversation-retry-save" type="button" hidden>Retry saving</button>
       </div>
       <div class="conversation-storage-note" id="conversation-storage-note" role="status"></div>
       <div class="chat-degraded-note" id="chat-degraded-note" role="status" hidden></div>
-      <div class="chat-messages" id="chat-messages" tabindex="0" aria-label="Conversation" aria-live="polite"></div>
+      <div class="chat-messages" id="chat-messages" tabindex="0" aria-label="Conversation"></div>
+      <div class="visually-hidden" id="chat-announcement" role="status" aria-live="polite" aria-atomic="true"></div>
       <div class="h-resize-handle" id="h-resize-chat" title="Drag or use arrow keys to resize" tabindex="0" role="separator" aria-label="Resize chat history and message composer" aria-controls="chat-messages chat-input-area" aria-orientation="horizontal" aria-valuemin="10" aria-valuemax="50" aria-valuenow="20"></div>
       <div class="chat-input-area" id="chat-input-area">
         <div class="chat-context-items" id="chat-context-items" aria-label="Selected question context"></div>
@@ -199,7 +202,7 @@
                 <div class="workspace-section-heading">
                   <div>
                     <h3>Funded model trial</h3>
-                    <p>Eligible users can claim $5 of metered CloudBank-funded usage.</p>
+                    <p>Eligible users can claim $5 of metered CloudBank-funded usage once. Account deletion does not renew eligibility.</p>
                   </div>
                   <button class="btn btn-primary" id="trial-activate-btn" type="button">Activate trial</button>
                 </div>
@@ -357,7 +360,7 @@
                   <legend>Permissions</legend>
                   <label><input type="checkbox" name="mcp-scope" value="projects:read" checked> Read examples and private projects</label>
                   <label><input type="checkbox" name="mcp-scope" value="projects:write" checked> Create and update private projects</label>
-                  <label><input type="checkbox" name="mcp-scope" value="llm:use" checked> Use metered model tools</label>
+                  <label><input type="checkbox" name="mcp-scope" value="llm:use" checked> Read your project content and use metered model tools</label>
                 </fieldset>
                 <button class="btn btn-primary" type="submit">Create token</button>
               </form>
@@ -697,6 +700,7 @@
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
+  <script src="conversation-storage.js"></script>
   <script src="exploration.js"></script>
   <script src="workspace.js"></script>
   <script src="scenarios.js"></script>

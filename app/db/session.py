@@ -21,6 +21,7 @@ from app.db.models import Base, EmergencyBudget, TrialProgram
 
 log = logging.getLogger(__name__)
 LEGACY_SCHEMA_REVISIONS = (
+    "20260910_0007",
     "20260909_0006",
     "20260908_0005",
     "20260817_0004",
@@ -339,7 +340,10 @@ def initialize_database() -> None:
     if not settings.auto_create_database:
         _require_current_database_revision(engine, settings.database_url)
     db_inspector = inspect(engine)
-    required = {"trial_programs", "emergency_budgets", "rate_limit_buckets", "named_credit_entitlements"}
+    required = {
+        "trial_programs", "emergency_budgets", "rate_limit_buckets",
+        "named_credit_entitlements", "credit_eligibility_policies", "credit_eligibility_markers",
+    }
     missing = sorted(name for name in required if not db_inspector.has_table(name))
     if missing:
         raise RuntimeError(
@@ -390,11 +394,13 @@ def initialize_database() -> None:
         session.commit()
 
     from app.services.llm_billing import reconcile_stale_llm_reservations
+    from app.services.credit_eligibility import initialize_credit_eligibility
     from app.services.rate_limits import delete_expired_rate_limits
     from app.services.trials import initialize_named_credit
 
     with get_session_factory()() as session:
         initialize_named_credit(session)
+        initialize_credit_eligibility(session)
         session.commit()
     with get_session_factory()() as session:
         reconcile_stale_llm_reservations(session)
@@ -412,6 +418,8 @@ def database_is_ready() -> bool:
             or not db_inspector.has_table("emergency_budgets")
             or not db_inspector.has_table("rate_limit_buckets")
             or not db_inspector.has_table("named_credit_entitlements")
+            or not db_inspector.has_table("credit_eligibility_policies")
+            or not db_inspector.has_table("credit_eligibility_markers")
         ):
             return False
         with get_session_factory()() as session:

@@ -16,7 +16,10 @@ from app.core.config import Settings, get_settings
 from app.db.models import User
 from app.llm import LLMClient, LLMResponseValidationError, resolve_backend
 from app.llm.catalog import ModelCatalog, ProfileSpec, load_model_catalog
-from app.llm.client import resolve_claude_provider
+from app.llm.client import (
+    LLMAccountingUnavailableError, LLMRequestDeadlineError,
+    LLMRequestValidationError, resolve_claude_provider,
+)
 from app.llm.providers import LLMProviderError
 from app.llm.routing import (
     BYOKCredential,
@@ -49,6 +52,9 @@ HANDLED_LLM_ERRORS = (
     LLMAccessError,
     BYOKValidationError,
     LLMRouteConfigurationError,
+    LLMAccountingUnavailableError,
+    LLMRequestDeadlineError,
+    LLMRequestValidationError,
     LLMProviderError,
     LLMResponseValidationError,
     InsufficientTrialCreditError,
@@ -101,7 +107,7 @@ def _profile_for_request(
         raise LLMAccessError(
             status.HTTP_400_BAD_REQUEST,
             "model_profile_not_ready",
-            "The selected model profile has not passed the public quality gate.",
+            "The selected model profile is not available for public use.",
         )
     return profile
 
@@ -111,6 +117,10 @@ def _should_use_router(options: LLMRequestOptions | None, settings: Settings) ->
         return True
     if settings.environment in {"staging", "production"}:
         return True
+    if not settings.llm_allow_legacy_development:
+        return True
+    # Explicit development-only compatibility for local Ollama and legacy
+    # demos. Public requests always use the qualified, metered routing layer.
     return resolve_backend() == "claude" and resolve_claude_provider() == "foundry"
 
 
@@ -218,7 +228,17 @@ def build_llm_config(
     )
 
 
-def llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
+def llm_http_exception(
+    exc: Exception, *, byok: bool, billing_uncertain: bool = False,
+) -> HTTPException:
+    """Include a settled uncertainty notice without exposing provider diagnostics."""
+    response = _llm_http_exception(exc, byok=byok)
+    if billing_uncertain and isinstance(response.detail, dict):
+        response.detail["billing_uncertain"] = True
+    return response
+
+
+def _llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
     """Map expected provider and accounting failures to sanitized responses."""
     if isinstance(exc, LLMAccessError):
         return HTTPException(
@@ -233,10 +253,30 @@ def llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
                 "message": "The selected BYOK provider or model is not supported.",
             },
         )
+    if isinstance(exc, LLMRequestValidationError):
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "llm_request_too_large",
+                "message": "The request exceeds this model's input or output limits. "
+                "Shorten the conversation or use less source material.",
+            },
+        )
     if isinstance(exc, InsufficientTrialCreditError):
         return HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={"code": "trial_credit_required", "message": str(exc)},
+        )
+    if isinstance(exc, LLMRequestDeadlineError) or (
+        isinstance(exc, LLMProviderError) and exc.error_type == "request_deadline"
+    ):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "llm_request_deadline",
+                "message": "The AI request reached its time limit. Check your balance before retrying.",
+            },
+            headers={"Retry-After": "30"},
         )
     if isinstance(exc, LLMProviderError) and byok:
         response_headers: dict[str, str] | None = None
@@ -298,7 +338,7 @@ def llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
     elif isinstance(exc, TrialUnavailableError):
         code = "trial_unavailable"
         message = "Funded model access is temporarily unavailable."
-    elif isinstance(exc, (UsageReservationError, EmergencyReservationError)):
+    elif isinstance(exc, (UsageReservationError, EmergencyReservationError, LLMAccountingUnavailableError)):
         code = "usage_accounting_unavailable"
         message = (
             "Usage accounting is temporarily unavailable. The request may have used "

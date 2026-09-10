@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from dataclasses import replace
 import os
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
@@ -24,11 +25,17 @@ from app.db.session import (
     initialize_database,
     reset_database_caches,
 )
-from app.db.models import Identity, LLMUsageEvent, RateLimitBucket, User, utc_now
+from app.db.models import (
+    CreditEligibilityMarker, EmergencyBudget, EmergencyUsageReservation, Identity,
+    LLMUsageEvent, RateLimitBucket, TrialGrant, TrialProgram, UsageReservation, User, utc_now,
+)
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.serialize import scenario_to_dict
 from app.services.accounts import IdentityError, upsert_verified_identity
-from app.services.llm_billing import reserve_llm_call, settle_llm_call, usage_event
+from app.services.credit_eligibility import claim_credit_eligibility
+from app.services.llm_billing import (
+    reconcile_stale_llm_reservations, reserve_llm_call, settle_llm_call, usage_event,
+)
 from app.services.mcp_tokens import (
     MCPTokenError,
     authenticate_mcp_token,
@@ -50,6 +57,7 @@ from app.services.projects import (
 )
 from app.services.rate_limits import consume_rate_limit
 from app.services.trials import (
+    AutomaticCreditUnavailableError,
     TrialUnavailableError,
     activate_trial,
     reserve_trial_credit,
@@ -70,6 +78,7 @@ def _configure_staging(monkeypatch, database_url: str) -> None:
         "ABDA_AUTO_CREATE_DB": "0",
         "ABDA_SESSION_SECRET": "postgres-test-session-secret-at-least-32-characters",
         "ABDA_MCP_TOKEN_PEPPER": "postgres-test-mcp-pepper-different-and-long-enough",
+        "ABDA_CREDIT_ELIGIBILITY_PEPPER": "postgres-test-stable-eligibility-pepper-distinct-and-long",
         "ABDA_METRICS_TOKEN": "postgres-test-metrics-token-at-least-32-characters",
         "ABDA_PUBLIC_BASE_URL": "https://staging.example.test",
         "ABDA_TRUSTED_HOSTS": "staging.example.test",
@@ -261,6 +270,173 @@ def _assert_privacy_suspension_closes_stale_mutations() -> None:
         assert receipt.deleted_project_count == 1
 
 
+def _concurrent_database_calls(action, *, workers: int = 4):
+    """Exercise independent transactions, with bounded waits if locking regresses."""
+    barrier = Barrier(workers)
+
+    def invoke(index: int):
+        with get_session_factory()() as session:
+            session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            session.execute(text("SET LOCAL statement_timeout = '10s'"))
+            barrier.wait(timeout=10)
+            return action(session, index)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        return list(executor.map(invoke, range(workers)))
+
+
+def _assert_concurrent_eligibility_claim_and_deletion_preserve_lifetime_limit() -> None:
+    suffix = uuid4().hex
+    email = f"postgres-eligibility-{suffix}@example.edu"
+    with get_session_factory()() as session:
+        program = session.get(TrialProgram, "global")
+        before = (program.activation_count, program.allocated_microusd)
+        user = upsert_verified_identity(
+            session, issuer="https://identity.example.test", subject=f"eligibility-{suffix}",
+            email=email, email_verified=True,
+        )
+        user_id = user.id
+
+    def claim(session, _index):
+        # Call the marker service directly so an outer account lock cannot
+        # hide races between PostgreSQL's absent-row upserts.
+        claim_credit_eligibility(session, session.get(User, user_id))
+        session.commit()
+
+    _concurrent_database_calls(claim)
+    with get_session_factory()() as session:
+        markers = list(session.scalars(select(CreditEligibilityMarker).where(
+            CreditEligibilityMarker.user_id == user_id,
+        )))
+        retained = {marker.digest for marker in markers}
+        assert len(markers) == 2
+        assert {marker.kind for marker in markers} == {"email", "identity"}
+
+    def activate(session, _index):
+        return activate_trial(session, session.get(User, user_id)).granted_microusd
+
+    assert _concurrent_database_calls(activate) == [5_000_000] * 4
+    with get_session_factory()() as session:
+        assert session.scalar(select(func.count(TrialGrant.user_id)).where(
+            TrialGrant.user_id == user_id,
+        )) == 1
+        prepare_privacy_deletion(session, email, request_reference="POSTGRES-ELIGIBILITY-001")
+        receipt = delete_privacy_account(
+            session, email, request_reference="POSTGRES-ELIGIBILITY-001",
+        )
+        assert receipt.retained_credit_eligibility_marker_count == 2
+        assert session.get(User, user_id) is None
+        assert all(marker.user_id is None for marker in session.scalars(
+            select(CreditEligibilityMarker).where(CreditEligibilityMarker.digest.in_(retained)),
+        ))
+        replacement = upsert_verified_identity(
+            session, issuer="https://new-identity.example.test", subject=f"replacement-{suffix}",
+            email=email, email_verified=True,
+        )
+        replacement_id = replacement.id
+        assert replacement.status == "active"
+
+    def repeat(session, _index):
+        try:
+            activate_trial(session, session.get(User, replacement_id))
+        except AutomaticCreditUnavailableError as exc:
+            return exc.code
+        pytest.fail("a deleted grantee received another introductory allocation")
+
+    assert _concurrent_database_calls(repeat) == ["introductory_credit_already_used"] * 4
+    with get_session_factory()() as session:
+        program = session.get(TrialProgram, "global")
+        assert (program.activation_count, program.allocated_microusd) == (
+            before[0] + 1, before[1] + 5_000_000,
+        )
+        assert session.get(TrialGrant, replacement_id) is None
+        assert session.scalar(select(func.count(CreditEligibilityMarker.digest)).where(
+            CreditEligibilityMarker.user_id == replacement_id,
+        )) == 0
+        assert set(session.scalars(select(CreditEligibilityMarker.digest).where(
+            CreditEligibilityMarker.digest.in_(retained),
+            CreditEligibilityMarker.user_id.is_(None),
+        ))) == retained
+
+
+def _assert_concurrent_stale_sweeps_conserve_both_ledgers() -> None:
+    suffix = uuid4().hex
+    expired = []
+    user_ids = []
+    with get_session_factory()() as session:
+        emergency = session.get(EmergencyBudget, "openrouter")
+        was_enabled = emergency.enabled
+        emergency.enabled = True
+        emergency_before = emergency.spent_microusd
+        program_before = session.get(TrialProgram, "global").spent_microusd
+        session.commit()
+        for index, amount in enumerate((100, 120)):
+            user = upsert_verified_identity(
+                session, issuer="https://identity.example.test", subject=f"sweep-{suffix}-{index}",
+                email=f"postgres-sweep-{suffix}-{index}@example.edu", email_verified=True,
+            )
+            activate_trial(session, user)
+            user_ids.append(user.id)
+            reservation = reserve_llm_call(
+                session, user_id=user.id, amount_microusd=amount, provider="test",
+                route="postgres-sweep", model="test-model", request_kind="postgres-sweep",
+                charge_trial=True, charge_emergency=True,
+            )
+            session.get(UsageReservation, reservation.trial_reservation_id).expires_at = (
+                utc_now() - timedelta(minutes=1)
+            )
+            session.get(EmergencyUsageReservation, reservation.emergency_reservation_id).expires_at = (
+                utc_now() - timedelta(minutes=1)
+            )
+            session.commit()
+            expired.append(reservation)
+        pending = reserve_llm_call(
+            session, user_id=user_ids[0], amount_microusd=80, provider="test",
+            route="postgres-sweep", model="test-model", request_kind="postgres-sweep",
+            charge_trial=True, charge_emergency=True,
+        )
+        assert reconcile_stale_llm_reservations(session, apply=False) == (2, 2)
+        assert session.get(TrialProgram, "global").spent_microusd == program_before
+        emergency = session.get(EmergencyBudget, "openrouter")
+        assert (emergency.spent_microusd, emergency.reserved_microusd) == (emergency_before, 300)
+
+    results = _concurrent_database_calls(
+        lambda session, _index: reconcile_stale_llm_reservations(session), workers=2,
+    )
+    assert sorted(results) == [(0, 0), (2, 2)]
+    with get_session_factory()() as session:
+        for reservation in expired:
+            trial = session.get(UsageReservation, reservation.trial_reservation_id)
+            emergency_reservation = session.get(EmergencyUsageReservation, reservation.emergency_reservation_id)
+            for row in (trial, emergency_reservation):
+                assert row.status == "expired_charged"
+                assert row.actual_microusd == reservation.amount_microusd
+        for model, reservation_id in (
+            (UsageReservation, pending.trial_reservation_id),
+            (EmergencyUsageReservation, pending.emergency_reservation_id),
+        ):
+            assert session.get(model, reservation_id).status == "pending"
+        grant = session.get(TrialGrant, user_ids[0])
+        assert (grant.spent_microusd, grant.reserved_microusd) == (100, 80)
+        grant = session.get(TrialGrant, user_ids[1])
+        assert (grant.spent_microusd, grant.reserved_microusd) == (120, 0)
+        assert session.get(TrialProgram, "global").spent_microusd == program_before + 220
+        emergency = session.get(EmergencyBudget, "openrouter")
+        assert (emergency.spent_microusd, emergency.reserved_microusd) == (emergency_before + 220, 80)
+        # Unexpired work can still settle normally after concurrent sweeps.
+        settle_llm_call(session, pending, actual_microusd=20, event=usage_event(
+            request_id="postgres-sweep", user_id=user_ids[0], provider="test",
+            route="postgres-sweep", model="test-model", billing_source="trial",
+            request_kind="postgres-sweep", status="succeeded", cost_microusd=20,
+        ))
+        assert reconcile_stale_llm_reservations(session) == (0, 0)
+        assert session.get(TrialProgram, "global").spent_microusd == program_before + 240
+        emergency = session.get(EmergencyBudget, "openrouter")
+        assert (emergency.spent_microusd, emergency.reserved_microusd) == (emergency_before + 240, 0)
+        emergency.enabled = was_enabled
+        session.commit()
+
+
 def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
     import app.services.rate_limits as rate_limits_module
 
@@ -280,6 +456,8 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
         initialize_database()
         _assert_concurrent_identity_login_is_idempotent()
         _assert_privacy_suspension_closes_stale_mutations()
+        _assert_concurrent_eligibility_claim_and_deletion_preserve_lifetime_limit()
+        _assert_concurrent_stale_sweeps_conserve_both_ledgers()
         with get_session_factory()() as session:
             user = upsert_verified_identity(
                 session,

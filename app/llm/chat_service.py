@@ -1,4 +1,4 @@
-"""Chat turn service — prompt builder, deterministic validator,
+"""Chat turn service: prompt builder, deterministic validator,
 single-retry.
 
 The LLM is bound to cited state via the system prompt, and a
@@ -28,6 +28,10 @@ MAX_CONVERSATION_TURNS = 20  # user+assistant pairs = 40 messages max
 MAX_TOKENS_PER_RESPONSE = 4096
 
 
+class ChatInputError(ValueError):
+    """Invalid conversation input with a safe user-facing explanation."""
+
+
 @dataclass
 class ChatTurnResult:
     """Result envelope for one chat turn, including observability
@@ -45,6 +49,8 @@ class ChatTurnResult:
     validator_flags: list[str] = field(default_factory=list)
     retried: bool = False
     evidence: list[dict[str, Any]] = field(default_factory=list)
+    billing_uncertain: bool = False
+    resolved_model_version: str | None = None
 
 
 # --- State block formatting -----------------------------------------------
@@ -535,7 +541,7 @@ def _coerce_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         out.append({"role": role, "content": content})
     if not out or out[-1]["role"] != "user":
-        raise ValueError("conversation must end with a user message")
+        raise ChatInputError("conversation must end with a user message")
     return out
 
 
@@ -609,6 +615,8 @@ def run_turn(
             billing_source=first.billing_source,
             route=first.route,
             cost_microusd=first.cost_microusd,
+            billing_uncertain=first.billing_uncertain,
+            resolved_model_version=first.resolved_model_version,
             validator_flags=[],
             retried=False,
             evidence=evidence + formal_evidence,
@@ -656,6 +664,8 @@ def run_turn(
         billing_source=second.billing_source,
         route=second.route,
         cost_microusd=first.cost_microusd + second.cost_microusd,
+        billing_uncertain=first.billing_uncertain or second.billing_uncertain,
+        resolved_model_version=second.resolved_model_version,
         validator_flags=remaining,
         retried=True,
         evidence=[] if remaining else evidence + formal_evidence,

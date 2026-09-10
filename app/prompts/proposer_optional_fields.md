@@ -1,0 +1,1 @@
+For a rule modification, preserve each unrequested optional field exactly. Leave fields with absent or null current values unset. Changing another field is not a reason to supply a description or rewrite attribution.

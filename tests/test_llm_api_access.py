@@ -220,12 +220,24 @@ def test_local_ollama_path_preserves_legacy_client(monkeypatch):
         request_id="request-local",
         request_kind="chat",
         legacy_factory=lambda: legacy,
-        settings=replace(get_settings(), llm_require_auth=False),
+        settings=replace(get_settings(), llm_require_auth=False, llm_allow_legacy_development=True),
         router=router,
     )
     assert result is legacy
     assert not router.funded_calls
     assert not router.byok_calls
+
+
+def test_local_legacy_provider_requires_explicit_development_opt_in(monkeypatch):
+    monkeypatch.setenv("ABDA_LLM_BACKEND", "ollama")
+    router = _StubRouter()
+    result = select_request_llm_client(
+        None, user=None, request_id="request-local-metered", request_kind="chat",
+        legacy_factory=lambda: pytest.fail("legacy direct access must be explicitly enabled"),
+        settings=replace(get_settings(), llm_require_auth=False, llm_allow_legacy_development=False),
+        router=router,
+    )
+    assert result is router.funded_client
 
 
 def test_http_error_mapping_never_exposes_provider_or_key_details():

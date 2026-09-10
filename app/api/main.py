@@ -114,34 +114,17 @@ def _preflight_llm_config(enable_llm: bool) -> None:
             raise RuntimeError(
                 "the public default model profile must pass the quality gate"
             )
-        route = catalog.routes[profile.primary_route]
-        if route.provider not in {"azure-foundry", "gcp-vertex"}:
-            raise RuntimeError("the public funded route must use CloudBank Azure or GCP")
-        if route.provider == "gcp-vertex":
-            if not (os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_PROJECT_ID")):
-                log.warning("CloudBank GCP configuration is unavailable; manual features remain usable")
-            return
-        if route.adapter == "anthropic":
-            api_key, auth_token, _ = foundry_credentials()
-            if not (api_key or auth_token):
-                log.warning("CloudBank Azure credentials are unavailable; manual features remain usable")
-        else:
-            azure_key = (
-                os.getenv("AZURE_OPENAI_API_KEY")
-                or os.getenv("AZURE_ANTHROPIC_API_KEY")
-                or ""
-            ).strip()
-            azure_endpoint = (
-                os.getenv("AZURE_OPENAI_ENDPOINT")
-                or os.getenv("ANTHROPIC_FOUNDRY_PROJECT_ENDPOINT")
-                or ""
-            ).strip()
-            if not azure_key or not azure_endpoint:
-                log.warning("CloudBank Azure configuration is unavailable; manual features remain usable")
-        if settings.openrouter_failover_enabled and not (
-            os.getenv("OPENROUTER_API_KEY") or ""
-        ).strip():
-            log.warning("OpenRouter fallback is unavailable; manual features remain usable")
+        from app.llm.routing import LLMRouteConfigurationError, validate_public_route_configuration
+        try:
+            validate_public_route_configuration(settings, catalog=catalog)
+        except LLMRouteConfigurationError:
+            log.error("llm_configuration_unavailable phase=startup")
+            raise
+        return
+
+    if not settings.llm_allow_legacy_development:
+        # Public routing is configured lazily in local mode. An absent local
+        # configuration must not silently open the unmetered legacy factory.
         return
 
     backend = resolve_backend()
@@ -175,6 +158,7 @@ from app.core.config import Settings, get_settings
 from app.core.safe_logging import exception_diagnostic
 from app.db.session import database_is_ready, initialize_database
 from app.mcp.server import create_mcp_runtime, mcp_http_app
+from app.services.rate_limits import ACCOUNT_LLM_RATE_SCOPE
 from app.services.projects import (
     ProjectNotFoundError,
     get_project,
@@ -497,6 +481,44 @@ def internal_metrics(
                 f"abda_trial_uncertain_charged_microusd {trial_uncertain_cost}",
             ]
         )
+    # Preserve existing public-trial metrics and expose each approved pool.
+    from app.services.credit_policy import NAMED_CREDIT_PROGRAM
+    for program_key in ("global", NAMED_CREDIT_PROGRAM):
+        program = session.get(TrialProgram, program_key)
+        if program is None:
+            continue
+        reserved = int(session.scalar(select(func.sum(TrialGrant.reserved_microusd)).where(
+            TrialGrant.program_key == program_key,
+        )) or 0)
+        uncertain = session.execute(select(
+            func.count(UsageReservation.id), func.sum(UsageReservation.actual_microusd),
+        ).where(UsageReservation.program_key == program_key,
+                UsageReservation.status == "expired_charged")).one()
+        values = {
+            "spent_microusd": program.spent_microusd,
+            "reserved_microusd": reserved,
+            "uncertain_charged_reservations": int(uncertain[0] or 0),
+            "uncertain_charged_microusd": int(uncertain[1] or 0),
+        }
+        for metric, value in values.items():
+            lines.append(f'abda_credit_program_{metric}{{program="{program_key}"}} {value}')
+
+    from app.llm.catalog import load_model_catalog
+    known_routes = load_model_catalog().routes
+    route_liabilities: dict[str, list[int]] = {}
+    for route, billing_source, count, cost in session.execute(select(
+        LLMUsageEvent.route, LLMUsageEvent.billing_source, func.count(LLMUsageEvent.id),
+        func.sum(LLMUsageEvent.cost_microusd),
+    ).where(LLMUsageEvent.error_type.contains("billing_uncertain")).group_by(
+        LLMUsageEvent.route, LLMUsageEvent.billing_source,
+    )):
+        label = route if route in known_routes else ("byok" if billing_source == "byok" else "other")
+        totals = route_liabilities.setdefault(label, [0, 0])
+        totals[0] += int(count or 0)
+        totals[1] += int(cost or 0)
+    for route, (count, cost) in sorted(route_liabilities.items()):
+        lines.append(f'abda_llm_uncertain_attempts{{route="{route}"}} {count}')
+        lines.append(f'abda_llm_uncertain_microusd{{route="{route}"}} {cost}')
     if emergency is not None:
         lines.extend(
             [
@@ -636,7 +658,8 @@ def _run_chat_request(
     scenario_dir: Path | None,
     context_kind: str,
 ) -> ChatResponse:
-    from app.llm.chat_service import run_turn
+    from app.llm.chat_service import ChatInputError, run_turn
+    from app.llm.evidence import ContextReferenceError
 
     uses_byok = payload.llm is not None and payload.llm.byok is not None
     client = None
@@ -657,8 +680,11 @@ def _run_chat_request(
             context_refs=[ref.model_dump() for ref in payload.context_refs],
         )
     except HANDLED_LLM_ERRORS as exc:
-        raise llm_http_exception(exc, byok=uses_byok) from exc
-    except ValueError as exc:
+        raise llm_http_exception(
+            exc, byok=uses_byok,
+            billing_uncertain=bool(getattr(client, "settled_billing_uncertain_count", 0)),
+        ) from exc
+    except (ChatInputError, ContextReferenceError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         _close_request_llm_client(client)
@@ -682,6 +708,8 @@ def _run_chat_request(
         billing_source=result.billing_source,
         route=result.route,
         cost_microusd=result.cost_microusd,
+        billing_uncertain=result.billing_uncertain,
+        resolved_model_version=result.resolved_model_version,
         request_id=raw_request.state.request_id,
         usage=ChatUsage(**result.usage),
         latency_ms=result.latency_ms,
@@ -701,7 +729,7 @@ def _run_propose_request(
     scenario_dir: Path | None,
     context_kind: str,
 ) -> ProposeResponse:
-    from app.llm.edit_service import ProposerRetryExhausted, run_propose
+    from app.llm.edit_service import EditInputError, ProposerRetryExhausted, run_propose
 
     if payload.task == "modify-rule" and not payload.existing_id:
         raise HTTPException(status_code=400, detail="modify-rule requires `existing_id`")
@@ -732,11 +760,15 @@ def _run_propose_request(
                 "code": "proposer_retry_exhausted",
                 "message": str(exc),
                 "issues": [issue.to_dict() for issue in exc.last_issues],
+                "billing_uncertain": bool(getattr(client, "settled_billing_uncertain_count", 0)),
             },
         ) from exc
     except HANDLED_LLM_ERRORS as exc:
-        raise llm_http_exception(exc, byok=uses_byok) from exc
-    except ValueError as exc:
+        raise llm_http_exception(
+            exc, byok=uses_byok,
+            billing_uncertain=bool(getattr(client, "settled_billing_uncertain_count", 0)),
+        ) from exc
+    except EditInputError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         _close_request_llm_client(client)
@@ -760,6 +792,8 @@ def _run_propose_request(
         billing_source=result.billing_source,
         route=result.route,
         cost_microusd=result.cost_microusd,
+        billing_uncertain=result.billing_uncertain,
+        resolved_model_version=result.resolved_model_version,
         request_id=raw_request.state.request_id,
         usage=ChatUsage(**result.usage),
         latency_ms=result.latency_ms,
@@ -839,7 +873,7 @@ def post_chat(
         raw_request,
         session,
         settings,
-        scope="llm_request",
+        scope=ACCOUNT_LLM_RATE_SCOPE,
         limit=settings.llm_requests_per_minute,
         user_id=user.id if user is not None else None,
     )
@@ -882,7 +916,7 @@ def post_propose(
         raw_request,
         session,
         settings,
-        scope="llm_request",
+        scope=ACCOUNT_LLM_RATE_SCOPE,
         limit=settings.llm_requests_per_minute,
         user_id=user.id if user is not None else None,
     )
@@ -948,7 +982,7 @@ def post_project_chat(
         raw_request,
         session,
         settings,
-        scope="llm_request",
+        scope=ACCOUNT_LLM_RATE_SCOPE,
         limit=settings.llm_requests_per_minute,
         user_id=user.id,
     )
@@ -989,7 +1023,7 @@ def post_project_propose(
         raw_request,
         session,
         settings,
-        scope="llm_request",
+        scope=ACCOUNT_LLM_RATE_SCOPE,
         limit=settings.llm_requests_per_minute,
         user_id=user.id,
     )

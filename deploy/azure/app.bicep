@@ -31,7 +31,10 @@ param oidcMetadataUrl string
 param oidcIssuer string
 param oidcClientId string
 param foundryEndpoint string
-param foundryClaudeDeployment string = 'claude-sonnet-4-6'
+param foundryOpenaiEndpoint string
+param foundryOpusEndpoint string
+param foundryClaudeDeployment string = 'claude-sonnet-5'
+param gcpProject string
 param postgresHost string
 param postgresAppLogin string = 'abda_app'
 
@@ -46,6 +49,17 @@ param sessionSecret string
 @secure()
 @minLength(32)
 param mcpTokenPepper string
+
+@secure()
+@minLength(32)
+@description('Stable, distinct eligibility HMAC key. Preserve across releases and recovery images.')
+param creditEligibilityPepper string
+
+@secure()
+param gcpAdcJson string
+
+@secure()
+param foundryOpusApiKey string
 
 @secure()
 @minLength(32)
@@ -152,6 +166,18 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
           value: mcpTokenPepper
         }
         {
+          name: 'credit-eligibility-pepper'
+          value: creditEligibilityPepper
+        }
+        {
+          name: 'gcp-adc-json'
+          value: gcpAdcJson
+        }
+        {
+          name: 'foundry-opus5-api-key'
+          value: foundryOpusApiKey
+        }
+        {
           name: 'metrics-token'
           value: metricsToken
         }
@@ -171,10 +197,22 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
     }
     template: {
       terminationGracePeriodSeconds: 30
+      volumes: [
+        {
+          name: 'gcp-adc'
+          storageType: 'Secret'
+          secrets: [
+            { secretRef: 'gcp-adc-json', path: 'adc.json' }
+          ]
+        }
+      ]
       containers: [
         {
           name: 'web'
           image: image
+          volumeMounts: [
+            { volumeName: 'gcp-adc', mountPath: '/var/run/abda-gcp' }
+          ]
           env: [
             { name: 'ABDA_ENVIRONMENT', value: deploymentEnvironment }
             { name: 'ABDA_ENABLE_LLM', value: '1' }
@@ -192,6 +230,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'ABDA_COOKIE_SECURE', value: '1' }
             { name: 'ABDA_SESSION_SECRET', secretRef: 'session-secret' }
             { name: 'ABDA_MCP_TOKEN_PEPPER', secretRef: 'mcp-token-pepper' }
+            { name: 'ABDA_CREDIT_ELIGIBILITY_PEPPER', secretRef: 'credit-eligibility-pepper' }
             { name: 'ABDA_METRICS_TOKEN', secretRef: 'metrics-token' }
             { name: 'ABDA_OIDC_METADATA_URL', value: oidcMetadataUrl }
             { name: 'ABDA_OIDC_ISSUER', value: oidcIssuer }
@@ -216,8 +255,15 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'ABDA_MUTATION_REQUESTS_PER_MINUTE', value: '60' }
             { name: 'ABDA_LLM_REQUESTS_PER_MINUTE', value: '20' }
             { name: 'AZURE_ANTHROPIC_ENDPOINT', value: foundryEndpoint }
+            { name: 'AZURE_OPENAI_ENDPOINT', value: foundryOpenaiEndpoint }
             { name: 'AZURE_OPENAI_API_KEY', secretRef: 'foundry-api-key' }
-            { name: 'ANTHROPIC_FOUNDRY_CLAUDE_SONNET_4_6_MODEL', value: foundryClaudeDeployment }
+            { name: 'ANTHROPIC_FOUNDRY_CLAUDE_SONNET_5_MODEL', value: foundryClaudeDeployment }
+            { name: 'AZURE_OPUS5_ENDPOINT', value: foundryOpusEndpoint }
+            { name: 'AZURE_OPUS5_API_KEY', secretRef: 'foundry-opus5-api-key' }
+            { name: 'GOOGLE_CLOUD_PROJECT', value: gcpProject }
+            { name: 'GOOGLE_CLOUD_QUOTA_PROJECT', value: gcpProject }
+            { name: 'GOOGLE_CLOUD_LOCATION', value: 'global' }
+            { name: 'GOOGLE_APPLICATION_CREDENTIALS', value: '/var/run/abda-gcp/adc.json' }
             { name: 'OPENROUTER_API_KEY', secretRef: 'openrouter-api-key' }
           ]
           resources: {

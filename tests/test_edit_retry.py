@@ -19,40 +19,12 @@ from app.llm.edit_service import (
 from app.llm.edit_validator import MAX_ID_LEN, ValidationIssue
 
 
-@pytest.mark.parametrize(
-    ("instruction", "expected_changes"),
-    [
-        (
-            "Change only the conclusion of r_stack from stack_vets to -stack_vets. "
-            "I intentionally want the opposite conclusion; do not let the old "
-            "source wording override that choice.",
-            {"conclusion": "-stack_vets"},
-        ),
-        (
-            'In r_stack, change only source to "updated roster memo". Despite the '
-            "word updated, do not change its premises, conclusion, category, "
-            "strength, or type.",
-            {"source": "updated roster memo"},
-        ),
-        (
-            "Only update the category and source of r_stack. Leave its conclusion "
-            "and all other fields unchanged.",
-            {"category": "monitoring", "source": "updated roster memo"},
-        ),
-        (
-            'Change only source to "category and conclusion review".',
-            {"source": "updated roster memo"},
-        ),
-        (
-            "Change only `source` to the updated roster memo; leave its "
-            "conclusion and type unchanged.",
-            {"source": "updated roster memo"},
-        ),
-    ],
-)
-def test_explicit_narrow_edit_preserves_fields_mentioned_outside_its_scope(
-    instruction, expected_changes
-):
+@pytest.mark.parametrize("instruction", [
+    'Attribute r_stack to the latest roster memo.',
+    'Group r_stack under staffing and treat it as weaker.',
+    'Change only the conclusion; leave every other field unchanged.',
+])
+def test_modify_preserves_explicit_values_for_preview_without_keyword_authorization(instruction):
     original = {
         "type": "defeasible", "premises": ["experienced_staff"],
         "conclusion": "stack_vets", "negated_description": "Do not stack veterans",
@@ -60,17 +32,43 @@ def test_explicit_narrow_edit_preserves_fields_mentioned_outside_its_scope(
         "active": True,
     }
     scenario = SimpleNamespace(rules={"r_stack": SimpleNamespace(**original)})
-    proposed = {
-        "type": "strict", "premises": ["unrequested_condition"],
-        "conclusion": "-stack_vets", "negated_description": "unrequested wording",
-        "category": "monitoring", "source": "updated roster memo", "block": 9,
-        "active": False,
-    }
+    proposed = {"conclusion": "-stack_vets", "category": "monitoring",
+                "source": "updated roster memo", "block": 9, "active": False}
     result = _preserve_modify_rule_metadata(
         "modify-rule", {"id": "r_stack", "rule": proposed}, "r_stack", scenario,
         instruction,
     )
-    assert result["rule"] == original | expected_changes
+    # The user and advisory reviewer see the complete proposal. The backend
+    # cannot infer authorization from words such as "attribute" or "weaker".
+    assert result["rule"] == original | proposed
+    assert set(proposed) == {"conclusion", "category", "source", "block", "active"}
+    assert result["rule"]["premises"] is not original["premises"]
+
+
+def test_strict_type_change_drops_only_omitted_activation_metadata():
+    original = SimpleNamespace(type="defeasible", premises=[], conclusion="safe",
+        negated_description=None, category=None, source=None, block=1, active=False)
+    scenario = SimpleNamespace(rules={"r": original})
+    for proposed, expected in (({"type": "strict"}, None),
+                               ({"type": "strict", "active": False}, False)):
+        result = _preserve_modify_rule_metadata(
+            "modify-rule", {"id": "r", "rule": proposed}, "r", scenario, "Make it strict.",
+        )
+        assert result["rule"].get("active") is expected
+
+
+@pytest.mark.parametrize("clear", [None, "", "  "])
+def test_explicit_null_clears_optional_text_but_omission_preserves_it(clear):
+    original = SimpleNamespace(type="defeasible", premises=[], conclusion="safe",
+        negated_description="not safe", category="monitoring", source="memo", block=1, active=True)
+    scenario = SimpleNamespace(rules={"r": original})
+    result = _preserve_modify_rule_metadata(
+        "modify-rule", {"id": "r", "rule": {"source": clear, "category": "safety"}},
+        "r", scenario, "Clear the citation and regroup the rule under safety.",
+    )
+    assert "source" not in result["rule"]
+    assert result["rule"]["category"] == "safety"
+    assert result["rule"]["negated_description"] == "not safe"
 
 
 def _id_too_long_issue(long_id: str) -> ValidationIssue:

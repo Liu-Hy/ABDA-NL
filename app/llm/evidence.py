@@ -6,6 +6,10 @@ import re
 from typing import Any
 
 
+class ContextReferenceError(ValueError):
+    """A selected user reference no longer exists in the current scenario."""
+
+
 def resolve_context_refs(scenario: Any, af: dict[str, Any], refs: list[dict[str, str]]) -> list[dict[str, Any]]:
     resolved: list[dict[str, Any]] = []
     arguments = {str(item["id"]): item for item in af.get("arguments", [])}
@@ -23,7 +27,7 @@ def resolve_context_refs(scenario: Any, af: dict[str, Any], refs: list[dict[str,
             if value is None and kind == "conclusion" and identifier in af.get("labels_by_proposition", {}):
                 value = {"label": af["labels_by_proposition"][identifier]}
         if value is None:
-            raise ValueError("A selected question item no longer exists in this scenario. Remove it or select it again.")
+            raise ContextReferenceError("A selected question item no longer exists in this scenario. Remove it or select it again.")
         if hasattr(value, "model_dump"):
             value = value.model_dump()
         elif hasattr(value, "__dict__"):
@@ -224,7 +228,8 @@ def source_evidence(response: str, passages: dict[str, list[tuple[int, str]]]) -
                 if span is not None:
                     start, end = span
                     found = {"kind": "source", "source": source, "quote": text[start:end],
-                             "start": offset + start, "end": offset + end, "verified": True}
+                             "start": offset + start, "end": offset + end, "verified": True,
+                             "evidence_role": "quotation"}
                     break
             if found:
                 break
@@ -245,5 +250,6 @@ def source_evidence(response: str, passages: dict[str, list[tuple[int, str]]]) -
         offset, text = max(candidates, key=lambda pair: len(terms & set(re.findall(r"\w{4,}", pair[1].casefold()))))
         quote = text[:1200]
         evidence.append({"kind": "source", "source": source, "quote": quote,
-                         "start": offset, "end": offset + len(quote), "verified": True})
+                         "start": offset, "end": offset + len(quote), "verified": True,
+                         "evidence_role": "context"})
     return evidence, issues

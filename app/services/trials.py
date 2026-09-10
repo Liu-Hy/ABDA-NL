@@ -22,6 +22,14 @@ class TrialUnavailableError(RuntimeError):
     pass
 
 
+class AutomaticCreditUnavailableError(TrialUnavailableError):
+    """Expected allocation refusal that must not invalidate a verified sign-in."""
+
+    def __init__(self, message: str, *, code: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 class InsufficientTrialCreditError(RuntimeError):
     pass
 
@@ -88,7 +96,12 @@ def initialize_named_credit(session: Session) -> None:
         or program.grant_microusd != NAMED_CREDIT_GRANT_MICROUSD
         or program.budget_microusd != NAMED_CREDIT_BUDGET_MICROUSD
     ):
-        raise TrialUnavailableError("the named credit program does not match its fixed allocation")
+        raise TrialUnavailableError(
+            "the named credit program does not match its fixed allocation "
+            "(5 allocations of $50, $250 total); do not change ledger rows at boot. "
+            "Use the controlled policy migration procedure in "
+            "docs/operations/credit-policy-maintenance.md"
+        )
 
 
 def _locked_active_user(session: Session, user: User) -> User:
@@ -127,7 +140,10 @@ def _named_entitlement(session: Session, user: User) -> NamedCreditEntitlement |
         entitlement.user_id not in {None, user.id}
         or (entitlement.user_id is None and entitlement.bound_at is not None)
     ):
-        raise TrialUnavailableError("this named credit allocation is already bound to another account")
+        raise AutomaticCreditUnavailableError(
+            "this named credit allocation is already bound to another account",
+            code="named_credit_already_bound",
+        )
     if entitlement is None and user.email.strip().lower() in NAMED_CREDIT_EMAILS:
         raise TrialUnavailableError("the named credit program is not configured")
     return entitlement
@@ -173,21 +189,33 @@ def _activate_named_credit(
     old_amount = grant.granted_microusd if grant is not None else 0
     if old_amount > NAMED_CREDIT_GRANT_MICROUSD:
         raise TrialUnavailableError("existing credit exceeds the named allocation; review it before reconciliation")
+    if grant is None:
+        _claim_introductory_credit(session, user)
     if grant is not None and grant.program_key == NAMED_CREDIT_PROGRAM:
         added = NAMED_CREDIT_GRANT_MICROUSD - old_amount
         if added and not program.enabled:
-            raise TrialUnavailableError("the named credit program is paused")
+            raise AutomaticCreditUnavailableError(
+                "the named credit program is paused", code="named_credit_paused",
+            )
         if program.allocated_microusd + added > program.budget_microusd:
-            raise TrialUnavailableError("the named credit budget has been fully allocated")
+            raise AutomaticCreditUnavailableError(
+                "the named credit budget has been fully allocated", code="named_credit_exhausted",
+            )
         grant.granted_microusd += added
         program.allocated_microusd += added
     else:
         if not program.enabled:
-            raise TrialUnavailableError("the named credit program is paused")
+            raise AutomaticCreditUnavailableError(
+                "the named credit program is paused", code="named_credit_paused",
+            )
         if program.activation_count >= program.max_users:
-            raise TrialUnavailableError("all named credit allocations have been claimed")
+            raise AutomaticCreditUnavailableError(
+                "all named credit allocations have been claimed", code="named_credit_exhausted",
+            )
         if program.allocated_microusd + NAMED_CREDIT_GRANT_MICROUSD > program.budget_microusd:
-            raise TrialUnavailableError("the named credit budget has been fully allocated")
+            raise AutomaticCreditUnavailableError(
+                "the named credit budget has been fully allocated", code="named_credit_exhausted",
+            )
         if grant is None:
             grant = TrialGrant(
                 user_id=user.id, program_key=NAMED_CREDIT_PROGRAM,
@@ -224,7 +252,12 @@ def ensure_named_credit(session: Session, user: User) -> TrialBalance | None:
     """Idempotently allocate named credit on a verified sign-in."""
     def allocate() -> TrialBalance | None:
         try:
-            result = _activate_named_credit(session, _locked_active_user(session, user))
+            active_user = _locked_active_user(session, user)
+            if session.get(TrialGrant, active_user.id) is not None:
+                from app.services.credit_eligibility import remember_granted_identity
+
+                remember_granted_identity(session, active_user)
+            result = _activate_named_credit(session, active_user)
             session.commit()
             return result
         except Exception:
@@ -306,6 +339,19 @@ def reconcile_named_credit(session: Session, *, apply: bool = False) -> list[dic
     return reconcile()
 
 
+def _claim_introductory_credit(session: Session, user: User) -> None:
+    from app.services.credit_eligibility import (
+        IntroductoryCreditAlreadyUsedError, claim_credit_eligibility,
+    )
+
+    try:
+        claim_credit_eligibility(session, user)
+    except IntroductoryCreditAlreadyUsedError as exc:
+        raise AutomaticCreditUnavailableError(
+            str(exc), code="introductory_credit_already_used",
+        ) from exc
+
+
 def _activate_trial(session: Session, user: User) -> TrialBalance:
     user = _locked_active_user(session, user)
     named = _activate_named_credit(session, user)
@@ -316,6 +362,9 @@ def _activate_trial(session: Session, user: User) -> TrialBalance:
         select(TrialGrant).where(TrialGrant.user_id == user.id).with_for_update()
     )
     if existing is not None:
+        from app.services.credit_eligibility import remember_granted_identity
+
+        remember_granted_identity(session, user)
         balance = _balance(existing)
         session.commit()
         return balance
@@ -329,6 +378,7 @@ def _activate_trial(session: Session, user: User) -> TrialBalance:
     next_allocated = program.allocated_microusd + program.grant_microusd
     if next_allocated > program.budget_microusd:
         raise TrialUnavailableError("the trial budget has been fully allocated")
+    _claim_introductory_credit(session, user)
     grant = TrialGrant(
         user_id=user.id,
         program_key=program.key,

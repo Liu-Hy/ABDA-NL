@@ -1,5 +1,11 @@
 # Demo revision implementation, September 9, 2026
 
+The current independent-review brief is concentrated in the
+[requirements](../demo-revision-contract.md) and
+[review guide](../demo-revision-review-guide.md). This file retains implementation
+history and evidence pointers; its completion assessments do not establish that
+every design interpretation was explicitly approved by the user.
+
 This record tracks implementation of the approved
 [review](../demo-revision-review-20260909.md). The starting revision was
 `85bd4ae75d09a55fb65d1cd254d2ab1d833e8e18` on `development`.

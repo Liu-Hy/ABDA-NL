@@ -281,6 +281,32 @@ class NamedCreditEntitlement(Base):
     bound_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
 
+class CreditEligibilityPolicy(Base):
+    """Bind program-lifetime eligibility markers to one stable HMAC key."""
+
+    __tablename__ = "credit_eligibility_policies"
+
+    key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    key_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    seeded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class CreditEligibilityMarker(Base):
+    """Minimal keyed eligibility history, retained after account deletion."""
+
+    __tablename__ = "credit_eligibility_markers"
+    __table_args__ = (
+        CheckConstraint("kind IN ('email', 'identity')", name="ck_credit_marker_kind"),
+    )
+
+    digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+    claimed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
 class UsageReservation(Base):
     __tablename__ = "usage_reservations"
     __table_args__ = (

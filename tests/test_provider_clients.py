@@ -17,7 +17,7 @@ from app.llm.providers import (
 
 def test_catalog_profiles_reference_valid_routes_and_models():
     catalog = load_model_catalog()
-    assert catalog.version == 4
+    assert catalog.version == 5
     assert catalog.public_profiles()
     for profile in catalog.profiles.values():
         primary = catalog.routes[profile.primary_route]
@@ -33,7 +33,11 @@ def test_catalog_profiles_reference_valid_routes_and_models():
             assert fallback.billing_multiplier >= 1
         if profile.public_ready:
             assert profile.fallback_route
-            assert primary.verified and catalog.routes[profile.fallback_route].verified
+            assert primary.metadata_confirmed and primary.configuration_confirmed
+            assert primary.funded_feature_qualified and primary.live_inference_verified
+            assert fallback.metadata_confirmed and fallback.configuration_confirmed
+            assert not fallback.funded_feature_qualified
+            assert not fallback.live_inference_verified
             model = catalog.model_for_route(primary)
             assert model.input_usd_per_million <= 5
             assert model.output_usd_per_million <= 25

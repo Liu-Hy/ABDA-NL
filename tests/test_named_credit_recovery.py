@@ -6,17 +6,21 @@ from datetime import timedelta
 
 import pytest
 from alembic import command
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, select, text
 
 from app.api.llm_access import build_llm_config
 from app.core.config import get_settings, reset_settings_cache
-from app.db.models import NamedCreditEntitlement, TrialGrant, TrialProgram, UsageReservation, User, utc_now
+from app.db.models import (
+    CreditEligibilityMarker, CreditEligibilityPolicy, Identity, NamedCreditEntitlement,
+    TrialGrant, TrialProgram, UsageReservation, User, utc_now,
+)
 from app.db.session import (
     _alembic_config, get_engine, get_session_factory, initialize_database,
     reset_database_caches,
 )
 from app.llm.catalog import _validate_catalog, load_model_catalog
 from app.services.credit_policy import NAMED_CREDIT_EMAILS
+from app.services.credit_eligibility import POLICY_KEY
 from app.services.trials import ensure_named_credit, reserve_trial_credit, settle_trial_credit
 
 
@@ -32,6 +36,7 @@ def recovery_database(tmp_path, monkeypatch):
         "ABDA_TRIAL_GRANT_MICROUSD": "5000000",
         "ABDA_TRIAL_BUDGET_MICROUSD": "500000000",
         "ABDA_NAMED_CREDIT_AUTO_ACTIVATE": "1",
+        "ABDA_CREDIT_ELIGIBILITY_PEPPER": "recovery-test-stable-eligibility-pepper-distinct-and-long",
     }.items():
         monkeypatch.setenv(key, value)
     yield database_url
@@ -39,10 +44,11 @@ def recovery_database(tmp_path, monkeypatch):
     reset_settings_cache()
 
 
-def test_0006_recovery_keeps_old_and_transferred_reservations_in_their_pool(recovery_database):
+def test_0007_recovery_conserves_transferred_reservations_and_eligibility(recovery_database):
     config = _alembic_config(recovery_database)
     command.upgrade(config, "20260908_0005")
     assert not inspect(get_engine()).has_table("named_credit_entitlements")
+    assert not inspect(get_engine()).has_table("credit_eligibility_markers")
     with get_session_factory()() as session:
         user = User(email=NAMED_CREDIT_EMAILS[0], email_verified=True)
         session.add(user)
@@ -56,6 +62,10 @@ def test_0006_recovery_keeps_old_and_transferred_reservations_in_their_pool(reco
         public.spent_microusd = 1_000_000
         session.flush()
         user_id = user.id
+        session.add(Identity(
+            user_id=user_id, issuer="https://recovery.example.test", subject="legacy-identity",
+            provider_email=user.email,
+        ))
         session.add(TrialGrant(
             user_id=user_id, program_key="global", granted_microusd=5_000_000,
             spent_microusd=1_000_000, reserved_microusd=700_000,
@@ -71,7 +81,16 @@ def test_0006_recovery_keeps_old_and_transferred_reservations_in_their_pool(reco
     command.upgrade(config, "head")
     initialize_database()
     with get_session_factory()() as session:
-        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260909_0006"
+        assert session.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260910_0007"
+        markers = {
+            (marker.digest, marker.kind, marker.user_id, marker.claimed_at)
+            for marker in session.scalars(select(CreditEligibilityMarker))
+        }
+        assert len(markers) == 2
+        assert {marker[1] for marker in markers} == {"email", "identity"}
+        assert {marker[2] for marker in markers} == {user_id}
+        policy = session.get(CreditEligibilityPolicy, POLICY_KEY)
+        policy_snapshot = (policy.key_fingerprint, policy.seeded_at)
         grant = session.get(TrialGrant, user_id)
         assert (grant.program_key, grant.granted_microusd, grant.spent_microusd, grant.reserved_microusd) == (
             "global", 5_000_000, 1_250_000, 450_000,
@@ -94,6 +113,12 @@ def test_0006_recovery_keeps_old_and_transferred_reservations_in_their_pool(reco
     initialize_database()
     initialize_database()
     with get_session_factory()() as session:
+        assert {
+            (marker.digest, marker.kind, marker.user_id, marker.claimed_at)
+            for marker in session.scalars(select(CreditEligibilityMarker))
+        } == markers
+        policy = session.get(CreditEligibilityPolicy, POLICY_KEY)
+        assert (policy.key_fingerprint, policy.seeded_at) == policy_snapshot
         grant = session.get(TrialGrant, user_id)
         assert (grant.program_key, grant.granted_microusd, grant.spent_microusd, grant.reserved_microusd) == (
             "administrators", 50_000_000, 1_550_000, 0,

@@ -1,5 +1,11 @@
 # COMMA 2026 requirements traceability
 
+For the September 2026 demo improvements, use the consolidated
+[requirements](../demo-revision-contract.md) and
+[review guide](../demo-revision-review-guide.md). This older traceability record
+remains supporting provenance. Its model choices, deployment status, and
+acceptance statements describe their dated snapshots.
+
 This record maps the accepted paper, the project requirements, and the later
 service requirements to evidence in the repository. It distinguishes code
 completion from release checks that require operator-owned accounts, public

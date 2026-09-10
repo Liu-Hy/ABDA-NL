@@ -48,7 +48,8 @@ from app.db.session import get_db
 from app.scenario.catalog import load_bundled_scenario
 from app.services.scenario_submissions import is_scenario_admin, resolve_public_scenario
 from app.scenario.diff_ops import apply as apply_ops
-from app.scenario.exchange import parse_scenario_file
+from app.scenario.exchange import ScenarioFileError, parse_scenario_file
+from app.scenario.materials import MaterialError
 from app.scenario.loader import scenario_from_dict
 from app.scenario.serialize import scenario_to_dict
 from app.scenario.state import compute_state_bundle
@@ -57,6 +58,7 @@ from app.services.projects import (
     ProjectNotFoundError,
     ProjectLimitError,
     ProjectVersionConflictError,
+    ProjectValidationError,
     ShareLinkLimitError,
     ShareLinkNotFoundError,
     archive_project,
@@ -89,6 +91,7 @@ from app.services.mcp_tokens import (
 
 
 log = logging.getLogger(__name__)
+_PROJECT_INPUT_ERRORS = (ProjectValidationError, MaterialError, ScenarioFileError)
 router = APIRouter()
 
 
@@ -411,7 +414,12 @@ def _project_error(exc: Exception) -> HTTPException:
             status_code=409,
             detail={"code": "share_link_limit", "message": str(exc)},
         )
-    return HTTPException(status_code=400, detail={"code": "project_invalid", "message": str(exc)})
+    if isinstance(exc, _PROJECT_INPUT_ERRORS):
+        return HTTPException(status_code=400, detail={"code": "project_invalid", "message": str(exc)})
+    return HTTPException(status_code=500, detail={
+        "code": "project_operation_failed",
+        "message": "ABDA-NL could not complete this operation. Try again later.",
+    })
 
 
 @router.get("/api/projects", response_model=ProjectListResponse)
@@ -450,7 +458,7 @@ def post_project(
             scenario=scenario_to_dict(effective),
             source_scenario_id=source_id,
         )
-    except (ProjectLimitError, ValueError) as exc:
+    except (ProjectLimitError, *_PROJECT_INPUT_ERRORS) as exc:
         raise _project_error(exc)
     response.headers["ETag"] = f'"{project.version}"'
     return _project_detail(project)
@@ -482,7 +490,7 @@ def post_project_import(
             scenario=payload.scenario,
             source_scenario_id=payload.source_scenario_id,
         )
-    except (ProjectLimitError, ValueError) as exc:
+    except (ProjectLimitError, *_PROJECT_INPUT_ERRORS) as exc:
         raise _project_error(exc)
     response.headers["ETag"] = f'"{project.version}"'
     return _project_detail(project)
@@ -507,7 +515,7 @@ def preview_project_file(
     try:
         raw, source_id, warnings = parse_scenario_file(payload.text)
         scenario = normalize_project_scenario(raw, source_id)
-    except ValueError as exc:
+    except _PROJECT_INPUT_ERRORS as exc:
         raise _project_error(exc)
     return ScenarioFilePreviewResponse(
         scenario=scenario, source_scenario_id=source_id, warnings=warnings,
@@ -525,7 +533,7 @@ def preview_aspic_file(payload: AspicPreviewRequest, request: Request,
     try:
         raw, warnings = import_aspic(payload.title, payload.rules, payload.glossary, payload.conclusions)
         scenario = normalize_project_scenario(raw, None)
-    except ValueError as exc:
+    except _PROJECT_INPUT_ERRORS as exc:
         raise _project_error(exc)
     return ScenarioFilePreviewResponse(scenario=scenario, warnings=warnings)
 
@@ -542,7 +550,7 @@ def export_scenario_file(payload: ScenarioExportRequest, request: Request,
     try:
         normalized = normalize_project_scenario(payload.scenario, payload.source_scenario_id)
         return export_scenario(normalized, payload.source_scenario_id)
-    except ValueError as exc:
+    except _PROJECT_INPUT_ERRORS as exc:
         raise _project_error(exc)
 
 
@@ -558,7 +566,7 @@ def preview_scenario_editor(payload: ScenarioEditorPreviewRequest, request: Requ
         raw, warnings = edit_scenario(payload.scenario, payload.rules, payload.glossary)
         normalized = normalize_project_scenario(raw, payload.source_scenario_id)
         bundle = compute_state_bundle(scenario_from_dict(normalized))
-    except ValueError as exc:
+    except _PROJECT_INPUT_ERRORS as exc:
         raise _project_error(exc)
     return {**bundle, "warnings": warnings, "source_scenario_id": payload.source_scenario_id}
 
@@ -572,7 +580,7 @@ def preview_source_file(payload: SourcePreviewRequest, request: Request,
     enforce_rate_limit(request, session, settings, scope="source_preview", limit=40, user_id=user.id)
     try:
         source, warnings = preview_source(payload.filename, payload.data_base64)
-    except ValueError as exc:
+    except _PROJECT_INPUT_ERRORS as exc:
         raise _project_error(exc)
     return {"source": source, "warnings": warnings}
 
@@ -588,7 +596,7 @@ def preview_glossary(payload: GlossaryPreviewRequest, request: Request,
         original = scenario_to_dict(scenario_from_dict(payload.scenario))
         scenario = scenario_from_dict(apply_glossary(original, parse_glossary(payload.glossary)))
         compute_state_bundle(scenario)
-    except ValueError as exc:
+    except _PROJECT_INPUT_ERRORS as exc:
         raise _project_error(exc)
     return {"scenario": scenario_to_dict(scenario)}
 
@@ -643,7 +651,7 @@ def put_project(
             description=payload.description,
             scenario=payload.scenario,
         )
-    except (ProjectNotFoundError, ProjectVersionConflictError, ValueError) as exc:
+    except (ProjectNotFoundError, ProjectVersionConflictError, *_PROJECT_INPUT_ERRORS) as exc:
         raise _project_error(exc)
     response.headers["ETag"] = f'"{project.version}"'
     return _project_detail(project)
@@ -707,7 +715,7 @@ def post_project_share(
         link, token = create_share_link(
             session, user, project_id, expires_at=payload.expires_at
         )
-    except (ProjectNotFoundError, ShareLinkLimitError, ValueError) as exc:
+    except (ProjectNotFoundError, ShareLinkLimitError, *_PROJECT_INPUT_ERRORS) as exc:
         raise _project_error(exc)
     base_url = settings.public_base_url or str(request.base_url).rstrip("/")
     return ShareLinkCreatedResponse(

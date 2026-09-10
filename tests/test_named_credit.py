@@ -15,6 +15,7 @@ from app.db.models import (
     UsageReservation, User, utc_now,
 )
 from app.services.accounts import upsert_verified_identity
+from app.services.credit_eligibility import initialize_credit_eligibility
 from app.services.credit_policy import (
     NAMED_CREDIT_EMAILS, NAMED_CREDIT_GRANT_MICROUSD, NAMED_CREDIT_PROGRAM,
 )
@@ -50,6 +51,7 @@ def credit_factory(tmp_path):
             spent_microusd=345, reserved_microusd=123,
         ))
         initialize_named_credit(session)
+        initialize_credit_eligibility(session)
         session.commit()
     yield factory
     engine.dispose()

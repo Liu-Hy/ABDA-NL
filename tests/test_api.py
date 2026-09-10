@@ -361,7 +361,7 @@ def test_chat_happy_path_returns_message_and_usage(client: TestClient, monkeypat
         )
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/chat",
@@ -397,7 +397,7 @@ def test_chat_retries_on_validator_flag(client: TestClient, monkeypatch):
     good = "The scenario is balanced between Popov and Hayashi."
     fake = _FakeLLMClient([_llm_response(bad), _llm_response(good)])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/chat",
@@ -432,7 +432,7 @@ def test_chat_rejects_non_user_last_message(client: TestClient, monkeypatch):
     from app.api import main as main_module
 
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", _FakeLLMClient([]))
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: _FakeLLMClient([]))
 
     resp = client.post(
         "/chat",
@@ -455,7 +455,7 @@ def test_chat_uses_diff_ops_when_building_state(client: TestClient, monkeypatch)
 
     fake = _FakeLLMClient([_llm_response("ok")])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/chat",
@@ -787,7 +787,7 @@ def test_propose_add_rule_happy_path(client: TestClient, monkeypatch):
         _review_response([]),  # clean review
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -843,7 +843,7 @@ def test_propose_validator_retries_on_id_collision(client: TestClient, monkeypat
         _review_response([]),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -890,7 +890,7 @@ def test_propose_unknown_premise_is_advisory_not_blocking(client: TestClient, mo
         _review_response([]),  # Reviewer has no semantic concerns
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -933,7 +933,7 @@ def test_propose_unknown_premise_without_notes_gets_readable_fallback(
         _review_response([]),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -971,7 +971,7 @@ def test_propose_retry_exhausted_on_persistent_id_collision(client: TestClient, 
         _tool_response("propose_add_rule", bad),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -989,7 +989,7 @@ def test_propose_retry_exhausted_on_persistent_id_collision(client: TestClient, 
 
 
 def test_propose_modify_rule_coerces_id(client: TestClient, monkeypatch):
-    """A narrow modification coerces the id and preserves omitted metadata."""
+    """The requested id is fixed; explicit model fields remain visible for review."""
     from app.api import main as main_module
 
     tool_input = {
@@ -1009,7 +1009,7 @@ def test_propose_modify_rule_coerces_id(client: TestClient, monkeypatch):
         _review_response([]),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -1024,10 +1024,10 @@ def test_propose_modify_rule_coerces_id(client: TestClient, monkeypatch):
     assert resp.status_code == 200, resp.text
     operation = resp.json()["op"]
     assert operation["id"] == "r1"
-    assert operation["rule"]["category"] == "hayashi-possession"
-    assert operation["rule"]["source"] == "Metropolitan Life Ins. Co. v. SF Bank"
-    assert operation["rule"]["block"] == 1
-    assert operation["rule"]["active"] is True
+    assert operation["rule"]["category"] == "wrong-category"
+    assert operation["rule"]["source"] == "wrong-source"
+    assert operation["rule"]["block"] == 9
+    assert operation["rule"]["active"] is False
 
 
 def test_propose_modify_rule_requires_existing_id(client: TestClient, monkeypatch):
@@ -1063,7 +1063,7 @@ def test_propose_add_fact_skips_reviewer(client: TestClient, monkeypatch):
         # would raise "ran out of canned tool responses".
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -1102,7 +1102,7 @@ def test_propose_reviewer_issues_surface_with_severity(client: TestClient, monke
         ]),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
@@ -1190,7 +1190,7 @@ def test_propose_discards_reviewer_reference_hallucination(client: TestClient, m
         ]
     )
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     response = client.post(
         "/propose",
@@ -1223,7 +1223,7 @@ def test_propose_adds_deterministic_duplicate_warning(client: TestClient, monkey
         _review_response([]),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     response = client.post(
         "/propose",
@@ -1264,7 +1264,7 @@ def test_propose_output_is_a_valid_diff_op(client: TestClient, monkeypatch):
         _review_response([]),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     propose = client.post(
         "/propose",
@@ -1299,7 +1299,7 @@ def test_propose_reviewer_sees_the_proposed_edit(client: TestClient, monkeypatch
         _review_response([]),
     ])
     monkeypatch.setattr(main_module, "ENABLE_LLM", True)
-    monkeypatch.setattr(main_module, "_llm_client", fake)
+    monkeypatch.setattr(main_module, "_request_llm_client", lambda *_args, **_kwargs: fake)
 
     resp = client.post(
         "/propose",
