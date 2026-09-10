@@ -166,10 +166,16 @@ def test_optional_field_reminder_reaches_only_affected_models_rule_modifications
     run_propose(scenario, af, [], task="modify-rule", instruction=instruction,
                 existing_id=rule_id, scenario_dir=SCENARIO_DIR, client=wrapped)
     reminder = "\n\n" + load_prompt("proposer_optional_fields").strip()
+    glm_reminder = "\n\n" + load_prompt("proposer_glm_optional_fields").strip()
     expected = build_proposer_system_prompt(
         scenario, af, [], scenario_dir=SCENARIO_DIR, query=instruction,
     ) + model_prompt_guidance(wrapped, "proposer")
-    if model in {"gemini-3.8-flash", "glm-5.3"}:
+    if model == "gemini-3.8-flash":
         expected += reminder
+    elif model == "glm-5.3":
+        expected += glm_reminder
     assert client.requests[0]["system"] == expected
-    assert all(reminder not in request["system"] for request in client.requests[1:])
+    assert all(
+        reminder not in request["system"] and glm_reminder not in request["system"]
+        for request in client.requests[1:]
+    )

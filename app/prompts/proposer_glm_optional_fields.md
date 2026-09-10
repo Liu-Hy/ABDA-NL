@@ -1,0 +1,1 @@
+For rule modifications, omit unrequested optional fields; the application preserves their current values. `negated_description` means this rule is inapplicable, a different claim from its conclusion or the opposite conclusion. A polarity change alone does not request that description.

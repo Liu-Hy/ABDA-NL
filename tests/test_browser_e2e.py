@@ -1623,6 +1623,9 @@ def test_logout_discards_an_in_flight_private_workspace_refresh(
                 }"""
             )
             page.wait_for_function("window.__resolveStaleProjects !== null")
+            # Match submission ordering: restore signed-in history, then append
+            # private content to the active conversation's shared message array.
+            page.evaluate("conversationStore.ready")
             page.evaluate(
                 """() => {
                     state.projects = [{
@@ -1634,10 +1637,11 @@ def test_logout_discards_an_in_flight_private_workspace_refresh(
                       created_at: '2026-01-01T00:00:00Z',
                       updated_at: '2026-01-01T00:00:00Z',
                     }];
-                    state.chatMessages = [{
+                    state.chatMessages.push({
                       role: 'user',
                       content: 'Old account private chat',
-                    }];
+                    });
+                    saveConversationDraft();
                     renderProjectsUI();
                     renderChat();
                 }"""
