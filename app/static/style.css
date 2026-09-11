@@ -31,8 +31,6 @@ body {
 body.modal-open { overflow: hidden; }
 
 [hidden] { display: none !important; }
-/* Keep closed disclosure content out of WebKit's cached overflow geometry. */
-details:not([open]) > :not(summary) { display: none !important; }
 
 /* Public example curation follows the existing workspace and dialog layout. */
 .example-review-content { width: min(760px, 96vw); }

@@ -8,7 +8,8 @@
 #right-panel .chat-bubble :is(h1, h2, h3, h4, h5, h6) { font-size: var(--font-reading, 15px); }
 /* Give the native select an explicit track that shrinks with the panel. */
 #right-panel .conversation-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .4rem; padding: .5rem .75rem; }
-#right-panel .conversation-toolbar select { font-size: var(--font-control, 14px); width: 100%; }
+/* Keep native option-label layout inside the control's assigned width. */
+#right-panel .conversation-toolbar select { font-size: var(--font-control, 14px); width: 100%; contain: layout; }
 .conversation-actions { position: relative; flex: 0 0 auto; }
 .conversation-actions > summary { list-style: none; cursor: pointer; padding: .4rem .55rem; min-width: 28px; min-height: 28px; text-align: center; border: 1px solid var(--border); border-radius: var(--radius); }
 .conversation-actions > summary::-webkit-details-marker { display: none; }

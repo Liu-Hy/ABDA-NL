@@ -888,6 +888,8 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
                 return report;
             }""", narrow_before_capture), indent=2)
             assert narrow_before_capture["document"] <= narrow_before_capture["viewport"] + 1, narrow_before_capture
+            expect(page.locator("#conversation-select option:checked")).to_contain_text("A saved teaching question.")
+            expect(page.locator("#conversation-select option:checked")).to_contain_text("View mode demonstration")
             _open_workspace(page)
             _axe_report(page, "normal user view account controls")
             page.set_viewport_size({"width": 1200, "height": 900})

@@ -168,6 +168,10 @@ Intentional refinements:
   them. Retained text size is explicit; original PDFs are not stored. Source
   location mismatches remain unconfirmed instead of changing qualified PDF
   extraction or suggesting that context alone is a verified quotation.
+- Current user guides and the conference playbook use the new labels. The
+  extended abstract's labels still need alignment in its publication workflow;
+  this repository has no tracked manuscript source. Actual presentation-device
+  rehearsals remain separate from browser automation.
 
 Schema 0008 adds only publication metadata. Existing snapshots receive empty
 summary/note fields and no attribution opt-in; it does not modify credit,
@@ -185,6 +189,22 @@ at least 4.58. Screenshots of the explorer, authoring, publication, chat, and
 saved-source reader were inspected, along with three color-vision simulations.
 The full browser/CI and managed-demo receipts will establish the final boundary;
 these local results alone are not hosted deployment or conference-device acceptance.
+
+The managed Delta demo now serves the candidate interface on schema 0008.
+The additive migration preserved every existing column value and assigned no
+existing submission an attribution opt-in. Readiness checks verified all 17
+served assets, unchanged accounting, the seven-model menus, and all five named
+administrator identities. Receipts are
+`artifacts/evals/ui-local-upgrade-20260910T234436Z.json` and
+`artifacts/evals/ui-local-final-readiness-5698a84-20260910.json`.
+
+The fresh six-frame [offline pack](../artifacts/conference/ui-5698a84-20260910T235259Z.zip)
+was captured from the clean local candidate, with matching served asset hashes,
+only 26 allowed requests, and verified offline image loading/navigation. Its
+source receipt is `artifacts/evals/ui-conference-20260910T235259Z.json`.
+The pack and detailed receipts are retained locally, outside Git. The
+[playbook](operations/comma-2026-demo-playbook.md) describes laptop preparation
+and rehearsals. Hosted deployment and personal sign-in acceptance remain pending.
 
 ## Current qualified model pool
 
