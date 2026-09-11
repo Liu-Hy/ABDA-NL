@@ -2,3 +2,6 @@
 # Verified against that file and its secret values on 2026-09-10.
 # This exception applies only to the exact commit, file, rule, and line below.
 2f97ab4c07ec29c6b63b3d346175f397b5d77c90:docs/operations/hosted-recovery-rollout-plan-20260910.json:generic-api-key:141
+# SHA-256 checksum of the private API verification receipt.
+# Recomputed against that receipt on 2026-09-11; exact occurrence only.
+fb1e3f624951b58dfce1268c538e83a6c209bae1:docs/operations/hosted-ui-rollout-result-20260911.json:generic-api-key:163

@@ -182,6 +182,9 @@ def test_project_share_expiry_archive_and_private_restore(live_browser_server):
             page.locator("#current-project-card .project-menu > summary").click()
             page.locator('#current-project-card [data-project-action="archive"]').click()
             expect(page.locator(f'#project-list [data-project-card="{saved["id"]}"]')).to_have_count(0)
+            # The archive also loads the default example and removes this card.
+            # Wait for that layout change before clicking the filter below it.
+            expect(page.locator("#current-project-card")).not_to_be_visible()
             page.locator("#projects-archived-filter").click()
             card = page.locator(f'[data-project-card="{saved["id"]}"]')
             expect(card).to_contain_text("Archived")

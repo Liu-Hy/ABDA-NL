@@ -206,12 +206,14 @@ summary:focus-visible, .scenario-about:focus-visible { outline: 2px solid var(--
 .pref-option { font-size: var(--font-control); min-height: 30px; }
 .edit-hint kbd { font-size: var(--font-minimum); }
 .aspic-pre, .edit-prop-aspic { font-size: var(--font-caption); }
+.aspic-comment { color: var(--text-faint); }
 .explanation-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .5rem 1rem; border-bottom: 1px solid var(--border); }
 .explanation-navigation .active { background: var(--accent-light); color: var(--accent); }
 .af-node { cursor: pointer; outline: none; }
 .af-node:hover rect, .af-node:focus rect { stroke: #102d4c; stroke-width: 3; }
 .af-node:focus-visible { outline: none; }
 .af-toolbar, .af-legend { flex-wrap: wrap; }
+.af-scope-control { gap: 6px; }
 .af-legend, .af-legend .af-legend-note, .af-control-label, .af-zoom-readout { font-size: 13px; }
 .af-legend .af-ucnode-sample { font-size: var(--font-minimum); }
 .af-scope-btn, .af-zoom-controls .btn { font-size: var(--font-control); }

@@ -1,5 +1,5 @@
-version: 5
-updated: '2026-09-10'
+version: 6
+updated: '2026-09-11'
 models:
   claude-sonnet-4-6:
     family: anthropic
@@ -279,9 +279,8 @@ profiles:
     fallback_route: openrouter-glm-5.3
   kimi-k3:
     display_name: Kimi K3
-    description: CloudBank funded access with the same model on OpenRouter after provider
-      failure.
-    public_ready: true
+    description: Internal evaluation only, pending reliable application qualification.
+    public_ready: false
     primary_route: cloudbank-kimi-k3
     fallback_route: openrouter-kimi-k3
   gemini-3-1-pro:
@@ -598,7 +597,7 @@ routes:
     request_model: abda-kimi-k3
     metadata_confirmed: true
     configuration_confirmed: true
-    funded_feature_qualified: true
+    funded_feature_qualified: false
     live_inference_verified: true
   openrouter-kimi-k3:
     adapter: openai-compatible

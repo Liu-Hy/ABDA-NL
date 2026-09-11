@@ -59,8 +59,8 @@ reviewer should judge whether it adequately fulfills the contract.
 | Normal user view | Both groups retain a fixed header switch in both modes; Account also exposes the same setting. The browser session retains identity, projects, conversations and actual credit; it temporarily loses scenario administration in the interface and server requests. Refresh retains the mode, tabs synchronize, and sign-out resets it. This is not impersonation, a separate $5 allowance, or revocation of another browser's session or MCP token. Late administrator responses must not repopulate the demoted interface. |
 | Literal “if and only if CloudBank fails” | Transient provider failures get at most one retry; verified deployment/access failures may go directly to the qualified backup. A deployment-scoped circuit may reuse a recent failure without another CloudBank call on every request; default cooldown is 15 seconds, followed by a controlled probe. This cooldown is an engineering refinement of the literal per-request wording. It must never become permanent OpenRouter-first routing. |
 | Failure and time limits | Missing local provider configuration, login/credit, invalid input, safety refusal, malformed successful output, semantic rejection, accounting failure, and an exhausted overall deadline do not authorize fallback spending. Provider 429 and transport/retryable server failures do. OpenRouter has no provider-level retry; feature correction calls are still counted and share the 180-second overall deadline. These bounds are engineering choices, not a guarantee of identical answers or latency across providers. |
-| Model selection | Excluding the three weakest requested options, preferring successors, adding Gemini 3.1 Pro, using public benchmarks, and avoiding more expensive tiers are explicit. Gemini 3.8 Flash replaces the earlier Sonnet default at the owner's request. The seven-model pool remains an engineering selection. GLM was withheld when correction testing exposed repeated edit failures that short general prompt changes did not reliably resolve. This is application qualification, not a new general model ranking or a claim of a global Pareto frontier. |
-| Other candidates | Kimi and Gemini 3.1 Pro remain the two added choices; Kimi supplies an additional family. GLM and DeepSeek V4 Flash 0731 remain internal candidates after application failures; Grok lacked a verified exact Azure tariff. Unpublished deployments remain, including Luna deployed before its exclusion; public quota, BYOK, and MCP admission consistently exclude them. |
+| Model selection | Excluding the three weakest requested options, preferring successors, adding Gemini 3.1 Pro, using public benchmarks, and avoiding more expensive tiers are explicit. Gemini 3.8 Flash replaces the earlier Sonnet default at the owner's request. The six-model pool is an engineering selection, based on application qualification rather than a new general ranking or a claim of a global Pareto frontier. |
+| Other candidates | Gemini 3.1 Pro remains the additional choice. Kimi was initially admitted, then withheld after the expanded scenario tests exposed repeated causal and formal-acceptance errors despite short general prompt revisions. GLM and DeepSeek V4 Flash 0731 also remain internal candidates after application failures; Grok lacked a verified exact Azure tariff. These findings limit the requested optional expansion. Deployments and historical evidence remain, including Luna deployed before its exclusion; quota, BYOK and MCP consistently exclude unqualified choices. |
 | Conversations | History is saved in per-conversation IndexedDB records in the same browser per account, with a compact selector rather than visual tabs. Transactions retain concurrent edits as explicit copies; deletion tombstones prevent stale tabs from restoring removed conversations. Source text and scenario snapshots are deduplicated and portable exports remain complete. Signed-out history is tab-local; signing out hides but retains that account's saved history for its next sign-in. No cross-device chat synchronization was built. These are intentional scope choices, and potential shortfalls if “automatic saving” or “tabs” implied more. |
 | Forks and graph | Forks retain previous turns/snapshots but explicitly use the current scenario for the new question. There is no automatic historical-scenario restoration. The derivation inspector shows individual arguments and their local neighborhood alongside the grouped overview; it is not a full ungrouped global graph. Both choices implement the review's bounded proposals and remain reviewable for adequacy. |
 | Edit identifiers | New LLM-generated identifiers allow 24 characters; manual editing allows 100, and modifying existing longer rule IDs remains supported. The larger generated-ID limit is an engineering choice intended to keep proposals readable. |
@@ -175,8 +175,35 @@ behavioral checks and saved-source limitation. Engine code, scenario format and
 stored knowledge bases are unchanged. New local tests cover cancellation through
 ASGI middleware, metered settlement, no retry/fallback after Stop, request/account
 isolation, the default model, the fixed administrator toggle and About behavior.
-The complete candidate's final qualification and release receipt will be recorded
-here after the running checks finish.
+
+The admitted six-model pool has 584 reviewed observations covering all 52 cases
+per model. Changed request groups were tested three times; unchanged groups retain
+every original repetition only after exact request, result and provider-setting
+replay. Repetition counts therefore vary across retained groups. The final
+`artifacts/evals/scenario-refinement-20260910/admitted-six-model-assessment.json`
+binds these results to fingerprint `5fbca7cd`, preserves automatic flags and
+records no material findings in the admitted pool. Reviews are by AI agents,
+not independent human acceptance or a blind holdout.
+
+Kimi's last 84 responses included four material findings: two quotation-check
+delivery failures, an incorrect premise/cause explanation and an incorrect
+acceptance criterion. Its earlier three targeted errors were resolved, but the
+new findings justified withholding the entire model. All 112 Kimi observations
+in the final candidate set and earlier failed runs remain diagnostic evidence;
+none were selected to make its admission pass. See
+`kimi-withholding-decision-20260911.json` and
+`seven-model-final-diagnostic-assessment.json` in the same artifact directory.
+The cumulative ledger is **$104.122660 of $150**, with no pending reservations
+and no paid OpenRouter tests. This is conservative recorded usage, not an invoice.
+
+Archived deletion has owner, version, account-change and confirmation tests,
+including real disposable API workflows in all three browser engines. Existing
+foreign keys remove old links and preserve submitted/published snapshots and
+accounting. The final focused browser checks passed in Chromium, Firefox and
+WebKit, including graph target spacing and comment contrast. The archive/restore
+test now waits for the completed archive layout before clicking its filter.
+Source CI and deployment remain release gates; their completed receipts will
+replace the hosted baseline above.
 
 A same-question cost audit found prompt growth from 15,067 to 41,579 characters
 across the earlier revisions, mainly complete engine state and exact corpus
@@ -191,7 +218,7 @@ avoidable cache expiry. The detailed offline audit is retained at
 
 | Funded provider | Models |
 | --- | --- |
-| Azure Foundry | Claude Sonnet 5, Claude Opus 5, GPT-5.6 Terra, GPT-5.6 Sol, Kimi K3 |
+| Azure Foundry | Claude Sonnet 5, Claude Opus 5, GPT-5.6 Terra, GPT-5.6 Sol |
 | GCP Vertex | Gemini 3.8 Flash, Gemini 3.1 Pro Preview |
 
 Every admitted model has an OpenRouter mapping. Native BYOK providers expose
@@ -261,8 +288,8 @@ interpretation and should themselves be challenged.
    [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34462931025), including
    1,454 tests/53 skips per Python version and 52 tests per browser engine.
    [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34462931020) found zero
-   issues. `.gitleaksignore` exempts one exact, independently verified payload
-   checksum occurrence, not a rule or file. Image policy accepted reviewed,
+   issues. `.gitleaksignore` exempts two exact checksum occurrences, each
+   recomputed against its original private receipt. Image policy accepted reviewed,
    unfixed dependency findings; do not claim zero image vulnerabilities.
    Actual Safari, screen-reader/hardware rehearsal, organizational reviews, and
    every direct BYOK provider's paid account remain distinct from these results.
