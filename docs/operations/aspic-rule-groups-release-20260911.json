@@ -1,0 +1,326 @@
+{
+  "result": "ASPIC_RULE_GROUPS_RELEASE_VERIFIED",
+  "recorded_utc": "2026-09-11T21:31:08.363723+00:00",
+  "origin": "https://demo.abda-nl.org",
+  "source_commit": "697a6cd9dd363052c20bb9a7d490044f2bb40822",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:e3bc5b7fdc8642075a9661aaa706d5dcb150078ce3c92d29ac2177e69922157b",
+  "revision": "abda-nl-stg-web--aspic-697a6cd-0911",
+  "previous_source_commit": "6b6e8699387a978ed24ca86edfbe4759eb1b6648",
+  "changes": [
+    "Label strict and defeasible rules separately within each existing preference block, with brief explanations.",
+    "Clarify fact and assumption headings and mark category names explicitly.",
+    "Retract the exact community entry identified by the owner through the existing versioned review service."
+  ],
+  "release": {
+    "source_ci_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648105921",
+    "codeql_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648105927",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648106111",
+    "tag": "service-image-aspic-697a6cd-20260911",
+    "ci_jobs_passed": 8,
+    "tests": [
+      {
+        "name": "postgres-acceptance",
+        "passed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (firefox)",
+        "passed": 167,
+        "skipped": 0
+      },
+      {
+        "name": "Python 3.10",
+        "passed": 1925,
+        "skipped": 168
+      },
+      {
+        "name": "browser-acceptance (chromium)",
+        "passed": 167,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (webkit)",
+        "passed": 167,
+        "skipped": 0
+      },
+      {
+        "name": "Python 3.13",
+        "passed": 1925,
+        "skipped": 168
+      }
+    ],
+    "all_image_steps_passed": true,
+    "github_and_registry_provenance_verified": true,
+    "exact_source_signer_tag_and_subject_verified": true,
+    "container_security": {
+      "total_vulnerabilities": 252,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "duplicate_tag_ci": {
+      "run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648106048",
+      "status": "cancelled",
+      "reason": "The identical development source CI remained authoritative and passed."
+    }
+  },
+  "rollout": {
+    "checked_utc": "2026-09-11T21:27:23.249012+00:00",
+    "checks": {
+      "web_configuration_identity_and_other_template_fields_preserved": true,
+      "manual_job_entirely_unchanged": true,
+      "ready_revision": true,
+      "running": true,
+      "single_healthy_active_revision": true,
+      "new_replicas_present": true,
+      "old_replicas_absent": true,
+      "manual_jobs_terminal": true
+    },
+    "patch_count": 1,
+    "changed_template_leaves": [
+      "/containers/0/image",
+      "/revisionSuffix"
+    ],
+    "default_profile_preserved": "gemini-3-8-flash",
+    "migration_run": false,
+    "compatible_schema": "20260910_0008",
+    "schema_verified_during_retraction_inspection": true,
+    "schema_requeried_during_image_rollout": false,
+    "secret_values_requested": false,
+    "drift_check": "Fresh comparison before one PATCH; no server-side ETag condition."
+  },
+  "community_retraction": {
+    "requested_entry_retracted": true,
+    "removed_count": 1,
+    "expected_version_service_action": true,
+    "private_source_preserved": true,
+    "publication_snapshot_and_attribution_preserved": true,
+    "other_publications_preserved": true,
+    "public_catalog_exact_difference_verified": true,
+    "former_public_route_status": 404,
+    "saved_app_and_job_unchanged": true,
+    "database_role": "restricted application login"
+  },
+  "acceptance": {
+    "local_checks": [
+      {
+        "label": "unit",
+        "exit_code": 0,
+        "counts": {
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "chromium",
+        "exit_code": 0,
+        "counts": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "firefox",
+        "exit_code": 0,
+        "counts": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "webkit",
+        "exit_code": 0,
+        "counts": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "local_total_passed": 21,
+    "bundled_scenarios": 6,
+    "modal_copy_checks": 36,
+    "round_trip_preserved": [
+      "facts",
+      "assumptions",
+      "rule identifiers",
+      "inference types",
+      "premises",
+      "conclusions",
+      "active states",
+      "preference blocks"
+    ],
+    "hosted_and_managed_assets_each": 20,
+    "complete_scenarios_each": 6,
+    "live_browser_engines": [
+      "chromium",
+      "webkit"
+    ],
+    "live_aspic_viewports": [
+      1440,
+      390
+    ],
+    "live_visible_raw_and_copied_text_matched": true,
+    "new_paid_model_calls": 0,
+    "new_presentation_device_acceptance": false
+  },
+  "limits_and_preserved_findings": [
+    "An initial read-only execution request was rejected with HTTP 400 for an unsupported empty volumes field. Fresh reads proved no execution or resource mutation before the corrected request.",
+    "A receipt filename collision was fixed. The successful read-only log was recovered without repeating the job.",
+    "Initial rollout checks recorded startup and replica retirement before the final healthy state.",
+    "Browser acceptance is automated; no new actual Safari or presentation-device check was performed.",
+    "Detailed source and cloud receipts remain in ignored or private storage."
+  ],
+  "qualification": {
+    "implementation_fingerprint": "5fbca7cdd56397022937c3ecd62c4cdd22b1afa255800c67cffe7629eb9e7dcb",
+    "unchanged": true,
+    "new_paid_model_calls": 0
+  },
+  "evidence": [
+    {
+      "label": "source_ci",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/ci-697a6cd/receipt.json",
+      "sha256": "27d392cdb89d4938f66dae26b8d3702f3167cb1786dbc528ece9f082a1d87684"
+    },
+    {
+      "label": "local_matrix",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/matrix-20260911T210718/receipt.json",
+      "sha256": "3a970b81550c87b570de9622186ce10490d4f0eac39fe56ae5d470ed2ff3de40"
+    },
+    {
+      "label": "qualification_unchanged",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/unchanged-qualification.json",
+      "sha256": "2b1b91758cedc25388681706cfab8b363f231bb6895acae85b7f8069f1443172"
+    },
+    {
+      "label": "managed_api",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/managed-api-697a6cd-20260911T211427.json",
+      "sha256": "561c7815393fbb3c140790725b35df8c9f45efd70b354358261cd3bd6f015fb0"
+    },
+    {
+      "label": "managed_browser",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/managed-browser-697a6cd-20260911T211427/receipt.json",
+      "sha256": "6fae98ace2353ad659ca237f711f9eee39e8b21278faec2f62aa743b3bc86f02"
+    },
+    {
+      "label": "managed_browser_driver",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/managed-browser-697a6cd-20260911T211427-driver/receipt.json",
+      "sha256": "a1d9c16158047c84143634191a96f2c3160b9dde913fb8835b74ba65f92b2058"
+    },
+    {
+      "label": "hosted_api",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/hosted-api.json",
+      "sha256": "8a21df8e2a434157913ea1da089d0ab984cf7b5cdf68237d6152e97d04aacaf5"
+    },
+    {
+      "label": "hosted_browser",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/hosted-browser/receipt.json",
+      "sha256": "2782acf8b7358feac9136ed393898638c6d5383a6ab794cd26f821266f712845"
+    },
+    {
+      "label": "hosted_browser_driver",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/hosted-browser-driver/receipt.json",
+      "sha256": "4dbeb033c05b927d226f23c8859c4e0809b5756fabdd763d4deecefb5e7b5dff"
+    },
+    {
+      "label": "hosted_visual_review",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/hosted-browser/inspection.json",
+      "sha256": "2ace8fb3120a22302a36d779f42f61b8ebae16888818aca906d100a1b1de18ae"
+    },
+    {
+      "label": "worker_cleanup",
+      "path": "artifacts/evals/aspic-rule-groups-20260911/worker-cleanup.json",
+      "sha256": "7a983dfc935fda80ede0317a55993cb28de85a01d7384b8ccc20e2c0cb433fdc"
+    }
+  ],
+  "private_evidence_sha256": {
+    "verified_release_image": "57be667257a8cbc01c86619e21b90fd7af736f63ef7765ab8b32f184e94fbbaa",
+    "root_release_binding": "54b74e35d29c32715b234cde1bb82eada8e33f56c545a1e4b4a8ee86a4815c5c",
+    "final_azure_verification": "21beb4b8b9f6c12cfb657148ef80fe71f946e5bcfadaf8d5d14cac791894b656",
+    "community_retraction": "1a1ae11b944ee1f299c5bd5202d1a982345e11d6754a6d84d04d2c2f49f2edb5",
+    "community_retraction_after_image_release": "851e8cd9d8549ed5d563dfe2249ca685fab0d66b39f546e53eeec456a965f3d3"
+  },
+  "cleanup": {
+    "checked_utc": "2026-09-11T21:31:04.632301+00:00",
+    "allocation": 21975310,
+    "allocation_completed_with_exit_zero": true,
+    "all_steps_terminal": true,
+    "all_steps_exit_zero": true,
+    "temporary_forwards_closed": true,
+    "initial_queue_visibility_lag": "The first collector observed completed accounting before the queue entry disappeared. Fresh accounting and queue reads now both confirm completion.",
+    "sacct": [
+      {
+        "job": "21975310",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.batch",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.extern",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.0",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.1",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.2",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.3",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.4",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.5",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.6",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.7",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      },
+      {
+        "job": "21975310.8",
+        "state": "COMPLETED",
+        "exit_code": "0:0"
+      }
+    ]
+  }
+}

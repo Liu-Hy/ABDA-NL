@@ -15,45 +15,43 @@ Review existing foundations as well as this diff wherever R01-R25 or E01-E07
 depend on them. The later refinement adds R17-R25 and supersedes the earlier
 question-frame, starter, Snapshot-control, typography, About and default-model choices.
 
-The subsequent R25 change labels strict and defeasible rules within each existing
-preference block. Twelve importer/editor checks and nine browser cases passed
-across Chromium, Firefox and WebKit, including all six bundled scenarios at
-desktop and narrow widths. All 36 modal/Copy payloads retained the same imported
-rules and preferences. This source change awaits its own release verification.
-
-The latest hosted source is `6b6e8699387a978ed24ca86edfbe4759eb1b6648`, deployed
+The latest hosted source is `697a6cd9dd363052c20bb9a7d490044f2bb40822`, deployed
 to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
-`abda-nl-stg-web--chat-6b6e869-0911`. R24 adds compact pencil and circular-arrow
-controls for per-turn editing/forking and retry. The
-[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615742349)
-is `sha256:7de958e6073f2bb4e099785b631624c048d71af9a87fddcd40489519a36a18b5`.
-All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615744317) and
-[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615744419) passed:
+`abda-nl-stg-web--aspic-697a6cd-0911`. R25 adds explicit strict/defeasible rule
+headings and distinguishes categories from inference types. The
+[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648106111)
+is `sha256:e3bc5b7fdc8642075a9661aaa706d5dcb150078ce3c92d29ac2177e69922157b`.
+All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648105921) and
+[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648105927) passed:
 1,925 tests/168 skips per Python version, 167 tests per browser engine, and
 restricted-role PostgreSQL. The opt-in browser and PostgreSQL checks ran separately.
 
-The [turn-action release receipt](operations/chat-turn-actions-release-20260911.json)
-binds source, image provenance and live checks. Local checks passed 77 cases per
-browser and 26 frontend/composer contracts, including actual state/export APIs
-for public, private and older private conversations. Inference was simulated.
-Hosted and managed checks each matched 20 assets, six scenarios and the model
-pool. Anonymous Chromium/WebKit checks verified icon rendering and keyboard
-forking with browser-local synthetic turns, plus existing layout, About, graph
-and source-reader behavior. The receipt retains a corrected helper callback
-failure and an initial source-reader timeout whose cause was not established;
-the response-aware follow-up passed. No paid inference or new presentation-device
-acceptance was added. The [preceding scenario release](operations/scenario-refinement-release-20260911.json)
-retains the unchanged model qualification and budget evidence.
+The [ASPIC- release receipt](operations/aspic-rule-groups-release-20260911.json)
+binds source, image provenance and live checks. Twelve importer/editor checks
+and nine browser cases passed across Chromium, Firefox and WebKit. All 36
+modal/Copy checks covered six scenarios at desktop and narrow widths, preserving
+facts, assumptions, rule IDs/types, active states and preference blocks on import.
+Hosted and managed API checks each matched 20 assets, six complete scenarios and
+the model pool. Hosted and managed Chromium/WebKit checks verified the new
+headings and Copy behavior alongside the existing layout, About, graph, draft
+and source-reader checks. No paid inference or new presentation-device acceptance was added.
 
-This rollout changed only the web image and revision suffix, preserving runtime
+The owner's newly identified community entry was retracted through the existing
+versioned review service under the restricted application database role. Exact
+readback and public-route checks confirmed that its private source, immutable
+publication snapshot/attribution and other publications were preserved. Private
+receipts retain the target identifiers and two corrected execution/collection
+helper issues; the public record contains hashes and results only.
+
+The web rollout changed only the image and revision suffix, preserving runtime
 settings, identity, secret references and the saved manual job. It performed no
-migration or secret-value request. The [preceding UI release](operations/ui-scale-terminology-release-20260911.json)
-records enlargement, terminology, the graph-tooltip correction and the owner's
-requested test-publication retraction, which preserved its private source and
-other publications. Recovery must retain the stable eligibility key and use a
-schema `20260910_0008` compatible image; the
-[earlier rollout](operations/hosted-ui-rollout-result-20260911.json) records that
-migration's data/accounting comparisons and backup limits.
+migration or secret-value request. Schema `20260910_0008` was verified during the
+separate retraction inspection. Recovery must retain the stable eligibility key
+and use a compatible image. Earlier [turn actions](operations/chat-turn-actions-release-20260911.json),
+[UI refinement](operations/ui-scale-terminology-release-20260911.json),
+[model qualification](operations/scenario-refinement-release-20260911.json) and
+[migration evidence](operations/hosted-ui-rollout-result-20260911.json) remain
+supporting records for the unchanged features and their documented limits.
 
 `Requirements.docx` was read directly and has SHA-256
 `fb934fec9ab180586774a80f01f5d57d23693f3814eb61fa0db6f0e54b240606`.
