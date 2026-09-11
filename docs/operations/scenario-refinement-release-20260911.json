@@ -1,0 +1,279 @@
+{
+  "result": "SCENARIO_REFINEMENT_RELEASE_VERIFIED",
+  "recorded_utc": "2026-09-11T07:07:37.974617+00:00",
+  "origin": "https://demo.abda-nl.org",
+  "source_commit": "9a06436e76055997524e1e29cf438078461831e7",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:3c6e35cc01acdc9ade553a5eca76189cb4209d07d176e5932e4af9f916e6abb0",
+  "revision": "abda-nl-stg-web--scenarios-9a06436-0911",
+  "default_profile": "gemini-3-8-flash",
+  "previous_source_commit": "2037b60118f481e1e787d5713e999af39a19b923",
+  "changes": [
+    "Three reconstructed knowledge bases and corrected corpus summaries",
+    "Six plain-English About introductions, closed by default",
+    "Compact styling, editable AI references, selective source evidence and Chat & Explore",
+    "Chat/proposal cancellation and fixed administrator view toggle",
+    "Confirmed selection and delete-all for archived private projects",
+    "Six qualified models across quota, BYOK and MCP, with Kimi withheld"
+  ],
+  "release": {
+    "source_ci_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571039640",
+    "codeql_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571039703",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571442559",
+    "tag": "service-image-scenarios-9a06436-20260911",
+    "ci_jobs_passed": 8,
+    "codeql_findings": 0,
+    "tests": [
+      {
+        "name": "browser-acceptance (webkit)",
+        "passed": 140,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (chromium)",
+        "passed": 140,
+        "skipped": 0
+      },
+      {
+        "name": "Python 3.10",
+        "passed": 1925,
+        "skipped": 141
+      },
+      {
+        "name": "postgres-acceptance",
+        "passed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (firefox)",
+        "passed": 140,
+        "skipped": 0
+      },
+      {
+        "name": "Python 3.13",
+        "passed": 1925,
+        "skipped": 141
+      }
+    ],
+    "all_image_steps_passed": true,
+    "github_and_registry_provenance_verified": true,
+    "exact_source_signer_tag_and_subject_verified": true,
+    "container_security": {
+      "total_vulnerabilities": 249,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "duplicate_tag_ci": {
+      "run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571442571",
+      "status": "cancelled",
+      "reason": "The same source and CI workflow were already running on development; the authoritative run above passed."
+    }
+  },
+  "rollout": {
+    "checked_utc": "2026-09-11T06:58:33.999417+00:00",
+    "checks": {
+      "web_configuration_identity_and_other_template_fields_preserved": true,
+      "manual_job_entirely_unchanged": true,
+      "ready_revision": true,
+      "running": true,
+      "single_healthy_active_revision": true,
+      "new_replicas_present": true,
+      "old_replicas_absent": true,
+      "manual_jobs_terminal": true
+    },
+    "new_replica_count": 1,
+    "patch_count": 1,
+    "changed_template_leaves": [
+      "/containers/0/image",
+      "/containers/0/env/25/value",
+      "/revisionSuffix"
+    ],
+    "manual_migration_job_changed": false,
+    "migration_run": false,
+    "compatible_schema": "20260910_0008",
+    "schema_requeried": false,
+    "database_rows_recompared": false,
+    "secret_values_requested": false,
+    "existing_configuration_identity_and_secret_references_preserved": true,
+    "recovery": "Use a fresh revision suffix and a schema 0008 compatible image. Retain the stable eligibility key; do not downgrade the database."
+  },
+  "acceptance": {
+    "hosted_and_managed_assets_each": 20,
+    "complete_scenarios_each": 6,
+    "models": {
+      "default_profile": "gemini-3-8-flash",
+      "funded_profiles": [
+        "balanced",
+        "claude-opus-5",
+        "gemini-3-1-pro",
+        "gemini-3-8-flash",
+        "gpt-5-6-sol",
+        "gpt-5-6-terra"
+      ],
+      "byok_model_counts": {
+        "anthropic": 2,
+        "openai": 2,
+        "google": 2,
+        "openrouter": 6
+      },
+      "public_model_ids": [
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "gemini-3.1-pro-preview",
+        "gemini-3.8-flash",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra"
+      ],
+      "withheld_kimi_absent": true,
+      "funded_byok_pool_consistent": true
+    },
+    "hosted_and_managed_browser_engines": [
+      "chromium",
+      "webkit"
+    ],
+    "about_paragraphs_checked_each": 6,
+    "desktop_width": 1440,
+    "phone_width": 390,
+    "editable_reference_without_sending": true,
+    "committed_source_text_and_search_highlight": true,
+    "archived_deletion_routes_loaded": true,
+    "final_live_checks_anonymous": true,
+    "paid_model_calls": 0,
+    "real_user_project_mutations": 0,
+    "limits": [
+      "Authenticated workflows and cancellation were covered by source tests and disposable browser fixtures, not these anonymous live checks.",
+      "No new paid provider, subscribed MCP client, native Safari, screen-reader or presentation-device acceptance was performed during this rollout.",
+      "Source code and summaries are public; detailed model outputs and private cloud receipts require access to this workspace."
+    ]
+  },
+  "model_qualification": {
+    "models": 6,
+    "cases_each": 52,
+    "case_model_groups": 312,
+    "observations": 584,
+    "exact_requests": 584,
+    "exact_results": 584,
+    "material": 0,
+    "original_automatic_failures_preserved": 28,
+    "implementation_fingerprint": "5fbca7cdd56397022937c3ecd62c4cdd22b1afa255800c67cffe7629eb9e7dcb",
+    "application_accepted": true,
+    "reviewers": "AI agents",
+    "human_acceptance": false,
+    "blind_holdout": false,
+    "repetitions": "Changed request groups have three fresh runs; compatible groups retain every original repetition after exact replay. Counts vary across retained groups.",
+    "kimi_withheld": true,
+    "withheld_kimi_observations_preserved": 112,
+    "final_kimi_material_findings": 4,
+    "all_earlier_failures_and_original_automatic_flags_preserved": true
+  },
+  "evaluation_budget": {
+    "limit_microusd": 150000000,
+    "spent_microusd": 104122660,
+    "pending_microusd": 0,
+    "blocked_reason": null,
+    "remaining_microusd": 45877340,
+    "paid_openrouter_evaluations": 0,
+    "invoice_reconciliation": false,
+    "further_paid_evaluation_planned": false
+  },
+  "evidence": [
+    {
+      "label": "source_ci",
+      "path": "artifacts/evals/scenario-refinement-20260910/ci-9a06436/receipt.json",
+      "sha256": "13b2781a8e0fbd94c0bb9b68ae3f130ba4837d8b8c1b8ec46b931ee646c7d97b"
+    },
+    {
+      "label": "qualification",
+      "path": "artifacts/evals/scenario-refinement-20260910/admitted-six-model-assessment.json",
+      "sha256": "dd3c8b1a20e7bb4cdd458b74f9c5a84723e7c4aad34690c346c1c25ed5dfda18"
+    },
+    {
+      "label": "qualification_audit",
+      "path": "artifacts/evals/scenario-refinement-20260910/reviews/admitted-six-model-independent-audit-20260911.json",
+      "sha256": "4e5a5311c7c3915b29550552c9ff4afac6fe8484d6491d6b13475d529bb50471"
+    },
+    {
+      "label": "budget",
+      "path": "artifacts/evals/scenario-refinement-20260910/final-budget-receipt-20260911.json",
+      "sha256": "e47de6879c0ba593486cb7fef31b2e7f9d48034d5d20378cf379b0196e22cf44"
+    },
+    {
+      "label": "kimi_decision",
+      "path": "artifacts/evals/scenario-refinement-20260910/kimi-withholding-decision-20260911.json",
+      "sha256": "4a65eafb59b81649d3fc6108d245a40a9d20020b90e9f73a3bd8bdbc75cb2052"
+    },
+    {
+      "label": "hosted_readiness",
+      "path": "artifacts/evals/scenario-refinement-20260910/hosted-readiness-9a06436.json",
+      "sha256": "23908b362a11a2efa9358dc9d2e1c0cc10d0a2bfcf295b7e7b5b76debf39ff79"
+    },
+    {
+      "label": "managed_readiness",
+      "path": "artifacts/evals/scenario-refinement-20260910/managed-readiness-9a06436.json",
+      "sha256": "c447e34858e56251cde6155f6b37b7606f5bc359e6baa45ca8953e6517f01d62"
+    },
+    {
+      "label": "hosted_browser",
+      "path": "artifacts/evals/scenario-refinement-20260910/hosted-browser-readiness-9a06436/receipt.json",
+      "sha256": "be9451c881e496c01c7e7daa49eb7d691079a16ffcfdd4165fadb3cdb75395f5"
+    },
+    {
+      "label": "hosted_visual_review",
+      "path": "artifacts/evals/scenario-refinement-20260910/hosted-browser-readiness-9a06436/inspection.json",
+      "sha256": "32e62e09c820e2f29dd1093ea375d351176724bf30b9e5f86a0689771e5f0352"
+    },
+    {
+      "label": "managed_browser",
+      "path": "artifacts/evals/scenario-refinement-20260910/managed-browser-readiness-9a06436-v3/receipt.json",
+      "sha256": "3a424f679e911114a2c6f73000d347e0854be2ce8f8270c9ed30ff7b2bfd60c1"
+    },
+    {
+      "label": "managed_visual_review",
+      "path": "artifacts/evals/scenario-refinement-20260910/managed-browser-readiness-9a06436-v3/inspection.json",
+      "sha256": "6a11eb77c009fc2f7210efac5ad4db1328ce0fc1462ec0ca95b44c6bc5537b35"
+    },
+    {
+      "label": "archived_deletion",
+      "path": "artifacts/evals/scenario-refinement-20260910/archived-deletion-21960477-20260911T054343/receipt.json",
+      "sha256": "b768d9d3081f64bba93fa95bdc27ade23f95373a7b465906d282e5bab187480a"
+    },
+    {
+      "label": "proposal_cancellation",
+      "path": "artifacts/evals/scenario-refinement-20260910/proposal-cancellation-21960477-20260911T053322/receipt.json",
+      "sha256": "8fc4d8efb7d8707d9b6561bd0430240a5e8e20331666a1b9759d27239336a387"
+    },
+    {
+      "label": "browser_worker_cleanup",
+      "path": "artifacts/evals/scenario-refinement-20260910/hosted-browser-readiness-9a06436/worker-cleanup.json",
+      "sha256": "7771a0c62492d2e3c911c8870c839766e2d1f5e6cfdf4a7338d4929b8c58f3d2"
+    }
+  ],
+  "private_evidence_digests": [
+    {
+      "label": "Verified release image",
+      "sha256": "e21b710f7dbd85e9bd43d185e22d859aef198c51fef8c715246b4740d471be33"
+    },
+    {
+      "label": "Root release binding evidence",
+      "sha256": "74c8ae736fe0fa333f58c92400643754ac0a6c74c28fc6319e57b24f43f9549c"
+    },
+    {
+      "label": "Final Azure verification",
+      "sha256": "e33502827c6c2076dc005117d7172e5f603afffa1924ccf3d769011f20b5bfe0"
+    }
+  ],
+  "cleanup": {
+    "browser_workers_remaining": 0,
+    "temporary_forwards_closed": true,
+    "released_slurm_allocations": [
+      21961066,
+      21961800
+    ],
+    "allocations_completed_with_exit_zero": true
+  }
+}

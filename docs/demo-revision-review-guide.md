@@ -15,26 +15,30 @@ Review existing foundations as well as this diff wherever R01-R21 or E01-E07
 depend on them. The later refinement adds R17-R21 and supersedes the earlier
 question-frame, starter, Snapshot-control, typography, About and default-model choices.
 
-The latest hosted source is `2037b60118f481e1e787d5713e999af39a19b923`, deployed
+The latest hosted source is `9a06436e76055997524e1e29cf438078461831e7`, deployed
 to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
-`abda-nl-stg-web--ui-2037b60-0911`, on schema `20260910_0008`. Its
-[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34548232508)
-has digest `sha256:4efdc30522dcf9c2826d12f66315f413a029cc20333f6d9b6859adaf1efd5a0e`.
-After the operator renewed Azure sign-in, old writers were drained before
-migration. Existing data, accounting, funded provider settings and secrets were
-preserved; a dedicated eligibility key was added and its marker coverage verified.
-Recovery must retain that key and support schema 0008. The
-[rollout receipt](operations/hosted-ui-rollout-result-20260911.json) records the
-backup limits, migration comparisons, image provenance and live checks.
+`abda-nl-stg-web--scenarios-9a06436-0911`. The
+[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571442559)
+is `sha256:3c6e35cc01acdc9ade553a5eca76189cb4209d07d176e5932e4af9f916e6abb0`.
+All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571039640) and
+[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571039703) passed:
+1,925 tests/141 skips per Python version, 140 tests per browser engine, and
+restricted-role PostgreSQL. The opt-in browser and PostgreSQL checks ran separately.
 
-Public acceptance verified 20 served assets against the deployed source, all six
-examples, seven-model menus, editable question drafts, keyboard navigation and
-desktop/phone layouts. Actual state-edit/reset requests and anonymous account/MCP
-denials also passed. Eight authenticated project archives after reopening matched
-live requests and were left intact; project content and credit stayed unchanged.
-No paid inference or authenticated administrator workflow was exercised by this
-deployment check. Personal sign-in and presentation-device acceptance remain
-separate from these automated results.
+The [release receipt](operations/scenario-refinement-release-20260911.json)
+binds source, image provenance, qualification and live checks. Both hosted and
+managed checks matched 20 assets, six complete scenarios and the six-model pool,
+with Flash as default. Anonymous Chromium/WebKit checks verified About defaults,
+editable references, source highlighting and desktop/phone layouts. They add no
+paid inference, authenticated account workflow or presentation-device acceptance.
+
+This rollout changed the web image, revision suffix and default-model setting.
+It preserved other runtime settings, identity and secret references, and kept
+the manual migration job unchanged. No migration, secret-value request or database
+row comparison was performed. Recovery must retain the stable eligibility key
+and use a schema `20260910_0008` compatible image; the
+[preceding rollout](operations/hosted-ui-rollout-result-20260911.json) records
+that migration's data/accounting comparisons and backup limits.
 
 `Requirements.docx` was read directly and has SHA-256
 `fb934fec9ab180586774a80f01f5d57d23693f3814eb61fa0db6f0e54b240606`.
@@ -88,20 +92,16 @@ hosted deployment evidence.
 | Explain and interaction Low items | A custom two-derivation case reproduced a wrong causal explanation. Explain now follows actual argument identities and edges. Reference refresh/limits/forks, empty drafts, persistent changed-label cues and incremental announcements have browser regressions. Real screen-reader behavior is still unverified. |
 | MCP and operations Low items | Shared account limits, pre-authentication throttling, safe typed errors, named-pool metrics, explicit funded environment filtering, stale-credit reconciliation, and exact-target rollout checks are implemented. The [credit maintenance procedure](operations/credit-policy-maintenance.md) describes key retention and the preparation-time writer gate; the [alert guide](operations/observability-alerts.md) describes the three new, undeployed routing alerts. |
 
-The preceding seven-model qualification had 945 observations (45 cases,
-three repetitions per model) on fingerprint `ef801af4`. Its composite
-`artifacts/evals/review-corrections-composite-assessment-20260910-v2.json`
-retains original results, lexical adjudications and exact request/result replay.
-Reviews were by AI agents, not independent human acceptance. GLM was withheld
-after three short modification reminders yielded 8/15, 14/15 and 7/15; all failed
-reports remain. The lifetime CloudBank ledger stood at $67.664447 before the
-scenario refinement. Those historical figures are not final-source qualification
-or the current balance; the refinement evidence below supersedes them.
+Earlier qualification and failed candidate reports remain in the
+[qualification evidence](operations/model-qualification-20260910.md) and
+`artifacts/evals/review-corrections-composite-assessment-20260910-v2.json`.
+Those results are historical; the scenario-refinement qualification below
+supersedes them for the current source and pool.
 
 Earlier correction CI, administrator-view checks and managed-demo receipts are
 retained under `artifacts/evals/final-admin-ci-469f688-20260910/` and
-`review-local-demo-final-readiness-20260910.json`. See the deployed UI baseline
-below for the later release boundary.
+`review-local-demo-final-readiness-20260910.json`. The earlier UI baseline
+below is historical; the current release boundary is recorded above.
 
 ## Consolidated UI revision
 
@@ -149,21 +149,18 @@ Intentional refinements:
   this repository has no tracked manuscript source. Actual presentation-device
   rehearsals remain separate from browser automation.
 
-The deployed UI baseline `2037b60` passed all eight
-[CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624149) and
-[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624291):
-1,762 tests/120 skips per Python version, restricted-role PostgreSQL, and
-119 tests per browser engine. Schema 0008 adds publication metadata without
-changing existing credit, identity, inference settings or attribution consent.
-Its local, hosted and offline-pack receipts are retained under
+The earlier UI baseline `2037b60` passed its
+[CI](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624149) and
+[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624291). Its hosted
+receipt is linked above; local and offline-pack evidence remains under
 `artifacts/evals/final-ui-ci-2037b60-20260910/`,
-`ui-local-final-readiness-2037b60-20260910.json`, and
-`ui-conference-20260911T003006Z.json`. These are baseline evidence; the
-scenario and chat refinement below changes model input and served assets.
+`ui-local-final-readiness-2037b60-20260910.json` and
+`ui-conference-20260911T003006Z.json`. These are historical checks, since the
+following refinement changes model input and served assets.
 
 ## Scenario and chat refinement
 
-The active revision reconstructs three knowledge bases, rewrites all six About
+This revision reconstructs three knowledge bases, rewrites all six About
 introductions and starts About closed. An explicit opening lasts within the
 current view; changing scenario, project or account closes it again. Old stored
 open preferences do not override the new default. Introductory paragraphs give
@@ -202,8 +199,7 @@ foreign keys remove old links and preserve submitted/published snapshots and
 accounting. The final focused browser checks passed in Chromium, Firefox and
 WebKit, including graph target spacing and comment contrast. The archive/restore
 test now waits for the completed archive layout before clicking its filter.
-Source CI and deployment remain release gates; their completed receipts will
-replace the hosted baseline above.
+The final source CI and hosted release passed; their evidence is linked above.
 
 A same-question cost audit found prompt growth from 15,067 to 41,579 characters
 across the earlier revisions, mainly complete engine state and exact corpus
