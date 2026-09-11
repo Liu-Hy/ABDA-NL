@@ -222,7 +222,7 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
                 page.locator("#scenario-library-submit").click()
             project = created.value.json()
             expect(page.locator("#scenario-name")).to_have_text("My own picnic")
-            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#context-indicator")).to_have_text("Private scenario")
             expect(page.locator("#conclusions-list")).to_contain_text("Accepted")
             assert project["source_scenario_id"] is None
             assert page.request.get(f"{live_browser_server}/api/trial").json()["active"] is False
@@ -258,11 +258,11 @@ def test_scenario_library_build_download_import_and_reopen(live_browser_server):
             copy = imported.value.json()
             assert copy["id"] != project["id"]
             assert copy["scenario"] == {**project["scenario"], "title": "Picnic imported copy"}
-            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#context-indicator")).to_have_text("Private scenario")
             _reload_ready_demo(page)
             _open_authoring_project(page, copy["id"])
             expect(page.locator("#scenario-name")).to_have_text("Picnic imported copy")
-            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#context-indicator")).to_have_text("Private scenario")
             assert not errors
         finally:
             browser.close()
@@ -750,7 +750,7 @@ def test_reviewed_community_examples_in_browser(live_browser_server):
             admin.locator('[data-example-action="confirm-publish"]').click()
             expect(admin.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
             _goto_ready_demo(reader, live_browser_server)
-            option = reader.locator('#scenario-options [role="group"][aria-label="Community examples"] [role="option"]')
+            option = reader.locator('#scenario-options [role="group"][aria-label="Community scenarios"] [role="option"]')
             expect(option).to_have_count(1)
             public_id = option.get_attribute("data-scenario-key").split(":", 1)[1]
             reader.locator("#scenario-menu-btn").click()
@@ -898,7 +898,7 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
             page.set_viewport_size({"width": 1200, "height": 900})
 
             page.locator("#workspace-tab-projects").click()
-            expect(page.get_by_role("button", name="Publish as example", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="Publish to community", exact=True)).to_have_count(0)
             _project_action(page, "suggest-example")
             page.locator("#example-public-consent").check()
             page.get_by_role("button", name="Submit", exact=True).click()
@@ -1242,7 +1242,7 @@ def test_builder_deleted_statement_does_not_rebind_a_rule(live_browser_server):
                 raise AssertionError(f"{error}\nPreview diagnostics: {json.dumps(diagnostics)}\nBrowser errors: {errors}") from error
             assert page.evaluate("scenarioLibrary.rules[0].premises[0]") == removed_id
             assert not errors
-            expect(page.locator("#context-indicator")).to_have_text("Example")
+            expect(page.locator("#context-indicator")).to_have_text("Built-in scenario")
             page.locator("#scenario-library-cancel").click()
             _open_authoring(page)
             expect(page.locator("#scenario-builder-title")).to_have_value("Planning a picnic")
@@ -1278,7 +1278,7 @@ def test_scenario_library_late_create_does_not_replace_another_view(live_browser
             response = pending[0].fetch()
             assert response.status == 201
             pending[0].fulfill(response=response)
-            expect(page.locator("#global-status")).to_contain_text("Open it from Manage projects")
+            expect(page.locator("#global-status")).to_contain_text("Open it from Private scenarios")
             expect(page.locator("#scenario-name")).to_have_text(target["title"])
             assert len(page.request.get(f"{live_browser_server}/api/projects").json()["projects"]) == 1
         finally:
@@ -1695,7 +1695,7 @@ def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
             page.locator("#project-name-input").fill(project_probe)
             page.locator("#project-description-input").fill(project_probe)
             page.locator("#project-create-btn").click()
-            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#context-indicator")).to_have_text("Private scenario")
             expect(page.locator("#current-project-card h3").first).to_contain_text(
                 project_probe
             )
@@ -2413,7 +2413,7 @@ def test_slower_project_open_cannot_replace_the_latest_selection(
                     await loadProject('latest-project');
                 }"""
             )
-            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#context-indicator")).to_have_text("Private scenario")
             expect(page.locator("#scenario-name")).to_have_text("Latest project")
 
             page.evaluate(
@@ -2811,7 +2811,7 @@ def test_project_edit_is_blocked_while_its_save_is_in_flight(live_browser_server
             assert page.evaluate("window.__stateCallsDuringSave") == 0
             assert page.evaluate("state.diff_ops.length") == 1
             expect(page.locator("#global-status")).to_contain_text(
-                "Wait for the current project save"
+                "Wait for the current scenario save"
             )
 
             page.evaluate(
@@ -3256,7 +3256,7 @@ def test_failed_example_load_keeps_the_existing_private_project(
 
             assert page.evaluate("state.viewKind") == "project"
             assert page.evaluate("state.activeProject.id") == "project-before-failure"
-            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#context-indicator")).to_have_text("Private scenario")
             expect(page.locator("#scenario-name")).to_have_text("Project before failure")
             expect(page.locator("#scenario-name")).to_have_attribute(
                 "title", "Scenario: Private project before failure"
@@ -3456,9 +3456,9 @@ def test_research_workspace_in_browser(live_browser_server):
                 "Created through the real browser workspace"
             )
             page.locator("#project-create-btn").click()
-            expect(page.locator("#context-indicator")).to_have_text("Private project")
+            expect(page.locator("#context-indicator")).to_have_text("Private scenario")
             expect(page.locator("#global-status")).to_contain_text(
-                "Created private project"
+                "Created private scenario"
             )
 
             _open_workspace(page)
@@ -3579,7 +3579,7 @@ def test_research_workspace_in_browser(live_browser_server):
             )
             graph_svg = graph_scroll.locator("svg")
             expect(graph_svg).to_have_attribute("role", "group")
-            expect(graph_svg.locator("#af-svg-title")).to_have_text("ABDA-NL conclusion graph")
+            expect(graph_svg).to_have_accessible_name("ABDA-NL conclusion graph")
             scope_control = page.locator(".af-scope-control")
             expect(scope_control).to_have_attribute("role", "group")
             key_scope = page.locator('[data-af-scope="key"]')
@@ -3728,8 +3728,8 @@ def test_archived_project_permanent_deletion_uses_real_owner_api_and_survives_re
             page.once("dialog", lambda dialog: dialog.accept())
             page.locator("#projects-delete-all").focus()
             page.locator("#projects-delete-all").press("Enter")
-            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
-            expect(page.locator("#project-list")).to_contain_text("No archived projects")
+            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived scenario")
+            expect(page.locator("#project-list")).to_contain_text("No archived scenarios")
             expect(page.locator("#projects-delete-all")).to_be_disabled()
             active = page.request.get(live_browser_server + "/api/projects").json()["projects"]
             assert [project["id"] for project in active] == [projects[2]["id"]]

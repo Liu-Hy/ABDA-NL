@@ -45,7 +45,7 @@ def test_typed_project_and_material_input_errors_remain_useful(client):
         "name": "   ", "source_scenario_id": "fire_prevention",
     })
     assert project.status_code == 400
-    assert project.json()["detail"]["message"] == "project name cannot be empty"
+    assert project.json()["detail"]["message"] == "scenario name cannot be empty"
     material = client.post("/api/projects/materials/source-preview", json={
         "filename": "source.txt", "data_base64": "%%invalid%%",
     })

@@ -171,7 +171,7 @@ function hasPendingStateRequest() {
 }
 function blockStateMutationDuringSave() {
   if (!state.projectSavePending) return false;
-  showGlobalStatus('Wait for the current project save to finish before making another change.', 'info');
+  showGlobalStatus('Wait for the current scenario save to finish before making another change.', 'info');
   renderAll();
   return true;
 }
@@ -328,13 +328,13 @@ function setViewContext(kind, project = null) {
   const indicator = document.getElementById('context-indicator');
   indicator.classList.remove('context-project', 'context-shared');
   if (kind === 'project') {
-    indicator.textContent = 'Private project';
+    indicator.textContent = 'Private scenario';
     indicator.classList.add('context-project');
   } else if (kind === 'shared') {
     indicator.textContent = 'Shared read-only';
     indicator.classList.add('context-shared');
   } else {
-    indicator.textContent = 'Example';
+    indicator.textContent = 'Built-in scenario';
   }
   renderAccountUI();
   const resetButton = document.getElementById('reset-btn');
@@ -347,7 +347,7 @@ function setViewContext(kind, project = null) {
 async function loadProject(projectId) {
   if (hasUnsavedChanges() && !window.confirm('Discard the unsaved changes in the current view?')) return;
   const ctrl = beginRequest();
-  setWorkspaceStatus('projects-status', 'Opening project...', 'info');
+  setWorkspaceStatus('projects-status', 'Opening scenario...', 'info');
   try {
     const project = await apiRequest(`/api/projects/${encodeURIComponent(projectId)}`, {
       signal: ctrl.signal,
@@ -365,7 +365,7 @@ async function loadProject(projectId) {
     renderAll();
     renderProjectsUI();
     requestCloseModal('modal-workspace');
-    showGlobalStatus(`Opened private project "${project.name}".`, 'success');
+    showGlobalStatus(`Opened private scenario "${project.name}".`, 'success');
   } catch (error) {
     if (isAbortError(error) || !isCurrent(ctrl)) return;
     setWorkspaceStatus('projects-status', error.message, 'error');
@@ -375,7 +375,7 @@ async function loadProject(projectId) {
 }
 
 async function loadSharedProject(token) {
-  if (!token || token.length > 256) throw new Error('This shared project link is invalid.');
+  if (!token || token.length > 256) throw new Error('This shared scenario link is invalid.');
   const ctrl = beginRequest();
   try {
     const project = await apiRequest('/api/shares/resolve', {
@@ -395,7 +395,7 @@ async function loadSharedProject(token) {
     indexBundle();
     populateScenarioSelect();
     renderAll();
-    showGlobalStatus(`Viewing shared project "${project.name}" in read-only mode.`, 'info');
+    showGlobalStatus(`Viewing shared scenario "${project.name}" in read-only mode.`, 'info');
   } finally {
     finishRequest(ctrl);
   }
@@ -490,7 +490,7 @@ async function applyOp(op) {
 async function applyOps(ops) {
   if (!ops || ops.length === 0) return;
   if (state.readOnly) {
-    showGlobalStatus('Shared projects are read-only. Open an example or private project to make changes.', 'info');
+    showGlobalStatus('Shared scenarios are read-only. Save a private copy to make changes.', 'info');
     return;
   }
   if (blockStateMutationDuringSave()) return;
@@ -527,7 +527,7 @@ async function previewAndConfirmToggle(op, meta) {
   if (state.readOnly) {
     renderFacts();
     renderKB();
-    showGlobalStatus('Shared projects are read-only.', 'info');
+    showGlobalStatus('Shared scenarios are read-only.', 'info');
     return;
   }
   if (blockStateMutationDuringSave()) return;
@@ -1368,7 +1368,7 @@ function renderChat() {
 }
 
 function revealChatForNarrowLayout() {
-  if (!window.matchMedia('(max-width: 780px)').matches) return;
+  if (!window.matchMedia('(max-width: 858px)').matches) return;
   const panel = document.getElementById('right-panel');
   if (!panel) return;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2148,8 +2148,9 @@ function renderAFView() {
     const undercutNode = isRuleUndercut(g.conclusion);
     const lines = wrapGraphLabel(g.conclusion_nl || g.conclusion);
     const status = { in: 'Accepted', out: 'Rejected', undec: 'Undecided' }[g.label] || g.label;
+    // Explicit accessible names avoid the native SVG tooltip duplicating
+    // the full conclusion card shown by wireAFTooltip().
     nodeSvg += `<g transform="translate(${x}, ${y})" class="af-node${undercutNode ? ' af-node-undercut' : ''}" role="button" tabindex="0" aria-label="${escapeAttr(`${g.conclusion_nl}; ${status}; ${g.args.length} derivations. Inspect ${g.conclusion}`)}" data-af-concl="${escapeAttr(g.conclusion_nl)}" data-af-label="${escapeAttr(g.label)}" data-af-lit="${escapeAttr(g.conclusion)}" data-af-rules="${escapeAttr(g.rules.join(', '))}">
-      <title>${escapeHtml(g.conclusion_nl)} [${escapeHtml(g.conclusion)}] · ${escapeHtml(status)}</title>
       <rect width="${NODE_W}" height="${NODE_H}" rx="6" ry="6" fill="${fill}" stroke="${color}" stroke-width="1"/>
       <text x="${NODE_W / 2}" text-anchor="middle" font-size="14" fill="${color}">${lines.map((line, index) => `<tspan x="${NODE_W / 2}" y="${20 + index * 16}">${escapeHtml(line)}</tspan>`).join('')}</text>
       <text x="${NODE_W / 2}" y="74" text-anchor="middle" font-size="12" fill="${color}" font-family="monospace">${escapeHtml(formatLiteralLabel(g.conclusion))}</text>
@@ -2173,8 +2174,7 @@ function renderAFView() {
     ${afControlsHtml(isolated.length)}
     <p class="derivation-note">${groups.size} conclusion groups shown${afScope === 'all' && !afShowIsolated ? `; ${isolated.length} isolated hidden` : ''}. Activate any node to inspect it.</p>
     <div class="af-svg-scroll" id="af-svg-scroll" tabindex="0" role="region" aria-label="Scrollable conclusion graph" aria-describedby="af-graph-summary">
-      <svg width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" data-base-w="${totalWidth}" data-base-h="${totalHeight}" role="group" aria-labelledby="af-svg-title" aria-describedby="af-graph-summary">
-        <title id="af-svg-title">ABDA-NL conclusion graph</title>
+      <svg width="${totalWidth}" height="${totalHeight}" viewBox="${minX} ${minY} ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" data-base-w="${totalWidth}" data-base-h="${totalHeight}" role="group" aria-label="ABDA-NL conclusion graph" aria-describedby="af-graph-summary">
         <defs>
           <marker id="af-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a6a78"/>
@@ -2304,12 +2304,16 @@ function wireAFTooltip() {
       tip.style.display = 'block';
       // Position to the right of the node; flip left if it would overflow.
       const rect = el.getBoundingClientRect();
+      // DOM rectangles include the page's CSS zoom; fixed offsets do not.
+      const scale = Number(getComputedStyle(document.documentElement).zoom) || 1;
+      const viewportW = window.innerWidth / scale;
+      const viewportH = window.innerHeight / scale;
       const tipW = tip.offsetWidth;
       const tipH = tip.offsetHeight;
-      let left = rect.right + 10;
-      if (left + tipW > window.innerWidth - 8) left = rect.left - tipW - 10;
-      let top = rect.top;
-      if (top + tipH > window.innerHeight - 8) top = window.innerHeight - tipH - 8;
+      let left = rect.right / scale + 10;
+      if (left + tipW > viewportW - 8) left = rect.left / scale - tipW - 10;
+      let top = rect.top / scale;
+      if (top + tipH > viewportH - 8) top = viewportH - tipH - 8;
       tip.style.left = Math.max(8, left) + 'px';
       tip.style.top = Math.max(8, top) + 'px';
     });
@@ -2480,7 +2484,7 @@ function cancelProposalRequest() {
 
 function openEditModal(task, existingId = null) {
   if (state.readOnly) {
-    showGlobalStatus('Shared projects are read-only.', 'info');
+    showGlobalStatus('Shared scenarios are read-only.', 'info');
     return;
   }
   const accessIssue = llmAccessIssue();

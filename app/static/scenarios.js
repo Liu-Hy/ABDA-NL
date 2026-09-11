@@ -249,15 +249,15 @@ function renderScenarioLibraryAccess() {
   byId('scenario-editor-heading').textContent = scenarioLibrary.target ? 'Edit: ' + scenarioLibrary.target.name
     : scenarioLibrary.tab === 'file' ? 'Import scenario' : 'New scenario';
   byId('scenario-editor-outcome').textContent = scenarioLibrary.target
-    ? 'Updates this project (version ' + scenarioLibrary.target.version + ')' : 'Saves as a private project';
+    ? 'Updates this scenario (version ' + scenarioLibrary.target.version + ')' : 'Saves as a private scenario';
   byId('scenario-editor-navigation').hidden = Boolean(scenarioLibrary.target);
   byId('scenario-start-actions').hidden = Boolean(scenarioLibrary.target);
   byId('scenario-panel-file').hidden = Boolean(scenarioLibrary.target) || scenarioLibrary.tab !== 'file';
   byId('scenario-discard-changes').hidden = !scenarioLibrary.target;
   byId('scenario-discard-changes').disabled = disabled || !scenarioLibrary.dirty;
   byId('scenario-open-file-project').disabled = disabled;
-  byId('scenario-save-note').textContent = !state.authSession.authenticated ? 'Sign in to save a private project. No AI credit or key is needed.'
-    : staleProject ? 'The open project changed. Reopen its editor before saving; this draft is preserved.'
+  byId('scenario-save-note').textContent = !state.authSession.authenticated ? 'Sign in to save a private scenario. No AI credit or key is needed.'
+    : staleProject ? 'The open scenario changed. Reopen its editor before saving; this draft is preserved.'
     : pendingRename ? 'Rename or cancel the pending symbol change before saving.'
     : waiting || disabled ? 'Wait for the current check or save to finish.'
     : scenarioLibrary.preview?.warnings?.length ? 'Review the warnings above, then choose Save to continue.'
@@ -351,7 +351,7 @@ function loadScenarioDraft(scenario, sourceId = null, target = null, preserveUI 
   byId('scenario-rename-from').replaceChildren(); byId('scenario-rename-to').value = '';
   byId('scenario-rename-to').removeAttribute('aria-invalid');
   byId('scenario-bundled-references').textContent = scenario.corpus?.length
-    ? 'Included with this example: ' + scenario.corpus.join(', ') + '. Export embeds their content.' : '';
+    ? 'Included with this scenario: ' + scenario.corpus.join(', ') + '. Export embeds their content.' : '';
   librarySources.new.reset(scenario.sources || [], true, preserveUI);
   scenarioLibrary.preview = null; scenarioLibrary.previewShown = false; scenarioLibrary.rawChanged = false;
   byId('scenario-editor-preview').hidden = true;
@@ -491,7 +491,7 @@ function renderBuilderStatements() {
   }
   if (!scenarioLibrary.statements.length) {
     const empty = document.createElement('p'); empty.className = 'authoring-empty';
-    empty.textContent = 'No statements yet. Add a statement, or try the picnic example.'; list.append(empty);
+    empty.textContent = 'No statements yet. Add a statement, or try the picnic scenario.'; list.append(empty);
   }
   const groups = new Map();
   for (const [kind, label] of [['fact', 'Facts'], ['assumption', 'Assumptions'], ['claim', 'Claims']]) {
@@ -723,7 +723,7 @@ function scenarioStarter() {
 }
 
 function useScenarioStarter() {
-  if (scenarioLibrary.dirty && !window.confirm('Replace this unfinished draft with the small example?')) return;
+  if (scenarioLibrary.dirty && !window.confirm('Replace this unfinished draft with the picnic scenario?')) return;
   loadScenarioDraft(scenarioStarter()); setScenarioMode('guided'); scenarioDraftChanged();
   setWorkspaceStatus('scenario-library-status', 'A starting point. Edit the words, rules or documents, then Preview.', 'info');
   byId('scenario-builder-title').focus();
@@ -1030,11 +1030,11 @@ async function loadScenarioFiles(openProject = false) {
 
 async function openPrivateScenarioEditor() {
   if (!state.activeProject || hasPendingStateRequest() || state.projectSavePending) return;
-  if (scenarioLibrary.dirty && !window.confirm('Replace the unfinished editor draft with this private project?')) return;
+  if (scenarioLibrary.dirty && !window.confirm('Replace the unfinished editor draft with this private scenario?')) return;
   loadScenarioDraft(state.bundle.scenario, state.activeProject.source_scenario_id, state.activeProject);
   scenarioLibrary.targetBundle = state.bundle;
   setScenarioMode('guided'); scenarioLibrary.dirty = false; openScenarioLibrary();
-  setWorkspaceStatus('scenario-library-status', 'Edits update this private project and its shared links. Published examples keep their separate snapshot.', 'info');
+  setWorkspaceStatus('scenario-library-status', 'Edits update this private scenario and its shared links. Published snapshots stay unchanged.', 'info');
 }
 
 async function submitScenarioLibrary() {
@@ -1053,11 +1053,11 @@ async function submitScenarioLibrary() {
   if (scenarioLibrary.preview.warnings.length && !scenarioLibrary.previewShown) { renderScenarioPreview(scenarioLibrary.preview); return; }
   if (!state.authSession.authenticated || hasPendingStateRequest() || state.projectSavePending) { renderScenarioLibraryAccess(); return; }
   const target = scenarioLibrary.target, scenario = scenarioLibrary.preview.scenario;
-  if (!target && hasUnsavedChanges() && !window.confirm('Open the new project and discard unsaved edits in the current view? Download or save them first if you want to keep them.')) return;
+  if (!target && hasUnsavedChanges() && !window.confirm('Open the new scenario and discard unsaved edits in the current view? Download or save them first if you want to keep them.')) return;
   const previousBundle = state.bundle, previousOps = state.diff_ops, previousProject = state.activeProject;
   const previousUser = state.authSession.user?.id, previousRequest = currentRequest, generation = scenarioLibrary.generation;
   let completionGeneration = generation;
-  if (target && (state.readOnly || state.activeProject !== target || state.bundle !== scenarioLibrary.targetBundle)) { setWorkspaceStatus('scenario-library-status', 'The project changed elsewhere. Reopen its editor before saving. Your draft is preserved.', 'error'); return; }
+  if (target && (state.readOnly || state.activeProject !== target || state.bundle !== scenarioLibrary.targetBundle)) { setWorkspaceStatus('scenario-library-status', 'The scenario changed elsewhere. Reopen its editor before saving. Your draft is preserved.', 'error'); return; }
   scenarioLibrary.busy = true; renderScenarioLibraryAccess();
   try {
     const project = await apiRequest(target ? '/api/projects/' + encodeURIComponent(target.id) : '/api/projects/import', {
@@ -1076,13 +1076,13 @@ async function submitScenarioLibrary() {
       requestCloseModal('modal-scenario-library');
     }
     await refreshProjects({ quiet: true });
-    showGlobalStatus(changed ? 'Saved "' + project.name + '". Open it from Manage projects when ready.'
+    showGlobalStatus(changed ? 'Saved "' + project.name + '". Open it from Private scenarios when ready.'
       : 'Opened "' + project.name + '". Saved privately, ready to explore.', 'success');
     setWorkspaceStatus('scenario-library-status');
   } catch (error) {
     if (state.authSession.user?.id !== previousUser || generation !== scenarioLibrary.generation) return;
     setWorkspaceStatus('scenario-library-status', error.code === 'project_version_conflict'
-      ? 'This project changed elsewhere. Your draft has not replaced newer work. Reopen the project before saving.' : error.message, 'error');
+      ? 'This scenario changed elsewhere. Your draft has not replaced newer work. Reopen the scenario before saving.' : error.message, 'error');
   } finally {
     if (completionGeneration === scenarioLibrary.generation && state.authSession.user?.id === previousUser) { scenarioLibrary.busy = false; renderScenarioLibraryAccess(); }
   }

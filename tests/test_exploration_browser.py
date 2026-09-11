@@ -581,7 +581,7 @@ def test_archived_deletion_keyboard_narrow_confirmation_and_exact_displayed_targ
     first_delete.press("Enter")
     assert runtime["project_deletions"] == []
     assert 'First archived project' in messages[0] and 'cannot be undone' in messages[0]
-    assert 'Submitted and published example snapshots will remain' in messages[0]
+    assert 'Submitted and published scenario snapshots will remain' in messages[0]
     _capture_exploration(page, tmp_path, "archived-project-deletion-390")
     assert page.locator("#workspace-panel-projects").evaluate("panel => panel.scrollWidth <= panel.clientWidth")
     page.once("dialog", lambda dialog: dialog.accept())
@@ -599,10 +599,10 @@ def test_archived_deletion_keyboard_narrow_confirmation_and_exact_displayed_targ
     page.once("dialog", confirm_batch)
     page.locator("#projects-delete-all").focus()
     page.locator("#projects-delete-all").press("Enter")
-    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
+    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived scenario")
     expect(page.locator("#project-list")).to_contain_text("Newly archived elsewhere")
-    assert "all 1 currently listed archived private project" in messages[-1]
-    assert "Projects archived later are not included" in messages[-1]
+    assert "all 1 currently listed archived private scenario" in messages[-1]
+    assert "Scenarios archived later are not included" in messages[-1]
     assert runtime["project_deletions"][-1] == [{"id": "archive-b", "expected_version": 2}]
     assert [project["id"] for project in runtime["private_active"]] == ["active"]
     assert page.evaluate("state.diff_ops") == []
@@ -663,8 +663,8 @@ def test_archived_selection_supports_multiple_items_and_discards_changed_version
     messages = []
     page.once("dialog", lambda dialog: (messages.append(dialog.message), dialog.accept()))
     page.locator("#projects-delete-selected").click()
-    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 2 archived projects")
-    assert "2 selected archived private projects" in messages[0]
+    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 2 archived scenarios")
+    assert "2 selected archived private scenarios" in messages[0]
     assert runtime["project_deletions"] == [[
         {"id": "archive-a", "expected_version": 4}, {"id": "archive-b", "expected_version": 2},
     ]]
@@ -712,15 +712,15 @@ def test_late_project_deletion_cannot_change_a_new_accounts_pending_action(explo
     old.fulfill(status=old_status, content_type="application/json", body=json.dumps(
         {"deleted_ids": ["archive-a", "archive-b"], "deleted_count": 2} if old_status == 200 else
         {"detail": {"code": "project_version_conflict", "message": "Old account conflict"}}))
-    expect(page.locator("#projects-status")).to_have_text("Deleting archived projects...")
+    expect(page.locator("#projects-status")).to_have_text("Deleting archived scenarios...")
     expect(page.locator("#project-list")).to_contain_text("Current account project")
     expect(page.locator("#projects-delete-all")).to_be_disabled()
     assert page.evaluate("projectDeletionRequest.account") == current_account
     runtime["private_archived"] = []
     runtime["project_delete_held"].pop().fulfill(status=200, content_type="application/json", body=json.dumps(
         {"deleted_ids": ["current-archive"], "deleted_count": 1}))
-    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
-    expect(page.locator("#project-list")).to_contain_text("No archived projects")
+    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived scenario")
+    expect(page.locator("#project-list")).to_contain_text("No archived scenarios")
     expect(page.locator("#projects-delete-all")).to_be_disabled()
     assert page.evaluate("projectDeletionRequest") is None
 
@@ -732,7 +732,7 @@ def test_unsupported_legacy_archive_count_keeps_selected_delete_available(explor
     _mock_project_deletion_api(page, runtime)
     runtime["private_archived"] = [_project_summary(f"legacy-{index}", f"Legacy project {index}") for index in range(501)]
     _open_archived_projects(page)
-    expect(page.locator("#project-count")).to_have_text("501 projects")
+    expect(page.locator("#project-count")).to_have_text("501 scenarios")
     expect(page.locator("#projects-delete-all")).to_be_disabled()
     expect(page.locator("#projects-delete-limit")).to_be_visible()
     page.locator('[data-project-select]').first.check()

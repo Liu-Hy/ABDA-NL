@@ -53,16 +53,16 @@ _SQLITE_PROJECT_LOCK = threading.RLock()
 def _clean_name(name: str) -> str:
     cleaned = name.strip()
     if not cleaned:
-        raise ProjectValidationError("project name cannot be empty")
+        raise ProjectValidationError("scenario name cannot be empty")
     if len(cleaned) > 120:
-        raise ProjectValidationError("project name cannot exceed 120 characters")
+        raise ProjectValidationError("scenario name cannot exceed 120 characters")
     return cleaned
 
 
 def _clean_description(description: str) -> str:
     cleaned = description.strip()
     if len(cleaned) > 4000:
-        raise ProjectValidationError("project description cannot exceed 4000 characters")
+        raise ProjectValidationError("scenario description cannot exceed 4000 characters")
     return cleaned
 
 
@@ -74,15 +74,15 @@ def normalize_project_scenario(raw: dict, source_scenario_id: str | None) -> dic
     )
     if encoded_size > MAX_PROJECT_SCENARIO_BYTES:
         raise ProjectValidationError(
-            f"project scenario cannot exceed {MAX_PROJECT_SCENARIO_BYTES} encoded bytes"
+            f"scenario cannot exceed {MAX_PROJECT_SCENARIO_BYTES} encoded bytes"
         )
     project_corpus = list(normalized.get("corpus") or [])
     if source_scenario_id:
         source = load_bundled_scenario(source_scenario_id)
         if project_corpus != list(source.corpus or []):
-            raise ProjectValidationError("project corpus must match its immutable source example")
+            raise ProjectValidationError("scenario references must match its fixed built-in source scenario")
     elif project_corpus:
-        raise ProjectValidationError("a project with corpus files must name a bundled source example")
+        raise ProjectValidationError("a scenario with bundled reference files must name a built-in source scenario")
     # Enforce portability at save time, including full bundled PDF text and
     # curated context, not just the user's newly attached documents.
     from app.scenario.portable import export_scenario
@@ -144,7 +144,7 @@ def get_project(session: Session, owner: User, project_id: str) -> Project:
         )
     )
     if project is None:
-        raise ProjectNotFoundError("project not found")
+        raise ProjectNotFoundError("scenario not found")
     return project
 
 
@@ -189,11 +189,11 @@ def _create_project(
     )
     if active_count >= MAX_ACTIVE_PROJECTS:
         raise ProjectLimitError(
-            f"an account can have at most {MAX_ACTIVE_PROJECTS} active projects"
+            f"an account can have at most {MAX_ACTIVE_PROJECTS} active private scenarios"
         )
     if total_count >= MAX_TOTAL_PROJECTS:
         raise ProjectLimitError(
-            f"an account can have at most {MAX_TOTAL_PROJECTS} project records"
+            f"an account can have at most {MAX_TOTAL_PROJECTS} private scenario records"
         )
     source_id = (source_scenario_id or "").strip()[:100] or None
     project = Project(
@@ -275,8 +275,8 @@ def update_project(
             )
         )
         if existing is None:
-            raise ProjectNotFoundError("project not found")
-        raise ProjectVersionConflictError("project changed since it was loaded")
+            raise ProjectNotFoundError("scenario not found")
+        raise ProjectVersionConflictError("scenario changed since it was loaded")
     session.commit()
     return get_project(session, owner, project_id)
 
@@ -309,8 +309,8 @@ def archive_project(
             )
         )
         if existing is None:
-            raise ProjectNotFoundError("project not found")
-        raise ProjectVersionConflictError("project changed since it was loaded")
+            raise ProjectNotFoundError("scenario not found")
+        raise ProjectVersionConflictError("scenario changed since it was loaded")
     session.commit()
 
 
@@ -330,13 +330,13 @@ def restore_project(
                 .with_for_update().execution_options(populate_existing=True)
             )
             if project is None:
-                raise ProjectNotFoundError("project not found")
+                raise ProjectNotFoundError("scenario not found")
             if project.version != expected_version or project.archived_at is None:
-                raise ProjectVersionConflictError("project changed since it was loaded")
+                raise ProjectVersionConflictError("scenario changed since it was loaded")
             active_count = session.scalar(select(func.count(Project.id)).where(
                 Project.owner_user_id == owner.id, Project.archived_at.is_(None))) or 0
             if active_count >= MAX_ACTIVE_PROJECTS:
-                raise ProjectLimitError(f"an account can have at most {MAX_ACTIVE_PROJECTS} active projects")
+                raise ProjectLimitError(f"an account can have at most {MAX_ACTIVE_PROJECTS} active private scenarios")
             # A historical project must still be openable under the current
             # deterministic and portability limits before it consumes a slot.
             normalize_project_scenario(project.scenario_json, project.source_scenario_id)
@@ -346,7 +346,7 @@ def restore_project(
                 Project.archived_at.is_not(None), Project.version == expected_version,
             ).values(archived_at=None, version=expected_version + 1, updated_at=now))
             if changed.rowcount != 1:
-                raise ProjectVersionConflictError("project changed since it was loaded")
+                raise ProjectVersionConflictError("scenario changed since it was loaded")
             session.execute(update(ShareLink).where(
                 ShareLink.project_id == project.id, ShareLink.revoked_at.is_(None),
             ).values(revoked_at=now))
@@ -363,13 +363,13 @@ def delete_archived_projects(
 ) -> list[str]:
     """Delete only confirmed archived project versions, atomically for all targets."""
     if not 1 <= len(targets) <= MAX_TOTAL_PROJECTS:
-        raise ProjectValidationError(f"select between 1 and {MAX_TOTAL_PROJECTS} archived projects")
+        raise ProjectValidationError(f"select between 1 and {MAX_TOTAL_PROJECTS} archived scenarios")
     if any(not isinstance(identifier, str) or not 1 <= len(identifier) <= 36
            or type(version) is not int or version < 1 for identifier, version in targets):
-        raise ProjectValidationError("each project needs an id and a positive expected_version")
+        raise ProjectValidationError("each scenario needs an id and a positive expected_version")
     expected = dict(targets)
     if len(expected) != len(targets):
-        raise ProjectValidationError("each project must appear only once")
+        raise ProjectValidationError("each scenario must appear only once")
 
     with (_SQLITE_PROJECT_LOCK if session.get_bind().dialect.name == "sqlite" else nullcontext()):
         try:
@@ -382,9 +382,9 @@ def delete_archived_projects(
                 .order_by(Project.id).with_for_update()
             ))
             if len(projects) != len(expected):
-                raise ProjectNotFoundError("project not found")
+                raise ProjectNotFoundError("scenario not found")
             if any(item.archived_at is None or item.version != expected[item.id] for item in projects):
-                raise ProjectVersionConflictError("archived projects changed since they were loaded")
+                raise ProjectVersionConflictError("archived scenarios changed since they were loaded")
 
             # Keep the complete confirmed id/version set in the write predicate.
             # A concurrent restore or later archive must never expand this set.
@@ -398,7 +398,7 @@ def delete_archived_projects(
                 eligible_owner,
             ))
             if changed.rowcount != len(expected):
-                raise ProjectVersionConflictError("archived projects changed since they were loaded")
+                raise ProjectVersionConflictError("archived scenarios changed since they were loaded")
             # Existing foreign keys remove obsolete bearer links and detach
             # submission pointers. Consented snapshots and audit rows survive.
             session.commit()
@@ -443,11 +443,11 @@ def _create_share_link(
     )
     if active_count >= MAX_ACTIVE_SHARE_LINKS:
         raise ShareLinkLimitError(
-            f"a project can have at most {MAX_ACTIVE_SHARE_LINKS} active share links"
+            f"a scenario can have at most {MAX_ACTIVE_SHARE_LINKS} active share links"
         )
     if total_count >= MAX_TOTAL_SHARE_LINKS:
         raise ShareLinkLimitError(
-            f"a project can have at most {MAX_TOTAL_SHARE_LINKS} share-link records"
+            f"a scenario can have at most {MAX_TOTAL_SHARE_LINKS} share-link records"
         )
     if expires_at is not None:
         if expires_at.tzinfo is None:

@@ -124,4 +124,4 @@ def test_exported_example_corpus_is_checked_not_trusted(client):
     scenario["corpus"] = ["../../.env"]
     response = client.post("/api/projects/import/preview", json={"text": json.dumps(export)})
     assert response.status_code == 400
-    assert "immutable source example" in response.json()["detail"]["message"]
+    assert "fixed built-in source scenario" in response.json()["detail"]["message"]

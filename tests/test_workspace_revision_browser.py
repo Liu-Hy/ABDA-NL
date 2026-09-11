@@ -221,13 +221,13 @@ def test_archived_checkbox_deletion_uses_real_api_and_preserves_open_project(liv
                 page.locator(f'[data-project-select="{project["id"]}"]').check()
             _capture_exploration(page, tmp_path, "archived-project-selection-1280")
             page.locator("#projects-delete-selected").click()
-            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 2 archived projects")
+            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 2 archived scenarios")
             expect(page.locator('[data-project-select]')).to_have_count(1)
             remaining = page.request.get(f"{live_browser_server}/api/projects?archived=true").json()["projects"]
             assert [project["id"] for project in remaining] == [archived[2]["id"]]
             page.locator("#projects-delete-all").click()
-            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
-            expect(page.locator("#project-list")).to_contain_text("No archived projects")
+            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived scenario")
+            expect(page.locator("#project-list")).to_contain_text("No archived scenarios")
             assert page.request.get(f"{live_browser_server}/api/projects?archived=true").json()["projects"] == []
             assert page.request.get(f"{live_browser_server}/api/projects/{active['id']}").ok
             assert page.evaluate("state.activeProject.id") == active["id"]

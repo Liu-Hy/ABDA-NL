@@ -525,7 +525,7 @@ def test_mcp_unexpected_value_error_is_sanitized_but_typed_validation_is_useful(
         "name": "   ", "source_scenario_id": "fire_prevention",
     })
     assert invalid["isError"] is True
-    assert "project name cannot be empty" in invalid["content"][0]["text"]
+    assert "scenario name cannot be empty" in invalid["content"][0]["text"]
 
     def unexpected(*_args, **_kwargs):
         raise ValueError("private-provider-secret-and-account-data")
@@ -626,7 +626,7 @@ def test_mcp_scopes_optimistic_writes_and_cross_user_isolation(client: TestClien
         {"project_id": created["id"]},
     )
     assert isolated["isError"] is True
-    assert "project not found" in isolated["content"][0]["text"]
+    assert "scenario not found" in isolated["content"][0]["text"]
 
     revoked = client.delete(
         f"/api/mcp/tokens/{other_token_record['id']}",
@@ -826,7 +826,7 @@ def test_subscribed_client_wire_workflow_needs_no_abda_credit(
     ):
         rejected = _call_tool(client, outsider["token"], name, arguments)
         assert rejected["isError"] is True
-        assert "project not found" in rejected["content"][0]["text"]
+        assert "scenario not found" in rejected["content"][0]["text"]
     _login(client, user["email"])
     assert client.delete(f"/api/projects/{observed['id']}?expected_version=2").status_code == 204
     assert client.delete(f"/api/mcp/tokens/{token_record['id']}").status_code == 204

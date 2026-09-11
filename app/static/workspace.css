@@ -14,6 +14,8 @@
 .project-delete-btn { color: #8d3a36; border-color: #e4c8c5; background: var(--surface); }
 .project-delete-btn:hover:not(:disabled) { color: #742d2a; border-color: #cfaaa6; background: #fbefed; }
 .project-filters [aria-pressed="true"], .example-filters [aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
+/* Update foreground and background together when the selected filter changes. */
+.project-filters .btn, .example-filters .btn { transition: border-color .12s; }
 .project-copy-panel { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: .8rem; }
 .project-copy-panel > summary, .example-full-snapshot > summary { cursor: pointer; font-weight: 600; padding: .45rem 0; }
 .project-copy-panel .project-create-form { margin-top: .6rem; }
@@ -60,10 +62,10 @@
 .workspace-panel .field-hint, .workspace-panel .field-help, .project-card-meta,
 .example-review-content .field-hint, .account-policy-note { font-size: 13px; }
 .project-card-name, .project-card-description, .example-review-content .modal-body { font-size: 15px; }
-@media (max-width: 600px) {
+@media (max-width: 660px) {
   .account-view-card .workspace-section-heading { align-items: stretch; flex-direction: column; }
   .account-view-card button { max-width: none; }
-  .example-review-content { max-height: 94dvh; }
+  .example-review-content { max-height: calc(94dvh / var(--ui-scale)); }
   .example-review-footer { padding: .5rem; }
   .example-review-footer .example-consent { padding: .35rem; }
 }

@@ -333,7 +333,7 @@ function openWorkspace(tab = 'account', options = {}) {
 
 function switchWorkspaceTab(name) {
   byId('workspace-modal-title').textContent = {
-    account: 'Account', projects: 'Manage projects', examples: 'Community examples',
+    account: 'Account', projects: 'Private scenarios', examples: 'Community scenarios',
     ai: 'AI access', mcp: 'Agent access',
   }[name] || 'Account';
   if (name === 'examples') refreshExampleSubmissions();
@@ -434,7 +434,7 @@ function renderAccountView() {
     byId(id).setAttribute('aria-checked', String(normal));
   }
   byId('account-view-heading').textContent = normal ? 'Normal user view' : 'Administrator view';
-  byId('account-view-description').textContent = 'The review queue and Publish as example are hidden in normal user view. Your suggestions go through review. Projects, credit, and conversations are unchanged.';
+  byId('account-view-description').textContent = 'The review queue and Publish to community are hidden in normal user view. Your suggestions go through review. Private scenarios, credit, and conversations are unchanged.';
   if (typeof renderShellControls === 'function') renderShellControls();
 }
 
@@ -527,7 +527,7 @@ async function refreshExternalOIDCLogin() {
     state.authSession = session;
     renderAccountUI();
     await refreshAuthenticatedWorkspace({ quiet: true });
-    showGlobalStatus('Signed in. You can now create, import, and save private projects.', 'success');
+    showGlobalStatus('Signed in. You can now create, import, and save private scenarios.', 'success');
   } catch (_error) {
     // Returning to an offline or still-signed-out tab requires no error banner.
   } finally {
@@ -898,7 +898,7 @@ async function refreshProjects(options = {}) {
   const requestGeneration = ++projectRefreshGeneration;
   const account = state.authSession.user?.id;
   const epoch = conversationStore.epoch;
-  if (!options.quiet) setWorkspaceStatus('projects-status', 'Refreshing projects...', 'info');
+  if (!options.quiet) setWorkspaceStatus('projects-status', 'Refreshing scenarios...', 'info');
   try {
     const [body, archivedBody] = await Promise.all([
       apiRequest('/api/projects'),
@@ -943,7 +943,7 @@ function renderProjectsUI() {
   byId('projects-archive-hint').hidden = !workspaceProjects.archived;
   byId('projects-delete-actions').hidden = !workspaceProjects.archived;
   byId('projects-delete-limit').hidden = !workspaceProjects.archived || projects.length <= 500;
-  byId('project-count').textContent = `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`;
+  byId('project-count').textContent = `${projects.length} ${projects.length === 1 ? 'scenario' : 'scenarios'}`;
   const archivedVersions = new Map(workspaceProjects.archivedProjects.filter(project => project.archived_at)
     .map(project => [project.id, project.version]));
   for (const [id, version] of workspaceProjects.selectedArchived) {
@@ -951,8 +951,8 @@ function renderProjectsUI() {
   }
   const list = byId('project-list');
   if (projects.length === 0) {
-    list.innerHTML = workspaceProjects.archived ? '<div class="empty-list">No archived projects.</div>'
-      : '<div class="empty-list">No private projects yet. Create a scenario or save a copy of the current example.</div>';
+    list.innerHTML = workspaceProjects.archived ? '<div class="empty-list">No archived scenarios.</div>'
+      : '<div class="empty-list">No private scenarios yet. Create one or save a copy of the current scenario.</div>';
     renderProjectDeletionControls();
     if (typeof renderShellControls === 'function') renderShellControls();
     return;
@@ -973,7 +973,7 @@ function renderProjectsUI() {
             : `<button class="btn btn-small" type="button" data-project-action="open" data-project-id="${escapeAttr(project.id)}">Open</button>${projectMenuHTML(project)}`}
         </div>
       </div>
-      ${workspaceProjects.renameProject === project.id ? `<form class="project-rename-form" data-project-id="${escapeAttr(project.id)}" data-project-version="${project.version}"><label>Project name<input name="name" value="${escapeAttr(project.name)}" maxlength="120" required></label><button class="btn btn-small" type="submit">Save name</button><button class="btn btn-small" type="button" data-project-action="rename-cancel">Cancel</button></form>` : ''}
+      ${workspaceProjects.renameProject === project.id ? `<form class="project-rename-form" data-project-id="${escapeAttr(project.id)}" data-project-version="${project.version}"><label>Scenario name<input name="name" value="${escapeAttr(project.name)}" maxlength="120" required></label><button class="btn btn-small" type="submit">Save name</button><button class="btn btn-small" type="button" data-project-action="rename-cancel">Cancel</button></form>` : ''}
     </article>
   `).join('');
   renderProjectDeletionControls();
@@ -995,7 +995,7 @@ function projectMenuHTML(project) {
   const action = (value, label) => `<button class="btn btn-small" type="button" data-project-action="${value}" data-project-id="${escapeAttr(project.id)}" data-project-name="${escapeAttr(project.name)}" data-project-version="${project.version}">${label}</button>`;
   return `<details class="project-menu"><summary aria-label="Actions for ${escapeAttr(project.name)}">...</summary><div class="project-menu-items">
     ${action('rename', 'Rename')}${action('share', 'Share')}
-    ${state.authSession.community_catalog_enabled !== false ? action('suggest-example', state.authSession.scenario_admin ? 'Publish as example' : 'Suggest as a community example') : ''}
+    ${state.authSession.community_catalog_enabled !== false ? action('suggest-example', state.authSession.scenario_admin ? 'Publish to community' : 'Suggest to community') : ''}
     ${action('download', 'Download')}${action('archive', 'Archive')}
   </div></details>`;
 }
@@ -1021,7 +1021,7 @@ function currentProjectHTML() {
   return `
     <div class="workspace-section-heading">
       <div>
-        <h3>Open project: ${escapeHtml(project.name)}</h3>
+        <h3>Open scenario: ${escapeHtml(project.name)}</h3>
         <p>Version ${project.version}${unsaved ? `, ${unsaved} unsaved ${unsaved === 1 ? 'change' : 'changes'}` : ', all changes saved'}</p>
       </div>
       <div class="project-card-actions">
@@ -1060,14 +1060,14 @@ function prepareProjectCreateForm() {
   const suffix = state.viewKind === 'shared' ? ' copy' : ' exploration';
   byId('project-name-input').value = `${scenario.title || 'Untitled'}${suffix}`.slice(0, 120);
   byId('project-description-input').value = state.viewKind === 'shared'
-    ? 'Private copy of a shared ABDA-NL project.'
+    ? 'Private copy of a shared ABDA-NL scenario.'
     : '';
 }
 
 async function saveCurrentWork() {
   if (!state.authSession.authenticated) {
     openWorkspace('account');
-    showGlobalStatus('Sign in with a verified email to save a private project.', 'info');
+    showGlobalStatus('Sign in with a verified email to save a private scenario.', 'info');
     return;
   }
   if (state.activeProject) {
@@ -1092,7 +1092,7 @@ async function createProjectFromCurrentView(event) {
   };
   const button = byId('project-create-btn');
   button.disabled = true;
-  setWorkspaceStatus('projects-status', 'Creating private project...', 'info');
+  setWorkspaceStatus('projects-status', 'Creating private scenario...', 'info');
   try {
     let project;
     if (state.viewKind === 'example') {
@@ -1130,7 +1130,7 @@ async function createProjectFromCurrentView(event) {
     if (viewChanged) {
       await refreshProjects({ quiet: true });
       showGlobalStatus(
-        `Created private project "${project.name}". Open it from the Projects list when ready.`,
+        `Created private scenario "${project.name}". Open it from the Private scenarios list when ready.`,
         'success',
       );
       return;
@@ -1146,7 +1146,7 @@ async function createProjectFromCurrentView(event) {
     renderAll();
     await refreshProjects({ quiet: true });
     requestCloseModal('modal-workspace');
-    showGlobalStatus(`Created private project "${project.name}".`, 'success');
+    showGlobalStatus(`Created private scenario "${project.name}".`, 'success');
   } catch (error) {
     setWorkspaceStatus('projects-status', error.message, 'error');
   } finally {
@@ -1158,15 +1158,15 @@ async function saveProjectChanges() {
   const project = state.activeProject;
   if (!project) return null;
   if (state.projectSavePending) {
-    showGlobalStatus('Wait for the current project save to finish.', 'info');
+    showGlobalStatus('Wait for the current scenario save to finish.', 'info');
     return null;
   }
   if (hasPendingStateRequest()) {
-    showGlobalStatus('Wait for the current change to finish before saving the project.', 'info');
+    showGlobalStatus('Wait for the current change to finish before saving the scenario.', 'info');
     return null;
   }
   if (state.diff_ops.length === 0) {
-    showGlobalStatus('This project already contains the current state.', 'info');
+    showGlobalStatus('This scenario already contains the current state.', 'info');
     return project;
   }
   const saveButton = byId('save-btn');
@@ -1182,7 +1182,7 @@ async function saveProjectChanges() {
     if (state.activeProject !== project) {
       await refreshProjects({ quiet: true });
       showGlobalStatus(
-        `Saved project "${updated.name}" as version ${updated.version}. The current view was not changed.`,
+        `Saved scenario "${updated.name}" as version ${updated.version}. The current view was not changed.`,
         'success',
       );
       return updated;
@@ -1195,14 +1195,14 @@ async function saveProjectChanges() {
     populateScenarioSelect();
     renderAll();
     await refreshProjects({ quiet: true });
-    showGlobalStatus(`Saved project "${updated.name}" as version ${updated.version}.`, 'success');
+    showGlobalStatus(`Saved scenario "${updated.name}" as version ${updated.version}.`, 'success');
     return updated;
   } catch (error) {
     if (error.code === 'project_version_conflict' && state.activeProject === project) {
       openWorkspace('projects');
-      setWorkspaceStatus('projects-status', 'This project changed in another editor or connected tool. Reopen it before saving again.', 'error');
+      setWorkspaceStatus('projects-status', 'This scenario changed in another editor or connected tool. Reopen it before saving again.', 'error');
     } else if (error.code === 'project_version_conflict') {
-      showGlobalStatus(`Project "${project.name}" changed before the save completed. Reopen it before saving again.`, 'error');
+      showGlobalStatus(`Scenario "${project.name}" changed before the save completed. Reopen it before saving again.`, 'error');
     } else {
       showGlobalStatus(error.message, 'error');
     }
@@ -1276,7 +1276,7 @@ async function renameProject(event) {
     workspaceProjects.renameProject = null;
     await refreshProjects({ quiet: true });
     if (account !== state.authSession.user?.id || viewRevision !== accountView.revision) return;
-    showGlobalStatus('Project renamed.', 'success');
+    showGlobalStatus('Scenario renamed.', 'success');
   } catch (error) {
     if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
   }
@@ -1307,8 +1307,8 @@ async function restoreArchivedProject(button) {
     if (account !== state.authSession.user?.id) return;
     await refreshProjects({ quiet: true });
     if (account !== state.authSession.user?.id || viewRevision !== accountView.revision) return;
-    showGlobalStatus('Project restored privately. Old share links are revoked.', 'success', {
-      label: 'Open project', onClick: () => { if (account === state.authSession.user?.id) loadProject(projectId); },
+    showGlobalStatus('Scenario restored privately. Old share links are revoked.', 'success', {
+      label: 'Open scenario', onClick: () => { if (account === state.authSession.user?.id) loadProject(projectId); },
     });
   } catch (error) {
     if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
@@ -1342,14 +1342,14 @@ async function deleteArchivedProjects(all = false) {
     viewRevision: accountView.revision,
     projects: displayed.map(project => ({ id: project.id, expected_version: project.version })),
     name: !all && displayed.length === 1 ? displayed[0].name : null };
-  const subject = request.name ? `the archived private project "${request.name}"`
-    : `${all ? 'all ' : ''}${request.projects.length} ${all ? 'currently listed' : 'selected'} archived private ${request.projects.length === 1 ? 'project' : 'projects'}`;
-  if (!window.confirm(`Permanently delete ${subject}?\n\nThis cannot be undone. These private copies and their old share links will be removed. Submitted and published example snapshots will remain.${all ? ' Projects archived later are not included.' : ''}`)) return;
+  const subject = request.name ? `the archived private scenario "${request.name}"`
+    : `${all ? 'all ' : ''}${request.projects.length} ${all ? 'currently listed' : 'selected'} archived private ${request.projects.length === 1 ? 'scenario' : 'scenarios'}`;
+  if (!window.confirm(`Permanently delete ${subject}?\n\nThis cannot be undone. These private copies and their old share links will be removed. Submitted and published scenario snapshots will remain.${all ? ' Scenarios archived later are not included.' : ''}`)) return;
   if (!state.authSession.authenticated || request.account !== state.authSession.user?.id
     || request.epoch !== conversationStore.epoch || projectDeletionRequest) return;
   projectDeletionRequest = request;
   renderProjectDeletionControls();
-  setWorkspaceStatus('projects-status', 'Deleting archived projects...', 'info');
+  setWorkspaceStatus('projects-status', 'Deleting archived scenarios...', 'info');
   try {
     const result = await apiRequest('/api/projects/archived/delete', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1363,14 +1363,14 @@ async function deleteArchivedProjects(all = false) {
     const refreshed = await refreshProjects({ quiet: true });
     if (!projectDeletionIsCurrent(request) || request.viewRevision !== accountView.revision || !workspaceProjects.archived) return;
     const message = request.name ? `Permanently deleted "${request.name}".`
-      : `Permanently deleted ${result.deleted_count} archived ${result.deleted_count === 1 ? 'project' : 'projects'}.`;
-    setWorkspaceStatus('projects-status', refreshed ? message : `${message} Use Refresh to update the project list.`, refreshed ? 'success' : 'info');
+      : `Permanently deleted ${result.deleted_count} archived ${result.deleted_count === 1 ? 'scenario' : 'scenarios'}.`;
+    setWorkspaceStatus('projects-status', refreshed ? message : `${message} Use Refresh to update the scenario list.`, refreshed ? 'success' : 'info');
   } catch (error) {
     if (!projectDeletionIsCurrent(request)) return;
     const refreshed = await refreshProjects({ quiet: true });
     if (!projectDeletionIsCurrent(request) || request.viewRevision !== accountView.revision || !workspaceProjects.archived) return;
     const conflict = error.status === 409 || error.status === 404;
-    const message = conflict ? 'An archived project changed or is no longer available. Nothing was deleted.'
+    const message = conflict ? 'An archived scenario changed or is no longer available. Nothing was deleted.'
       : `Deletion could not be confirmed: ${error.message}`;
     setWorkspaceStatus('projects-status', `${message} ${refreshed ? 'Review the refreshed list' : 'Refresh the list'} before trying again.`, 'error');
   } finally {
@@ -1385,7 +1385,7 @@ async function deleteArchivedProjects(all = false) {
 }
 
 async function archiveProject(projectId, name, version) {
-  if (!window.confirm(`Archive the private project "${name}"? Existing share links will stop working. You can restore it privately from Archived; any published example snapshot stays public.`)) return;
+  if (!window.confirm(`Archive the private scenario "${name}"? Existing share links will stop working. You can restore it privately from Archived; any published scenario snapshot stays public.`)) return;
   const account = state.authSession.user?.id;
   const viewRevision = accountView.revision;
   try {
@@ -1400,7 +1400,7 @@ async function archiveProject(projectId, name, version) {
       if (defaultId) await loadScenario(defaultId);
     }
     if (account !== state.authSession.user?.id || viewRevision !== accountView.revision) return;
-    showGlobalStatus(`Archived project "${name}".`, 'success');
+    showGlobalStatus(`Archived scenario "${name}".`, 'success');
   } catch (error) {
     if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
   }

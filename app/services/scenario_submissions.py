@@ -94,7 +94,7 @@ def submit_scenario(
             admin = is_scenario_admin(owner, settings)
             if publish and not admin:
                 raise SubmissionError(
-                    "Only scenario administrators can publish examples.", status=403
+                    "Only scenario administrators can publish community scenarios.", status=403
                 )
             project = session.scalar(
                 select(Project)
@@ -107,9 +107,9 @@ def submit_scenario(
                 .execution_options(populate_existing=True)
             )
             if project is None:
-                raise SubmissionError("Project not found.", status=404)
+                raise SubmissionError("Scenario not found.", status=404)
             if project.version != expected_version:
-                raise SubmissionError("The project changed. Reopen it before submitting.")
+                raise SubmissionError("The scenario changed. Reopen it before submitting.")
             title, summary, note, attribution = _metadata(
                 project, owner, public_title, public_summary, author_note, attribute_author)
             previous = session.scalar(
@@ -123,7 +123,7 @@ def submit_scenario(
                     title, summary, note, attribution
                 ):
                     raise SubmissionError(
-                        "This project version already has a submission. Save a new project version before changing its public metadata."
+                        "This scenario version already has a submission. Save a new version before changing its public metadata."
                     )
                 # A retry cannot duplicate a request or silently undo a review.
                 return previous

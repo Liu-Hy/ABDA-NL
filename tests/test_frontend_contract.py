@@ -220,8 +220,8 @@ def test_public_policy_pages_are_linked_and_script_free():
     privacy = (STATIC_ROOT / "privacy.html").read_text(encoding="utf-8")
     terms = (STATIC_ROOT / "terms.html").read_text(encoding="utf-8")
     for policy in (privacy, terms):
-        assert "Last updated September 10, 2026" in policy
-    assert "Suggesting a public example" in privacy
+        assert "Last updated September 11, 2026" in policy
+    assert "Suggesting a community scenario" in privacy
     assert "retained for up to 30 days" in privacy
     assert "retained for 7 days" in privacy
     assert "complete it within 30 days" in privacy
@@ -229,7 +229,7 @@ def test_public_policy_pages_are_linked_and_script_free():
     assert "keyed eligibility markers" in privacy
     assert "for the lifetime of the credit program" in privacy
     assert "These markers remain after account deletion" in privacy
-    assert "they do not retain project or conversation content" in privacy
+    assert "they do not retain scenario or conversation content" in privacy
     assert "CloudBank-funded Microsoft Azure or Google Cloud" in privacy
     assert "Deleting and recreating an account does not renew eligibility" in terms
     assert "including for named administrator allocations" in terms

@@ -454,7 +454,7 @@ def test_project_corpus_cannot_escape_its_bundled_source(client: TestClient):
         json={"expected_version": 1, "scenario": changed},
     )
     assert rejected.status_code == 400
-    assert "immutable source" in rejected.json()["detail"]["message"]
+    assert "fixed built-in source scenario" in rejected.json()["detail"]["message"]
 
 
 def _too_complex_project_scenario() -> dict:

@@ -114,19 +114,19 @@ function renderShellMenus() {
       if (!state.authSession.authenticated) return openWorkspace('account');
       openWorkspace('projects', { prepareSave: true });
     }),
-    shellMenuItem('Share project...', () => openProjectSharing(), { disabled: !hasProject }),
-    shellMenuItem(state.authSession.scenario_admin ? 'Publish as a community example...' : 'Suggest as a community example...',
+    shellMenuItem('Share scenario...', () => openProjectSharing(), { disabled: !hasProject }),
+    shellMenuItem(state.authSession.scenario_admin ? 'Publish to community...' : 'Suggest to community...',
       () => beginExampleSubmission(), { disabled: !hasProject || state.authSession.community_catalog_enabled === false }),
     shellMenuItem('Download scenario (.json)', () => downloadCurrentScenario(), { disabled: !state.bundle }),
     shellMenuItem('Export conversation (.json)', () => exportConversation(),
       { disabled: !state.chatMessages.length }),
   );
   const user = state.authSession.user;
-  account.replaceChildren(shellMenuNote(user ? user.display_name || user.email : 'Explore freely. Sign in to save projects and use AI.'));
+  account.replaceChildren(shellMenuNote(user ? user.display_name || user.email : 'Explore freely. Sign in to save private scenarios and use AI.'));
   account.append(shellMenuItem(user ? 'Account and credit...' : 'Sign in...', () => openWorkspace('account')));
-  account.append(shellMenuItem('Manage projects...', () => openWorkspace('projects')));
+  account.append(shellMenuItem('Private scenarios...', () => openWorkspace('projects')));
   if (state.authSession.community_catalog_enabled !== false) {
-    account.append(shellMenuItem('Community examples...', () => openWorkspace('examples')));
+    account.append(shellMenuItem('Community scenarios...', () => openWorkspace('examples')));
   }
   account.append(shellMenuItem('AI access...', () => openWorkspace('ai')));
   account.append(shellMenuItem('Agent access (Codex, Claude Code)...', () => openWorkspace('mcp')));
@@ -150,9 +150,9 @@ function renderScenarioChoices() {
   if (!list) return;
   const focusKey = document.activeElement?.dataset?.scenarioKey;
   const groups = [
-    ['Included examples', (state.scenarios || []).filter(item => item.category !== 'community')],
-    ['Community examples', (state.scenarios || []).filter(item => item.category === 'community')],
-    ['Your projects', (state.projects || []).filter(item => !item.archived_at).map(item => ({ ...item, project: true }))],
+    ['Built-in scenarios', (state.scenarios || []).filter(item => item.category !== 'community')],
+    ['Community scenarios', (state.scenarios || []).filter(item => item.category === 'community')],
+    ['Private scenarios', (state.projects || []).filter(item => !item.archived_at).map(item => ({ ...item, project: true }))],
   ];
   list.replaceChildren();
   for (const [label, items] of groups) {
@@ -214,7 +214,7 @@ function renderScenarioChoices() {
     }
     list.append(group);
   }
-  if (!state.authSession.authenticated) list.append(shellMenuNote('Sign in to see your private projects.'));
+  if (!state.authSession.authenticated) list.append(shellMenuNote('Sign in to see your private scenarios.'));
   if (!list.querySelector('[tabindex="0"]')) list.querySelector('[role="option"]')?.setAttribute('tabindex', '0');
   if (focusKey && activeShellPopup?.panel.id === 'scenario-popover') {
     [...list.querySelectorAll('[role="option"]')].find(item => item.dataset.scenarioKey === focusKey)?.focus();
@@ -238,13 +238,13 @@ function renderShellControls() {
   byId('reset-undo-btn').disabled = pending;
   byId('save-btn').textContent = state.readOnly ? 'Save a copy' : 'Save';
   byId('save-btn').disabled = !state.bundle || pending || Boolean(state.activeProject && !hasChanges);
-  byId('save-btn').title = state.activeProject ? 'Save changes to this private project' : 'Save as a private project';
+  byId('save-btn').title = state.activeProject ? 'Save changes to this private scenario' : 'Save as a private scenario';
   byId('scenario-edit-btn').hidden = !state.activeProject;
   byId('scenario-download-btn').disabled = !state.bundle || pending;
   byId('scenario-sources-btn').disabled = !state.bundle || pending;
   const source = state.scenarios.find(item => item.id === state.scenario_id);
   if (state.viewKind === 'example') {
-    byId('context-indicator').textContent = source?.category === 'community' ? 'Community example' : 'Example';
+    byId('context-indicator').textContent = source?.category === 'community' ? 'Community scenario' : 'Built-in scenario';
   }
   if (state.config) {
     const access = state.llmAccess;
@@ -308,8 +308,10 @@ function initShellUI() {
     const menu = details.querySelector(':scope > div');
     const rect = details.querySelector('summary').getBoundingClientRect();
     if (!menu) return;
-    menu.style.left = `${Math.max(8, Math.min(rect.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8))}px`;
-    menu.style.top = `${Math.max(8, Math.min(rect.bottom + 4, innerHeight - menu.offsetHeight - 8))}px`;
+    // Fixed offsets use layout coordinates, while the trigger rect includes zoom.
+    const scale = Number(getComputedStyle(document.documentElement).zoom) || 1;
+    menu.style.left = `${Math.max(8, Math.min(rect.right / scale - menu.offsetWidth, innerWidth / scale - menu.offsetWidth - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(rect.bottom / scale + 4, innerHeight / scale - menu.offsetHeight - 8))}px`;
   }, true);
   document.addEventListener('click', event => {
     if (event.target.closest('.panel-options button, .row-options button')) {

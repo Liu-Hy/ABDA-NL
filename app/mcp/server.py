@@ -366,7 +366,7 @@ def _load_project_for_llm(project_id: str) -> tuple[User, Project, Any, dict[str
         source_id = project.source_scenario_id
         if source_id and not (EXAMPLES_ROOT / source_id).is_dir():
             raise MCPToolUserError(
-                "This project has no bundled source corpus for language model tools."
+                "This scenario has no bundled source corpus for language model tools."
             )
         scenario = scenario_from_dict(project.scenario_json)
         bundle = compute_state_bundle(scenario)
@@ -461,7 +461,7 @@ def _mcp_tool(*, annotations: ToolAnnotations):
 
 @_mcp_tool(annotations=READ_ONLY)
 def list_examples() -> dict[str, Any]:
-    """List bundled and reviewed community examples. Requires projects:read."""
+    """List built-in and reviewed community scenarios. Requires projects:read."""
     with _tool_boundary("list_examples"):
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
@@ -491,7 +491,7 @@ def get_example(
     scenario_id: str,
     include_argument_graph: bool = False,
 ) -> dict[str, Any]:
-    """Read one bundled example and its grounded outcomes. Requires projects:read."""
+    """Read one built-in or community scenario and its grounded outcomes. Requires projects:read."""
     with _tool_boundary("get_example"):
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
@@ -508,7 +508,7 @@ def get_example(
 
 @_mcp_tool(annotations=READ_ONLY)
 def list_projects() -> dict[str, Any]:
-    """List the authenticated user's private projects. Requires projects:read."""
+    """List the authenticated user's private scenarios. Requires projects:read."""
     with _tool_boundary("list_projects"):
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
@@ -522,7 +522,7 @@ def get_project(
     project_id: str,
     include_argument_graph: bool = False,
 ) -> dict[str, Any]:
-    """Read a private project and grounded outcomes. Requires projects:read."""
+    """Read a private scenario and grounded outcomes. Requires projects:read."""
     with _tool_boundary("get_project"):
         with get_session_factory()() as session:
             user = _active_user(session, MCP_SCOPE_PROJECTS_READ)
@@ -541,7 +541,7 @@ def create_project(
     description: str = "",
     diff_ops: list[DiffOp] | None = None,
 ) -> dict[str, Any]:
-    """Create a private project from an example. Requires projects:write; no ABDA credit."""
+    """Create a private scenario from a built-in or community scenario. Requires projects:write; no ABDA credit."""
     with _tool_boundary("create_project"):
         operations = _validated_ops(diff_ops)
         with get_session_factory()() as session:
@@ -607,7 +607,7 @@ def update_project_metadata(
     name: str | None = None,
     description: str | None = None,
 ) -> dict[str, Any]:
-    """Rename or describe a private project. Requires projects:write."""
+    """Rename or describe a private scenario. Requires projects:write."""
     with _tool_boundary("update_project_metadata"):
         if name is None and description is None:
             raise MCPToolUserError("Provide a name or description to update.")
@@ -791,12 +791,12 @@ def create_mcp_runtime() -> MCPRuntime:
             "Natural-language exploration of assumption-based defeasible argumentation."
         ),
         instructions=(
-            "ABDA-NL projects are private to the authenticated user. Read a project before "
+            "Saved ABDA-NL scenarios are private to the authenticated user. Read a private scenario before "
             "changing it. Edits require the current expected_version and return a new version. "
-            "Read and project-write tools use no ABDA server LLM and work with zero ABDA credit. "
+            "Read tools and tools that write private scenarios use no ABDA server LLM and work with zero ABDA credit. "
             "With a Codex or Claude Code subscription, use your own model to explain the returned "
             "formal outcomes or construct an edit. Show the proposed edit to the user, apply it "
-            "only when authorized, and read back the changed project and grounded outcomes. "
+            "only when authorized, and read back the changed scenario and grounded outcomes. "
             "ask_project and propose_project_edit invoke the ABDA server LLM, require llm:use, "
             "and consume ABDA credit even with a client subscription. Language model proposals "
             "never apply themselves. Never send provider API keys "

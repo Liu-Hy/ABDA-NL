@@ -809,7 +809,7 @@ def _project_version_error() -> HTTPException:
         status_code=409,
         detail={
             "code": "project_version_conflict",
-            "message": "project changed since it was loaded",
+            "message": "scenario changed since it was loaded",
         },
     )
 
@@ -826,7 +826,7 @@ def _load_project_working_context(
     except ProjectNotFoundError as exc:
         raise HTTPException(
             status_code=404,
-            detail={"code": "project_not_found", "message": "project not found"},
+            detail={"code": "project_not_found", "message": "scenario not found"},
         ) from exc
     if project.version != expected_version:
         raise _project_version_error()
@@ -847,7 +847,7 @@ def _project_scenario_dir(project) -> Path | None:
             status_code=409,
             detail={
                 "code": "project_source_unavailable",
-                "message": "the source corpus for this project is unavailable",
+                "message": "the source corpus for this scenario is unavailable",
             },
         )
     return candidate
@@ -1085,7 +1085,7 @@ def post_save_scenario(
     if settings.is_managed_service:
         raise HTTPException(
             status_code=403,
-            detail="filesystem saves are disabled; save this work as a private project",
+            detail="filesystem saves are disabled; save this work as a private scenario",
         )
 
     baseline = _load_baseline(request.source_id)

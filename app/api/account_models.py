@@ -112,7 +112,7 @@ class ArchivedProjectsDeleteRequest(BaseModel):
     @model_validator(mode="after")
     def unique_projects(self) -> ArchivedProjectsDeleteRequest:
         if len({item.id for item in self.projects}) != len(self.projects):
-            raise ValueError("each project must appear only once")
+            raise ValueError("each scenario must appear only once")
         return self
 
 

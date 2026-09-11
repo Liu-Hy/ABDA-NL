@@ -19,6 +19,8 @@ distinct from Haoyang's six U1-U6 requests.
 The later scenario reconstruction and direct chat/visual feedback supersede
 earlier choices about question wording, starter questions, visible Snapshot
 controls, default model, typography, and administrator-mode navigation.
+September 11 feedback further requests the appearance of 110% browser zoom,
+one graph hover explanation, and consistent scenario terminology.
 
 Below, **O** refers to the original product questions in `Requirements.docx`;
 **G** refers to the colleague's Demo or More radical ideas indices; **U1-U6**
@@ -56,6 +58,11 @@ not establish readiness on the actual conference laptop, network, or projector.
 | R19 | Investigate the higher cost per question using prompt/usage evidence. Retain extra context or reasoning that has demonstrated application value; remove avoidable expense. This is a cost explanation and application check, not a new general model benchmark. | Later cost feedback |
 | R20 | About is closed by default for every scenario. Opening it shows a concise, readable paragraph introducing the background and decision context in plain English. Rewrite all six bundled introductions; remove dense argumentation terminology, baseline-label walkthroughs and references to figures absent from the demo. | Later About feedback, September 10 |
 | R21 | Let users permanently delete their archived private projects. Show a checkbox beside each archived project, support deleting one or several selected projects, and provide Delete all. Require explicit confirmation before each deletion operation. Enforce ownership and protect active projects, concurrent restores, other users' data and separately published or submitted copies. | Later archived-project deletion request and checkbox clarification, September 11 |
+| R22 | Enlarge the interface uniformly to match the owner's preferred 110% browser-zoom appearance. Preserve the accepted visual style, proportional controls, usable panels, responsive reflow and normal browser zoom. Conclusion-graph hover shows one explanation card, preserving complete accessible node details and keyboard inspection. | Later sizing and duplicate-tooltip feedback, September 11 |
+| R23 | Use Scenario as the main user-facing term. Distinguish Built-in scenarios, Private scenarios and Community scenarios where origin or access matters, with clear shared-scenario and publication wording. Apply the terminology consistently to navigation, saving, importing, archiving, deletion and publication. Preserve compatibility of saved data, API names and technical integrations. | Later terminology decision delegated to implementation, September 11 |
+
+The same follow-up also authorizes retracting the owner's identified community
+test scenario, preserving its private source and other publications.
 
 The R03 identity list is exact, using the sign-in system's email normalization:
 
@@ -70,7 +77,7 @@ The R03 identity list is exact, using the sign-in system's email normalization:
 ## Interface acceptance, September 10
 
 These criteria condense the consolidated review's P01-P29 proposals. The guide
-records implementation choices and deliberate departures. Preserve R01-R21 and
+records implementation choices and deliberate departures. Preserve R01-R23 and
 E01-E07 throughout, including account isolation and late-response protection.
 
 | Area | Acceptance criteria | Review |
@@ -82,8 +89,8 @@ E01-E07 throughout, including account isolation and late-response protection.
 | Conversation | Keep compact history controls, visible pending/storage failures, explicit fork scenario choice, and a Stop action. Remove starter questions and per-turn Snapshot controls. The composer preserves ordered prose and atomic references through draft storage, reload, fork and export. Converting or removing a reference affects only that token, with discoverable Undo. Plain-text paste, keyboard editing, stale context, the 24-reference cap, and IME confirmation must work. Never reconstruct legacy references by matching substrings. | P08, P10, P15; later feedback |
 | Sources | Evidence distinguishes verified quotation from retrieved context; omit repetitive formal-reference footers. Open the saved source snapshot for historical answers, with plain-text search and a glossary table. Confirm a cited location against the reader's exact text before highlighting, including Unicode offsets; ambiguous or extraction-mismatched locations remain unconfirmed. No documents is normal. Source URLs are metadata, never fetched. Clear reader contents on account changes. | P09, P29; later feedback |
 | Authoring | New starts with an empty draft; New, Import and Edit remain distinct goals. Assign IDs once, preserve references and explicit renames, and provide keyboard literal selection. Group/filter long drafts and show validation beside fields. Check & save saves valid manual input directly; warnings require review, errors block saving, and AI proposals retain preview/apply. Current-rule text remains visible while instructions are typed. Import suggests roles from content and requires confirmation of ambiguity. Document rows show only retained or actually reported metadata and support read/edit/replace/remove. | P16-P22, U37 |
-| Projects and publication | Put projects first with saved-version/share/submission status. Restore archived projects privately under owner, active-account, version and capacity checks; revoke old links atomically. Public title, short summary and optional attribution belong to the submitted snapshot. Full background and documents remain explicitly disclosed; private description and author note stay private. Keep one informed publication affirmation, authorized queue counts/display names, in-dialog review confirmation, and a durable Open example action. Own unpublication needs no note but keeps the audit record. | P23-P28 |
-| Presentation and access | Use compact, readable type and proportional controls so complex scenarios fit more information on screen. Compare actual screenshots with the original and the current design at browser Ctrl-minus zoom. Refine spacing and restrained colors; heading bands are an optional design choice. Verify contrast, keyboard focus, logical modal return, top-dialog interaction, and narrow/zoomed layouts. Status banners push content down; errors persist until dismissed and important actions are not timer-only. | P04, P07, P11-P14; later visual feedback |
+| Private scenarios and publication | Put private scenarios first with saved-version/share/submission status. Restore archived scenarios privately under owner, active-account, version and capacity checks; revoke old links atomically. Public title, short summary and optional attribution belong to the submitted snapshot. Full background and documents remain explicitly disclosed; private description and author note stay private. Keep one informed publication affirmation, authorized queue counts/display names, in-dialog review confirmation, and a durable Open scenario action. Own unpublication needs no note but keeps the audit record. | P23-P28; R23 |
+| Presentation and access | Retain compact proportions and restrained colors at the later requested 110% overall scale. Heading bands remain a design choice. Verify contrast, keyboard focus, logical modal return, top-dialog interaction, and narrow/zoomed layouts, including viewport bounds and popup placement after enlargement. Status banners push content down; errors persist until dismissed and important actions are not timer-only. | P04, P07, P11-P14; later visual feedback; R22 |
 
 ## Engineering constraints to preserve
 

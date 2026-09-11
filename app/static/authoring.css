@@ -52,7 +52,7 @@
 .authoring-sources .authoring-source-form { padding: .8rem; margin-top: .8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .authoring-sources .authoring-source-form .form-field { margin: .65rem 0; }
 .authoring-sources .authoring-source-form textarea { resize: vertical; line-height: 1.55; }
-@media (max-width: 600px) {
+@media (max-width: 660px) {
   #modal-scenario-library .scenario-library-body { padding: .8rem; }
   #modal-scenario-library .scenario-library-nav { flex-wrap: wrap; padding: .6rem .8rem; }
   #modal-scenario-library .scenario-section-heading { flex-wrap: wrap; }

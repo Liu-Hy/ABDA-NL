@@ -401,7 +401,7 @@ def test_project_and_share_record_caps_are_enforced(
             scenario=scenario,
             source_scenario_id="fire_prevention",
         )
-        with pytest.raises(ProjectLimitError, match="active projects"):
+        with pytest.raises(ProjectLimitError, match="active private scenarios"):
             create_project(
                 session,
                 user,

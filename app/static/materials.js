@@ -115,7 +115,7 @@ class SourceEditor {
         const previous = position === null ? null : this.sources[position].filename;
         this.sources = checkedSourceValues(next);
         if (previous && previous !== edited.filename) { const metadata = this.metadata.get(previous); this.metadata.delete(previous); if (metadata) this.metadata.set(edited.filename, metadata); }
-        this.generation++; this.editing = null; this.editDirty = false; this.render(); this.changed(); this.message('Document kept in this draft. Save the scenario to keep it in the project.');
+        this.generation++; this.editing = null; this.editDirty = false; this.render(); this.changed(); this.message('Document added to this draft. Save the scenario to keep it.');
       } catch (error) { this.message(error.message); }
     };
     form.querySelector('[data-cancel-source]').onclick = () => { this.editing = null; this.editDirty = false; form.hidden = true; form.replaceChildren(); this.host.querySelector('[data-paste-source]')?.focus(); };
@@ -250,11 +250,11 @@ async function openScenarioMaterials() {
   const { scenario, project } = scenarioMaterials.draft;
   byId('materials-scenario-title').textContent = project?.name || scenario.title;
   byId('materials-access-note').textContent = project
-    ? 'Edits are saved to this private project. Existing shared links will include the updated materials. Published examples keep their separate snapshot.'
-    : 'Read-only materials for this scenario. To change them, first save a private copy from Manage projects.';
+    ? 'Edits are saved to this private scenario. Existing shared links will include the updated materials. Published snapshots stay unchanged.'
+    : 'Read-only materials for this scenario. To change them, first save a private copy from Private scenarios.';
   byId('materials-glossary').value = glossaryText(scenario);
   byId('materials-bundled').textContent = scenario.corpus?.length
-    ? `Bundled references: ${scenario.corpus.join(', ')}. These stay linked to the original example. Additional documents appear below.`
+    ? `Bundled references: ${scenario.corpus.join(', ')}. These stay linked to the original scenario. Additional documents appear below.`
     : 'References provide AI context without adding facts or rules. Review PDF extraction and paste corrections when needed.';
   projectSources.reset(scenario.sources || [], !!project);
   setWorkspaceStatus('materials-status'); renderMaterialAccess();
@@ -291,7 +291,7 @@ async function saveScenarioMaterials() {
     await refreshProjects({ quiet: true });
   } catch (error) {
     if (generation === scenarioMaterials.generation) setWorkspaceStatus('materials-status', error.code === 'project_version_conflict'
-      ? 'This project changed elsewhere. Reopen it before saving; your draft has not replaced newer work.' : error.message, 'error');
+      ? 'This scenario changed elsewhere. Reopen it before saving; your draft has not replaced newer work.' : error.message, 'error');
   } finally { scenarioMaterials.busy = false; state.projectSavePending = false; renderMaterialAccess(); }
 }
 

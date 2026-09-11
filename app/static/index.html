@@ -24,18 +24,18 @@
           <span class="scenario-name" id="scenario-name">Loading...</span><span aria-hidden="true">⌄</span>
         </button>
         <div class="shell-popover scenario-popover" id="scenario-popover" role="dialog" aria-label="Choose a scenario" hidden>
-          <div id="scenario-options" role="listbox" aria-label="Examples and your projects"></div>
+          <div id="scenario-options" role="listbox" aria-label="Scenarios"></div>
           <div class="scenario-menu-actions" role="group" aria-label="Scenario actions">
             <button class="btn" id="scenario-library-btn" type="button">New scenario</button>
             <button class="btn" id="scenario-import-btn" type="button">Import scenario file</button>
-            <button class="btn" id="scenario-projects-btn" type="button">Manage projects</button>
+            <button class="btn" id="scenario-projects-btn" type="button">Private scenarios</button>
             <button class="btn" id="scenario-download-btn" type="button">Download scenario (.json)</button>
             <button class="btn" id="scenario-sources-btn" type="button">Sources and glossary</button>
             <button class="btn" id="scenario-edit-btn" type="button" hidden>Edit scenario</button>
           </div>
         </div>
       </div>
-      <span class="context-indicator" id="context-indicator" role="status" aria-live="polite">Example</span>
+      <span class="context-indicator" id="context-indicator" role="status" aria-live="polite">Built-in scenario</span>
       <button class="btn btn-tertiary" id="scenario-about-btn" type="button" aria-expanded="false" aria-controls="scenario-about">About</button>
     </div>
     <div class="scenario-state-actions">
@@ -53,7 +53,7 @@
         <div class="shell-popover shell-menu" id="ai-menu" role="menu" aria-label="AI access" hidden></div>
       </div>
       <div class="shell-popup-anchor save-split">
-        <button class="btn" id="save-btn" type="button" title="Save as a private project">Save</button>
+        <button class="btn" id="save-btn" type="button" title="Save as a private scenario">Save</button>
         <button class="btn" id="save-menu-btn" type="button" data-shell-menu="save-menu" aria-label="More save and sharing actions" aria-haspopup="menu" aria-expanded="false" aria-controls="save-menu">⌄</button>
         <div class="shell-popover shell-menu" id="save-menu" role="menu" aria-label="Save and share" hidden></div>
       </div>
@@ -198,15 +198,15 @@
       <div class="modal-header">
         <div>
           <div class="modal-title" id="workspace-modal-title">Account</div>
-          <div class="modal-subtitle">Private projects, model access, and agent connections</div>
+          <div class="modal-subtitle">Private scenarios, model access, and agent connections</div>
         </div>
         <button class="modal-close" id="workspace-close-btn" type="button" aria-label="Close workspace">&times;</button>
       </div>
       <div class="workspace-layout">
         <div class="workspace-tabs" role="tablist" aria-label="Workspace sections">
           <button class="workspace-tab active" id="workspace-tab-account" type="button" role="tab" aria-selected="true" aria-controls="workspace-panel-account" data-workspace-tab="account">Account</button>
-          <button class="workspace-tab" id="workspace-tab-projects" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-projects" data-workspace-tab="projects">Projects</button>
-          <button class="workspace-tab" id="workspace-tab-examples" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-examples" data-workspace-tab="examples" hidden>Community examples <span id="examples-tab-count"></span></button>
+          <button class="workspace-tab" id="workspace-tab-projects" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-projects" data-workspace-tab="projects">Private scenarios</button>
+          <button class="workspace-tab" id="workspace-tab-examples" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-examples" data-workspace-tab="examples" hidden>Community scenarios <span id="examples-tab-count"></span></button>
           <button class="workspace-tab llm-only" id="workspace-tab-ai" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-ai" data-workspace-tab="ai">AI access</button>
           <button class="workspace-tab" id="workspace-tab-mcp" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-mcp" data-workspace-tab="mcp">Agent access</button>
         </div>
@@ -214,7 +214,7 @@
           <section class="workspace-panel active" id="workspace-panel-account" role="tabpanel" aria-labelledby="workspace-tab-account" tabindex="0">
             <h2>Account</h2>
             <div id="account-signed-out">
-              <p class="workspace-lead">Browse the examples without an account. Sign in with a verified email to save private projects, claim trial credit, share work, and connect an AI coding agent.</p>
+              <p class="workspace-lead">Explore built-in scenarios without an account. Sign in with a verified email to save private scenarios, claim trial credit, share work, and connect an AI coding agent.</p>
               <a class="btn btn-primary" id="oidc-login-link" href="/auth/login" hidden>Sign in or register</a>
               <p class="account-policy-note" id="shared-login-note" hidden>Sign-in opens in another tab so this private share token stays in the current URL fragment. Return here after signing in.</p>
               <form class="workspace-form" id="dev-login-form" hidden>
@@ -242,7 +242,7 @@
                 <div class="workspace-section-heading">
                   <div>
                     <h3 id="account-view-heading">Administrator view</h3>
-                    <p id="account-view-description">The review queue and Publish as example are hidden in normal user view. Your suggestions go through review. Projects, credit, and conversations are unchanged.</p>
+                    <p id="account-view-description">The review queue and Publish to community are hidden in normal user view. Your suggestions go through review. Private scenarios, credit, and conversations are unchanged.</p>
                   </div>
                   <button class="btn" id="account-view-toggle-btn" type="button" role="switch" aria-checked="false">Normal user view</button>
                 </div>
@@ -278,44 +278,44 @@
           <section class="workspace-panel" id="workspace-panel-projects" role="tabpanel" aria-labelledby="workspace-tab-projects" tabindex="0" hidden>
             <div class="workspace-section-heading">
               <div>
-                <h2>Private projects</h2>
+                <h2>Private scenarios</h2>
                 <p>Save an exploration, reopen it later, and share a read-only link.</p>
               </div>
               <button class="btn" id="projects-refresh-btn" type="button">Refresh</button>
             </div>
-            <div class="signed-in-required" id="projects-signin-required">Sign in with a verified email to use private projects.</div>
+            <div class="signed-in-required" id="projects-signin-required">Sign in with a verified email to use private scenarios.</div>
             <div id="projects-authenticated" hidden>
               <div class="current-project-card" id="current-project-card" hidden></div>
               <div class="project-list-heading">
-                <div class="project-filters" role="group" aria-label="Project status">
+                <div class="project-filters" role="group" aria-label="Scenario status">
                   <button class="btn btn-small" id="projects-active-filter" type="button" aria-pressed="true">Active</button>
                   <button class="btn btn-small" id="projects-archived-filter" type="button" aria-pressed="false">Archived</button>
                 </div>
                 <span id="project-count"></span>
               </div>
-              <p class="field-hint" id="projects-archive-hint" hidden>Restore brings a project back privately with old links revoked. Delete is permanent. Submitted and published example snapshots remain independent.</p>
+              <p class="field-hint" id="projects-archive-hint" hidden>Restore brings a scenario back privately with old links revoked. Delete is permanent. Submitted and published scenario snapshots remain independent.</p>
               <div class="project-archive-actions" id="projects-delete-actions" hidden>
                 <span id="projects-selected-count" role="status" aria-live="polite">0 selected</span>
                 <div class="project-delete-buttons">
                   <button class="btn btn-small project-delete-btn" id="projects-delete-selected" type="button" disabled>Delete selected</button>
-                  <button class="btn btn-small project-delete-btn" id="projects-delete-all" type="button" aria-label="Delete all archived projects" disabled>Delete all</button>
+                  <button class="btn btn-small project-delete-btn" id="projects-delete-all" type="button" aria-label="Delete all archived scenarios" disabled>Delete all</button>
                 </div>
               </div>
-              <p class="field-hint" id="projects-delete-limit" hidden>Select up to 500 archived projects to delete at a time.</p>
+              <p class="field-hint" id="projects-delete-limit" hidden>Select up to 500 archived scenarios to delete at a time.</p>
               <div class="project-list" id="project-list"></div>
               <details class="project-copy-panel" id="project-copy-panel">
                 <summary>Save a copy...</summary>
               <form class="workspace-form project-create-form" id="project-create-form">
-                <h3 id="project-create-heading">Save current analysis as a private project</h3>
+                <h3 id="project-create-heading">Save current analysis as a private scenario</h3>
                 <div class="form-field">
-                  <label for="project-name-input">Project name</label>
+                  <label for="project-name-input">Scenario name</label>
                   <input id="project-name-input" name="name" type="text" required maxlength="120" placeholder="Popov analysis for COMMA">
                 </div>
                 <div class="form-field">
                   <label for="project-description-input">Description <span class="optional-label">optional</span></label>
                   <textarea id="project-description-input" name="description" rows="2" maxlength="4000" placeholder="What this version explores"></textarea>
                 </div>
-                <button class="btn btn-primary" id="project-create-btn" type="submit">Create private project</button>
+                <button class="btn btn-primary" id="project-create-btn" type="submit">Create private scenario</button>
               </form>
               </details>
             </div>
@@ -324,15 +324,15 @@
 
           <section class="workspace-panel" id="workspace-panel-examples" role="tabpanel" aria-labelledby="workspace-tab-examples" tabindex="0" hidden>
             <div class="workspace-section-heading">
-              <div><h2>Community examples</h2><p>Share a useful scenario with everyone who visits the demo.</p></div>
+              <div><h2>Community scenarios</h2><p>Share a useful scenario with everyone who visits the demo.</p></div>
               <button class="btn" id="examples-refresh-btn" type="button">Refresh</button>
             </div>
-            <p class="workspace-lead" id="examples-introduction">Open a private project, then choose Suggest as example. Your project stays private; only the snapshot you approve is submitted for review.</p>
+            <p class="workspace-lead" id="examples-introduction">Open a private scenario, then choose Suggest to community. Your scenario stays private; only the snapshot you approve is submitted for review.</p>
             <div class="form-field" id="examples-filter-field" hidden>
               <div class="example-filters" id="examples-filter-segments" role="group" aria-label="Submission status"></div>
               <select id="examples-filter" aria-label="Submission status" hidden>
                 <option value="pending">Awaiting review</option>
-                <option value="published">Published community examples</option>
+                <option value="published">Published community scenarios</option>
                 <option value="mine">My submissions</option>
                 <option value="rejected">Declined submissions</option>
                 <option value="withdrawn">Withdrawn or removed</option>
@@ -356,7 +356,7 @@
                   <input type="radio" name="ai-mode" value="funded" checked>
                   <span>
                     <strong>Funded access</strong>
-                    <small>Uses activated trial credit and the project-managed CloudBank route.</small>
+                    <small>Uses activated trial credit and the CloudBank-funded route.</small>
                   </span>
                 </label>
                 <label class="choice-card" id="byok-choice-card">
@@ -392,7 +392,7 @@
                     <button class="btn" id="byok-reveal-btn" type="button" aria-pressed="false">Show</button>
                     <button class="btn" id="byok-clear-btn" type="button">Clear</button>
                   </div>
-                  <div class="privacy-note">The key stays in browser memory, is sent only with each model request, and is never saved in a cookie, project, share link, browser storage, or server database.</div>
+                  <div class="privacy-note">The key stays in browser memory, is sent only with each model request, and is never saved in a cookie, scenario, share link, browser storage, or server database.</div>
                 </div>
               </div>
               <button class="btn btn-primary" type="submit">Use this access setting</button>
@@ -402,7 +402,7 @@
 
           <section class="workspace-panel" id="workspace-panel-mcp" role="tabpanel" aria-labelledby="workspace-tab-mcp" tabindex="0" hidden>
             <h2>Connect Codex or Claude Code</h2>
-            <p class="workspace-lead">Create a revocable personal token for the ABDA-NL MCP server. Agent edits use private projects and optimistic version checks.</p>
+            <p class="workspace-lead">Create a revocable personal token for the ABDA-NL MCP server. Agent edits use private scenarios and optimistic version checks.</p>
             <div class="signed-in-required" id="mcp-signin-required">Sign in with a verified email to create an agent token.</div>
             <div id="mcp-authenticated" hidden>
               <form class="workspace-form" id="mcp-token-form">
@@ -423,9 +423,9 @@
                 </div>
                 <fieldset class="scope-fieldset">
                   <legend>Permissions</legend>
-                  <label><input type="checkbox" name="mcp-scope" value="projects:read" checked> Read examples and private projects</label>
-                  <label><input type="checkbox" name="mcp-scope" value="projects:write" checked> Create and update private projects</label>
-                  <label><input type="checkbox" name="mcp-scope" value="llm:use" checked> Read your project content and use metered model tools</label>
+                  <label><input type="checkbox" name="mcp-scope" value="projects:read" checked> Read built-in, community, and private scenarios</label>
+                  <label><input type="checkbox" name="mcp-scope" value="projects:write" checked> Create and update private scenarios</label>
+                  <label><input type="checkbox" name="mcp-scope" value="llm:use" checked> Read your scenario content and use metered model tools</label>
                 </fieldset>
                 <button class="btn btn-primary" type="submit">Create token</button>
               </form>
@@ -511,7 +511,7 @@
     <div class="modal-content scenario-library-content">
       <div class="modal-header">
         <div><span class="modal-title" id="scenario-editor-heading">Your scenario</span>
-          <p class="scenario-lead" id="scenario-editor-outcome">Saves as a private project</p></div>
+          <p class="scenario-lead" id="scenario-editor-outcome">Saves as a private scenario</p></div>
         <button class="modal-close" type="button" aria-label="Close scenario library">×</button>
       </div>
       <div class="scenario-library-nav" id="scenario-editor-navigation">
@@ -519,8 +519,8 @@
           <button class="scenario-tab active" id="scenario-tab-new" type="button" role="tab" aria-selected="true" aria-controls="scenario-panel-new" data-scenario-tab="new">New scenario</button>
           <button class="scenario-tab" id="scenario-tab-file" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel-file" data-scenario-tab="file" tabindex="-1">Import scenario</button>
         </div>
-        <button class="btn btn-small" id="scenario-my-projects" type="button">Manage projects</button>
-        <button class="btn btn-small" id="scenario-example-submissions" type="button" hidden>Community examples</button>
+        <button class="btn btn-small" id="scenario-my-projects" type="button">Private scenarios</button>
+        <button class="btn btn-small" id="scenario-example-submissions" type="button" hidden>Community scenarios</button>
       </div>
       <div class="scenario-library-body">
         <div class="scenario-signin" id="scenario-signin-required">
@@ -528,7 +528,7 @@
           <button class="btn btn-primary" id="scenario-signin-btn" type="button">Sign in</button>
         </div>
         <section id="scenario-panel-new" role="tabpanel" aria-labelledby="scenario-tab-new">
-          <p class="scenario-hint" id="scenario-start-actions">Start with your own statements, or <button class="btn btn-small" id="scenario-starter-btn" type="button">Try the picnic example</button>
+          <p class="scenario-hint" id="scenario-start-actions">Start with your own statements, or <button class="btn btn-small" id="scenario-starter-btn" type="button">Try the picnic scenario</button>
             <button class="btn btn-small" id="scenario-reset-btn" type="button">Clear draft</button></p>
         </section>
         <section id="scenario-panel-file" role="tabpanel" aria-labelledby="scenario-tab-file" hidden>
@@ -539,7 +539,7 @@
             <p class="scenario-hint" id="scenario-file-help">A complete ABDA-NL YAML/JSON file, or ASPIC- rules with an optional glossary and reference documents. Check each file's role below. Up to 1 MB per file.</p>
             <div id="scenario-import-files"></div>
             <button class="btn" id="scenario-load-files" type="button" hidden>Load into editor</button>
-            <button class="btn btn-primary" id="scenario-open-file-project" type="button" hidden>Open as project</button>
+            <button class="btn btn-primary" id="scenario-open-file-project" type="button" hidden>Open as private scenario</button>
             <div id="scenario-import-status" class="workspace-status" role="status" aria-live="polite"></div>
           </div>
         </section>
@@ -638,7 +638,7 @@
         <section class="material-section"><h3>Reference documents</h3><p class="scenario-hint" id="materials-bundled"></p><div id="materials-source-editor"></div></section>
       </div>
       <div class="workspace-status" id="materials-status" role="status" aria-live="polite"></div>
-      <div class="scenario-library-footer"><span class="scenario-hint">AI uses relevant excerpts, not necessarily every passage.</span><button class="btn btn-primary" id="materials-save" type="button">Save to project</button></div>
+      <div class="scenario-library-footer"><span class="scenario-hint">AI uses relevant excerpts, not necessarily every passage.</span><button class="btn btn-primary" id="materials-save" type="button">Save to scenario</button></div>
     </div>
   </div>
 
@@ -767,14 +767,14 @@
       <div class="modal-footer example-review-footer">
         <div class="example-consent" id="example-consent-panel">
           <label><input id="example-public-consent" type="checkbox"> I have permission to share this content publicly and have checked the snapshot.</label>
-          <p class="field-hint">Includes full reference text. Project edits or archiving do not change the snapshot. Account email, chats, keys, private notes, and share links are not included automatically.</p>
+          <p class="field-hint">Includes full reference text. Scenario edits or archiving do not change the snapshot. Account email, chats, keys, private notes, and share links are not included automatically.</p>
         </div>
         <div class="form-field" id="example-review-note-field" hidden>
-          <label for="example-review-note">Note to the author <span class="optional-label" id="example-review-note-requirement">required when declining or removing someone else's example</span></label>
+          <label for="example-review-note">Note to the author <span class="optional-label" id="example-review-note-requirement">required when declining or removing someone else's scenario</span></label>
           <textarea id="example-review-note" rows="2" maxlength="1000"></textarea>
         </div>
         <div class="example-confirmation" id="example-publish-confirmation" hidden>
-          <span>Publish this exact snapshot as a public example?</span>
+          <span>Publish this exact snapshot as a community scenario?</span>
           <button class="btn btn-primary" type="button" data-example-action="confirm-publish">Publish</button>
           <button class="btn" type="button" data-example-action="cancel-publish">Cancel</button>
         </div>

@@ -86,10 +86,10 @@ function renderCurationAccess() {
   byId('workspace-tab-examples').hidden = !available;
   byId('scenario-example-submissions').hidden = !available;
   byId('examples-filter-field').hidden = !session.scenario_admin;
-  byId('scenario-example-submissions').textContent = 'Community examples';
+  byId('scenario-example-submissions').textContent = 'Community scenarios';
   byId('examples-introduction').textContent = session.scenario_admin
-    ? 'Review submitted snapshots here. To publish your own scenario directly, open its private project and choose Publish as example.'
-    : 'Open a private project, then choose Suggest as a community example. Your project stays private; only the snapshot you approve is submitted for review.';
+    ? 'Review submitted snapshots here. To publish directly, open a private scenario and choose Publish to community.'
+    : 'Open a private scenario, then choose Suggest to community. Your scenario stays private; only the snapshot you approve is submitted for review.';
 }
 
 async function refreshPublicExampleList() {
@@ -125,7 +125,7 @@ async function refreshExampleSubmissions() {
         ${item.review_note ? `<p class="example-note">${escapeHtml(item.review_note)}</p>` : ''}
         <div class="project-card-actions">
           <button class="btn btn-small" type="button" data-example-review="${escapeAttr(item.id)}">${filter === 'pending' ? 'Review' : 'View suggestion'}</button>
-          ${item.public_scenario_id ? `<button class="btn btn-small" type="button" data-public-example="${escapeAttr(item.public_scenario_id)}">Open example</button>` : ''}
+          ${item.public_scenario_id ? `<button class="btn btn-small" type="button" data-public-example="${escapeAttr(item.public_scenario_id)}">Open scenario</button>` : ''}
         </div>
       </article>`).join('') : '<div class="empty-list">No submissions in this view.</div>';
     byId('examples-previous').hidden = curation.offset === 0;
@@ -135,7 +135,7 @@ async function refreshExampleSubmissions() {
       const publicId = curation.publishedNotice;
       setWorkspaceStatus('examples-status', 'Published. ', 'success');
       const open = document.createElement('button');
-      open.type = 'button'; open.className = 'btn btn-small'; open.textContent = 'Open example';
+      open.type = 'button'; open.className = 'btn btn-small'; open.textContent = 'Open scenario';
       open.addEventListener('click', () => { requestCloseModal('modal-workspace'); requestScenarioLoad(publicId); });
       const dismiss = document.createElement('button');
       dismiss.type = 'button'; dismiss.className = 'btn btn-small'; dismiss.textContent = 'Dismiss';
@@ -190,7 +190,7 @@ async function beginExampleSubmission() {
   if (curation.busy || !state.activeProject) return;
   const originalProjectId = state.activeProject.id;
   if (state.diff_ops.length) {
-    if (!window.confirm('Save your current project changes before reviewing the public snapshot?')) return;
+    if (!window.confirm('Save your current scenario changes before reviewing the public snapshot?')) return;
     const saved = await saveProjectChanges();
     if (!saved || state.activeProject?.id !== originalProjectId) return;
   }
@@ -234,7 +234,7 @@ function showExampleReview(scenario, subtitle) {
   const submitting = curation.review.kind === 'submit';
   const item = curation.review.item;
   byId('example-review-title').textContent = submitting
-    ? state.authSession.scenario_admin ? 'Publish as example' : 'Suggest as a community example' : 'Suggestion';
+    ? state.authSession.scenario_admin ? 'Publish to community' : 'Suggest to community' : 'Suggestion';
   byId('example-review-subtitle').textContent = subtitle;
   byId('example-public-title').value = submitting ? curation.review.project.name : item.title;
   byId('example-public-summary').value = submitting
@@ -271,7 +271,7 @@ function showExampleReview(scenario, subtitle) {
   byId('example-review-note-field').hidden = submitting || !state.authSession.scenario_admin
     || !['pending', 'published'].includes(item.status);
   byId('example-review-note-requirement').textContent = item?.is_own && item.status === 'published'
-    ? 'optional when removing your own example' : 'required when declining or removing someone else’s example';
+    ? 'optional when removing your own scenario' : 'required when declining or removing someone else’s scenario';
   setWorkspaceStatus('example-review-status', '', 'info');
   renderPublicSnapshot();
   renderExampleActions();
@@ -343,7 +343,7 @@ async function handleExampleDecision(event) {
     return;
   }
   if (action === 'submit' && !byId('example-public-consent').checked) return;
-  if (action === 'unpublish' && !window.confirm('Remove this snapshot from the public examples? Existing private copies are not changed.')) return;
+  if (action === 'unpublish' && !window.confirm('Remove this snapshot from the community scenarios? Existing private copies are not changed.')) return;
   curation.busy = true;
   const generation = curation.reviewGeneration;
   renderExampleActions();
@@ -362,12 +362,12 @@ async function handleExampleDecision(event) {
     const completedReviewGeneration = curation.reviewGeneration;
     await refreshProjects({ quiet: true });
     if (review.account !== state.authSession.user?.id || completedReviewGeneration !== curation.reviewGeneration) return;
-    const message = item.status === 'published' ? 'Published. The scenario is now in Community examples.'
-      : item.status === 'pending' ? 'Submitted for review. Check Community examples for updates.'
-      : `${exampleStatusLabel(item.status)}. To submit a revised snapshot, edit and save the project first.`;
+    const message = item.status === 'published' ? 'Published. The scenario is now in Community scenarios.'
+      : item.status === 'pending' ? 'Submitted for review. Check Community scenarios for updates.'
+      : `${exampleStatusLabel(item.status)}. To submit a revised snapshot, edit and save the scenario first.`;
     curation.publishedNotice = item.public_scenario_id || null;
     showGlobalStatus(message, 'success', item.public_scenario_id ? {
-      label: 'Open example', onClick: () => { requestCloseModal('modal-workspace'); requestScenarioLoad(item.public_scenario_id); },
+      label: 'Open scenario', onClick: () => { requestCloseModal('modal-workspace'); requestScenarioLoad(item.public_scenario_id); },
     } : null);
     if (!stillReviewing) { await refreshPublicExampleList(); return; }
     if (state.authSession.scenario_admin) byId('examples-filter').value = action === 'approve' ? 'pending' : 'mine';

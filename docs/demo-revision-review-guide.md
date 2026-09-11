@@ -11,9 +11,13 @@ The recent revision work starts after `85bd4ae75d09a55fb65d1cd254d2ab1d833e8e18`
 Tim reviewed code snapshot `026fde9f0c5024c48a4d1c935b05d459d9e29349`.
 The subsequent correction work starts from `94febed`; inspect the current
 commit and the correction status below for its validation boundary.
-Review existing foundations as well as this diff wherever R01-R21 or E01-E07
-depend on them. The later refinement adds R17-R21 and supersedes the earlier
+Review existing foundations as well as this diff wherever R01-R23 or E01-E07
+depend on them. The later refinement adds R17-R23 and supersedes the earlier
 question-frame, starter, Snapshot-control, typography, About and default-model choices.
+
+The subsequent R22/R23 follow-up enlarges the interface, removes the duplicate
+graph tooltip and standardizes scenario terminology. Its release verification
+is in progress; the deployed baseline below remains the prior scenario release.
 
 The latest hosted source is `9a06436e76055997524e1e29cf438078461831e7`, deployed
 to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
@@ -112,29 +116,40 @@ points a reviewer must reconcile.
 
 | Area | Implementation and focused checks |
 | --- | --- |
-| Shell and explorer, P01-P07/P10-P14 | `ui-shell.js`, `ui-shell.css`, `argument-navigation.js`, `app.js`; `test_ui_shell_browser.py` checks selection without loading, Reset/Undo scope, exact graph navigation, saved-bundle games, terminal leaves, and seven screen sizes. Existing game tests retain full-defense and cycle cases. |
+| Shell and explorer, P01-P07/P10-P14, R22 | `ui-shell.js`, `ui-shell.css`, `style.css`, `argument-navigation.js`, `app.js`; `test_ui_shell_browser.py` checks selection without loading, Reset/Undo scope, exact graph navigation, saved-bundle games, terminal leaves, ten screen sizes, fixed-menu alignment and one unclipped tooltip. Existing game tests retain full-defense and cycle cases. |
 | Chat and sources, P08-P10/P15/P29 | `composer.js`, `source-reader.js`, `exploration.js`, `conversation-storage.js`, `chat-exploration.css`; `test_composer_source_reader.py` and `test_exploration_browser.py` cover ordered references, IME, clipboard/caret/Undo, legacy history, late answers and account isolation, quotation offsets, ambiguity, and saved source text. |
 | Authoring, P16-P22 | `scenarios.js`, `materials.js`, `authoring.css`; `test_authoring_browser.py` and the migrated existing browser workflows cover empty drafts, stable symbols, literal selection, validation/save, import, documents and portable export. |
-| Projects and publication, P23-P28 | `workspace.js`, `curation.js`, `workspace.css`, project/submission services and API, migration 0008; `test_workspace_projects_publication.py`, `test_submission_metadata_migration.py`, `test_workspace_revision_browser.py`, and restricted-role PostgreSQL contention checks. |
+| Private scenarios and publication, P23-P28, R23 | `workspace.js`, `curation.js`, `workspace.css`, project/submission services and API, migration 0008; `test_workspace_projects_publication.py`, `test_submission_metadata_migration.py`, `test_workspace_revision_browser.py`, and restricted-role PostgreSQL contention checks. Terminology changes preserve API identifiers and stored records. |
 
 Intentional refinements:
 
 - The owner's later feedback replaces the generic question frame with an item
   reference, removes starter questions and per-turn Snapshot controls, and uses
   the shorter Chat & Explore heading. Stored snapshots and exports remain.
-- Keep the system font stack, with compact 13 px explorer text, 12 px controls,
-  14 px chat text and 14 px reading text on narrow screens. A restrained
-  blue-gray heading band is a design choice. Actual original, current and 85%
-  zoom screenshots informed the proportions; the older 15 px requirement is
-  superseded by the owner's density preference.
+- Keep the system font stack and compact proportions, enlarged uniformly by
+  10% following the owner's later comparison at 110% browser zoom. Explorer,
+  control and chat text now render at 14.3, 13.2 and 15.4 px respectively at
+  normal browser zoom; narrow-screen reading text is 15.4 px. The restrained
+  blue-gray heading band remains. Root CSS zoom scales graphics and controls
+  along with type; viewport bounds, media breakpoints and fixed-popup coordinates
+  account for that scale. Container queries retain their original thresholds.
 - Use a shared navigation bar that replaces the active argument dialog rather
   than nesting the game over the inspector. Preserve the exact bundle and
   derivation, with a return to the prior game or graph. Describe projected
   rebuts as one-way or bidirectional, since an absent projected edge alone
   does not prove a preference decided the outcome. Node descriptions wrap to
   three short lines; complete text remains in the accessible name and tooltip.
+  Keep the white custom hover card only. Native SVG titles previously caused a
+  second overlapping tooltip; explicit graph and node accessible names remain.
   Fit shows the whole topology; larger graphs require zoom or inspection to
   read every description comfortably.
+- Use Scenario as the shared object name. Built-in scenarios, Private scenarios
+  and Community scenarios distinguish origin and access. Publish to community
+  and Suggest to community make the action's destination explicit. API routes,
+  storage fields, MCP identifiers and existing exports retain their technical
+  project/example names for compatibility; ordinary illustrative examples and
+  references to the research project keep their natural meaning. The privacy
+  notice now distinguishes archiving from confirmed permanent deletion.
 - The selected item's identifier is the direct inspector link; a second
   conclusion-row overflow duplicates that action without adding a user goal.
   Rule overflow remains useful for its three distinct actions. Desktop split

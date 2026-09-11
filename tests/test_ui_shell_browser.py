@@ -96,14 +96,14 @@ def test_about_starts_closed_and_resets_on_scenario_and_project_switch(explorer_
     page.route('**/api/projects/about-project', lambda route: route.fulfill(
         content_type='application/json', body=json.dumps(project)))
     page.evaluate("() => loadProject('about-project')")
-    expect(page.locator('#context-indicator')).to_have_text('Private project')
+    expect(page.locator('#context-indicator')).to_have_text('Private scenario')
     expect(about).to_be_hidden()
     button.click()
     page.evaluate("() => {state.activeProject.version += 1; renderShellControls();}")
     expect(about).to_be_visible()
     about.focus()
     page.evaluate("() => loadScenario('test')")
-    expect(page.locator('#context-indicator')).to_have_text('Example')
+    expect(page.locator('#context-indicator')).to_have_text('Built-in scenario')
     expect(about).to_be_hidden()
     expect(button).to_be_focused()
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
@@ -144,6 +144,69 @@ def test_reset_keeps_conversation_and_draft_with_a_version_bound_undo(explorer_b
     count = len(runtime['chat_requests'])
     page.evaluate('() => resetToBaseline()')
     assert len(runtime['chat_requests']) == count
+
+
+@pytest.mark.parametrize('width', [1440, 390])
+def test_graph_hover_uses_one_tooltip_with_accessible_node_details(explorer_browser, tmp_path, width):
+    from playwright.sync_api import expect
+    page, runtime = explorer_browser
+    page.set_viewport_size({'width': width, 'height': 900})
+    page.locator('#view-af-btn').click()
+    graph = page.locator('#af-svg-scroll svg')
+    node = graph.locator('.af-node[data-af-lit="c"]')
+    tip = page.locator('#af-tooltip')
+    expect(graph).to_have_accessible_name('ABDA-NL conclusion graph')
+    expect(node).to_have_accessible_name('The claim holds; Undecided; 2 derivations. Inspect c')
+    # Native SVG titles are painted outside the DOM and can overlap the custom
+    # card. Check their triggers explicitly, including the outer SVG title.
+    expect(graph.locator('title, [title]')).to_have_count(0)
+    assert node.evaluate("node => node.closest('[title]') === null")
+    expect(tip).to_be_hidden()
+    node.hover()
+    expect(page.locator('.af-tooltip:visible')).to_have_count(1)
+    expect(tip.locator('.af-tooltip-claim')).to_have_text('The claim holds')
+    expect(tip.locator('.af-tooltip-status')).to_have_text('Undecided')
+    expect(tip.locator('.inline-id')).to_have_text('[top]')
+    box = tip.bounding_box()
+    assert box is not None
+    assert box['x'] >= 0 and box['y'] >= 0
+    assert box['x'] + box['width'] <= width + 1
+    assert box['y'] + box['height'] <= 901
+    directory = Path(os.getenv('ABDA_BROWSER_ARTIFACT_DIR', str(tmp_path)))
+    directory.mkdir(parents=True, exist_ok=True)
+    engine = os.getenv('ABDA_BROWSER_ENGINE', 'chromium')
+    page.screenshot(path=str(directory / f'{engine}-single-graph-tooltip-{width}.png'), full_page=True)
+    graph.locator('.af-node[data-af-lit="-c"]').hover()
+    expect(page.locator('.af-tooltip:visible')).to_have_count(1)
+    expect(tip.locator('.af-tooltip-claim')).to_have_text('The claim does not hold')
+    page.locator('#modal-af .modal-title').hover()
+    expect(tip).to_be_hidden()
+    node.focus()
+    page.keyboard.press('Enter')
+    expect(page.locator('#modal-derivation')).to_be_visible()
+    assert page.evaluate('inspectorState.scope.id') == 'c'
+    assert runtime['chat_requests'] == []
+
+
+def test_graph_tooltip_keeps_multiple_rule_names_inside_the_card(explorer_browser):
+    from playwright.sync_api import expect
+    page, _ = explorer_browser
+    _set_bundle(page, compute_state_bundle(load_scenario(Path('examples/medical_ppi/scenario.yaml'))))
+    page.set_viewport_size({'width': 320, 'height': 900})
+    page.locator('#view-af-btn').click()
+    page.locator('.af-node[data-af-lit="-keep_omeprazole"]').hover()
+    tip = page.locator('#af-tooltip')
+    expect(tip).to_be_visible()
+    expect(tip.locator('.inline-id')).to_have_count(2)
+    assert sorted(tip.locator('.inline-id').all_text_contents()) == ['[avoid_interaction]', '[switch_excludes_keep]']
+    assert tip.evaluate('el => el.scrollWidth <= el.clientWidth + 1')
+    box = tip.bounding_box()
+    for tag in tip.locator('.inline-id, .af-tooltip-status').all():
+        child = tag.bounding_box()
+        assert child['x'] >= box['x']
+        assert child['x'] + child['width'] <= box['x'] + box['width'] + 1
+    assert box['x'] + box['width'] <= 321
+    assert box['y'] + box['height'] <= 901
 
 
 def test_graph_drills_into_exact_literal_and_restores_view_and_focus(explorer_browser):
@@ -298,7 +361,7 @@ def test_kind_and_state_filters_are_independent_and_inspection_reveals_hidden_it
     expect(page.locator('#kb-content [data-element-id="r1"]')).to_be_focused()
 
 
-@pytest.mark.parametrize('width,height', [(1440, 900), (1280, 800), (1152, 768), (1024, 768), (780, 900), (720, 450), (390, 844)])
+@pytest.mark.parametrize('width,height', [(1440, 900), (1280, 800), (1152, 768), (1024, 768), (858, 900), (820, 900), (780, 900), (720, 450), (390, 844), (320, 844)])
 def test_readable_layout_has_no_horizontal_overflow_and_records_screenshot(explorer_browser, width, height, tmp_path):
     from playwright.sync_api import expect
     page, _ = explorer_browser
@@ -307,7 +370,7 @@ def test_readable_layout_has_no_horizontal_overflow_and_records_screenshot(explo
     page.set_viewport_size({'width': width, 'height': height})
     # WebKit may paint the old media-query layout during the first resize frame.
     page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-    if width <= 780:
+    if width <= 858:
         expect(page.locator('#left-panel')).to_have_css('min-width', '0px')
     directory = Path(os.getenv('ABDA_BROWSER_ARTIFACT_DIR', str(tmp_path)))
     directory.mkdir(parents=True, exist_ok=True)
@@ -317,10 +380,14 @@ def test_readable_layout_has_no_horizontal_overflow_and_records_screenshot(explo
       [...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && el.getBoundingClientRect().right > innerWidth + 1)
       .slice(0, 16).map(el => ({id: el.id, cls: el.className, width: el.getBoundingClientRect().width}))
     """)
-    expected_font = '14px' if width <= 780 else '13px'
-    assert page.locator('.conclusion-label').first.evaluate('el => getComputedStyle(el).fontSize') == expected_font
+    rendered_font = page.locator('.conclusion-label').first.evaluate('''el =>
+      parseFloat(getComputedStyle(el).fontSize) * Number(getComputedStyle(document.documentElement).zoom)
+    ''')
+    assert rendered_font == pytest.approx(15.4 if width <= 858 else 14.3)
+    if width > 858:
+        assert page.locator('body').bounding_box()['height'] == pytest.approx(height, abs=1)
     assert page.locator('.conclusion-label').first.evaluate('el => el.scrollWidth <= el.clientWidth + 1')
-    if width <= 780:
+    if width <= 858:
         card = page.locator('.conclusion-card').first
         assert card.locator('.conclusion-actions').bounding_box()['y'] >= card.locator('.conclusion-label').bounding_box()['y']
     for selector in ['#scenario-menu-btn', '#workspace-btn', '#save-btn', '.rule-info', '[data-inspect-conclusion]']:
@@ -347,6 +414,29 @@ def test_readable_layout_has_no_horizontal_overflow_and_records_screenshot(explo
         report = Axe().run(page, options={'runOnly': {'type': 'tag', 'values': ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']}})
         assert report.violations_count == 0, report.generate_report()
         page.screenshot(path=str(directory / f'conclusion-graph-{width}.png'), full_page=True)
+
+
+@pytest.mark.parametrize('width', [1440, 390, 320])
+def test_fixed_options_menu_follows_trigger_and_stays_on_screen(explorer_browser, width):
+    from playwright.sync_api import expect
+    page, _ = explorer_browser
+    page.set_viewport_size({'width': width, 'height': 900})
+    # A details summary has browser-dependent implicit semantics.
+    trigger = page.locator('summary[aria-label="Facts display options"]')
+    trigger.click()
+    menu = trigger.locator('..').locator(':scope > div')
+    expect(menu).to_be_visible()
+    expect(menu).to_have_attribute('style', re.compile(r'left:.*top:'))
+    anchor = trigger.bounding_box()
+    box = menu.bounding_box()
+    assert 0 <= box['x'] and box['x'] + box['width'] <= width + 1
+    assert 0 <= box['y'] and box['y'] + box['height'] <= 901
+    assert box['x'] + box['width'] == pytest.approx(anchor['x'] + anchor['width'], abs=2)
+    assert box['y'] == pytest.approx(anchor['y'] + anchor['height'] + 4.4, abs=2)
+    menu.locator('input').focus()
+    page.keyboard.press('Escape')
+    expect(menu).to_be_hidden()
+    expect(trigger).to_be_focused()
 
 
 def test_global_error_is_dismissible_and_does_not_overlap_header(explorer_browser):
