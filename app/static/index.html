@@ -36,16 +36,18 @@
         </div>
       </div>
       <span class="context-indicator" id="context-indicator" role="status" aria-live="polite">Example</span>
-      <button class="btn btn-tertiary" id="scenario-about-btn" type="button" aria-expanded="true" aria-controls="scenario-about">About</button>
+      <button class="btn btn-tertiary" id="scenario-about-btn" type="button" aria-expanded="false" aria-controls="scenario-about">About</button>
     </div>
     <div class="scenario-state-actions">
       <span class="modified-indicator" id="modified-indicator" role="status" aria-live="polite" hidden></span>
       <button class="btn btn-tertiary" id="reset-btn" type="button" disabled hidden>Reset</button>
       <button class="btn btn-tertiary" id="reset-undo-btn" type="button" hidden>Undo reset</button>
-      <span class="normal-user-view-indicator" id="normal-user-view-indicator" hidden>Normal user view</span>
-      <button class="btn btn-tertiary" id="restore-admin-view-btn" type="button" aria-label="Restore administrator view" hidden>Restore</button>
     </div>
     <div class="topbar-right">
+      <button class="admin-view-toggle" id="admin-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Normal user view" title="Demonstrate with normal user permissions" hidden>
+        <span class="admin-view-toggle-track" aria-hidden="true"><span class="admin-view-toggle-thumb"></span></span>
+        <span>Normal user view</span>
+      </button>
       <div class="shell-popup-anchor llm-only">
         <button class="btn access-chip" id="ai-access-btn" type="button" data-shell-menu="ai-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="ai-menu">AI access</button>
         <div class="shell-popover shell-menu" id="ai-menu" role="menu" aria-label="AI access" hidden></div>
@@ -143,7 +145,7 @@
     <!-- Right Panel: Chat -->
     <section class="right-panel llm-only" id="right-panel" aria-labelledby="chat-panel-title">
       <div class="panel-header chat-header-row">
-        <span id="chat-panel-title">Chat &amp; Exploration</span>
+        <span id="chat-panel-title">Chat &amp; Explore</span>
       </div>
       <div class="chat-access-note" id="chat-access-note" role="status"></div>
       <div class="conversation-toolbar" aria-label="Conversation controls">
@@ -174,7 +176,8 @@
         <div id="chat-input" class="chat-composer" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Ask about the current scenario" aria-describedby="chat-composer-help" data-placeholder="Ask about this scenario, a rule, or a conclusion..."></div>
         <p class="visually-hidden" id="chat-composer-help">Enter asks your question. Shift+Enter starts a new line. Referenced items remain when you edit surrounding words. Click a reference, or focus it and press Enter or Space, to edit it as text. Backspace or Delete removes a reference; use Undo to restore an edit. Refresh earlier references before asking.</p>
         <div class="chat-composer-notice" id="chat-composer-notice" role="status" hidden></div>
-        <button class="btn btn-primary" id="chat-send-btn">Ask</button>
+        <button class="btn btn-primary" id="chat-send-btn" type="button">Ask</button>
+        <button class="btn" id="chat-cancel-btn" type="button" aria-label="Stop the current answer" hidden><svg class="chat-stop-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="4" y="4" width="8" height="8" rx="1" fill="currentColor"/></svg><span>Stop</span></button>
       </div>
     </section>
   </main>
@@ -241,7 +244,7 @@
                     <h3 id="account-view-heading">Administrator view</h3>
                     <p id="account-view-description">The review queue and Publish as example are hidden in normal user view. Your suggestions go through review. Projects, credit, and conversations are unchanged.</p>
                   </div>
-                  <button class="btn" id="account-view-toggle-btn" type="button">Demonstrate as a normal user</button>
+                  <button class="btn" id="account-view-toggle-btn" type="button" role="switch" aria-checked="false">Normal user view</button>
                 </div>
                 <div class="workspace-status" id="account-view-status" role="status" aria-live="polite"></div>
               </div>
@@ -290,7 +293,15 @@
                 </div>
                 <span id="project-count"></span>
               </div>
-              <p class="field-hint" id="projects-archive-hint" hidden>Restore brings a project back privately and revokes every old share link. Published example snapshots remain independent.</p>
+              <p class="field-hint" id="projects-archive-hint" hidden>Restore brings a project back privately with old links revoked. Delete is permanent. Submitted and published example snapshots remain independent.</p>
+              <div class="project-archive-actions" id="projects-delete-actions" hidden>
+                <span id="projects-selected-count" role="status" aria-live="polite">0 selected</span>
+                <div class="project-delete-buttons">
+                  <button class="btn btn-small project-delete-btn" id="projects-delete-selected" type="button" disabled>Delete selected</button>
+                  <button class="btn btn-small project-delete-btn" id="projects-delete-all" type="button" aria-label="Delete all archived projects" disabled>Delete all</button>
+                </div>
+              </div>
+              <p class="field-hint" id="projects-delete-limit" hidden>Select up to 500 archived projects to delete at a time.</p>
               <div class="project-list" id="project-list"></div>
               <details class="project-copy-panel" id="project-copy-panel">
                 <summary>Save a copy...</summary>

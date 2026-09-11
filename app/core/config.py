@@ -224,7 +224,7 @@ class Settings:
                 os.getenv("ABDA_NAMED_CREDIT_AUTO_ACTIVATE"), default=True,
             ),
             llm_default_profile=(
-                os.getenv("ABDA_LLM_DEFAULT_PROFILE") or "balanced"
+                os.getenv("ABDA_LLM_DEFAULT_PROFILE") or "gemini-3-8-flash"
             ).strip().lower(),
             llm_allow_byok=_truthy(os.getenv("ABDA_LLM_ALLOW_BYOK"), default=True),
             llm_allow_legacy_development=_truthy(

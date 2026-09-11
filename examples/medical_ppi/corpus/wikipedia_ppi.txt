@@ -46,7 +46,7 @@ established. Reported associations include:
   conversion of clopidogrel to its active metabolite via CYP2C19
   inhibition. The clinical significance has been debated; the
   COGENT trial (2010) did not detect excess ischemic events with
-  pantoprazole, but pharmacodynamic studies show clear
+  omeprazole, but pharmacodynamic studies show clear
   differences between agents.
 - Chronic kidney disease: observational associations reported;
   mechanism uncertain.

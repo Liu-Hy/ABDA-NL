@@ -1,0 +1,1 @@
+For a new fact or assumption stipulated by the user, set the `source` field to `user instruction` unless the user explicitly requests another source. General reference material does not establish a new instance-specific stipulation.

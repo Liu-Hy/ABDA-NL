@@ -718,7 +718,7 @@ def test_mcp_proposal_is_metered_and_never_applied_implicitly(
     assert proposed["cost_microusd"] == 42
     assert proposed["billing_uncertain"] is True
     assert proposed["resolved_model_version"] == "qualified-test-version"
-    assert captured["profile"] == "balanced"
+    assert captured["profile"] == "gemini-3-8-flash"
     assert captured["user_id"] == user["id"]
     assert captured["request_kind"] == "mcp-propose"
     assert selected_client.closed is True
@@ -781,15 +781,15 @@ def test_subscribed_client_wire_workflow_needs_no_abda_credit(
     })["structuredContent"]
     assert observed["version"] == 1
     assert observed["af_summary"] == baseline["af_summary"]
-    edit = {"op": "toggle-assumption", "id": "smp_permit"}
+    edit = {"op": "toggle-assumption", "id": "permit_window_open"}
     changed = _call_tool(client, token, "apply_project_ops", {
         "project_id": observed["id"], "expected_version": observed["version"],
         "diff_ops": [edit],
     })["structuredContent"]
     assert changed["version"] == 2
-    assert changed["scenario"]["assumptions"]["smp_permit"]["active"] is False
-    assert changed["af_summary"]["labels_by_proposition"]["legal_today"] != (
-        baseline["af_summary"]["labels_by_proposition"]["legal_today"]
+    assert changed["scenario"]["assumptions"]["permit_window_open"]["active"] is False
+    assert changed["af_summary"]["labels_by_proposition"]["burn_permitted"] != (
+        baseline["af_summary"]["labels_by_proposition"]["burn_permitted"]
     )
     readback = _call_tool(client, token, "get_project", {
         "project_id": observed["id"], "include_argument_graph": True,
@@ -880,7 +880,7 @@ def test_mcp_server_tools_charge_exact_real_ledger_and_reject_depleted_credit(
             payload = {"issues": []} if "review" in name else {
                 "id": "mcp_rule", "rule": {
                     "type": "defeasible", "premises": ["heavy_fuels"],
-                    "conclusion": "conduct_burn", "category": "ecology", "block": 1,
+                    "conclusion": "treat_unit", "category": "ecology", "block": 1,
                 },
             }
             return ToolCallResponse(
@@ -1105,14 +1105,14 @@ def test_mcp_provider_outage_settles_ledgers_and_preserves_project(
     # consume more credit. Archive and revoke while retaining the usage audit.
     applied = _call_tool(client, token, "apply_project_ops", {
         "project_id": project["id"], "expected_version": 1,
-        "diff_ops": [{"op": "toggle-assumption", "id": "smp_permit"}],
+        "diff_ops": [{"op": "toggle-assumption", "id": "permit_window_open"}],
     })["structuredContent"]
     assert applied["version"] == 2
     readback = _call_tool(client, token, "get_project", {"project_id": project["id"]})[
         "structuredContent"
     ]
-    assert readback["scenario"]["assumptions"]["smp_permit"]["active"] is False
-    assert readback["af_summary"]["labels_by_proposition"]["legal_today"] == "rejected"
+    assert readback["scenario"]["assumptions"]["permit_window_open"]["active"] is False
+    assert readback["af_summary"]["labels_by_proposition"]["burn_permitted"] == "absent"
     assert calls == [primary.id, primary.id, backup.id]
     assert client.delete(f"/api/projects/{project['id']}?expected_version=2").status_code == 204
     assert client.delete(f"/api/mcp/tokens/{token_record['id']}").status_code == 204

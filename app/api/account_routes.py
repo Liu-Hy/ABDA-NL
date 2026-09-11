@@ -6,12 +6,14 @@ from functools import lru_cache
 from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.account_models import (
     AdminViewModeRequest,
+    ArchivedProjectsDeleteRequest,
+    ArchivedProjectsDeleteResponse,
     AspicPreviewRequest,
     GlossaryPreviewRequest,
     SourcePreviewRequest,
@@ -72,6 +74,7 @@ from app.services.projects import (
     archive_project,
     create_project,
     create_share_link,
+    delete_archived_projects,
     get_project,
     list_projects,
     list_share_links,
@@ -756,6 +759,49 @@ def post_restore_project(
         raise _project_error(exc) from exc
     response.headers["ETag"] = f'"{project.version}"'
     return _project_detail(project)
+
+
+@router.post(
+    "/api/projects/archived/delete",
+    response_model=ArchivedProjectsDeleteResponse,
+    dependencies=[Depends(require_same_origin)],
+)
+def post_delete_archived_projects(
+    payload: ArchivedProjectsDeleteRequest,
+    request: Request,
+    user: User = Depends(require_verified_user),
+    session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> ArchivedProjectsDeleteResponse:
+    _limit_user_mutation(request, session, settings, user)
+    try:
+        deleted = delete_archived_projects(
+            session, user, targets=[(item.id, item.expected_version) for item in payload.projects],
+        )
+    except (ProjectNotFoundError, ProjectVersionConflictError, ProjectValidationError) as exc:
+        raise _project_error(exc) from exc
+    return ArchivedProjectsDeleteResponse(deleted_ids=deleted, deleted_count=len(deleted))
+
+
+@router.delete(
+    "/api/projects/{project_id}/permanent",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_same_origin)],
+)
+def delete_archived_project(
+    project_id: str,
+    request: Request,
+    expected_version: int = Query(ge=1),
+    user: User = Depends(require_verified_user),
+    session: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    _limit_user_mutation(request, session, settings, user)
+    try:
+        delete_archived_projects(session, user, targets=[(project_id, expected_version)])
+    except (ProjectNotFoundError, ProjectVersionConflictError, ProjectValidationError) as exc:
+        raise _project_error(exc) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(

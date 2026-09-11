@@ -32,7 +32,7 @@ _TERMINAL_ERROR_TYPES = frozenset({
     "accounting_unavailable", "authentication_required",
     "content_blocked", "content_filter", "content_policy_violation",
     "invalid_request", "invalid_request_error", "invalid_response",
-    "request_deadline", "safety", "semantic_validation",
+    "request_cancelled", "request_deadline", "safety", "semantic_validation",
     "trial_exhausted", "user_quota_exceeded",
 })
 # Provider quota codes on an HTTP 429 describe an unavailable API route. ABDA

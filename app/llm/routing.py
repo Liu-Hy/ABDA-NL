@@ -37,6 +37,7 @@ from app.llm.client import (
     LLMRequestValidationError,
     LLMResponse,
     ToolCallResponse,
+    check_request_cancelled,
     close_llm_client,
     foundry_credentials,
     invoke_before_deadline,
@@ -761,6 +762,7 @@ class RetryingClient:
     def _invoke_attempts(self, method: str, **kwargs: Any) -> Any:
         last_error: LLMProviderError | None = None
         for attempt in range(1, self.attempts + 1):
+            check_request_cancelled(provider=self.provider)
             if self.deadline is not None and time.monotonic() >= self.deadline:
                 raise LLMProviderError(
                     "The AI request deadline was reached", provider=self.provider,
@@ -885,6 +887,7 @@ class FailoverClient:
         return _with_call_cost(result, before, self.settled_cost_microusd)
 
     def _invoke_routes(self, method: str, **kwargs: Any) -> Any:
+        check_request_cancelled(provider=self.provider)
         if self.deadline is not None and time.monotonic() >= self.deadline:
             raise LLMProviderError("The AI request deadline was reached", provider=self.provider,
                                    error_type="request_deadline")
@@ -918,6 +921,7 @@ class FailoverClient:
         if self.deadline is not None and time.monotonic() >= self.deadline:
             raise LLMProviderError("The AI request deadline was reached", provider=self.provider,
                                    error_type="request_deadline")
+        check_request_cancelled(provider=self.provider)
         return getattr(self.fallback, method)(**kwargs)
 
     def complete(self, **kwargs: Any) -> LLMResponse:

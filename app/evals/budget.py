@@ -20,7 +20,10 @@ from uuid import uuid4
 from app.llm.routing import PaidRunCapReached, SpendCapReservation
 
 
-MAX_CLOUDBANK_EVALUATION_MICROUSD = 100_000_000
+# The owner raised the cumulative ceiling on September 11, retaining all
+# prior charges in the original ledger. Existing ledgers require an explicit
+# operator amendment; constructing a run never raises a stored ceiling.
+MAX_CLOUDBANK_EVALUATION_MICROUSD = 150_000_000
 DEFAULT_BUDGET_PATH = (
     Path(__file__).resolve().parents[2]
     / "artifacts" / "evals" / "cloudbank-budget.sqlite3"
@@ -37,7 +40,7 @@ def _now() -> str:
 
 
 class PersistentSpendCap:
-    """A per-run view of one shared, non-resetting $100 budget.
+    """A per-run view of one shared, non-resetting $150 budget.
 
     ``path`` exists for isolated tests and installations. The production CLI
     always uses ``DEFAULT_BUDGET_PATH`` and exposes no path/reset option.
@@ -56,7 +59,7 @@ class PersistentSpendCap:
         mutex_timeout_seconds: float = 30.0,
     ) -> None:
         if not 0 < run_limit_microusd <= MAX_CLOUDBANK_EVALUATION_MICROUSD:
-            raise ValueError("evaluation run limit must be within the authorized $100")
+            raise ValueError("evaluation run limit must be within the authorized $150")
         if phase not in {"availability", "baseline", "tuning", "regression"}:
             raise ValueError("unknown evaluation phase")
         self.path = path.resolve()

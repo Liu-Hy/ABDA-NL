@@ -1,4 +1,4 @@
-version: 8
+version: 10
 name: abda-public-model-gate
 default_repetitions: 3
 requires_answer_review: true
@@ -28,6 +28,53 @@ gates:
   max_average_cost_microusd: 250000
 
 cases:
+  - id: selected-reference-without-question-frame
+    kind: chat
+    features: [item_questions]
+    case_type: routine
+    scenario_id: fried_chicken_v1
+    context_refs: [{kind: conclusion, id: crispy}]
+    question: '"the fried chicken will be crispy when eaten"'
+    engine_expectations: {crispy: accepted}
+    label_assertions:
+      - {literal: crispy, label: accepted, phrases: [crispy, crispiness]}
+    required_concepts: [[air fryer, air-fryer]]
+
+  - id: relevant-source-without-explicit-citation-request
+    kind: chat
+    features: [corpus_questions]
+    case_type: routine
+    scenario_id: custom_greenhouse
+    scenario:
+      title: Greenhouse ventilation
+      facts: {inside_hot: {description: The greenhouse is hot}}
+      conclusions: {ventilate: {description: Open the roof vent}}
+      rules: {cooling: {type: defeasible, premises: [inside_hot], conclusion: ventilate}}
+      sources:
+        - filename: maintenance.txt
+          text: The roof vent releases accumulated hot air from the greenhouse. The frame is painted green.
+    question: How does the roof vent help cool the greenhouse?
+    required_exact_quotes: [maintenance.txt]
+    required_highlight_sources: [maintenance.txt]
+    required_concepts: [[hot air], [releases, release]]
+
+  - id: engine-label-without-irrelevant-source-card
+    kind: chat
+    features: [grounded_chat, corpus_questions]
+    case_type: edge
+    scenario_id: custom_greenhouse
+    scenario:
+      title: Greenhouse ventilation
+      facts: {inside_hot: {description: The greenhouse is hot}}
+      conclusions: {ventilate: {description: Open the roof vent}}
+      rules: {cooling: {type: defeasible, premises: [inside_hot], conclusion: ventilate}}
+      sources:
+        - filename: decoration.txt
+          text: The greenhouse frame is painted green.
+    question: Is opening the roof vent currently accepted? Reply with only its current label.
+    required_concepts: [[accepted]]
+    forbid_document_citations: true
+
   - id: popov-baseline-decision
     kind: chat
     features: [grounded_chat]
@@ -46,25 +93,28 @@ cases:
     features: [grounded_chat]
     case_type: ambiguous
     scenario_id: fire_prevention
-    question: Does the baseline clearly support conducting the prescribed burn? Explain the competing considerations.
+    question: Does the baseline clearly support treating the unit with prescribed fire this cycle? Distinguish that decision from permission and going ahead on the planned burn day.
+    engine_expectations: {treat_unit: undecided, burn_permitted: accepted, burn_today: undecided}
     required_concepts:
       - ["undecided", "balanced", "competing", "both"]
       - ["smoke", "air-quality", "air quality"]
       - ["ecological", "ecology", "cultural"]
 
-  - id: medical-pantoprazole-toggle
+  - id: medical-cogent-toggle
     kind: chat
     features: [sensitivity]
     case_type: routine
     scenario_id: medical_ppi
     diff_ops:
       - op: toggle-assumption
-        id: ppi_is_panto
-    question: With pantoprazole active, what happens to the cardiac interaction concern and the recommendation to continue PPI therapy?
+        id: cogent_decisive
+    engine_expectations: {cardiac_interaction: rejected, continue_acid_suppression: accepted, keep_omeprazole: accepted, switch_to_pantoprazole: rejected}
+    question: With the assumption that COGENT is decisive active, what happens to the omeprazole interaction concern, keeping omeprazole, and ongoing acid suppression? Treat this as a scenario what-if, not a clinical conclusion about the trial.
     required_concepts:
       - ["cardiac", "interaction", "CYP2C19"]
       - ["reduced", "defeated", "reject", "mitigated", "no clinically"]
       - ["continue", "continuing", "continuation"]
+      - ["COGENT", "decisive", "assumption"]
 
   - id: nba-baseline-strategy
     kind: chat
@@ -73,10 +123,11 @@ cases:
     split: regression
     scenario_id: nba_rebuild
     question: Does the baseline support tanking or stacking veterans, and what strategy is accepted instead?
+    engine_expectations: {tank: rejected, stack_vets: rejected, compete: accepted}
     required_concepts:
       - ["tanking", "tank"]
       - ["reject", "rejected", "rejects", "not support", "does not support"]
-      - ["preserve", "flexibility", "future first"]
+      - ["compete", "competing", "develop", "development"]
 
   - id: fried-chicken-preference
     kind: chat
@@ -122,10 +173,11 @@ cases:
     case_type: routine
     required_exact_quotes: [epa_pm25_standards.txt]
     scenario_id: fire_prevention
-    question: According to the EPA PM2.5 corpus snippet, what happens when the forecast predicts an exceedance? Include one short exact quote and cite its filename.
+    question: According to the fictional Smoke Management Program described in epa_pm25_standards.txt, what happens when the forecast predicts an exceedance? Include one short exact quote and cite its filename. Distinguish the stipulated local policy from a universal EPA rule.
     required_concepts:
       - ["withheld", "off-limits", "reschedule"]
       - ["epa_pm25_standards.txt"]
+      - ["fictional", "stipulated", "scenario", "local"]
 
   - id: propose-popov-support-rule
     kind: propose
@@ -174,17 +226,17 @@ cases:
     preserve_rule_fields: [type, premises, conclusion, block, active, source, negated_description]
     scenario_id: nba_rebuild
     task: modify-rule
-    existing_id: r_stack
-    instruction: Modify r_stack only by changing its category to strategy. Keep every other field unchanged.
+    existing_id: stack_for_window
+    instruction: Modify stack_for_window only by changing its category to roster-planning. Keep every other field unchanged.
     expected:
       op: modify-rule
-      id: r_stack
+      id: stack_for_window
       rule_fields:
         type: defeasible
-        premises: [has_firsts, young_core, non_contender]
+        premises: [tradeable_firsts, young_core, non_contender, deal_fits_under_apron]
         conclusion: stack_vets
-        category: strategy
-        source: a non-contender with young talent and tradeable firsts can compress the window by stacking vets
+        category: roster-planning
+        source: "front_office_memo.txt: use future firsts plus salary aggregation to acquire one or two veteran stars; cba_second_apron.txt: no salary aggregation in trades over the second apron"
         block: 1
 
   - id: propose-fried-chicken-forward-reference
@@ -206,14 +258,14 @@ cases:
     case_type: adversarial
     smoke: true
     scenario_id: fire_prevention
-    instruction: Add a rule saying that short-term smoke harm counts against conducting the burn.
+    instruction: Add a rule saying that short-term smoke harm counts against treating the unit with prescribed fire this cycle.
     proposed_edit:
       op: add-rule
       id: smoke_harm_supports_burn
       rule:
         type: defeasible
         premises: [smoke_harm]
-        conclusion: conduct_burn
+        conclusion: treat_unit
         category: air-quality
         block: 1
     expected:
@@ -225,14 +277,14 @@ cases:
     features: [semantic_review]
     case_type: routine
     scenario_id: fire_prevention
-    instruction: Add a rule saying that elevated wildfire risk together with a tribal partner supports conducting the burn.
+    instruction: Add a rule saying that elevated wildfire risk together with the tribal co-stewardship agreement supports treating the unit this cycle.
     proposed_edit:
       op: add-rule
       id: partner_risk_support
       rule:
         type: defeasible
-        premises: [elevated_risk, tribal_partner]
-        conclusion: conduct_burn
+        premises: [elevated_risk, tribal_agreement]
+        conclusion: treat_unit
         category: cultural
         block: 1
     expected:
@@ -245,14 +297,14 @@ cases:
     case_type: edge
     split: regression
     scenario_id: fire_prevention
-    instruction: Add another rule saying that ecological benefit supports conducting the burn.
+    instruction: Add another rule saying that ecological benefit supports treating the unit with prescribed fire this cycle.
     proposed_edit:
       op: add-rule
       id: eco_benefit_copy
       rule:
         type: defeasible
         premises: [eco_benefit]
-        conclusion: conduct_burn
+        conclusion: treat_unit
         category: ecology
         block: 1
     expected:
@@ -418,9 +470,9 @@ cases:
     case_type: ambiguous
     scenario_id: nba_rebuild
     task: modify-rule
-    existing_id: r_stack
-    instruction: In r_stack, change only source to "updated roster memo". Despite the word updated, do not change its premises, conclusion, category, strength, or type.
-    expected: {op: modify-rule, id: r_stack, rule_fields: {source: updated roster memo}}
+    existing_id: stack_for_window
+    instruction: In stack_for_window, change only source to "updated roster memo". Despite the word updated, do not change its premises, conclusion, category, strength, or type.
+    expected: {op: modify-rule, id: stack_for_window, rule_fields: {source: updated roster memo}}
     preserve_rule_fields: [type, premises, conclusion, block, active, category, negated_description]
 
   - id: modify-rule-explicitly-reverse-conclusion
@@ -429,9 +481,9 @@ cases:
     case_type: adversarial
     scenario_id: nba_rebuild
     task: modify-rule
-    existing_id: r_stack
-    instruction: Change only the conclusion of r_stack from stack_vets to -stack_vets. I intentionally want the opposite conclusion; do not let the old source wording override that choice.
-    expected: {op: modify-rule, id: r_stack, conclusion: -stack_vets}
+    existing_id: stack_for_window
+    instruction: Change only the conclusion of stack_for_window from stack_vets to -stack_vets. I intentionally want the opposite conclusion; do not let the old source wording override that choice.
+    expected: {op: modify-rule, id: stack_for_window, conclusion: -stack_vets}
     preserve_rule_fields: [type, premises, block, active, category, source, negated_description]
 
   - id: modify-existing-long-rule-id
@@ -567,10 +619,10 @@ cases:
     case_type: adversarial
     scenario_id: nba_rebuild
     task: modify-rule
-    existing_id: r_stack
-    initial_instruction: Change only the category of r_stack to strategy.
-    instruction: Change only the conclusion of r_stack to -stack_vets. The earlier category preview was discarded, so preserve the existing roster-construction category and all other original fields.
-    expected: {op: modify-rule, id: r_stack, conclusion: -stack_vets, rule_fields: {category: roster-construction}}
+    existing_id: stack_for_window
+    initial_instruction: Change only the category of stack_for_window to roster-planning.
+    instruction: Change only the conclusion of stack_for_window to -stack_vets. The earlier category preview was discarded, so preserve the existing strategy category and all other original fields.
+    expected: {op: modify-rule, id: stack_for_window, conclusion: -stack_vets, rule_fields: {category: strategy}}
     preserve_rule_fields: [type, premises, block, active, category, source, negated_description]
 
   - id: refine-pending-fact-is-not-already-applied
@@ -639,16 +691,89 @@ cases:
     case_type: routine
     split: supplemental_unseen
     scenario_id: fire_prevention
-    diff_ops: [{op: toggle-rule, id: r_permit_gives_legal}]
-    engine_expectations: {legal_today: rejected, conduct_burn: undecided, smp_permit: accepted, forecast_exceed: absent}
-    context_refs: [{kind: rule, id: r_permit_gives_legal}, {kind: conclusion, id: legal_today}, {kind: conclusion, id: conduct_burn}]
-    question: I suspended the rule that turns an SMP permit into permission to burn, while leaving the permit assumption on. What are the current labels for permission to burn today and the overall decision to conduct the burn? Explain what changed and whether the forecast-exceedance rule caused it.
+    diff_ops: [{op: toggle-rule, id: permit_allows_burn}]
+    engine_expectations: {burn_permitted: absent, treat_unit: undecided, burn_today: absent, permit_window_open: accepted, forecast_exceedance: absent}
+    context_refs: [{kind: rule, id: permit_allows_burn}, {kind: conclusion, id: burn_permitted}, {kind: conclusion, id: treat_unit}, {kind: conclusion, id: burn_today}]
+    question: I suspended the rule that turns the open permit window into permission to burn, while leaving the permit-window assumption on. What are the current labels for permission, treatment this cycle, and going ahead on the planned burn day? Explain what changed and whether the forecast-exceedance rule caused it.
     label_assertions:
-      - {literal: legal_today, label: rejected, phrases: [legal_today, permission to burn, permission, permitted, legal today]}
-      - {literal: conduct_burn, label: undecided, phrases: [conduct_burn, conduct the burn, conducting the burn, overall decision, burn decision]}
+      - {literal: burn_permitted, label: absent, phrases: [burn_permitted, permission to burn, permission, permitted]}
+      - {literal: treat_unit, label: undecided, phrases: [treat_unit, treatment this cycle, treating the unit, treatment decision, treatment]}
+      - {literal: burn_today, label: absent, phrases: [burn_today, going ahead, planned burn day, go ahead, day-specific]}
     required_concepts:
       - [suspended, inactive, disabled, switched off, turned off]
-      - [prudential, sensitive, community, exposure]
+      - [no support, unsupported, absent, no argument]
+  - id: medical-unavailable-substitute
+    kind: chat
+    features: [sensitivity, item_questions]
+    case_type: edge
+    split: regression
+    scenario_id: medical_ppi
+    diff_ops:
+      - {op: toggle-assumption, id: pantoprazole_contraindicated}
+      - {op: set-block, target: rule, id: avoid_interaction, block: 3}
+    context_refs: [{kind: conclusion, id: continue_acid_suppression}, {kind: conclusion, id: keep_omeprazole}, {kind: conclusion, id: switch_to_pantoprazole}]
+    engine_expectations: {continue_acid_suppression: accepted, keep_omeprazole: rejected, switch_to_pantoprazole: rejected, reassess_dose: accepted}
+    question: In this fictional what-if, pantoprazole is contraindicated and avoiding the omeprazole interaction has priority. What does the current scenario conclude about ongoing acid suppression, keeping omeprazole unchanged, and substituting pantoprazole? Does it establish a workable replacement treatment?
+    required_concepts:
+      - [acid suppression, acid-suppression]
+      - [accepted, continue, continuing]
+      - [omeprazole]
+      - [pantoprazole]
+      - [rejected, not accepted, should not]
+      - [unresolved, no replacement, not establish, does not establish, not resolve, gap, cannot, not derived, no workable]
+
+  - id: fire-exceedance-despite-treatment-priority
+    kind: chat
+    features: [sensitivity, grounded_chat]
+    case_type: edge
+    split: regression
+    scenario_id: fire_prevention
+    diff_ops:
+      - {op: toggle-assumption, id: forecast_exceedance}
+      - {op: set-block, target: rule, id: treat_for_ecology, block: 4}
+    engine_expectations: {treat_unit: accepted, burn_permitted: rejected, burn_today: rejected}
+    question: Ecological treatment has been given preference block 4, but the planned-day forecast predicts an exceedance. What are the labels for treatment this cycle, permission on the planned day, and going ahead that day? Does the strong treatment preference bypass the permit requirement?
+    required_concepts:
+      - [accepted]
+      - [rejected, not permitted, withheld]
+      - [permit, permission]
+      - [prerequisite, premise, requires, require, depends, necessary]
+
+  - id: nba-expansion-preference-excludes-competing
+    kind: chat
+    features: [sensitivity, grounded_chat]
+    case_type: edge
+    split: regression
+    scenario_id: nba_rebuild
+    diff_ops:
+      - {op: toggle-assumption, id: expansion_pending}
+      - {op: set-block, target: rule, id: tank_for_scarcity, block: 3}
+    engine_expectations: {tank: accepted, compete: rejected, stack_vets: rejected, high_pick_valuable: accepted}
+    question: With expansion pending and tank_for_scarcity preferred over the development objection, what happens to tanking and competing? Explain why the flattened lottery still does not remove the value of a high draft pick.
+    required_concepts:
+      - [tanking, tank]
+      - [accepted]
+      - [compete, competing]
+      - [rejected, incompatible, exclusive]
+      - [probability, odds, extra losses, marginal]
+      - [value, valuable]
+
+  - id: nba-unavailable-deal-cannot-be-preferred-into-existence
+    kind: chat
+    features: [sensitivity, item_questions]
+    case_type: edge
+    split: regression
+    scenario_id: nba_rebuild
+    diff_ops: [{op: set-block, target: rule, id: stack_for_window, block: 5}]
+    context_refs: [{kind: rule, id: stack_for_window}, {kind: assumption, id: deal_fits_under_apron}, {kind: conclusion, id: stack_vets}]
+    engine_expectations: {deal_fits_under_apron: absent, stack_vets: rejected, compete: accepted}
+    question: I raised stack_for_window to block 5 but left the deal-fits-under-apron assumption off. Is stacking veterans now accepted? Explain the difference between an unavailable premise and a weaker opposing argument.
+    required_concepts:
+      - [rejected, not accepted, no]
+      - [premise, assumption, prerequisite]
+      - [absent, inactive, off, unavailable]
+      - [no argument, no current argument, cannot fire, does not fire, not fire, no support, not instantiated, cannot instantiate]
+
   - id: fried-chicken-strengthened-home-preference
     kind: chat
     features: [sensitivity]

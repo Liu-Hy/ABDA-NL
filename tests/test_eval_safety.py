@@ -24,7 +24,7 @@ from app.llm.routing import CallContext, LLMRouter, MeteredClient, PaidRunCapRea
 def _reserve_in_process(path: str, result_queue) -> None:
     ledger = PersistentSpendCap(path=Path(path))
     try:
-        ledger.reserve(70_000_000)
+        ledger.reserve(MAX_CLOUDBANK_EVALUATION_MICROUSD * 7 // 10)
     except PaidRunCapReached:
         result_queue.put("blocked")
     else:
@@ -43,22 +43,39 @@ def test_shared_budget_serializes_separate_processes(tmp_path):
         process.join(timeout=20)
         assert process.exitcode == 0
     assert sorted(queue.get(timeout=2) for _ in processes) == ["blocked", "reserved"]
-    assert PersistentSpendCap(path=path).reserved_microusd == 70_000_000
+    assert PersistentSpendCap(path=path).reserved_microusd == MAX_CLOUDBANK_EVALUATION_MICROUSD * 7 // 10
 
 
 def test_new_runs_and_resumes_do_not_reset_spend_or_orphan_reservations(tmp_path):
     path = tmp_path / "budget.sqlite3"
     first = PersistentSpendCap(path=path, run_id="baseline")
-    first.settle(first.reserve(60_000_000), 55_000_000)
-    orphan = first.reserve(40_000_000)
+    ceiling = MAX_CLOUDBANK_EVALUATION_MICROUSD
+    first.settle(first.reserve(ceiling * 6 // 10), ceiling * 55 // 100)
+    orphan = first.reserve(ceiling * 4 // 10)
     later = PersistentSpendCap(path=path, run_id="tuning", phase="tuning")
-    assert later.snapshot()["remaining_microusd"] == 5_000_000
+    assert later.snapshot()["remaining_microusd"] == ceiling // 20
     with pytest.raises(PaidRunCapReached):
-        later.reserve(5_000_001)
+        later.reserve(ceiling // 20 + 1)
     restored = PersistentSpendCap(path=path, run_id="baseline")
-    restored.settle(orphan, 30_000_000)
-    assert later.spent_microusd == 85_000_000
+    restored.settle(orphan, ceiling * 3 // 10)
+    assert later.spent_microusd == ceiling * 85 // 100
     assert later.reserved_microusd == 0
+
+
+def test_opening_a_run_cannot_raise_an_existing_ledger_ceiling(tmp_path):
+    path = tmp_path / "budget.sqlite3"
+    original = PersistentSpendCap(path=path, run_id="existing", run_limit_microusd=1000)
+    original.settle(original.reserve(100), 80)
+    with original._transaction() as connection:
+        connection.execute("UPDATE evaluation_budget SET limit_microusd = 100000000")
+        charges = connection.execute("SELECT * FROM evaluation_reservations").fetchall()
+        runs = connection.execute("SELECT * FROM evaluation_runs").fetchall()
+    with pytest.raises(EvaluationBudgetError, match="ceiling"):
+        PersistentSpendCap(path=path, run_id="new")
+    with original._transaction() as connection:
+        assert connection.execute("SELECT limit_microusd FROM evaluation_budget").fetchone() == (100_000_000,)
+        assert connection.execute("SELECT * FROM evaluation_reservations").fetchall() == charges
+        assert connection.execute("SELECT * FROM evaluation_runs").fetchall() == runs
 
 
 def test_per_run_cap_cannot_raise_lifetime_authorization(tmp_path):

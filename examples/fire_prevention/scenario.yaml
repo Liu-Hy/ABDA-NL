@@ -1,221 +1,170 @@
-title: Prescribed Burn
+title: "Prescribed Burn"
 description: >
-  A district fire-management team is deciding whether to conduct a
-  prescribed burn on a 1,800-acre dry-conifer WUI unit adjacent to a
-  rural community with vulnerable residents. Two independent pro-burn
-  lines (an ecology chain from fuel load through wildfire risk to
-  treatment benefit, and a cultural-stewardship line drawing on the
-  unit's Indigenous burning history) balance one air-quality con-line
-  at equal strength, leaving conduct_burn undecided at baseline. The
-  regulatory PM2.5 strict rule scopes to burn_today_legal and is
-  triggered by the forecast_exceedance_today toggle; the
-  recently_burned toggle undercuts the ecology chain's middle link.
-  The scenario showcases a genuine undecided case resolvable by
-  Conflicts-view preferences.
+  In this fictional case, a fire management team considers a controlled burn
+  on 1,800 acres of forest where combustible material has accumulated. The
+  team weighs forest health and tribal stewardship against smoke exposure in a
+  nearby rural community. Local permit conditions and the day's air-quality
+  forecast also affect whether the planned burn can proceed.
 
 facts:
   heavy_fuels:
-    description: surface and ladder fuels on this unit exceed the historical range of variability
+    description: surface and ladder fuels on the unit exceed the historical range
     category: ecology
-    source: NIFC situation report
-  dry_conditions:
-    description: the unit is in drought-stressed, low fuel-moisture conditions
+    source: local_news_burn_coverage.txt ("fuel loading is well above what this forest evolved with"); nifc_situation_report.txt
+  drought:
+    description: the unit is drought-stressed with low fuel moisture
     category: ecology
-    source: NIFC situation report
-  cultural_history:
-    description: the unit has a documented pre-contact cultural burning regime interrupted by fire exclusion
-    category: cultural
-    source: tribal fire-stewardship brief
-  tribal_partner:
-    description: a co-stewardship agreement with the affiliated Tribal Nation governs fire on this unit
-    category: cultural
-    source: tribal fire-stewardship brief
-  community_downwind:
-    description: a nearby community lies in the predicted smoke-drift direction on burn-day winds
-    category: community
-    source: community airshed letter
-  sensitive_pop:
-    description: the downwind community has a disproportionate share of elderly and cardiopulmonary-vulnerable residents
-    category: community
-    source: community airshed letter
+    source: nifc_situation_report.txt (fictional site brief)
   wui_unit:
-    description: the unit is in the Wildland-Urban Interface where values at risk are high
+    description: the unit lies in the wildland-urban interface, bordering a rural community
     category: ecology
-    source: NIFC situation report
+    source: local_news_burn_coverage.txt; nifc_situation_report.txt
+  cultural_regime:
+    description: the unit is a cultural-use area burned for generations before federal fire exclusion
+    category: cultural
+    source: local_news_burn_coverage.txt; tribal_fire_stewardship.txt
+  tribal_agreement:
+    description: a co-stewardship agreement with the affiliated Tribal Nation governs fire on the unit
+    category: cultural
+    source: nifc_situation_report.txt (fictional site brief); tribal_fire_stewardship.txt
+  community_downwind:
+    description: a community with an aging population, elevated asthma rates, and a school in the predicted smoke-drift corridor lies downwind
+    category: community
+    source: local_news_burn_coverage.txt; community_airshed_letter.txt
 
 assumptions:
-  smp_permit:
-    description: the state Smoke Management Program permit window is open today
-    negated_description: the SMP permit window is not open today
+  permit_window_open:
+    description: the state Smoke Management Program permit window is open on the planned burn day
+    negated_description: the permit window is not open on the planned burn day
     category: regulatory
-    source: state Smoke Management Program; default-active permit assumption
+    source: epa_pm25_standards.txt (fictional state program)
     active: true
-    block: 2
-  forecast_exceed:
-    description: the burn-day forecast predicts a 24-hour PM2.5 exceedance of the EPA NAAQS threshold
-    negated_description: the burn-day forecast does not predict a PM2.5 exceedance
-    category: regulatory
-    source: EPA AirNow forecast
-    active: false
     block: 1
+  forecast_exceedance:
+    description: the burn-day forecast predicts a 24-hour PM2.5 exceedance at the community monitor
+    negated_description: the forecast does not predict a PM2.5 exceedance
+    category: regulatory
+    source: epa_pm25_standards.txt; toggle to test an exceedance day. Block 3 keeps the permit condition above a single Conflicts-view preference step
+    active: false
+    block: 3
   recent_burn:
-    description: the unit was prescribe-burned within the last five-year fuel-recovery window
-    negated_description: the unit has not been prescribe-burned within the last five years
+    description: the unit was burned within the last five-year fuel-recovery window
+    negated_description: the unit has not been burned within the last five years
     category: treatment-history
-    source: district treatment log
+    source: fire_ecology_synthesis.txt; toggle to test a recently treated unit
     active: false
     block: 1
 
 propositions:
-  eco_benefit:
-    description: treating this unit now delivers meaningful ecological benefit
-    negated_description: treating this unit now delivers no meaningful ecological benefit
+  elevated_risk:
+    description: the unit carries an elevated probability of high-severity wildfire
+    negated_description: the unit does not carry an elevated probability of high-severity wildfire
     category: ecology
   good_fire:
-    description: applying fire on this unit is warranted as cultural-ecological stewardship
-    negated_description: applying fire on this unit is not culturally or ecologically warranted
+    description: burning the unit is warranted as cultural stewardship
+    negated_description: burning the unit is not warranted as cultural stewardship
     category: cultural
-
-conclusions:
-  conduct_burn:
-    description: the district should conduct a prescribed burn on this unit this cycle
-    negated_description: the district should not conduct a prescribed burn on this unit this cycle
-    category: decision
-  elevated_risk:
-    description: this unit carries elevated probability of high-severity wildfire
-    negated_description: this unit does not carry elevated wildfire risk
-    category: ecology
   smoke_harm:
     description: a burn would cause non-trivial short-term air-quality harm to the downwind community
     negated_description: a burn would not cause non-trivial short-term air-quality harm
-    category: air-quality
-  legal_today:
-    description: burning today is permitted under the state Smoke Management Program
-    negated_description: burning today is not permitted under the state Smoke Management Program
-    category: regulatory
-  postpone_burn:
-    description: the correct action today is to postpone rather than proceed
-    negated_description: the correct action today is not to postpone
+    category: community
+
+conclusions:
+  treat_unit:
+    description: the unit should be treated with prescribed fire this cycle
+    negated_description: the unit should not be treated with prescribed fire this cycle
     category: decision
-  short_interval:
-    description: treating this unit now represents a short re-treatment interval with poor ecological return
-    negated_description: treating this unit now does not represent a short re-treatment interval
+  eco_benefit:
+    description: burning the unit now delivers meaningful ecological benefit
+    negated_description: burning the unit now delivers no meaningful ecological benefit
     category: ecology
+  burn_permitted:
+    description: burning is permitted on the planned burn day under the Smoke Management Program
+    negated_description: burning is not permitted on the planned burn day under the Smoke Management Program
+    category: regulatory
+  burn_today:
+    description: the burn should go ahead on the planned burn day
+    negated_description: the burn should not go ahead on the planned burn day
+    category: decision
 
 rules:
-  r_strict_pm25:
-    type: strict
-    premises: [forecast_exceed]
-    conclusion: -legal_today
-    category: regulatory
-    source: EPA NAAQS PM2.5 categorical exceedance rule
-
-  r_permit_gives_legal:
+  risk_from_fuels:
     type: defeasible
-    premises: [smp_permit]
-    conclusion: legal_today
-    category: regulatory
-    source: an active SMP permit is the default basis for today-legal
-    block: 2
-  r_prudential:
-    type: defeasible
-    premises: [sensitive_pop, community_downwind]
-    conclusion: -legal_today
-    category: community
-    source: community airshed letter; community exposure should be a material factor not only a regulatory threshold
-    block: 1
-
-  r_ecology:
-    type: defeasible
-    premises: [heavy_fuels, dry_conditions]
+    premises: [heavy_fuels, drought]
     conclusion: elevated_risk
     category: ecology
-    source: fire-ecology synthesis
+    source: "fire_ecology_synthesis.txt: heavy surface and ladder fuel loads produce high-severity crown fire"
     block: 1
-  r_eco_benefit:
+  benefit_from_treatment:
     type: defeasible
-    premises: [elevated_risk, heavy_fuels]
+    premises: [elevated_risk, wui_unit]
     conclusion: eco_benefit
     category: ecology
-    negated_description: within the fuel-recovery window, re-treating the unit adds no further ecological benefit
-    source: fire-ecology synthesis; treating overdue fuel-loaded units yields severity reduction
+    negated_description: within the fuel-recovery window, re-treating the unit adds no ecological benefit
+    source: "fire_ecology_synthesis.txt: for units with heavy fuel loading and no recent treatment the case is strong"
     block: 1
-  r_ecology_pro:
+  treat_for_ecology:
     type: defeasible
     premises: [eco_benefit]
-    conclusion: conduct_burn
+    conclusion: treat_unit
     category: ecology
-    source: fire-ecology synthesis
+    source: "nifc_situation_report.txt: accelerate treatment where feasible"
     block: 1
-
-  r_wui_risk:
+  cultural_stewardship:
     type: defeasible
-    premises: [wui_unit]
-    conclusion: elevated_risk
-    category: ecology
-    source: NIFC situation report; WUI units prioritised for treatment
-    block: 1
-
-  r_culture:
-    type: defeasible
-    premises: [cultural_history, tribal_partner]
+    premises: [cultural_regime, tribal_agreement]
     conclusion: good_fire
     category: cultural
-    source: tribal fire-stewardship brief
+    source: "tribal_fire_stewardship.txt: a documented cultural fire regime is substantive justification for burning"
     block: 1
-  r_culture_pro:
+  treat_for_culture:
     type: defeasible
     premises: [good_fire]
-    conclusion: conduct_burn
+    conclusion: treat_unit
     category: cultural
-    source: tribal fire-stewardship brief
+    source: "tribal_fire_stewardship.txt"
     block: 1
-
-  r_airshed:
+  smoke_exposure:
     type: defeasible
-    premises: [community_downwind, sensitive_pop]
+    premises: [community_downwind]
     conclusion: smoke_harm
-    category: air-quality
-    source: community airshed letter
+    category: community
+    source: "community_airshed_letter.txt: previous burns produced multi-day PM2.5 excursions"
     block: 1
-  r_airshed_con:
+  no_treatment_for_smoke:
     type: defeasible
     premises: [smoke_harm]
-    conclusion: -conduct_burn
-    category: air-quality
-    source: community airshed letter
+    conclusion: -treat_unit
+    category: community
+    source: "community_airshed_letter.txt: treat air-quality impacts as a material factor"
     block: 1
-
-  r_postpone_smoke:
+  permit_allows_burn:
     type: defeasible
-    premises: [smoke_harm]
-    conclusion: postpone_burn
-    category: air-quality
-    source: community airshed letter; smoke-harm argues for postponement
+    premises: [permit_window_open]
+    conclusion: burn_permitted
+    category: regulatory
+    source: "epa_pm25_standards.txt: burn-day go/no-go criteria under the state Smoke Management Program"
     block: 1
-
-  u_recent_burn:
+  exceedance_withholds_permit:
+    type: strict
+    premises: [forecast_exceedance]
+    conclusion: -burn_permitted
+    category: regulatory
+    source: "epa_pm25_standards.txt: under the state Smoke Management Program the permit is withheld for that day regardless of justification; stipulated condition of the fictional state program"
+  go_ahead:
+    type: defeasible
+    premises: [treat_unit, burn_permitted]
+    conclusion: burn_today
+    category: decision
+    source: "epa_pm25_standards.txt: burn-day go/no-go determination"
+    block: 1
+  recent_burn_no_benefit:
     type: defeasible
     premises: [recent_burn]
-    conclusion: -r_eco_benefit
+    conclusion: -benefit_from_treatment
     category: treatment-history
-    source: fire-ecology synthesis; within the fuel-recovery window, re-treatment yields no marginal benefit
+    source: "fire_ecology_synthesis.txt: units treated within the past five years are poor candidates for re-treatment"
     block: 1
-
-  r_interval_short:
-    type: defeasible
-    premises: [wui_unit]
-    conclusion: short_interval
-    category: treatment-history
-    source: WUI designation flags re-treatment interval concerns
-    block: 1
-  r_interval_ok:
-    type: defeasible
-    premises: [heavy_fuels]
-    conclusion: -short_interval
-    category: ecology
-    source: fire-ecology synthesis; heavy fuel loading overrides interval-proximity concerns
-    block: 2
 
 corpus:
   - wikipedia_prescribed_burn.txt

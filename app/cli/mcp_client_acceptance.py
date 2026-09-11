@@ -15,7 +15,7 @@ import httpx
 
 
 TOOLS = ("list_examples", "get_example", "create_project", "get_project", "apply_project_ops")
-EDIT = {"op": "toggle-assumption", "id": "smp_permit"}
+EDIT = {"op": "toggle-assumption", "id": "permit_window_open"}
 
 
 class AcceptanceError(RuntimeError):
@@ -282,12 +282,12 @@ def main(argv: list[str] | None = None) -> int:
             "Perform these six tool calls in order, waiting for each result before the next call: "
             "1. list_examples. 2. get_example with scenario_id fire_prevention. "
             f"3. create_project named {name!r} from fire_prevention with no initial diff operations. "
-            "4. get_project for the new project's id, to obtain its current version and legal_today outcome. "
+            "4. get_project for the new project's id, to obtain its current version and burn_permitted outcome. "
             "5. apply_project_ops for that id and the version from step 4, with exactly one operation: "
-            "{\"op\":\"toggle-assumption\",\"id\":\"smp_permit\"}. I authorize that one edit "
+            "{\"op\":\"toggle-assumption\",\"id\":\"permit_window_open\"}. I authorize that one edit "
             "in the new project, from active to inactive. "
             "6. get_project for the same id again, to verify the saved assumption is inactive and "
-            "compare legal_today with step 4. Both explicit get_project calls are required, even "
+            "compare burn_permitted with step 4. Both explicit get_project calls are required, even "
             "when create_project or apply_project_ops already returns a project snapshot. "
             "Do not access another "
             "private project, create another project, invoke server LLM tools, or use any shell "
@@ -317,9 +317,9 @@ def main(argv: list[str] | None = None) -> int:
         # token values are never written to reports or printed on failure.
         args.receipt.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
         verify_client_workflow(calls, project, name)
-        if project["version"] != 2 or project["scenario"]["assumptions"]["smp_permit"]["active"]:
+        if project["version"] != 2 or project["scenario"]["assumptions"]["permit_window_open"]["active"]:
             raise AcceptanceError("the project did not preserve the authorized edit")
-        if project["af_summary"]["labels_by_proposition"]["legal_today"] == baseline["af_summary"]["labels_by_proposition"]["legal_today"]:
+        if project["af_summary"]["labels_by_proposition"]["burn_permitted"] == baseline["af_summary"]["labels_by_proposition"]["burn_permitted"]:
             raise AcceptanceError("the expected formal outcome did not change")
         protocol.tool("apply_project_ops", {"project_id": project["id"], "expected_version": 1, "diff_ops": [EDIT]}, error="changed since it was loaded")
         protocol.tool("apply_project_ops", {"project_id": project["id"], "expected_version": 2,

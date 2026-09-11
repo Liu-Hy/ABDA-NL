@@ -843,11 +843,11 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
                 messages: state.chatMessages, draft: chatComposer.snapshot().text})"""
             before = page.evaluate(capture)
             _open_workspace(page)
-            expect(page.locator("#account-view-toggle-btn")).to_have_text("Demonstrate as a normal user")
+            expect(page.locator("#account-view-toggle-btn")).to_have_attribute("aria-checked", "false")
             page.locator("#account-view-toggle-btn").click()
-            expect(page.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
+            expect(page.locator("#account-view-toggle-btn")).to_have_attribute("aria-checked", "true")
             expect(page.locator("#account-view-toggle-btn")).to_be_focused()
-            expect(page.locator("#normal-user-view-indicator")).to_be_visible()
+            expect(page.locator("#admin-view-toggle")).to_have_attribute("aria-checked", "true")
             assert page.evaluate(capture) == before
             assert page.request.get(f"{live_browser_server}/api/trial").json() == credit
             assert page.request.get(f"{live_browser_server}/api/scenario-submissions?queue=true").status == 403
@@ -862,6 +862,9 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
                 document: document.documentElement.scrollWidth,
                 toolbar: document.querySelector('.conversation-toolbar').scrollWidth})""")
             _save_browser_evidence(page, "normal-user-view-narrow")
+            ai_access = page.locator("#ai-access-btn")
+            assert ai_access.bounding_box()["width"] >= 140
+            assert ai_access.evaluate("el => el.scrollWidth <= el.clientWidth + 1")
             assert page.locator(".topbar").evaluate("e => e.scrollWidth <= e.clientWidth + 1")
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), json.dumps(page.evaluate("""beforeCapture => {
                 const label = element => element.id ? '#' + element.id
@@ -907,16 +910,26 @@ def test_normal_user_view_preserves_work_and_uses_ordinary_submission(live_brows
 
             page.evaluate("flushConversationWrites()")
             _reload_ready_demo(page)
-            expect(page.locator("#normal-user-view-indicator")).to_be_visible()
-            expect(page.locator("#restore-admin-view-btn")).to_be_visible()
+            expect(page.locator("#admin-view-toggle")).to_have_attribute("aria-checked", "true")
+            expect(page.locator("#admin-view-toggle")).to_be_visible()
             page.evaluate("conversationStore.ready")
             expect(page.locator("#chat-messages")).to_contain_text("A saved teaching answer.")
             expect(page.locator("#chat-input")).to_have_text("Keep this unfinished question.")
             restored_work = page.evaluate(capture)
-            page.locator("#restore-admin-view-btn").click()
+            page.locator("#admin-view-toggle").click()
             page.wait_for_function("() => state.authSession.scenario_admin === true && !state.authSession.normal_user_view")
-            expect(page.locator("#normal-user-view-indicator")).to_be_hidden()
-            expect(page.locator("#workspace-btn")).to_be_focused()
+            expect(page.locator("#admin-view-toggle")).to_have_attribute("aria-checked", "false")
+            expect(page.locator("#admin-view-toggle")).to_be_visible()
+            expect(page.locator("#admin-view-toggle")).to_be_focused()
+            toggle = page.locator("#admin-view-toggle")
+            position = toggle.bounding_box()
+            toggle.click()
+            expect(toggle).to_have_attribute("aria-checked", "true")
+            assert toggle.bounding_box() == position
+            toggle.press("Space")
+            expect(toggle).to_have_attribute("aria-checked", "false")
+            expect(toggle).to_be_focused()
+            assert toggle.bounding_box() == position
             assert page.evaluate(capture) == restored_work
             assert page.request.get(f"{live_browser_server}/api/trial").json() == credit
             assert page.request.get(f"{live_browser_server}/api/projects/{project['id']}").ok
@@ -969,7 +982,7 @@ def test_normal_user_view_suppresses_late_admin_content_across_tabs(live_browser
             }""", submission["id"])
             reviewer.wait_for_function("() => window.__heldAdminResponses.length === 2")
             controller.locator("#account-view-toggle-btn").click()
-            expect(controller.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
+            expect(controller.locator("#account-view-toggle-btn")).to_have_attribute("aria-checked", "true")
             reviewer.wait_for_function("() => state.authSession.normal_user_view === true")
             expect(reviewer.locator("#modal-example-review")).not_to_have_class(re.compile("visible"))
             expect(reviewer.locator("#example-review-snapshot")).to_be_empty()
@@ -1049,11 +1062,11 @@ def test_normal_user_view_refreshes_a_stale_initial_session(live_browser_server)
             opening.goto(live_browser_server, wait_until="domcontentloaded")
             opening.wait_for_function("() => typeof window.__releaseInitialSession === 'function'")
             controller.locator("#account-view-toggle-btn").click()
-            expect(controller.locator("#account-view-toggle-btn")).to_have_text("Restore administrator view")
+            expect(controller.locator("#account-view-toggle-btn")).to_have_attribute("aria-checked", "true")
             opening.wait_for_function("() => accountView.revision > 0")
             opening.evaluate("window.__releaseInitialSession()")
             _wait_for_demo_ready(opening)
-            expect(opening.locator("#normal-user-view-indicator")).to_be_visible()
+            expect(opening.locator("#admin-view-toggle")).to_have_attribute("aria-checked", "true")
             assert opening.evaluate("state.authSession.scenario_admin") is False
             _open_workspace(opening)
             opening.locator("#workspace-tab-examples").click()
@@ -1077,9 +1090,9 @@ def test_normal_user_view_uses_server_authority_without_inferring_from_balance(l
             _goto_ready_demo(beneficiary, live_browser_server)
             _open_workspace(beneficiary)
             expect(beneficiary.locator("#trial-balance-label")).to_contain_text("$50.00")
-            for label, scenario_admin in (("Restore administrator view", False), ("Demonstrate as a normal user", True)):
+            for checked, scenario_admin in (("true", False), ("false", True)):
                 beneficiary.locator("#account-view-toggle-btn").click()
-                expect(beneficiary.locator("#account-view-toggle-btn")).to_have_text(label)
+                expect(beneficiary.locator("#account-view-toggle-btn")).to_have_attribute("aria-checked", checked)
                 assert beneficiary.evaluate("state.authSession.scenario_admin") is scenario_admin
                 assert beneficiary.request.get(f"{live_browser_server}/api/scenario-submissions?queue=true").status == (200 if scenario_admin else 403)
                 assert beneficiary.request.get(f"{live_browser_server}/api/trial").json() == credit
@@ -1094,7 +1107,7 @@ def test_normal_user_view_uses_server_authority_without_inferring_from_balance(l
             _open_workspace(ordinary)
             expect(ordinary.locator("#trial-balance-label")).to_contain_text("$50.00")
             expect(ordinary.locator("#account-view-card")).to_be_hidden()
-            expect(ordinary.locator("#restore-admin-view-btn")).to_be_hidden()
+            expect(ordinary.locator("#admin-view-toggle")).to_be_hidden()
             assert ordinary.request.post(f"{live_browser_server}/api/auth/view-mode", data={"normal_user_view": True}).status == 403
         finally:
             browser.close()
@@ -1806,7 +1819,8 @@ def test_mobile_item_question_reveals_chat(live_browser_server):
             question = page.locator(".rule-info[data-desc]").first
             expect(question).to_be_visible()
             question.click()
-            expect(page.locator("#chat-input")).to_have_text(re.compile('Can you explain'))
+            expect(page.locator("#chat-input .chat-reference-label")).to_have_text(question.get_attribute("data-desc"))
+            assert "Can you explain" not in page.evaluate("chatComposer.snapshot().text")
             expect(page.locator("#chat-messages")).not_to_contain_text("This is a route-mocked mobile explanation.")
             geometry = page.evaluate(
                 """() => {
@@ -3469,7 +3483,8 @@ def test_research_workspace_in_browser(live_browser_server):
                 )
                 assert access_note.locator("button").count() == 0
                 shared_page.locator(".rule-info").first.click()
-                assert "Can you explain" in shared_page.evaluate("chatComposer.snapshot().text")
+                assert "Can you explain" not in shared_page.evaluate("chatComposer.snapshot().text")
+                expect(shared_page.locator("#chat-input .chat-reference-token")).to_have_count(1)
                 expect(shared_page.locator("#chat-send-btn")).to_be_disabled()
                 expect(shared_page.locator("#modal-workspace .modal-content")).to_be_hidden()
             finally:
@@ -3654,4 +3669,72 @@ def test_research_workspace_in_browser(live_browser_server):
             raise
         finally:
             context.close()
+            browser.close()
+
+
+def test_archived_project_permanent_deletion_uses_real_owner_api_and_survives_reload(live_browser_server):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page(viewport={"width": 390, "height": 844}, reduced_motion="reduce")
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        try:
+            _goto_ready_demo(page, live_browser_server)
+            _open_workspace(page)
+            page.locator("#dev-login-email").fill("archived-delete-browser@example.edu")
+            page.locator("#dev-login-form button[type=submit]").click()
+            expect(page.locator("#account-signed-in")).to_be_visible()
+            source = page.evaluate("state.scenario_id")
+            origin = {"Origin": live_browser_server}
+            projects = []
+            for name in ("Archived study A", "Archived study B", "Active study"):
+                response = page.request.post(live_browser_server + "/api/projects", headers=origin,
+                                             data={"name": name, "source_scenario_id": source})
+                assert response.status == 201, response.text()
+                projects.append(response.json())
+            for project in projects[:2]:
+                response = page.request.delete(
+                    f'{live_browser_server}/api/projects/{project["id"]}?expected_version={project["version"]}', headers=origin)
+                assert response.status == 204, response.text()
+            page.evaluate("openWorkspace('projects')")
+            page.locator("#projects-archived-filter").click()
+            expect(page.locator("#project-list .project-card")).to_have_count(2)
+            expect(page.locator("#projects-delete-all")).to_be_enabled()
+            _axe_report(page, "archived project permanent deletion")
+            _save_browser_evidence(page, "archived-project-delete-live-390")
+            checkbox = page.get_by_role("checkbox", name="Select Archived study A for deletion")
+            checkbox.focus()
+            checkbox.press("Space")
+            target = page.locator("#projects-delete-selected")
+            expect(target).to_be_enabled()
+            page.once("dialog", lambda dialog: dialog.dismiss())
+            target.focus()
+            target.press("Enter")
+            expect(page.locator("#project-list .project-card")).to_have_count(2)
+            page.once("dialog", lambda dialog: dialog.accept())
+            target.press("Space")
+            expect(page.locator("#projects-status")).to_contain_text('Permanently deleted "Archived study A"')
+            expect(page.locator("#project-list .project-card")).to_have_count(1)
+            response = page.request.post(f'{live_browser_server}/api/projects/{projects[0]["id"]}/restore',
+                                         headers=origin, data={"expected_version": projects[0]["version"] + 1})
+            assert response.status == 404, response.text()
+            _reload_ready_demo(page)
+            page.evaluate("openWorkspace('projects')")
+            page.locator("#projects-archived-filter").click()
+            expect(page.locator("#project-list")).to_contain_text("Archived study B")
+            expect(page.locator("#project-list")).not_to_contain_text("Archived study A")
+            page.once("dialog", lambda dialog: dialog.accept())
+            page.locator("#projects-delete-all").focus()
+            page.locator("#projects-delete-all").press("Enter")
+            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
+            expect(page.locator("#project-list")).to_contain_text("No archived projects")
+            expect(page.locator("#projects-delete-all")).to_be_disabled()
+            active = page.request.get(live_browser_server + "/api/projects").json()["projects"]
+            assert [project["id"] for project in active] == [projects[2]["id"]]
+            archived = page.request.get(live_browser_server + "/api/projects?archived=true").json()["projects"]
+            assert archived == []
+            assert errors == []
+        finally:
             browser.close()

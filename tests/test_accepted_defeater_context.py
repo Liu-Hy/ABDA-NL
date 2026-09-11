@@ -42,20 +42,20 @@ def test_rejected_strict_attacker_is_not_the_cause_of_possession_rejection():
     assert graph["defeat_edges"] == _graph(af, scenario, enriched=False)["defeat_edges"]
 
 
-def test_fire_premise_and_postponement_stay_accepted_while_decision_is_undecided():
+def test_fire_smoke_and_permission_stay_accepted_while_treatment_is_undecided():
     scenario = load_bundled_scenario("fire_prevention")
     af = compute_state_bundle(scenario)["af"]
     graph = _graph(af, scenario)
     arguments = graph["arguments"]
-    decisions = [a for a in arguments if a["conclusion"].lstrip("-") == "conduct_burn"]
-    assert len(decisions) == 4
+    decisions = [a for a in arguments if a["conclusion"].lstrip("-") == "treat_unit"]
+    assert len(decisions) == 3
     assert all(a["label"] == "undecided" and a["accepted_defeaters"] == [] for a in decisions)
-    smoke = next(a for a in arguments if a["top_rule"] == "r_airshed")
-    postponed = next(a for a in arguments if a["top_rule"] == "r_postpone_smoke")
-    assert smoke["label"] == postponed["label"] == "accepted"
-    assert smoke["accepted_defeaters"] == postponed["accepted_defeaters"] == []
-    opposition = next(a for a in decisions if a["top_rule"] == "r_airshed_con")
-    support = [a for a in decisions if a["conclusion"] == "conduct_burn"]
+    smoke = next(a for a in arguments if a["top_rule"] == "smoke_exposure")
+    permission = next(a for a in arguments if a["top_rule"] == "permit_allows_burn")
+    assert smoke["label"] == permission["label"] == "accepted"
+    assert smoke["accepted_defeaters"] == permission["accepted_defeaters"] == []
+    opposition = next(a for a in decisions if a["top_rule"] == "no_treatment_for_smoke")
+    support = [a for a in decisions if a["conclusion"] == "treat_unit"]
     for argument in support:
         assert {"from": argument["id"], "to": opposition["id"], "type": "rebut"} in graph["defeat_edges"]
         assert {"from": opposition["id"], "to": argument["id"], "type": "rebut"} in graph["defeat_edges"]
@@ -137,9 +137,9 @@ def test_added_intermediate_defeater_keeps_its_supporting_premise_closure():
     ("claude-sonnet-5", {"chat", "proposer", "reviewer"}),
     ("deepseek-v4-flash-0731", {"chat", "proposer", "reviewer"}),
     ("glm-5.3", {"chat", "proposer"}),
-    ("kimi-k3", {"proposer"}),
+    ("kimi-k3", {"chat", "proposer"}),
     ("gpt-5.6-sol", set()),
-    ("gemini-3.8-flash", set()),
+    ("gemini-3.8-flash", {"proposer"}),
 ])
 def test_template_selection_is_the_single_scope_for_observed_model_features(model, features):
     client = SimpleNamespace(model_spec=SimpleNamespace(id=model))

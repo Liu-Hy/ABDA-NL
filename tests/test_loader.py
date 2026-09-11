@@ -37,10 +37,10 @@ def test_loads_medical_ppi_scenario():
     s = load_scenario("examples/medical_ppi/scenario.yaml")
     assert s.title == "PPI Therapy"
     assert "barretts" in s.facts
-    assert "ppi_is_panto" in s.assumptions
-    assert s.assumptions["ppi_is_panto"].active is False
-    assert "continue_ppi" in s.conclusions
-    assert "panto_spares" in s.rules
+    assert "cogent_decisive" in s.assumptions
+    assert s.assumptions["cogent_decisive"].active is False
+    assert "continue_acid_suppression" in s.conclusions
+    assert "cogent_reading" in s.rules
 
 
 def test_missing_title_is_schema_error():

@@ -242,7 +242,7 @@ resource containerApp 'Microsoft.App/containerApps@2025-01-01' = {
             { name: 'ABDA_TRIAL_BUDGET_MICROUSD', value: string(trialBudgetMicrousd) }
             { name: 'ABDA_LLM_BACKEND', value: 'claude' }
             { name: 'ABDA_CLAUDE_PROVIDER', value: 'foundry' }
-            { name: 'ABDA_LLM_DEFAULT_PROFILE', value: 'balanced' }
+            { name: 'ABDA_LLM_DEFAULT_PROFILE', value: 'gemini-3-8-flash' }
             { name: 'ABDA_LLM_ALLOW_BYOK', value: '1' }
             { name: 'ABDA_LLM_REQUIRE_AUTH', value: '1' }
             { name: 'ABDA_OPENROUTER_FAILOVER_ENABLED', value: string(openrouterFailoverEnabled) }

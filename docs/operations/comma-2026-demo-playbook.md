@@ -53,7 +53,7 @@ be repeated consistently during rehearsal.
 
 Introduce Popov v. Hayashi as the dispute over Barry Bonds's 73rd home-run
 baseball. Point out the four panels: conclusions, facts and assumptions, rules,
-and **Chat & Exploration**. Explain that natural-language descriptions make the
+and **Chat & Explore**. Explain that natural-language descriptions make the
 knowledge base readable, while the ABDA engine computes the arguments,
 attacks, and conclusion labels.
 

@@ -84,11 +84,14 @@ def _case(case_id: str) -> dict:
 
 def test_suite_is_versioned_and_hashable():
     suite, digest = load_suite(SUITE_PATH)
-    assert suite["version"] == 8
+    assert suite["version"] == 10
     assert suite["default_repetitions"] == 3
     assert suite["gates"]["min_case_pass_rate"] == 1.0
-    assert len(suite["cases"]) == 45
-    assert {"fire-suspended-permit-rule", "fried-chicken-strengthened-home-preference"} <= {
+    assert len(suite["cases"]) == 52
+    assert {"fire-suspended-permit-rule", "fried-chicken-strengthened-home-preference",
+            "medical-unavailable-substitute", "fire-exceedance-despite-treatment-priority",
+            "nba-expansion-preference-excludes-competing",
+            "nba-unavailable-deal-cannot-be-preferred-into-existence"} <= {
         case["id"] for case in suite["cases"]
     }
     assert len(digest) == 64
@@ -123,13 +126,13 @@ def test_medical_chat_rubric_accepts_reject_as_rejected_morphology():
     client = _FakeClient(
         completions=[
             _response(
-                "Pantoprazole undercuts the CYP2C19 interaction argument, so the "
+                "The decisive COGENT assumption undercuts the CYP2C19 interaction argument, so the "
                 "engine will reject the cardiac concern and accept continuing PPI "
                 "therapy."
             )
         ]
     )
-    result = evaluate_chat(_case("medical-pantoprazole-toggle"), client)
+    result = evaluate_chat(_case("medical-cogent-toggle"), client)
     assert result["concepts_passed"] is True
     assert result["missing_concepts"] == []
 

@@ -1,12 +1,12 @@
-EPA PM2.5 Air-Quality Standards and Prescribed Fire
-Paraphrased regulatory summary
+PM2.5 Background and a Fictional Smoke Management Program
+Illustrative teaching summary, not an EPA or state regulatory document
 
 National Ambient Air Quality Standards (NAAQS)
 
 Under the Clean Air Act, the U.S. Environmental Protection Agency
 sets National Ambient Air Quality Standards for six criteria
-pollutants. For fine particulate matter (PM2.5), the current 24-hour
-standard is 35 micrograms per cubic meter (annual 9 micrograms per
+pollutants. The 2024 revision retained a 24-hour PM2.5
+standard of 35 micrograms per cubic meter (annual 9 micrograms per
 cubic meter as of the 2024 revision).
 
 Prescribed Fire Under the SIP Framework
@@ -21,24 +21,25 @@ that specify:
 - Burn-day go/no-go criteria keyed to predicted 24-hour PM2.5 at
   specified receptor locations.
 
-Forecast Exceedance
+Forecast Exceedance: Stipulated Condition of the Fictional State Program
 
-Under most state SMPs, if the burn-day dispersion forecast
+Under the fictional state Smoke Management Program in this scenario,
+if the burn-day dispersion forecast
 predicts 24-hour PM2.5 exceedance of the NAAQS threshold at a
 populated-area receptor, the burn permit is withheld for that day
 regardless of ecological or programmatic justification. This is a
-categorical constraint, not a balancing test. Managers may
-reschedule the burn to a day with a more favorable forecast.
+categorical condition of this fictional permit, not a claim that all
+real jurisdictions use the same rule. Managers may reschedule the burn
+to a day with a more favorable forecast.
 
 Distinguishing the Strict Constraint from Balancing
 
-The PM2.5 exceedance rule is an example of a regulatory constraint
+This fictional PM2.5 exceedance condition is a permit constraint
 that is not subject to trade-off: it is not that the ecological
 benefit must be sufficiently large to justify a near-exceedance
-day; it is that exceedance days are off-limits regardless. For
-formal modeling, this is captured as a strict rule, distinct from
-the balancing that characterizes most other burn-day judgments.
+day; it is that exceedance days are off-limits under this permit.
+Whether the unit needs treatment this cycle is a separate question.
 
-(Source: paraphrased summary of EPA PM2.5 NAAQS framework and state
-Smoke Management Program conventions. Illustrative only; consult
-current federal and state regulations for operational decisions.)
+(Source: illustrative background on the EPA PM2.5 NAAQS framework,
+followed by a fictional local permit condition for this teaching
+scenario. The categorical condition is stipulated, not an EPA quote.)

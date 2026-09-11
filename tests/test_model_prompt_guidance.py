@@ -39,7 +39,7 @@ class CapturingClient:
         name = kwargs["tool"]["name"]
         payload = {"issues": []} if name == "review_edit" else {
             "id": "fuel_support", "rule": {
-                "type": "defeasible", "premises": ["heavy_fuels"], "conclusion": "conduct_burn",
+                "type": "defeasible", "premises": ["heavy_fuels"], "conclusion": "treat_unit",
             },
         }
         return ToolCallResponse(
@@ -50,7 +50,7 @@ class CapturingClient:
 
 @pytest.mark.parametrize("model", [
     "gpt-5.6-sol", "gemini-3.1-pro-preview",
-    "gemini-3.8-flash", "kimi-k3",
+    "gemini-3.8-flash",
 ])
 def test_unaffected_model_receives_byte_identical_chat_prompt(model):
     scenario = load_bundled_scenario("fire_prevention")
@@ -65,7 +65,7 @@ def test_unaffected_model_receives_byte_identical_chat_prompt(model):
 
 
 @pytest.mark.parametrize("model", [
-    "claude-sonnet-5", "claude-opus-5", "gpt-5.6-terra", "deepseek-v4-flash-0731", "glm-5.3",
+    "claude-sonnet-5", "claude-opus-5", "gpt-5.6-terra", "deepseek-v4-flash-0731", "glm-5.3", "kimi-k3",
 ])
 def test_guidance_uses_catalog_identity_for_funded_and_byok_clients(model):
     client = CapturingClient(model)
@@ -107,11 +107,11 @@ def test_unknown_client_and_cyclic_wrapper_do_not_acquire_guidance():
     ("deepseek-v4-flash-0731", True, True),
     ("glm-5.3", True, False),
     ("kimi-k3", True, False),
-    ("claude-opus-5", False, False),
+    ("claude-opus-5", True, False),
     ("gpt-5.6-terra", False, False),
     ("gpt-5.6-sol", False, False),
-    ("gemini-3.1-pro-preview", False, False),
-    ("gemini-3.8-flash", False, False),
+    ("gemini-3.1-pro-preview", True, False),
+    ("gemini-3.8-flash", True, False),
 ])
 def test_actual_edit_pipeline_keeps_guidance_scoped_to_observed_model_and_feature(
     model, proposer_changed, reviewer_changed,
@@ -140,6 +140,50 @@ def test_actual_edit_pipeline_keeps_guidance_scoped_to_observed_model_and_featur
         guidance = model_prompt_guidance(wrapped, feature)
         assert bool(guidance) is changed
         assert request["system"] == base + guidance
+
+
+@pytest.mark.parametrize("model", [
+    "claude-sonnet-5", "gemini-3.1-pro-preview", "kimi-k3",
+])
+@pytest.mark.parametrize("funded", [False, True])
+def test_stipulated_source_guidance_reaches_assumption_edits_without_replacing_user_source(
+    model, funded,
+):
+    from app.llm.prompts import load_prompt
+
+    class AssumptionClient(CapturingClient):
+        def tool_call(self, **kwargs):
+            response = super().tool_call(**kwargs)
+            response.tool_input = {
+                "id": "committee_clearance",
+                "assumption": {
+                    "description": "The committee is treated as having cleared the plan.",
+                    "source": "committee record", "active": True,
+                },
+            }
+            return response
+
+    scenario = load_bundled_scenario("fire_prevention")
+    af = compute_state_bundle(scenario)["af"]
+    client = AssumptionClient(model)
+    wrapped = RetryingClient(client, attempts=2)
+    if funded:
+        wrapped = FailoverClient(wrapped, None, cooldown_seconds=0)
+    instruction = (
+        'Add an active assumption that the committee has cleared the plan. '
+        'Use "committee record" as the source.'
+    )
+    result = run_propose(
+        scenario, af, [], task="add-assumption", instruction=instruction,
+        scenario_dir=SCENARIO_DIR, client=wrapped,
+    )
+    assert not result.reviewed and len(client.requests) == 1
+    request = client.requests[0]
+    field_reminder = load_prompt("proposer_stipulated_source_field").strip()
+    assert request["system"].count(field_reminder) == 1
+    assert load_prompt("proposer_stipulated_provenance").strip() not in request["system"]
+    assert instruction in request["messages"][0]["content"]
+    assert result.op["assumption"]["source"] == "committee record"
 
 
 @pytest.mark.parametrize("model", [

@@ -1,18 +1,11 @@
 title: "Popov v. Hayashi"
 description: >
-  A property-law dispute over the Barry Bonds 73rd home-run
-  baseball (San Francisco, 2001). Popov stopped the ball's motion
-  and had it in his glove; a mob attacked him; Hayashi retrieved
-  the loose ball. Encoding follows Prakken (2012), Figures 2-5:
-  Hayashi's possession argument (overruled), Popov's possession
-  argument (overruled), both parties' legitimate-claim arguments
-  (justified), and Figure 5 one-sided decision rules (both
-  overruled). The case was ultimately resolved by equitable
-  division. An optional equity-compromise extension (gated by the
-  `equity_compromise_open` assumption, inactive by default) adds
-  the real-world fairness question Prakken's formalism leaves
-  open -- toggling it on produces a two-rule rebut cycle that
-  labels `equal_division` undecided.
+  This scenario is based on the real dispute over Barry Bonds's 73rd home run
+  baseball, hit in San Francisco in 2001. The ball entered Alex Popov's glove
+  before a crowd knocked him down. Patrick Hayashi, who had not attacked
+  Popov, picked up the loose ball, and both men claimed it. The case raises
+  questions about possession, an interrupted catch, and fair treatment when
+  deciding who should own the ball.
 
 facts:
   # --- Material facts (video-tape evidence, p.64) ---

@@ -545,7 +545,12 @@ def _coerce_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def _corrective_retry_message(issues: list[str]) -> str:
+def _corrective_retry_message(issues: list[str], *, quotation_problem: bool = False) -> str:
+    quotation_guidance = (
+        "Copy quoted source text exactly, including case and punctuation, "
+        "or paraphrase without quotation marks and cite.\n\n"
+        if quotation_problem else ""
+    )
     bullets = "\n".join(f"- {i}" for i in issues)
     # Framed as an automated pre-send check, NOT user feedback. If the model
     # thinks the user complained, it responds with an apology/acknowledgment
@@ -560,6 +565,7 @@ def _corrective_retry_message(issues: list[str]) -> str:
         "only identifiers, labels, and corpus filenames that appear in the "
         "Current State and Corpus sections. If the question cannot be answered "
         "from the provided material, say so plainly.\n\n"
+        f"{quotation_guidance}"
         "IMPORTANT: Write only the final answer, addressed directly to the "
         "user. Do not apologize, do not reference this validator message, do "
         "not meta-comment about your previous draft, and do not use phrases "
@@ -626,7 +632,9 @@ def run_turn(
     log.info("chat_validator_retry issues=%d", len(issues))
     retry_conversation = conversation + [
         {"role": "assistant", "content": first_text},
-        {"role": "user", "content": _corrective_retry_message(issues)},
+        {"role": "user", "content": _corrective_retry_message(
+            issues, quotation_problem=bool(quotation_issues),
+        )},
     ]
     second: LLMResponse = client.complete(
         system=system_prompt,

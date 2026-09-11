@@ -307,8 +307,8 @@ const chatComposer = (() => {
     const before = state(), at = before.selection.start;
     const prefix = composerModel.text(composerModel.slice(segments, 0, at));
     const suffix = composerModel.text(composerModel.slice(segments, at));
-    const inserted = [{ type: 'text', text: `${prefix && !prefix.endsWith('\n\n') ? '\n\n' : ''}Can you explain ` },
-      { type: 'reference', ref }, { type: 'text', text: `?${suffix && !suffix.startsWith('\n\n') ? '\n\n' : ''}` }];
+    const inserted = [{ type: 'text', text: prefix && !/\s$/.test(prefix) ? ' ' : '' },
+      { type: 'reference', ref }, { type: 'text', text: suffix && !/^\s/.test(suffix) ? ' ' : '' }];
     const nextAt = at + composerModel.length(inserted);
     commit(composerModel.replace(segments, at, at, inserted), { start: nextAt, end: nextAt }, before, 'Reference added.');
     return true;

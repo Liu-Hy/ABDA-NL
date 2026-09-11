@@ -15,33 +15,6 @@ function shellModalOpener() {
   return menu && !focused.matches('summary') ? menu.querySelector('summary') : focused;
 }
 
-function appendScenarioSuggestions(container) {
-  if (!state.bundle) return;
-  const bundle = state.bundle;
-  const scenario = bundle.scenario;
-  const actions = document.createElement('div');
-  actions.className = 'scenario-suggestions';
-  const add = (label, action) => {
-    const button = document.createElement('button');
-    button.type = 'button'; button.className = 'btn btn-small'; button.textContent = label;
-    button.addEventListener('click', () => { if (state.bundle === bundle) action(); });
-    actions.append(button);
-  };
-  const accepted = Object.keys(scenario.conclusions || {}).find(id =>
-    bundle.af.labels_by_proposition?.[id] === 'accepted' && getCandidateRootArguments(id).length);
-  if (accepted) add(`Explain: ${scenario.conclusions[accepted].description}`, () => openExplainModal(accepted));
-  const inactive = Object.entries(scenario.assumptions || {}).find(([, entry]) => entry.active === false);
-  if (inactive && !state.readOnly) add(`Preview activating: ${inactive[1].description}`, () => previewAndConfirmToggle(
-    { op: 'toggle-assumption', id: inactive[0] },
-    { title: 'Activate this assumption?', summary: `Activate: ${escapeHtml(inactive[1].description)}` },
-  ));
-  if (scenario.corpus?.length || scenario.sources?.length) add('Ask about source documents', () => {
-    chatComposer.insertText('What do the source documents say about this scenario?');
-    revealChatForNarrowLayout(); chatComposer.focus();
-  });
-  if (actions.childElementCount) container.append(actions);
-}
-
 function resetScope() {
   return JSON.stringify([state.authSession.user?.id || null, state.viewKind,
     state.activeProject?.id || state.sharedProject?.id || state.scenario_id,
@@ -283,17 +256,20 @@ function renderShellControls() {
     byId('ai-access-btn').title = byId('ai-access-btn').textContent;
   }
   const background = state.bundle?.scenario.description || '';
-  const scope = resetScope();
-  if (aboutScope !== scope) {
+  const scope = JSON.stringify([state.authSession.user?.id || null, state.viewKind,
+    state.activeProject?.id || state.sharedProject?.id || state.scenario_id]);
+  const about = byId('scenario-about');
+  const aboutButton = byId('scenario-about-btn');
+  if (aboutScope !== scope || !background) {
     aboutScope = scope;
-    let collapsed = false;
-    try { collapsed = localStorage.getItem('abda.about-collapsed') === '1'; } catch (_) { /* Optional preference. */ }
-    byId('scenario-about').hidden = !background || collapsed;
+    if (about.contains(document.activeElement)) {
+      (background ? aboutButton : byId('scenario-menu-btn')).focus();
+    }
+    about.hidden = true;
   }
   byId('scenario-background').textContent = background;
-  byId('scenario-about-btn').hidden = !background;
-  byId('scenario-about-btn').setAttribute('aria-expanded', String(!byId('scenario-about').hidden));
-  if (!background) byId('scenario-about').hidden = true;
+  aboutButton.hidden = !background;
+  aboutButton.setAttribute('aria-expanded', String(!about.hidden));
 }
 
 function initShellUI() {
@@ -310,7 +286,6 @@ function initShellUI() {
   byId('reset-undo-btn').addEventListener('click', undoBaselineReset);
   byId('scenario-about-btn').addEventListener('click', () => {
     byId('scenario-about').hidden = !byId('scenario-about').hidden;
-    try { localStorage.setItem('abda.about-collapsed', byId('scenario-about').hidden ? '1' : '0'); } catch (_) { /* Optional preference. */ }
     renderShellControls();
   });
   for (const [id, field, render] of [

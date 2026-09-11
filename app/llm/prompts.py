@@ -65,16 +65,24 @@ def model_prompt_templates(client: Any, feature: str) -> tuple[str, ...]:
         templates.append("chat_claude_argument_counts")
         if model == "claude-opus-5":
             templates.append("chat_opus_grounded_defeats")
-    if feature == "chat" and model in {"claude-sonnet-5", "deepseek-v4-flash-0731"}:
+    if feature == "chat" and model in {"claude-sonnet-5", "deepseek-v4-flash-0731", "kimi-k3"}:
         templates.append("chat_accepted_defeaters")
+    if feature == "chat" and model == "kimi-k3":
+        templates.append("chat_kimi_comparisons")
     if feature == "reviewer" and model == "claude-sonnet-5":
         templates.append("reviewer_sonnet_scope")
     if feature == "reviewer" and model == "deepseek-v4-flash-0731":
         templates.append("reviewer_deepseek_polarity")
     if feature == "proposer" and model in {
-        "claude-sonnet-5", "glm-5.3", "kimi-k3",
+        "glm-5.3", "gemini-3.8-flash",
     }:
         templates.append("proposer_stipulated_provenance")
+    if feature == "proposer" and model in {
+        "kimi-k3", "gemini-3.1-pro-preview", "claude-sonnet-5",
+    }:
+        templates.append("proposer_stipulated_source_field")
+    if feature == "proposer" and model == "claude-opus-5":
+        templates.append("proposer_fact_negation")
     if feature == "proposer" and model == "deepseek-v4-flash-0731":
         templates.append("proposer_deepseek_provenance")
     if feature == "proposer" and model == "glm-5.3":

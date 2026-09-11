@@ -1298,12 +1298,15 @@ def test_openrouter_byok_rejects_models_without_a_zdr_tool_route(
         )
 
 
-def test_funded_deadline_settles_uncertain_dispatch_on_request_thread(monkeypatch, billing_factory):
+@pytest.mark.parametrize("stop_kind", ["request_deadline", "request_cancelled"])
+def test_funded_deadline_settles_uncertain_dispatch_on_request_thread(monkeypatch, billing_factory, stop_kind):
     import threading
     import time
     from app.llm import routing as routing_module
+    from app.llm.client import cancellable_request
 
     released, finished = threading.Event(), threading.Event()
+    cancelled = threading.Event()
     worker_threads, ledger_threads = [], []
     caller_thread = threading.get_ident()
 
@@ -1311,6 +1314,8 @@ def test_funded_deadline_settles_uncertain_dispatch_on_request_thread(monkeypatc
         def complete(self, **kwargs):
             worker_threads.append(threading.get_ident())
             self.calls += 1
+            if stop_kind == "request_cancelled":
+                cancelled.set()
             try:
                 released.wait(2)
                 return _response("late output")
@@ -1325,16 +1330,16 @@ def test_funded_deadline_settles_uncertain_dispatch_on_request_thread(monkeypatc
         return original_settle(*args, **kwargs)
     monkeypatch.setattr(routing_module, "settle_llm_call", settle)
     raw, backup = StalledProvider(), _SequenceClient([_response("must not run")])
-    deadline = time.monotonic() + .1
+    deadline = time.monotonic() + (.1 if stop_kind == "request_deadline" else 3)
     metered = MeteredClient(raw, model_spec=load_model_catalog().models["claude-sonnet-4-6"],
         context=CallContext(billing_factory.user_id, "deadline-billed", "chat", True),
         charge_emergency=False, session_factory=billing_factory, deadline=deadline)
     client = FailoverClient(RetryingClient(metered, attempts=2, deadline=deadline), backup,
         cooldown_seconds=15, circuits=CircuitRegistry(), deadline=deadline)
     try:
-        with pytest.raises(LLMProviderError) as caught:
+        with cancellable_request(cancelled), pytest.raises(LLMProviderError) as caught:
             client.complete(system="system", messages=[{"role": "user", "content": "question"}], max_tokens=32)
-        assert caught.value.error_type == "request_deadline"
+        assert caught.value.error_type == stop_kind
         assert caught.value.billing_uncertain
         assert finished.wait(.5)
     finally:
@@ -1346,7 +1351,7 @@ def test_funded_deadline_settles_uncertain_dispatch_on_request_thread(monkeypatc
         event = session.scalar(select(LLMUsageEvent).where(LLMUsageEvent.request_id == "deadline-billed"))
         assert reservation.status == "settled"
         assert event.cost_microusd == reservation.reserved_microusd
-        assert event.cost_microusd > 0 and "request_deadline" in event.error_type
+        assert event.cost_microusd > 0 and stop_kind in event.error_type
 
 
 def test_byok_slow_correction_uses_shared_deadline_without_funded_charges(monkeypatch, billing_factory):

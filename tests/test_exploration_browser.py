@@ -187,7 +187,7 @@ def test_question_insertion_preserves_draft_and_requires_explicit_submit(explore
     second = page.locator('[data-context-kind="rule"][data-context-id="r2"]')
     desc = first.get_attribute("data-desc")
     first.click()
-    assert draft.evaluate("() => chatComposer.snapshot().text") == 'Compare \n\nCan you explain "' + desc + '"?\n\nthese positions carefully.'
+    assert draft.evaluate("() => chatComposer.snapshot().text") == 'Compare "' + desc + '" these positions carefully.'
     second.focus()
     second.press("Enter")
     expect(page.locator(".chat-reference-token")).to_have_count(2)
@@ -209,7 +209,8 @@ def test_question_insertion_preserves_draft_and_requires_explicit_submit(explore
     expect(page.locator(".chat-evidence")).to_contain_text("Complete source text.")
     expect(page.locator(".chat-evidence")).not_to_contain_text("UNVERIFIED")
     _capture_exploration(page, tmp_path, "chat-saved-references-and-evidence")
-    page.locator(".chat-formal-context").get_by_role("button", name=re.compile("^Inspect rule r1:")).click()
+    expect(page.locator(".chat-formal-context")).to_have_count(0)
+    page.locator(".chat-msg-user").get_by_role("button", name=re.compile("^Inspect rule r1:")).click()
     expect(page.locator("#derivation-body")).to_contain_text("Saved scenario at the time of this answer")
 
 
@@ -247,6 +248,498 @@ def test_draft_remains_editable_without_access_and_during_pending_request(explor
     assert len(runtime["chat_requests"]) == 1
 
 
+
+def test_stop_aborts_http_request_and_preserves_the_question(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    expect(page.locator('#chat-panel-title')).to_have_text('Chat & Explore')
+    expect(page.locator('.scenario-suggestions')).to_have_count(0)
+    context_button = page.locator('[data-context-kind="rule"][data-context-id="r1"]')
+    expect(context_button.locator('svg.ai-context-icon')).to_have_count(1)
+    assert context_button.text_content() == ''
+    context_button.click()
+    original = page.evaluate('chatComposer.snapshot()')
+    assert original['text'] == '"' + context_button.get_attribute('data-desc') + '"'
+    runtime['hold_chat'] = True
+    page.evaluate('''() => {
+        const original = apiPostChat;
+        apiPostChat = (...args) => { window.__chatSignal = args[3]; return original(...args); };
+    }''')
+    with page.expect_request('**/chat'):
+        page.locator('#chat-send-btn').click()
+    expect(page.locator('#chat-cancel-btn')).to_be_visible()
+    expect(page.locator('#chat-send-btn')).to_be_hidden()
+    page.locator('#chat-cancel-btn').focus()
+    page.locator('#chat-cancel-btn').press('Enter')
+    assert page.evaluate('window.__chatSignal.aborted') is True
+    expect(page.locator('#chat-cancel-btn')).to_be_hidden()
+    expect(page.locator('#chat-send-btn')).to_be_visible()
+    expect(page.locator('#chat-send-btn')).to_be_enabled()
+    expect(page.locator('#chat-input')).to_be_focused()
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+    expect(page.locator('#chat-messages')).to_contain_text('Answer stopped')
+    expect(page.locator('#chat-degraded-note')).to_be_hidden()
+    assert page.evaluate('chatComposer.snapshot()') == original
+    assert page.evaluate('chatRequests.size') == 0
+    # Delivering the server response after the browser abort cannot revive it.
+    runtime['held'].pop().fulfill(status=200, content_type='application/json', body=json.dumps(runtime['response']))
+    page.evaluate('() => flushConversationWrites()')
+    expect(page.locator('#chat-messages')).not_to_contain_text('The claim is undecided')
+    page.reload()
+    _wait_for_history(page)
+    _expect_draft(page, original['text'])
+    expect(page.locator('#chat-messages')).to_contain_text('Answer stopped')
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+    assert len(runtime['chat_requests']) == 1
+
+
+def test_stopped_late_answer_cannot_replace_new_draft_or_finish_new_request(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    page.evaluate('''() => {
+        window.__chatCalls = [];
+        apiPostChat = (...args) => new Promise(resolve => {
+            window.__chatCalls.push({resolve, signal: args[3]});
+        });
+    }''')
+    page.locator('#chat-input').fill('First question')
+    page.locator('#chat-send-btn').click()
+    page.wait_for_function('window.__chatCalls.length === 1')
+    page.locator('#chat-input').fill('A newer question')
+    page.locator('#chat-cancel-btn').click()
+    _expect_draft(page, 'A newer question')
+    page.locator('#chat-send-btn').click()
+    page.wait_for_function('window.__chatCalls.length === 2')
+    page.evaluate('''response => window.__chatCalls[0].resolve({...response, message: 'Obsolete late response'})''', runtime['response'])
+    expect(page.locator('.chat-msg-loading')).to_be_visible()
+    expect(page.locator('#chat-cancel-btn')).to_be_visible()
+    expect(page.locator('#chat-messages')).not_to_contain_text('Obsolete late response')
+    assert page.evaluate('window.__chatCalls[0].signal.aborted') is True
+    assert page.evaluate('window.__chatCalls[1].signal.aborted') is False
+    page.evaluate('''response => window.__chatCalls[1].resolve({...response, message: 'Current response'})''', runtime['response'])
+    expect(page.locator('#chat-messages')).to_contain_text('Current response')
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+    assert [message['content'] for message in page.evaluate('state.chatMessages') if message['role'] == 'user'] == [
+        'First question', 'A newer question',
+    ]
+    page.evaluate('() => flushConversationWrites()')
+    page.reload()
+    expect(page.locator('#chat-messages')).to_contain_text('Current response')
+    expect(page.locator('#chat-messages')).not_to_contain_text('Obsolete late response')
+    assert runtime['chat_requests'] == []
+
+
+def test_stop_during_scenario_capture_sends_no_model_request(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    page.evaluate('''() => {
+        const original = captureConversationSnapshot;
+        captureConversationSnapshot = async (...args) => {
+            const snapshot = await original(...args);
+            return new Promise(resolve => { window.__finishSnapshot = () => resolve(snapshot); });
+        };
+    }''')
+    page.locator('#chat-input').fill('Keep this unsent question')
+    page.locator('#chat-send-btn').click()
+    page.wait_for_function('typeof window.__finishSnapshot === "function"')
+    page.locator('#chat-cancel-btn').click()
+    page.evaluate('window.__finishSnapshot()')
+    expect(page.locator('#chat-send-btn')).to_be_enabled()
+    expect(page.locator('.chat-msg-user')).to_have_count(0)
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+    _expect_draft(page, 'Keep this unsent question')
+    assert runtime['chat_requests'] == []
+    assert page.evaluate('chatRequests.size') == 0
+
+
+@pytest.mark.parametrize("project", [False, True])
+def test_proposal_cancel_aborts_the_http_request_without_changing_the_scenario(explorer_browser, project):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    held = []
+    page.route("**/propose", lambda route: held.append(route))
+    page.evaluate("""project => {
+        if (project) state.activeProject = {id: 'project-a', version: 7};
+        const original = window.fetch;
+        window.fetch = (path, options) => {
+            if (String(path).endsWith('/propose')) window.__proposalSignal = options.signal;
+            return original(path, options);
+        };
+        openEditModal('add-fact');
+    }""", project)
+    page.locator("#edit-instruction").fill("Add a new fact after my review")
+    path = "/api/projects/project-a/propose" if project else "/propose"
+    with page.expect_request(lambda request: urlsplit(request.url).path == path):
+        page.locator('[data-edit-action="propose"]').click()
+    expect(page.locator("#edit-status")).to_contain_text("Proposing")
+    with page.expect_event("requestfailed", predicate=lambda request: urlsplit(request.url).path == path, timeout=5000):
+        page.locator('[data-edit-action="cancel"]').click()
+    assert page.evaluate("window.__proposalSignal.aborted") is True
+    assert page.evaluate("activeProposalRequest") is None
+    assert page.evaluate("editState.inFlight") is False
+    expect(page.locator("#modal-edit")).to_be_hidden()
+    assert len(held) == 1
+    payload = held[0].request.post_data_json
+    assert payload.get("expected_version" if project else "scenario_id") == (7 if project else "test")
+    held.pop().fulfill(status=200, content_type="application/json", body=json.dumps(_proposal_response("Obsolete proposal")))
+    page.evaluate("openEditModal('add-fact')")
+    expect(page.locator("#edit-status")).to_be_empty()
+    expect(page.locator("#edit-preview")).to_be_empty()
+    expect(page.locator('[data-edit-action="propose"]')).to_be_enabled()
+    assert page.evaluate("state.diff_ops") == []
+    assert runtime["chat_requests"] == []
+
+
+def _proposal_response(description="Current proposed fact", billing_source="trial"):
+    return {"op": {"op": "add-fact", "id": "new_fact", "fact": {"description": description}},
+            "reviewed": True, "review_issues": [], "latency_ms": 1, "proposer_attempts": 1,
+            "billing_source": billing_source}
+
+
+def _hold_proposals_ignoring_abort(page):
+    # Keep responses independently resolvable, including a transport that ignores abort.
+    page.evaluate("""() => {
+        window.__proposalCalls = [];
+        window.__proposalRefreshes = [];
+        const original = window.fetch;
+        window.fetch = (path, options) => String(path).endsWith('/propose')
+            ? new Promise((resolve, reject) => window.__proposalCalls.push({resolve, reject, signal: options.signal}))
+            : original(path, options);
+        refreshTrialBalanceQuietly = () => window.__proposalRefreshes.push(state.authSession.user?.id);
+    }""")
+
+
+@pytest.mark.parametrize(("close_action", "late_outcome"), [
+    ("cancel", "success"), ("close", "http-error"), ("escape", "network-error"), ("reopen", "success"),
+])
+def test_cancelled_proposal_cannot_replace_or_finish_a_new_request(explorer_browser, close_action, late_outcome):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    _hold_proposals_ignoring_abort(page)
+    page.evaluate("""() => {
+        state.llmAccess.mode = 'byok'; state.llmAccess.apiKey = 'test-only-key';
+        openEditModal('add-fact');
+    }""")
+    page.locator("#edit-instruction").fill("Old proposal instruction")
+    page.locator('[data-edit-action="propose"]').click()
+    page.wait_for_function("window.__proposalCalls.length === 1")
+    if close_action == "cancel":
+        page.locator('[data-edit-action="cancel"]').click()
+    elif close_action == "close":
+        page.locator("#modal-edit .modal-close").click()
+    elif close_action == "escape":
+        page.keyboard.press("Escape")
+    page.evaluate("openEditModal('add-fact')")
+    page.locator("#edit-instruction").fill("New proposal instruction")
+    page.locator('[data-edit-action="propose"]').click()
+    page.wait_for_function("window.__proposalCalls.length === 2")
+    assert page.evaluate("window.__proposalCalls[0].signal.aborted") is True
+    assert page.evaluate("window.__proposalCalls[1].signal.aborted") is False
+    page.evaluate("""({outcome, body}) => {
+        const old = window.__proposalCalls[0];
+        if (outcome === 'network-error') old.reject(new Error('Obsolete network error'));
+        else old.resolve(new Response(JSON.stringify(outcome === 'success' ? body :
+            {detail: {code: 'llm_unavailable', message: 'Obsolete provider error'}}),
+            {status: outcome === 'success' ? 200 : 503}));
+    }""", {"outcome": late_outcome, "body": _proposal_response("Obsolete proposal", "byok")})
+    expect(page.locator("#edit-status")).to_contain_text("Proposing")
+    expect(page.locator("#edit-status")).not_to_contain_text("Obsolete")
+    expect(page.locator("#edit-preview")).to_be_empty()
+    expect(page.locator("#edit-instruction")).to_have_value("New proposal instruction")
+    expect(page.locator('[data-edit-action="propose"]')).to_be_disabled()
+    assert page.evaluate("activeProposalRequest.controller.signal === window.__proposalCalls[1].signal") is True
+    page.evaluate("body => window.__proposalCalls[1].resolve(new Response(JSON.stringify(body)))",
+                  _proposal_response(billing_source="byok"))
+    expect(page.locator("#edit-preview")).to_contain_text("Current proposed fact")
+    expect(page.locator('[data-edit-action="apply"]')).to_be_enabled()
+    assert page.evaluate("activeProposalRequest") is None
+    assert page.evaluate("window.__proposalRefreshes") == []
+    assert page.evaluate("state.diff_ops") == []
+
+
+@pytest.mark.parametrize("return_to_original_account", [False, True])
+def test_proposal_cancellation_and_balance_refresh_stay_with_the_original_account(explorer_browser, return_to_original_account):
+    from playwright.sync_api import expect
+
+    page, _ = explorer_browser
+    _hold_proposals_ignoring_abort(page)
+    page.evaluate("""() => {
+        window.__delayedProposalRefreshes = [];
+        const original = window.setTimeout;
+        window.setTimeout = (callback, delay, ...args) => delay === 1500
+            ? window.__delayedProposalRefreshes.push(() => callback(...args))
+            : original(callback, delay, ...args);
+        openEditModal('add-fact');
+    }""")
+    page.locator("#edit-instruction").fill("Old account instruction")
+    page.locator('[data-edit-action="propose"]').click()
+    page.wait_for_function("window.__proposalCalls.length === 1")
+    page.evaluate("""() => {
+        state.authSession.user = {id: 'researcher-b', email: 'other@example.edu'};
+        renderAccountUI();
+    }""")
+    _wait_for_history(page, "researcher-b")
+    expect(page.locator("#modal-edit")).to_be_hidden()
+    assert page.evaluate("window.__proposalCalls[0].signal.aborted") is True
+    current_account = "researcher-b"
+    if return_to_original_account:
+        page.evaluate("""() => {
+            state.authSession.user = {id: 'researcher-a', email: 'test@example.edu'};
+            renderAccountUI();
+        }""")
+        current_account = "researcher-a"
+        _wait_for_history(page, current_account)
+    page.evaluate("openEditModal('add-fact')")
+    page.locator("#edit-instruction").fill("Current account instruction")
+    page.locator('[data-edit-action="propose"]').click()
+    page.wait_for_function("window.__proposalCalls.length === 2")
+    page.evaluate("""body => {
+        window.__proposalCalls[0].resolve(new Response(JSON.stringify(body)));
+        window.__delayedProposalRefreshes.forEach(callback => callback());
+    }""", _proposal_response("Previous account proposal"))
+    expect(page.locator("#edit-status")).to_contain_text("Proposing")
+    expect(page.locator("#edit-preview")).to_be_empty()
+    expect(page.locator("#edit-instruction")).to_have_value("Current account instruction")
+    expect(page.locator('[data-edit-action="propose"]')).to_be_disabled()
+    assert page.evaluate("window.__proposalRefreshes") == []
+    assert page.evaluate("window.__proposalCalls[1].signal.aborted") is False
+    page.evaluate("body => window.__proposalCalls[1].resolve(new Response(JSON.stringify(body)))", _proposal_response())
+    expect(page.locator("#edit-preview")).to_contain_text("Current proposed fact")
+    assert page.evaluate("window.__proposalRefreshes") == [current_account]
+    assert page.evaluate("activeProposalRequest") is None
+    assert page.evaluate("state.diff_ops") == []
+
+
+def _project_summary(project_id, name, *, archived=True, version=2):
+    return {"id": project_id, "name": name, "description": "", "version": version,
+            "archived_at": "2026-09-11T00:00:00Z" if archived else None,
+            "created_at": "2026-09-10T00:00:00Z", "updated_at": "2026-09-11T00:00:00Z",
+            "source_scenario_id": "test", "submissions": [], "active_share_count": 0}
+
+
+def _mock_project_deletion_api(page, runtime):
+    runtime.update({"private_active": [_project_summary("active", "Active project", archived=False)],
+                    "private_archived": [_project_summary("archive-a", "First archived project"),
+                                         _project_summary("archive-b", "Second archived project")],
+                    "project_deletions": [], "project_delete_held": [], "hold_project_delete": False})
+
+    def handle(route):
+        request = route.request
+        url = urlsplit(request.url)
+        if url.path == "/api/projects/archived/delete":
+            targets = request.post_data_json["projects"]
+            runtime["project_deletions"].append(targets)
+            if runtime["hold_project_delete"]:
+                runtime["project_delete_held"].append(route)
+                return
+            if runtime.get("project_delete_conflict"):
+                route.fulfill(status=409, content_type="application/json", body=json.dumps(
+                    {"detail": {"code": "project_version_conflict", "message": "The project changed."}}))
+                return
+            deleted = {project["id"] for project in targets}
+            runtime["private_archived"] = [project for project in runtime["private_archived"] if project["id"] not in deleted]
+            payload = {"deleted_ids": sorted(deleted), "deleted_count": len(deleted)}
+        else:
+            assert url.path == "/api/projects"
+            payload = {"projects": runtime["private_archived"] if url.query == "archived=true" else runtime["private_active"]}
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(payload))
+
+    page.route("**/api/projects**", handle)
+
+
+def _open_archived_projects(page):
+    from playwright.sync_api import expect
+
+    page.evaluate("openWorkspace('projects')")
+    page.locator("#projects-archived-filter").click()
+    expect(page.locator("#projects-archived-filter")).to_have_attribute("aria-pressed", "true")
+
+
+def test_archived_deletion_keyboard_narrow_confirmation_and_exact_displayed_targets(explorer_browser, tmp_path):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _mock_project_deletion_api(page, runtime)
+    page.set_viewport_size({"width": 390, "height": 844})
+    _open_archived_projects(page)
+    expect(page.locator("#project-list .project-card")).to_have_count(2)
+    first_checkbox = page.get_by_role("checkbox", name="Select First archived project for deletion")
+    first_delete = page.locator("#projects-delete-selected")
+    expect(first_delete).to_be_disabled()
+    first_checkbox.focus()
+    first_checkbox.press("Space")
+    expect(first_checkbox).to_be_checked()
+    expect(page.locator("#projects-selected-count")).to_have_text("1 selected")
+    messages = []
+    page.once("dialog", lambda dialog: (messages.append(dialog.message), dialog.dismiss()))
+    first_delete.focus()
+    first_delete.press("Enter")
+    assert runtime["project_deletions"] == []
+    assert 'First archived project' in messages[0] and 'cannot be undone' in messages[0]
+    assert 'Submitted and published example snapshots will remain' in messages[0]
+    _capture_exploration(page, tmp_path, "archived-project-deletion-390")
+    assert page.locator("#workspace-panel-projects").evaluate("panel => panel.scrollWidth <= panel.clientWidth")
+    page.once("dialog", lambda dialog: dialog.accept())
+    first_delete.press("Space")
+    expect(page.locator("#projects-status")).to_contain_text('Permanently deleted "First archived project"')
+    expect(page.locator("#project-list .project-card")).to_have_count(1)
+    assert runtime["project_deletions"] == [[{"id": "archive-a", "expected_version": 2}]]
+
+    def confirm_batch(dialog):
+        messages.append(dialog.message)
+        # Another tab archives a project while this confirmation is displayed.
+        runtime["private_archived"].append(_project_summary("new-archive", "Newly archived elsewhere"))
+        dialog.accept()
+
+    page.once("dialog", confirm_batch)
+    page.locator("#projects-delete-all").focus()
+    page.locator("#projects-delete-all").press("Enter")
+    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
+    expect(page.locator("#project-list")).to_contain_text("Newly archived elsewhere")
+    assert "all 1 currently listed archived private project" in messages[-1]
+    assert "Projects archived later are not included" in messages[-1]
+    assert runtime["project_deletions"][-1] == [{"id": "archive-b", "expected_version": 2}]
+    assert [project["id"] for project in runtime["private_active"]] == ["active"]
+    assert page.evaluate("state.diff_ops") == []
+    page.locator("#projects-active-filter").click()
+    expect(page.locator("#project-list")).to_contain_text("Active project")
+    expect(page.locator("#projects-delete-all")).to_be_hidden()
+    expect(page.locator('[data-project-select]')).to_have_count(0)
+
+
+def test_bulk_project_deletion_conflict_refreshes_without_retry_or_partial_success(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _mock_project_deletion_api(page, runtime)
+    _open_archived_projects(page)
+    expect(page.locator("#project-list .project-card")).to_have_count(2)
+
+    def restore_elsewhere(dialog):
+        restored = runtime["private_archived"].pop()
+        restored["archived_at"] = None
+        restored["version"] += 1
+        runtime["private_active"].append(restored)
+        runtime["project_delete_conflict"] = True
+        dialog.accept()
+
+    page.once("dialog", restore_elsewhere)
+    page.locator("#projects-delete-all").click()
+    expect(page.locator("#projects-status")).to_contain_text("Nothing was deleted")
+    expect(page.locator("#projects-status")).to_contain_text("Review the refreshed list")
+    expect(page.locator("#project-list")).to_contain_text("First archived project")
+    expect(page.locator("#project-list")).not_to_contain_text("Second archived project")
+    expect(page.locator("#projects-delete-all")).to_be_enabled()
+    assert len(runtime["project_deletions"]) == 1
+    assert [project["id"] for project in runtime["private_archived"]] == ["archive-a"]
+    page.locator("#projects-active-filter").click()
+    expect(page.locator("#project-list")).to_contain_text("Second archived project")
+
+
+def test_archived_selection_supports_multiple_items_and_discards_changed_versions(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _mock_project_deletion_api(page, runtime)
+    runtime["private_archived"].append(_project_summary("archive-c", "Third archived project"))
+    _open_archived_projects(page)
+    first = page.locator('[data-project-select="archive-a"]')
+    second = page.locator('[data-project-select="archive-b"]')
+    first.check()
+    second.check()
+    expect(page.locator("#projects-selected-count")).to_have_text("2 selected")
+    # A background refresh cannot silently extend consent to a newer version.
+    runtime["private_archived"][0]["version"] = 4
+    page.locator("#projects-refresh-btn").click()
+    expect(first).not_to_be_checked()
+    expect(second).to_be_checked()
+    expect(page.locator("#projects-selected-count")).to_have_text("1 selected")
+    first.check()
+    messages = []
+    page.once("dialog", lambda dialog: (messages.append(dialog.message), dialog.accept()))
+    page.locator("#projects-delete-selected").click()
+    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 2 archived projects")
+    assert "2 selected archived private projects" in messages[0]
+    assert runtime["project_deletions"] == [[
+        {"id": "archive-a", "expected_version": 4}, {"id": "archive-b", "expected_version": 2},
+    ]]
+    expect(page.locator("#project-list")).to_contain_text("Third archived project")
+    expect(page.locator("#projects-selected-count")).to_have_text("0 selected")
+    expect(page.locator("#projects-delete-selected")).to_be_disabled()
+    page.locator('[data-project-select="archive-c"]').check()
+    page.locator("#projects-active-filter").click()
+    page.locator("#projects-archived-filter").click()
+    expect(page.locator('[data-project-select="archive-c"]')).not_to_be_checked()
+
+
+@pytest.mark.parametrize(("current_account", "old_status"), [("researcher-b", 200), ("researcher-a", 409)])
+def test_late_project_deletion_cannot_change_a_new_accounts_pending_action(explorer_browser, current_account, old_status):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _mock_project_deletion_api(page, runtime)
+    runtime["hold_project_delete"] = True
+    page.on("dialog", lambda dialog: dialog.accept())
+    _open_archived_projects(page)
+    expect(page.locator("#project-list .project-card")).to_have_count(2)
+    page.locator("#projects-delete-all").click()
+    expect(page.locator("#projects-delete-all")).to_be_disabled()
+    page.evaluate("""() => {
+        state.authSession.user = {id: 'researcher-b', email: 'other@example.edu'};
+        renderAccountUI();
+    }""")
+    _wait_for_history(page, "researcher-b")
+    expect(page.locator("#projects-status")).to_be_empty()
+    if current_account == "researcher-a":
+        page.evaluate("""() => {
+            state.authSession.user = {id: 'researcher-a', email: 'test@example.edu'};
+            renderAccountUI();
+        }""")
+        _wait_for_history(page, current_account)
+    runtime["user"] = current_account
+    runtime["private_archived"] = [_project_summary("current-archive", "Current account project")]
+    _open_archived_projects(page)
+    expect(page.locator("#project-list")).to_contain_text("Current account project")
+    page.locator("#projects-delete-all").click()
+    expect(page.locator("#projects-delete-all")).to_be_disabled()
+    assert len(runtime["project_delete_held"]) == 2
+    old = runtime["project_delete_held"].pop(0)
+    old.fulfill(status=old_status, content_type="application/json", body=json.dumps(
+        {"deleted_ids": ["archive-a", "archive-b"], "deleted_count": 2} if old_status == 200 else
+        {"detail": {"code": "project_version_conflict", "message": "Old account conflict"}}))
+    expect(page.locator("#projects-status")).to_have_text("Deleting archived projects...")
+    expect(page.locator("#project-list")).to_contain_text("Current account project")
+    expect(page.locator("#projects-delete-all")).to_be_disabled()
+    assert page.evaluate("projectDeletionRequest.account") == current_account
+    runtime["private_archived"] = []
+    runtime["project_delete_held"].pop().fulfill(status=200, content_type="application/json", body=json.dumps(
+        {"deleted_ids": ["current-archive"], "deleted_count": 1}))
+    expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
+    expect(page.locator("#project-list")).to_contain_text("No archived projects")
+    expect(page.locator("#projects-delete-all")).to_be_disabled()
+    assert page.evaluate("projectDeletionRequest") is None
+
+
+def test_unsupported_legacy_archive_count_keeps_selected_delete_available(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _mock_project_deletion_api(page, runtime)
+    runtime["private_archived"] = [_project_summary(f"legacy-{index}", f"Legacy project {index}") for index in range(501)]
+    _open_archived_projects(page)
+    expect(page.locator("#project-count")).to_have_text("501 projects")
+    expect(page.locator("#projects-delete-all")).to_be_disabled()
+    expect(page.locator("#projects-delete-limit")).to_be_visible()
+    page.locator('[data-project-select]').first.check()
+    expect(page.locator('#projects-delete-selected')).to_be_enabled()
+    assert runtime["project_deletions"] == []
+
+
 def test_history_export_snapshot_fork_reload_and_account_isolation(explorer_browser):
     from playwright.sync_api import expect
 
@@ -270,6 +763,8 @@ def test_history_export_snapshot_fork_reload_and_account_isolation(explorer_brow
     raw = json.dumps(exported)
     assert "secret-provider-placeholder" not in raw and "secret-bearer-placeholder" not in raw
     record = exported["conversation"]
+    expect(page.locator(".conversation-turn-controls summary")).to_have_count(0)
+    expect(page.locator(".conversation-turn-controls")).not_to_contain_text("Snapshot")
     snapshot = record["snapshots"][record["messages"][0]["snapshot_id"]]
     assert snapshot["scenario"]["scenario"]["assumptions"]["a"]["active"] is False
     assert snapshot["scenario"]["scenario"]["sources"][0]["text"].startswith("Complete source text.")
@@ -278,7 +773,7 @@ def test_history_export_snapshot_fork_reload_and_account_isolation(explorer_brow
     page.reload()
     expect(page.locator("#chat-messages")).to_contain_text("Which conclusion changed?")
     _expect_draft(page, "Saved unfinished follow-up")
-    page.get_by_role("button", name="Fork with current scenario", exact=True).click()
+    page.get_by_role("button", name="Edit in new chat", exact=True).click()
     _expect_draft(page, "Which conclusion changed?")
     expect(page.locator("#conversation-select option")).to_have_count(2)
     assert page.evaluate("activeConversation().fork_of.new_question_scenario") == "current"
@@ -653,7 +1148,7 @@ def test_stale_refresh_limit_and_forked_context_keep_editable_text(explorer_brow
     expect(page.locator(".chat-reference-stale")).to_have_count(0)
     page.locator("#chat-send-btn").click()
     expect(page.locator(".chat-msg-assistant")).to_contain_text("The claim is undecided")
-    page.get_by_role("button", name="Fork with current scenario", exact=True).click()
+    page.get_by_role("button", name="Edit in new chat", exact=True).click()
     expect(page.locator(".chat-reference-stale")).to_have_count(1)
     page.get_by_role("button", name="Refresh rule r1 for the current scenario").click()
     expect(page.locator(".chat-reference-stale")).to_have_count(0)
@@ -707,9 +1202,9 @@ def test_evidence_roles_cost_notice_and_announcements_do_not_conflate_assurance(
     expect(page.locator(".chat-evidence")).to_contain_text("Quotation matched")
     expect(page.locator(".chat-evidence")).to_contain_text("Suggested reading context")
     expect(page.locator(".chat-evidence")).to_contain_text("Supplied source excerpt")
-    # Older archives without an explicit selection field retain formal inspection.
+    # Older archives retain evidence without recreating the repetitive footer.
     page.evaluate("() => { delete activeConversation().messages[0].context_refs; renderChat(); }")
-    expect(page.locator(".chat-formal-context")).to_contain_text("Evidence is available")
+    expect(page.locator(".chat-formal-context")).to_have_count(0)
     page.evaluate("""() => {
         window.__announcementChanges = 0;
         new MutationObserver(() => window.__announcementChanges++).observe(
@@ -887,7 +1382,7 @@ def test_atomic_reference_conversion_remove_and_undo_are_local(explorer_browser)
     remove.press('Enter')
     expect(page.locator('#chat-input .chat-reference-token')).to_have_count(0)
     assert _draft_text(page).startswith('My careful question. ')
-    assert _draft_text(page).endswith('Can you explain ?')
+    assert _draft_text(page) == 'My careful question. '
     page.locator('#chat-input').press('Control+z')
     expect(page.locator('#chat-input .chat-reference-token')).to_have_count(1)
     assert _draft_text(page) == original
@@ -1006,7 +1501,8 @@ def test_no_documents_retains_formal_context_and_reader_clears_on_account_change
     expect(page.locator('#chat-no-documents')).to_be_visible()
     page.evaluate("addQuestionDraft('First record','fact','p1')")
     page.locator('#chat-send-btn').click()
-    expect(page.locator('.chat-formal-context')).to_contain_text('First record')
+    expect(page.locator('.chat-msg-user .chat-formal-reference')).to_contain_text('First record')
+    expect(page.locator('.chat-formal-context')).to_have_count(0)
     expect(page.locator('.chat-evidence')).to_have_count(0)
     page.evaluate('openSourcesReader()')
     expect(page.locator('#source-reader-documents')).to_contain_text('No reference documents attached')
@@ -1042,6 +1538,7 @@ def test_caret_crosses_reference_atomically_and_backspace_preserves_prose(explor
     from playwright.sync_api import expect
 
     page, runtime = explorer_browser
+    page.locator('#chat-input').fill('Consider ')
     page.locator('[data-context-kind="rule"][data-context-id="r1"]').click()
     page.locator('#chat-input').evaluate("""input => {
       const token=input.querySelector('.chat-reference-token'); const range=document.createRange(); range.setStartAfter(token); range.collapse(true);
@@ -1050,11 +1547,11 @@ def test_caret_crosses_reference_atomically_and_backspace_preserves_prose(explor
     page.keyboard.press('ArrowLeft')
     page.keyboard.press('Backspace')
     expect(page.locator('#chat-input .chat-reference-token')).to_have_count(1)
-    assert _draft_text(page).startswith('Can you explain"')
+    assert _draft_text(page).startswith('Consider"')
     page.keyboard.press('ArrowRight')
     page.keyboard.press('Backspace')
     expect(page.locator('#chat-input .chat-reference-token')).to_have_count(0)
-    _expect_draft(page, 'Can you explain?')
+    _expect_draft(page, 'Consider')
     page.keyboard.press('Control+z')
     expect(page.locator('#chat-input .chat-reference-token')).to_have_count(1)
     assert runtime['chat_requests'] == []
@@ -1103,7 +1600,7 @@ def test_legacy_reference_draft_and_fork_keep_original_words_without_matching(ex
     _expect_draft(page, 'Compare these two rules.\n"First rule"\n"Second rule"')
     expect(page.locator('#chat-input .chat-reference-token')).to_have_count(2)
     assert page.evaluate('activeConversation().messages[0].content') == 'My exact earlier wording.'
-    page.get_by_role('button', name='Fork with current scenario', exact=True).click()
+    page.get_by_role('button', name='Edit in new chat', exact=True).click()
     assert _draft_text(page).startswith('My exact earlier wording.\n')
     assert [item['id'] for item in page.evaluate('state.chatContextRefs')] == ['r1', 'r2']
     expect(page.locator('#chat-input .chat-reference-stale')).to_have_count(2)

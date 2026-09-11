@@ -17,7 +17,7 @@ from app.db.models import User
 from app.llm import LLMClient, LLMResponseValidationError, resolve_backend
 from app.llm.catalog import ModelCatalog, ProfileSpec, load_model_catalog
 from app.llm.client import (
-    LLMAccountingUnavailableError, LLMRequestDeadlineError,
+    LLMAccountingUnavailableError, LLMRequestCancelledError, LLMRequestDeadlineError,
     LLMRequestValidationError, resolve_claude_provider,
 )
 from app.llm.providers import LLMProviderError
@@ -266,6 +266,13 @@ def _llm_http_exception(exc: Exception, *, byok: bool) -> HTTPException:
         return HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={"code": "trial_credit_required", "message": str(exc)},
+        )
+    if isinstance(exc, LLMRequestCancelledError) or (
+        isinstance(exc, LLMProviderError) and exc.error_type == "request_cancelled"
+    ):
+        return HTTPException(
+            status_code=499,
+            detail={"code": "llm_request_cancelled", "message": "The AI request was stopped."},
         )
     if isinstance(exc, LLMRequestDeadlineError) or (
         isinstance(exc, LLMProviderError) and exc.error_type == "request_deadline"

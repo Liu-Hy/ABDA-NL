@@ -234,6 +234,12 @@ def evaluate_chat(case: dict[str, Any], client) -> dict[str, Any]:
     )
     grounded = not result.validator_flags and result.stop_reason != "grounding_rejected"
     semantic_checks = _chat_semantic_checks(case, result.text, scenario, bundle, scenario_dir)
+    for source in case.get("required_highlight_sources", []):
+        semantic_checks[f"highlight_{source}"] = any(
+            item.get("kind") == "source" and item.get("source") == source
+            and item.get("verified") and item.get("end", 0) > item.get("start", 0)
+            for item in result.evidence
+        )
     return {
         "passed": grounded and concepts_passed and all(semantic_checks.values()),
         "grounded": grounded,
@@ -242,6 +248,7 @@ def evaluate_chat(case: dict[str, Any], client) -> dict[str, Any]:
         "semantic_checks": semantic_checks,
         "engine_labels": bundle["af"]["labels_by_proposition"],
         "context_refs": context_refs,
+        "evidence": result.evidence,
         "text": result.text,
         "retried": result.retried,
         "validator_flags": result.validator_flags,
@@ -682,7 +689,7 @@ def run_evaluation(
     if allow_emergency_spend:
         raise EvaluationConfigurationError("paid OpenRouter evaluations are prohibited by the CloudBank-only authorization")
     if not 0 < paid_run_cap_microusd <= MAX_CLOUDBANK_EVALUATION_MICROUSD:
-        raise EvaluationConfigurationError("evaluation cap must be within the authorized $100")
+        raise EvaluationConfigurationError("evaluation cap must be within the authorized $150")
     cases = _selected_cases(suite, smoke=smoke, case_ids=case_ids)
     rate_limits = rate_limits or {}
     if rate_limits and not set(route_ids).issubset(rate_limits):
@@ -719,6 +726,7 @@ def run_evaluation(
     metadata = {
         "suite_sha256": suite_hash, "routes": route_ids, "repetitions": repetitions,
         "case_ids": [case["id"] for case in cases], "phase": phase,
+        "execution_order": "case_then_repetition",
         "implementation_sha256": fingerprint["sha256"], "run_limit_microusd": paid_run_cap_microusd,
         "model_configuration_sha256": digest(model_evidence),
         "rate_limits": {route: asdict(rate_limits[route]) for route in route_ids if route in rate_limits},
@@ -761,8 +769,11 @@ def run_evaluation(
                 deployment=f"{route.provider}:{model_evidence[route_id]['deployment'] or route.model}",
                 rate=rate_limits[route_id], physical_attempts=router.settings.llm_retry_attempts,
             ) if route_id in rate_limits else None
-            for repetition in range(1, repetitions + 1):
-                for case in cases:
+            # Keep repetitions adjacent so unchanged prompt prefixes can use
+            # provider caching. Every observation still has a fresh client and
+            # independently recorded output, usage, and accounting.
+            for case in cases:
+                for repetition in range(1, repetitions + 1):
                     if (route_id, case["id"], repetition) in completed:
                         continue
                     if stop_file is not None and stop_file.exists():

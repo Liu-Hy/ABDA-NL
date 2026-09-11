@@ -121,6 +121,16 @@ def _quote_sources(response: str, quote: re.Match[str], citations: list[re.Match
         if quote.group(3) is not None and item.start() < quote.end():
             return True  # The citation is inside this blockquote.
         gap = response[quote.end():item.start()]
+        # Coordinated quotations can share a trailing citation, even when
+        # each quoted sentence includes its own terminal punctuation.
+        quoted_tail = r'(?:"[^"]*"|“[^”]*”)'
+        if re.fullmatch(rf"\s*(?:(?:and|or)\s+{quoted_tail}\s*)+", gap):
+            return True
+        # A sentence can end inside its closing quotation mark. Keep an
+        # immediately following citation local, but stop at later prose.
+        content = quote.group(1) or quote.group(2) or ""
+        if re.search(r"[.!?]\s*$", content):
+            gap = content.rstrip()[-1] + quote.group(0)[-1] + gap
         return not re.search(r"[.!?][\"'’”)*_]*\s+(?=\S)", gap)
 
     following = [item for item in local

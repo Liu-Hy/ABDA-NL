@@ -48,6 +48,68 @@ def test_scenario_menu_keyboard_focus_does_not_load_until_activation(explorer_br
     assert runtime['chat_requests'] == []
 
 
+@pytest.mark.parametrize('width', [1440, 390])
+def test_about_starts_closed_and_resets_on_scenario_and_project_switch(explorer_browser, width):
+    from playwright.sync_api import expect
+    page, runtime = explorer_browser
+    page.set_viewport_size({'width': width, 'height': 900})
+    about = page.locator('#scenario-about')
+    button = page.locator('#scenario-about-btn')
+    expect(about).to_be_hidden()
+    expect(button).to_have_attribute('aria-expanded', 'false')
+
+    # An old persisted preference cannot reopen the background on a fresh load.
+    page.evaluate("localStorage.setItem('abda.about-collapsed', '0')")
+    page.reload()
+    expect(page.locator('#scenario-name')).to_have_text(runtime['bundle']['scenario']['title'])
+    expect(about).to_be_hidden()
+    button.focus()
+    page.keyboard.press('Space')
+    expect(about).to_be_visible()
+    expect(button).to_be_focused()
+    expect(button).to_have_attribute('aria-expanded', 'true')
+    page.evaluate('() => renderAll()')
+    expect(about).to_be_visible()
+    page.keyboard.press('Enter')
+    expect(about).to_be_hidden()
+    expect(button).to_be_focused()
+    button.click()
+
+    runtime['bundle'] = deepcopy(runtime['bundle'])
+    runtime['bundle']['scenario']['title'] = 'Another example'
+    runtime['bundle']['scenario']['description'] = 'Background for another example.'
+    page.evaluate("""() => {
+      state.scenarios.push({id: 'other', title: 'Another example'});
+      renderScenarioChoices();
+    }""")
+    page.locator('#scenario-menu-btn').click()
+    page.locator('[data-scenario-key="example:other"]').focus()
+    page.keyboard.press('Enter')
+    expect(page.locator('#scenario-name')).to_have_text('Another example')
+    expect(about).to_be_hidden()
+    expect(button).to_have_attribute('aria-expanded', 'false')
+    expect(page.locator('#scenario-menu-btn')).to_be_focused()
+    button.click()
+
+    project = {'id': 'about-project', 'name': 'Private background', 'version': 1,
+               'source_scenario_id': 'other', **deepcopy(runtime['bundle'])}
+    page.route('**/api/projects/about-project', lambda route: route.fulfill(
+        content_type='application/json', body=json.dumps(project)))
+    page.evaluate("() => loadProject('about-project')")
+    expect(page.locator('#context-indicator')).to_have_text('Private project')
+    expect(about).to_be_hidden()
+    button.click()
+    page.evaluate("() => {state.activeProject.version += 1; renderShellControls();}")
+    expect(about).to_be_visible()
+    about.focus()
+    page.evaluate("() => loadScenario('test')")
+    expect(page.locator('#context-indicator')).to_have_text('Example')
+    expect(about).to_be_hidden()
+    expect(button).to_be_focused()
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+    assert runtime['chat_requests'] == []
+
+
 def test_reset_keeps_conversation_and_draft_with_a_version_bound_undo(explorer_browser):
     from playwright.sync_api import expect
     page, runtime = explorer_browser
@@ -243,6 +305,10 @@ def test_readable_layout_has_no_horizontal_overflow_and_records_screenshot(explo
     bundle = compute_state_bundle(load_scenario(Path('examples/popov_v_hayashi/scenario.yaml')))
     _set_bundle(page, bundle)
     page.set_viewport_size({'width': width, 'height': height})
+    # WebKit may paint the old media-query layout during the first resize frame.
+    page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+    if width <= 780:
+        expect(page.locator('#left-panel')).to_have_css('min-width', '0px')
     directory = Path(os.getenv('ABDA_BROWSER_ARTIFACT_DIR', str(tmp_path)))
     directory.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(directory / f'explorer-{width}.png'), full_page=True)
@@ -251,7 +317,8 @@ def test_readable_layout_has_no_horizontal_overflow_and_records_screenshot(explo
       [...document.querySelectorAll('body *')].filter(el => el.getClientRects().length && el.getBoundingClientRect().right > innerWidth + 1)
       .slice(0, 16).map(el => ({id: el.id, cls: el.className, width: el.getBoundingClientRect().width}))
     """)
-    assert page.locator('.conclusion-label').first.evaluate('el => getComputedStyle(el).fontSize') == '15px'
+    expected_font = '14px' if width <= 780 else '13px'
+    assert page.locator('.conclusion-label').first.evaluate('el => getComputedStyle(el).fontSize') == expected_font
     assert page.locator('.conclusion-label').first.evaluate('el => el.scrollWidth <= el.clientWidth + 1')
     if width <= 780:
         card = page.locator('.conclusion-card').first
@@ -264,6 +331,7 @@ def test_readable_layout_has_no_horizontal_overflow_and_records_screenshot(explo
     if width in (1280, 720):
         from axe_playwright_python.sync_playwright import Axe
         if width == 720:
+            page.locator('#scenario-about-btn').click()
             page.locator('#scenario-about').focus()
             expect(page.locator('#scenario-about')).to_be_focused()
         report = Axe().run(page, options={'runOnly': {'type': 'tag', 'values': ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']}})

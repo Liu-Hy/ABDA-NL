@@ -11,8 +11,9 @@ The recent revision work starts after `85bd4ae75d09a55fb65d1cd254d2ab1d833e8e18`
 Tim reviewed code snapshot `026fde9f0c5024c48a4d1c935b05d459d9e29349`.
 The subsequent correction work starts from `94febed`; inspect the current
 commit and the correction status below for its validation boundary.
-Review existing foundations as well as this diff wherever R01-R16 or E01-E07
-depend on them.
+Review existing foundations as well as this diff wherever R01-R21 or E01-E07
+depend on them. The later refinement adds R17-R21 and supersedes the earlier
+question-frame, starter, Snapshot-control, typography, About and default-model choices.
 
 The latest hosted source is `2037b60118f481e1e787d5713e999af39a19b923`, deployed
 to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
@@ -55,16 +56,19 @@ reviewer should judge whether it adequately fulfills the contract.
 | MCP scopes | Personal scoped tokens protect account-owned projects; OAuth is deferred. `llm:use` permits reading project context through `ask_project` and `propose_project_edit`; direct `get_project` still requires `projects:read`. Token issuance states this read implication. This is an inherited engineering choice. |
 | Repeat introductory credit | Haoyang accepted the recommended no-repeat policy after account deletion. Re-registration and BYOK remain available. Keyed markers cover a known verified email and issuer/subject pair for the program lifetime. Different credentials are not proof of a distinct person. Public identities deleted before this migration cannot be reconstructed. |
 | Administrator credit and roles | $50 means a lifetime total, retaining prior spending/reservations. Five entitlements use a separate $250 pool, preserving 100 public $5 places/$500 and the separate $500 OpenRouter emergency cap. These budget interpretations were accepted. The owner subsequently explicitly made all five named identities scenario administrators too. Active, verified identity controls that role, not balance or email domain; configured additional curators remain supported. This supersedes the earlier proposal to keep the five identities' privileges separate. |
-| Normal user view | Both groups can switch in the Account panel and restore administrator view. The browser session retains identity, projects, conversations and actual credit; it temporarily loses scenario administration in the interface and server requests. Refresh retains the mode, tabs synchronize, and sign-out resets it. These are engineering choices. This is not impersonation, a separate $5 allowance, or revocation of another browser's session or MCP token. Requests already dispatched can complete; late administrator responses must not repopulate the demoted interface. |
+| Normal user view | Both groups retain a fixed header switch in both modes; Account also exposes the same setting. The browser session retains identity, projects, conversations and actual credit; it temporarily loses scenario administration in the interface and server requests. Refresh retains the mode, tabs synchronize, and sign-out resets it. This is not impersonation, a separate $5 allowance, or revocation of another browser's session or MCP token. Late administrator responses must not repopulate the demoted interface. |
 | Literal “if and only if CloudBank fails” | Transient provider failures get at most one retry; verified deployment/access failures may go directly to the qualified backup. A deployment-scoped circuit may reuse a recent failure without another CloudBank call on every request; default cooldown is 15 seconds, followed by a controlled probe. This cooldown is an engineering refinement of the literal per-request wording. It must never become permanent OpenRouter-first routing. |
 | Failure and time limits | Missing local provider configuration, login/credit, invalid input, safety refusal, malformed successful output, semantic rejection, accounting failure, and an exhausted overall deadline do not authorize fallback spending. Provider 429 and transport/retryable server failures do. OpenRouter has no provider-level retry; feature correction calls are still counted and share the 180-second overall deadline. These bounds are engineering choices, not a guarantee of identical answers or latency across providers. |
-| Model selection | Excluding the three weakest requested options, preferring successors, adding Gemini 3.1 Pro, using public benchmarks, and avoiding more expensive tiers are explicit. Sonnet 5 as default and the current seven-model pool are engineering selections. GLM was initially retained for family choice, then withheld when correction testing exposed repeated edit failures that short general prompt changes did not reliably resolve. This is application qualification, not a new general model ranking or a claim of a global Pareto frontier. |
+| Model selection | Excluding the three weakest requested options, preferring successors, adding Gemini 3.1 Pro, using public benchmarks, and avoiding more expensive tiers are explicit. Gemini 3.8 Flash replaces the earlier Sonnet default at the owner's request. The seven-model pool remains an engineering selection. GLM was withheld when correction testing exposed repeated edit failures that short general prompt changes did not reliably resolve. This is application qualification, not a new general model ranking or a claim of a global Pareto frontier. |
 | Other candidates | Kimi and Gemini 3.1 Pro remain the two added choices; Kimi supplies an additional family. GLM and DeepSeek V4 Flash 0731 remain internal candidates after application failures; Grok lacked a verified exact Azure tariff. Unpublished deployments remain, including Luna deployed before its exclusion; public quota, BYOK, and MCP admission consistently exclude them. |
 | Conversations | History is saved in per-conversation IndexedDB records in the same browser per account, with a compact selector rather than visual tabs. Transactions retain concurrent edits as explicit copies; deletion tombstones prevent stale tabs from restoring removed conversations. Source text and scenario snapshots are deduplicated and portable exports remain complete. Signed-out history is tab-local; signing out hides but retains that account's saved history for its next sign-in. No cross-device chat synchronization was built. These are intentional scope choices, and potential shortfalls if “automatic saving” or “tabs” implied more. |
 | Forks and graph | Forks retain previous turns/snapshots but explicitly use the current scenario for the new question. There is no automatic historical-scenario restoration. The derivation inspector shows individual arguments and their local neighborhood alongside the grouped overview; it is not a full ungrouped global graph. Both choices implement the review's bounded proposals and remain reviewable for adequacy. |
 | Edit identifiers | New LLM-generated identifiers allow 24 characters; manual editing allows 100, and modifying existing longer rule IDs remains supported. The larger generated-ID limit is an engineering choice intended to keep proposals readable. |
 | Proposal scope | Omitted rule fields preserve existing values; explicit proposed values survive, and null or blank optional text clears that field. The complete before/after preview is the user's decision point. No keyword list guesses which natural-language phrasings authorize a change. An unavailable advisory review retains a validated proposal with a warning and all settled charges. |
-| Evidence and precision | Source cards distinguish a matched answer quotation from a contextual source excerpt. Both verify source-span integrity; neither proves every paraphrase's entailment. Minor terminology/count/grouping errors were tolerated under the user's explicit guidance; wrong labels, operative causes, polarity, or counterfactual outcomes were material. Do not infer semantic correctness solely from a validator pass. |
+| Evidence and precision | Source cards distinguish a matched answer quotation from a contextual source excerpt. Both verify source-span integrity; neither proves every paraphrase's entailment. A short general instruction requests directly relevant evidence or requested citations and omits irrelevant citations. The application constructs the cards from verified citations, without a separate model tool call. Repetitive formal-reference footers are removed. Minor terminology/count/grouping errors remain tolerable; wrong labels, operative causes, polarity, or counterfactual outcomes are material. |
+| Cancellation | Stop aborts the originating HTTP request. The proposal editor's Cancel and close actions also abort pending generation. The serving replica watches its disconnect, signals the provider worker, closes its transport and prevents further retry/fallback/correction calls. Accounting completes on the request thread; dispatched work with unknown usage retains its conservative charge. A proxy or provider can delay termination of already-dispatched work. Explicit development-only legacy/Ollama clients retain their ordinary timeout; public funded and BYOK routes use the cancellation guard. |
+| Archived deletion | Checkbox selection, Delete selected, Delete all and confirmation are explicit requirements. Deletion targets the confirmed archived project IDs and versions atomically, so a concurrent restore or newly archived project cannot silently join the operation. Separately submitted and published snapshots remain; deletion does not unpublish them. These scope and concurrency rules are engineering choices. |
+| Scenario history | The three reconstructed bundled knowledge bases follow the consolidated proposal; no stored project or published snapshot is migrated. Complete exports preserve embedded source text. Older server objects can contain corpus filenames, so they may resolve the three corrected documents to current text. This existing limitation is documented, rather than adding a source-storage migration to a content-only task. |
 | Evaluation method | Broad model-by-feature tests and targeted regressions were used, with short overrides only for observed failures. This is iterative qualification, not a locked blind holdout. Live OpenRouter generation was deliberately excluded to obey the spending constraint; its new routes' live conformance remains unverified. |
 
 ## Corrections to Tim's consolidated review
@@ -84,67 +88,20 @@ hosted deployment evidence.
 | Explain and interaction Low items | A custom two-derivation case reproduced a wrong causal explanation. Explain now follows actual argument identities and edges. Reference refresh/limits/forks, empty drafts, persistent changed-label cues and incremental announcements have browser regressions. Real screen-reader behavior is still unverified. |
 | MCP and operations Low items | Shared account limits, pre-authentication throttling, safe typed errors, named-pool metrics, explicit funded environment filtering, stale-credit reconciliation, and exact-target rollout checks are implemented. The [credit maintenance procedure](operations/credit-policy-maintenance.md) describes key retention and the preparation-time writer gate; the [alert guide](operations/observability-alerts.md) describes the three new, undeployed routing alerts. |
 
-The 45 qualification case definitions are now committed as suite v8. Historical
-reports and failed outcomes remain intact. Assessments were performed answer by
-answer by AI agents, not by a human reviewer. Accepted-defeater context remains
-selective for Sonnet 5 and the internal DeepSeek route. The [baseline erratum](operations/evaluation-baseline-20260909.md)
-identifies the two recorded GLM provenance failures that justify its existing
-guidance. Passing prompts were not broadened for uniformity.
-
-The final implementation `469f6888752607a42f1248bd7547e5531934736b` passed all
-eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34518090673)
-and [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34518090581):
-1,688 tests/81 skips per Python version, restricted-role PostgreSQL, and 80 tests
-per browser engine (Chromium, Firefox and WebKit). CodeQL reported zero results
-across 50 rules. This is the verified baseline preceding the UI revision below.
-Both application and observability templates and parameter files compiled with
-pinned Bicep 0.46.1 using synthetic configuration. Earlier failed browser runs
-remain preserved; corrections synchronized the logout fixture and scoped its
-pre-logout message assertion without weakening the privacy checks.
-
-The administrator-view addition passes 27 server mode tests and five browser
-workflows per tested engine (Chromium and Firefox), covering all five named
-identities, configured curators, revoked permissions, unchanged credit and work,
-refresh, cross-tab privacy, and delayed responses. Desktop and phone screenshots
-were inspected. The first browser run exposed toolbar overflow and a CSP-sensitive
-test expression; both are corrected and the failed record is retained. The bound
-receipt is `artifacts/evals/admin-view-frontend-20260910.json`.
-Final CI logs and artifact hashes are retained in
-`artifacts/evals/final-admin-ci-469f688-20260910/`. The preceding CI run
-`34517612065` was cancelled after the local layout failure and is not counted
-as passing.
-
-The launcher-managed Delta demo was restarted at `469f688`. Liveness, readiness,
-seven-model quota/BYOK menus, served asset hashes, schema 0007, initialized credit
-eligibility policy, and unchanged pre-migration accounting aggregates passed
-read-only checks. All five named identities are in its administrator policy.
-No account was impersonated and no model call was made for this check. Its receipt
-is `artifacts/evals/review-local-demo-final-readiness-20260910.json`. Laptop access
-still requires the `ssh delta-demo` tunnel. This is separate from hosted deployment
-or the owner's personal sign-in acceptance.
-
-The current seven-model qualification contains **945 observations** (45 cases,
-three repetitions per model): 930 retained observations and 15 fresh Flash edit
-checks. Full request and application-result replay is exact for all 945 on
-the current model implementation fingerprint `ef801af4`. Separate AI assessment
-retains 17 lexical adjudications and one nonblocking Sonnet quotation exception;
-the 18 original automatic failures remain unchanged. The private composite is
+The preceding seven-model qualification had 945 observations (45 cases,
+three repetitions per model) on fingerprint `ef801af4`. Its composite
 `artifacts/evals/review-corrections-composite-assessment-20260910-v2.json`
-(SHA-256 `e6c0716026b940cfa6267477dbf5022f72c23a4b07742e6ee71edf4b907e575b`),
-with request/result proof in `review-corrections-replay-20260910-v7.json`.
-Replay proves reuse of recorded inference, not fresh provider calls.
+retains original results, lexical adjudications and exact request/result replay.
+Reviews were by AI agents, not independent human acceptance. GLM was withheld
+after three short modification reminders yielded 8/15, 14/15 and 7/15; all failed
+reports remain. The lifetime CloudBank ledger stood at $67.664447 before the
+scenario refinement. Those historical figures are not final-source qualification
+or the current balance; the refinement evidence below supersedes them.
 
-After the edit postprocessing fix, five affected modification cases were checked
-three times each for Flash and GLM. The failures included incorrect undercut
-descriptions. A 33-word preservation reminder resolved all 15 Flash checks.
-GLM scored 8/15, 14/15 and 7/15 under three short general reminders, with omitted
-requested changes, incorrect descriptions, and some missed reviewer warnings.
-It is withheld from quota, BYOK and MCP; its 135 earlier observations are excluded
-from current admission and all failed reports are retained. The best short GLM
-reminder remains available only for internal evaluation. No further tuning or
-paid testing is pending. Lifetime CloudBank evaluation spending is **$67.664447
-of the original $100**, zero pending, leaving $32.335553. Paid OpenRouter testing
-remains zero. These are conservative application ledger amounts, not invoices.
+Earlier correction CI, administrator-view checks and managed-demo receipts are
+retained under `artifacts/evals/final-admin-ci-469f688-20260910/` and
+`review-local-demo-final-readiness-20260910.json`. See the deployed UI baseline
+below for the later release boundary.
 
 ## Consolidated UI revision
 
@@ -162,13 +119,14 @@ points a reviewer must reconcile.
 
 Intentional refinements:
 
-- Retain the generic editable `Can you explain ...?` draft. The ordered
-  reference editor changes presentation and persistence; it does not justify
-  replacing qualified question wording or commissioning new prompt tuning.
-- Keep the system font stack with the larger reading scale. It remains
-  familiar, supports multilingual text through platform fallbacks, and requires
-  no additional font downloads. IBM Plex is optional visual polish, deferred
-  after inspecting the system-font prototype.
+- The owner's later feedback replaces the generic question frame with an item
+  reference, removes starter questions and per-turn Snapshot controls, and uses
+  the shorter Chat & Explore heading. Stored snapshots and exports remain.
+- Keep the system font stack, with compact 13 px explorer text, 12 px controls,
+  14 px chat text and 14 px reading text on narrow screens. A restrained
+  blue-gray heading band is a design choice. Actual original, current and 85%
+  zoom screenshots informed the proportions; the older 15 px requirement is
+  superseded by the owner's density preference.
 - Use a shared navigation bar that replaces the active argument dialog rather
   than nesting the game over the inspector. Preserve the exact bundle and
   derivation, with a return to the prior game or graph. Describe projected
@@ -191,45 +149,43 @@ Intentional refinements:
   this repository has no tracked manuscript source. Actual presentation-device
   rehearsals remain separate from browser automation.
 
-Schema 0008 adds only publication metadata. Existing snapshots receive empty
-summary/note fields and no attribution opt-in; it does not modify credit,
-identity or inference configuration. The model implementation fingerprint is
-still `ef801af4d8861155efcb846818e73464e7f28701dabcba6dc0c90186da11a6f0`.
-No paid model calls were needed for this presentation work.
-
-Implementation `2037b60118f481e1e787d5713e999af39a19b923` passed all eight
+The deployed UI baseline `2037b60` passed all eight
 [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624149) and
 [CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624291):
-1,762 tests/120 skips on each of Python 3.10 and 3.13, restricted-role PostgreSQL,
-and 119 tests per browser engine (Chromium, Firefox and WebKit). CodeQL reported
-zero findings. Logs and their hashes are retained in
-`artifacts/evals/final-ui-ci-2037b60-20260910/`.
+1,762 tests/120 skips per Python version, restricted-role PostgreSQL, and
+119 tests per browser engine. Schema 0008 adds publication metadata without
+changing existing credit, identity, inference settings or attribution consent.
+Its local, hosted and offline-pack receipts are retained under
+`artifacts/evals/final-ui-ci-2037b60-20260910/`,
+`ui-local-final-readiness-2037b60-20260910.json`, and
+`ui-conference-20260911T003006Z.json`. These are baseline evidence; the
+scenario and chat refinement below changes model input and served assets.
 
-Earlier failed runs remain intact. Integration corrections cover authoring blur
-events, composer line breaks and clipboard behavior, native selector overflow,
-keyboard access to the About scroller, and PostgreSQL contention observation.
-The full browser suite includes the research workflow and seven viewport sizes.
-Seventeen checked color pairs have contrast ratios of at least 4.58.
-Screenshots of the explorer, authoring, publication, chat, and saved-source
-reader were inspected, along with three color-vision simulations. These checks
-do not establish hosted deployment or conference-device acceptance.
+## Scenario and chat refinement
 
-The managed Delta demo now serves the candidate interface on schema 0008.
-The additive migration preserved every existing column value and assigned no
-existing submission an attribution opt-in. Readiness checks verified all 17
-served assets, unchanged accounting, the seven-model menus, and all five named
-administrator identities. Receipts are
-`artifacts/evals/ui-local-upgrade-20260910T234436Z.json` and
-`artifacts/evals/ui-local-final-readiness-2037b60-20260910.json`.
+The active revision reconstructs three knowledge bases, rewrites all six About
+introductions and starts About closed. An explicit opening lasts within the
+current view; changing scenario, project or account closes it again. Old stored
+open preferences do not override the new default. Introductory paragraphs give
+background and the decision context without duplicating formal labels.
 
-The fresh six-frame offline pack,
-`artifacts/conference/ui-2037b60-20260911T003006Z.zip`,
-was captured from the clean local candidate, with matching served asset hashes,
-only 26 allowed requests, and verified offline image loading/navigation. Its
-source receipt is `artifacts/evals/ui-conference-20260911T003006Z.json`.
-The pack and detailed receipts are retained locally, outside Git. The
-[playbook](operations/comma-2026-demo-playbook.md) describes laptop preparation
-and rehearsals. Personal sign-in and presentation-device acceptance remain pending.
+The [scenario implementation note](operations/scenario-reconstruction-implementation-20260910.md)
+records the proposal correspondence, corpus corrections, 93 deterministic
+behavioral checks and saved-source limitation. Engine code, scenario format and
+stored knowledge bases are unchanged. New local tests cover cancellation through
+ASGI middleware, metered settlement, no retry/fallback after Stop, request/account
+isolation, the default model, the fixed administrator toggle and About behavior.
+The complete candidate's final qualification and release receipt will be recorded
+here after the running checks finish.
+
+A same-question cost audit found prompt growth from 15,067 to 41,579 characters
+across the earlier revisions, mainly complete engine state and exact corpus
+passages. The new evidence instruction added 150 characters. Nine corrections in
+441 sampled historical chat turns cost $0.052551, about 0.83% of their total.
+Output limits and reasoning settings did not increase for this visual revision.
+Useful grounding remains; evaluation repetitions now run adjacent to reduce
+avoidable cache expiry. The detailed offline audit is retained at
+`artifacts/evals/scenario-refinement-20260910/offline-cost-audit.md`.
 
 ## Current qualified model pool
 
@@ -262,6 +218,9 @@ interpretation and should themselves be challenged.
 | R09: MCP | [server](../app/mcp/server.py), [client acceptance helper](../app/cli/mcp_client_acceptance.py), [token service](../app/services/mcp_tokens.py); `test_mcp*`. Verify subscription-only calls do not reach server inference and server-model calls require `llm:use`. |
 | R10-R14: interaction | [exploration.js](../app/static/exploration.js), [app.js](../app/static/app.js), [workspace.js](../app/static/workspace.js), [index.html](../app/static/index.html); [exploration browser tests](../tests/test_exploration_browser.py), [workspace browser tests](../tests/test_browser_e2e.py). |
 | R03/R16: administrator roles and normal user view | [settings](../app/core/config.py), [view-mode policy](../app/services/admin_view.py), [account routes](../app/api/account_routes.py), [effective permissions](../app/api/dependencies.py), [scenario routes](../app/api/scenario_routes.py), [curation UI](../app/static/curation.js), [workspace](../app/static/workspace.js); `test_admin_view.py`, `test_named_credit.py`, browser view-mode tests. |
+| R17/R20: bundled scenarios and About | [examples](../examples/), [scenario acceptance](../tests/test_reconstructed_scenarios.py), [shell](../app/static/ui-shell.js), `test_ui_shell_browser.py`. |
+| R18/R19: cancellation and cost | [disconnect handling](../app/api/llm_cancellation.py), [provider worker](../app/llm/client.py), [billing](../app/services/llm_billing.py), `test_llm_cancellation.py`, `test_llm_routing_billing.py`; offline cost audit above. |
+| R21: archived private project deletion | [project service](../app/services/projects.py), [account routes](../app/api/account_routes.py), [workspace](../app/static/workspace.js); `test_archived_project_deletion.py`, `test_exploration_browser.py`, `test_postgres_acceptance.py`. Check confirmed ID/version sets, atomic ownership and restore conflicts, snapshot preservation, and unchanged accounting. |
 | R02, E01/E02/E07: operation | [launcher configuration](../.demo.json), [repository rules](../AGENTS.md), [Azure deployment](../deploy/azure/), [CI](../.github/workflows/ci.yml). Preserve managed lifecycle, image/schema compatibility, restricted roles, and budget/configuration invariants. |
 
 ## Earlier release evidence and remaining limits
@@ -269,11 +228,13 @@ interpretation and should themselves be challenged.
 1. **Earlier model qualification:** the original eight-model reports, failed
    outputs and adjudications are retained in the
    [qualification evidence](operations/model-qualification-20260910.md).
-   They are superseded by the seven-model, 945-observation boundary above;
+   They and the later 945-observation baseline are historical evidence;
    neither a validator pass nor exact replay proves semantic correctness.
 2. **Budget and funding:** the authoritative lifetime ledger is
-   `artifacts/evals/cloudbank-budget.sqlite3`. The current total is above;
-   never restart it or create a fresh $100 allowance for review. Verify that
+   `artifacts/evals/cloudbank-budget.sqlite3`. Record the final total with each qualification phase;
+   never restart it or create a fresh allowance for review. The owner raised
+   the cumulative ceiling from $100 to $150 on September 11, with all earlier
+   spending retained and additional testing limited to what is useful. Verify that
    timeout, correction, cached-token and reasoning-token paths remain accounted
    for and cannot switch evaluation to personal funding.
 3. **Earlier hosted credit and release:** schema 0006, one registered administrator's

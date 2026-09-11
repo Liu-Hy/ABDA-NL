@@ -1,25 +1,10 @@
 title: Fried Chicken V2
 description: >
-  A minimal four-argument scenario adapted from an ArgBlazer demo,
-  encoded with tiered preference blocks (1 / 2 / 3) and rebut-only
-  (no undercut). The decision is whether to dine in at the
-  restaurant or order to-go and eat at home. Defaults for to-go
-  and dine-in sit at block 1 and rebut each other symmetrically.
-  A "soggy" chain (block 2) contends that to-go chicken will be
-  soggy when eaten and therefore should not be ordered. The
-  air-fryer argument (block 3) positively asserts that the
-  chicken will be crispy when eaten, beating the soggy rule by
-  preference. With the air-fryer assumption active, the air-fryer
-  argument wins on crispy; the soggy chain collapses via its
-  sub-argument; to-go and dine-in remain undecided; crispy is
-  accepted. Suspend the assumption and the soggy chain wins
-  decisively, flipping both crispy and order_to_go to rejected.
-  Preferences on pair 3 actually matter here -- the three-way
-  radio in the Conflicts view genuinely flips crispy's outcome.
-  Contrast with V1, which is preference-free (all block 1) and
-  relies on an undercut from the air-fryer rule to defeat the
-  soggy chain; V1 is the more ArgBlazer-faithful encoding, V2 is
-  the preference-demonstration encoding.
+  This alternative version of the fictional dinner choice starts with the same
+  options: eat at the restaurant or take the fried chicken home. Transport in
+  a closed box can soften the coating, while reheating in an air fryer can
+  restore its crispness. Here, you can explore how much weight to give these
+  competing expectations, alongside your preference for where to eat.
 
 facts:
   want_chicken:

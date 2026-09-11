@@ -37,6 +37,7 @@ function useConversation(record) {
 function syncConversationIdentity() {
   const owner = state.authSession?.authenticated ? state.authSession.user?.id || null : null;
   if (conversationStore.owner === owner) return false;
+  for (const record of chatRequests.keys()) cancelChatRequest(record, { silent: true });
   conversationStore.owner = owner;
   const epoch = ++conversationStore.epoch;
   clearTimeout(conversationStore.timer);
@@ -214,6 +215,8 @@ function flushConversationWrites() {
 }
 
 function forgetConversation(id) {
+  const record = conversationStore.records.find(item => item.id === id);
+  if (record) cancelChatRequest(record, { silent: true });
   conversationStore.deleted.add(id);
   conversationStore.dirty.delete(id);
   conversationStore.records = conversationStore.records.filter(record => record.id !== id);
@@ -314,6 +317,7 @@ async function deleteConversation() {
   // against writes already in flight and prevents stale tabs resurrecting it.
   conversationStore.deleted.add(record.id);
   conversationStore.dirty.delete(record.id);
+  cancelChatRequest(record, { silent: true });
   try {
     if (owner) await conversationHistory.remove(owner, record.id);
     if (epoch !== conversationStore.epoch) return;
@@ -353,13 +357,13 @@ async function exportConversation() {
     conversation: structuredClone(exported) }, `abda-conversation-${record.id}.json`);
 }
 
-async function captureConversationSnapshot(context) {
+async function captureConversationSnapshot(context, signal) {
   const scenario = structuredClone(context.bundle.scenario);
   const pendingOps = structuredClone(context.diffOps || []);
   const example = state.scenarios.find(item => item.id === context.scenarioId);
   const sourceId = context.activeProject?.source_scenario_id || context.sharedProject?.source_scenario_id
     || (context.viewKind === 'example' ? example?.source_scenario_id || context.scenarioId : null);
-  const portable = await apiRequest('/api/scenarios/export', { method: 'POST',
+  const portable = await apiRequest('/api/scenarios/export', { method: 'POST', signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ scenario, source_scenario_id: sourceId || null }) });
   return { captured_at: new Date().toISOString(), scenario: portable, af: structuredClone(context.bundle.af),
@@ -371,29 +375,10 @@ function appendConversationTurnControls(messageElement, message, index) {
   if (message.role !== 'user') return;
   const controls = document.createElement('div');
   controls.className = 'conversation-turn-controls';
-  const record = activeConversation();
-  const snapshot = record?.snapshots?.[message.snapshot_id];
-  if (snapshot) {
-    const description = document.createElement('span');
-    description.textContent = `Asked about ${snapshot.scenario?.scenario?.title || 'Scenario'}, ${snapshot.pending_ops?.length ? `${snapshot.pending_ops.length} pending changes` : 'baseline'}`;
-    controls.append(description);
-    const details = document.createElement('details');
-    const summary = document.createElement('summary');
-    summary.textContent = 'Snapshot';
-    const text = document.createElement('p');
-    text.textContent = `${snapshot.scenario?.scenario?.title || 'Scenario'}, ${snapshot.pending_ops?.length || 0} pending changes, ${new Date(snapshot.captured_at).toLocaleString()}.`;
-    const download = document.createElement('button');
-    download.className = 'btn btn-small';
-    download.type = 'button';
-    download.textContent = 'Download scenario snapshot';
-    download.addEventListener('click', () => downloadConversationJSON(snapshot.scenario, 'conversation-scenario.abda.json'));
-    details.append(summary, text, download);
-    controls.append(details);
-  }
   const fork = document.createElement('button');
   fork.type = 'button';
-  fork.className = 'btn btn-small';
-  fork.textContent = 'Fork with current scenario';
+  fork.className = 'btn btn-small conversation-edit-turn';
+  fork.textContent = 'Edit in new chat';
   fork.title = 'Edit this question in a new conversation using the current scenario';
   fork.disabled = state.chatPending;
   fork.addEventListener('click', () => forkConversationAt(index));
@@ -514,15 +499,6 @@ function formalReferenceButton(ref, bundle, label = null) {
   return button;
 }
 
-function questionReferencesForAnswer(message) {
-  const messages = activeConversation()?.messages || [];
-  const index = messages.indexOf(message);
-  const question = index >= 0 ? messages.slice(0, index).reverse().find(item => item.role === 'user' && item.snapshot_id === message.snapshot_id) : null;
-  // Earlier archives may have only the server's verified reference evidence.
-  return Array.isArray(question?.context_refs) ? question.context_refs
-    : (message.evidence || []).filter(item => item?.verified === true && ['rule', 'argument', 'conclusion'].includes(item.kind));
-}
-
 function appendVerifiedEvidence(bubble, message) {
   const sources = (message.evidence || []).filter(item => item?.verified === true && item.kind === 'source' && typeof item.quote === 'string');
   const snapshot = activeConversation()?.snapshots?.[message.snapshot_id];
@@ -563,17 +539,7 @@ function appendVerifiedEvidence(bubble, message) {
     }
     bubble.append(details);
   }
-  const refs = questionReferencesForAnswer(message), bundle = savedBundleForMessage(message);
-  if (refs.length) {
-    const line = document.createElement('div'); line.className = 'chat-formal-context';
-    const label = document.createElement('span'); label.textContent = 'Referenced items:'; line.append(label);
-    const seen = new Set();
-    for (const ref of refs) {
-      const key = JSON.stringify([ref.kind, ref.id]); if (seen.has(key)) continue; seen.add(key);
-      line.append(formalReferenceButton(ref, bundle));
-    }
-    bubble.append(line);
-  }
+
 }
 
 function appendUserQuestion(bubble, message) {

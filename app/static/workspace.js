@@ -8,9 +8,11 @@ let globalStatusGeneration = 0;
 let externalLoginRefreshPending = false;
 let trialRefreshGeneration = 0;
 let projectRefreshGeneration = 0;
+let projectDeletionRequest = null;
 let mcpTokenRefreshGeneration = 0;
 const projectShareRefreshGenerations = new Map();
-const workspaceProjects = { archived: false, archivedProjects: [], shareProject: null, shareExpiry: '7', renameProject: null, account: null };
+const workspaceProjects = { archived: false, archivedProjects: [], selectedArchived: new Map(),
+  shareProject: null, shareExpiry: '7', renameProject: null, account: null };
 const accountView = { busy: false, revision: 0, refreshGeneration: 0, refreshNeeded: false };
 const accountViewChannel = typeof BroadcastChannel === 'function'
   ? new BroadcastChannel('abda-account-view-updates') : null;
@@ -251,11 +253,20 @@ function initWorkspaceUI() {
   byId('dev-login-form')?.addEventListener('submit', handleDevelopmentLogin);
   byId('logout-form')?.addEventListener('submit', handleLogout);
   byId('account-view-toggle-btn')?.addEventListener('click', toggleAccountView);
-  byId('restore-admin-view-btn')?.addEventListener('click', toggleAccountView);
+  byId('admin-view-toggle')?.addEventListener('click', toggleAccountView);
   byId('trial-activate-btn')?.addEventListener('click', activateTrial);
   byId('projects-refresh-btn')?.addEventListener('click', () => refreshProjects());
+  byId('projects-delete-all')?.addEventListener('click', () => deleteArchivedProjects(true));
+  byId('projects-delete-selected')?.addEventListener('click', () => deleteArchivedProjects(false));
   byId('project-create-form')?.addEventListener('submit', createProjectFromCurrentView);
   byId('project-list')?.addEventListener('click', handleProjectAction);
+  byId('project-list')?.addEventListener('change', event => {
+    const checkbox = event.target.closest('[data-project-select]');
+    if (!checkbox || projectDeletionRequest) return;
+    if (checkbox.checked) workspaceProjects.selectedArchived.set(checkbox.dataset.projectSelect, Number(checkbox.dataset.projectVersion));
+    else workspaceProjects.selectedArchived.delete(checkbox.dataset.projectSelect);
+    renderProjectDeletionControls();
+  });
   byId('project-list')?.addEventListener('submit', renameProject);
   byId('current-project-card')?.addEventListener('click', handleProjectAction);
   byId('current-project-card')?.addEventListener('change', event => {
@@ -270,7 +281,12 @@ function initWorkspaceUI() {
     });
   }
   for (const [id, archived] of [['projects-active-filter', false], ['projects-archived-filter', true]]) {
-    byId(id)?.addEventListener('click', () => { workspaceProjects.archived = archived; refreshProjects(); });
+    byId(id)?.addEventListener('click', () => {
+      if (workspaceProjects.archived !== archived) workspaceProjects.selectedArchived.clear();
+      workspaceProjects.archived = archived;
+      renderProjectsUI();
+      refreshProjects();
+    });
   }
 
   byId('ai-access-form')?.addEventListener('submit', applyAISettings);
@@ -411,16 +427,14 @@ function renderAccountView() {
   const session = state.authSession;
   const available = Boolean(session.authenticated && session.can_switch_admin_view);
   const normal = available && session.normal_user_view === true;
-  const restoreHadFocus = document.activeElement === byId('restore-admin-view-btn');
   byId('account-view-card').hidden = !available;
-  byId('normal-user-view-indicator').hidden = !normal;
-  byId('restore-admin-view-btn').hidden = !normal;
-  byId('restore-admin-view-btn').disabled = accountView.busy;
-  byId('account-view-toggle-btn').disabled = accountView.busy;
-  byId('account-view-toggle-btn').textContent = normal ? 'Restore administrator view' : 'Demonstrate as a normal user';
+  byId('admin-view-toggle').hidden = !available;
+  for (const id of ['admin-view-toggle', 'account-view-toggle-btn']) {
+    byId(id).disabled = accountView.busy;
+    byId(id).setAttribute('aria-checked', String(normal));
+  }
   byId('account-view-heading').textContent = normal ? 'Normal user view' : 'Administrator view';
   byId('account-view-description').textContent = 'The review queue and Publish as example are hidden in normal user view. Your suggestions go through review. Projects, credit, and conversations are unchanged.';
-  if (restoreHadFocus && !normal) byId('workspace-btn').focus();
   if (typeof renderShellControls === 'function') renderShellControls();
 }
 
@@ -478,7 +492,7 @@ async function toggleAccountView(event) {
     });
     if (!applyAccountViewSession(session, account)) return;
     accountViewChannel?.postMessage({ type: 'view-mode-changed', normal_user_view: session.normal_user_view === true });
-    const message = session.normal_user_view ? 'Normal user view is active.' : 'Administrator view restored.';
+    const message = session.normal_user_view ? 'Normal user view is active.' : 'Administrator view is active.';
     setWorkspaceStatus('account-view-status', message, 'success');
     showGlobalStatus(message, 'success');
   } catch (error) {
@@ -660,9 +674,10 @@ async function activateTrial() {
 async function refreshTrialBalanceQuietly() {
   if (!state.authSession.authenticated) return;
   const requestGeneration = ++trialRefreshGeneration;
+  const account = state.authSession.user?.id;
   try {
     const trial = await apiRequest('/api/trial');
-    if (requestGeneration !== trialRefreshGeneration) return;
+    if (requestGeneration !== trialRefreshGeneration || account !== state.authSession.user?.id) return;
     state.trial = trial;
     renderTrialUI();
     renderAccessSummary();
@@ -829,6 +844,9 @@ function renderChatAccess() {
   // is pending. Only explicit submission depends on access or availability.
   input.setAttribute('aria-disabled', 'false');
   button.disabled = Boolean(issue) || state.chatPending;
+  button.hidden = state.chatPending;
+  const cancel = byId('chat-cancel-btn');
+  if (cancel) cancel.hidden = !state.chatPending;
   if (!issue) {
     note.classList.remove('visible');
     note.textContent = '';
@@ -876,23 +894,26 @@ function clearBYOKKey() {
 }
 
 async function refreshProjects(options = {}) {
-  if (!state.authSession.authenticated) return;
+  if (!state.authSession.authenticated) return false;
   const requestGeneration = ++projectRefreshGeneration;
   const account = state.authSession.user?.id;
+  const epoch = conversationStore.epoch;
   if (!options.quiet) setWorkspaceStatus('projects-status', 'Refreshing projects...', 'info');
   try {
     const [body, archivedBody] = await Promise.all([
       apiRequest('/api/projects'),
       workspaceProjects.archived ? apiRequest('/api/projects?archived=true') : Promise.resolve(null),
     ]);
-    if (requestGeneration !== projectRefreshGeneration || account !== state.authSession.user?.id) return;
+    if (requestGeneration !== projectRefreshGeneration || account !== state.authSession.user?.id || epoch !== conversationStore.epoch) return false;
     state.projects = body.projects || [];
     if (archivedBody) workspaceProjects.archivedProjects = archivedBody.projects || [];
     renderProjectsUI();
     if (!options.quiet) setWorkspaceStatus('projects-status', '', 'info');
+    return true;
   } catch (error) {
-    if (requestGeneration !== projectRefreshGeneration || account !== state.authSession.user?.id) return;
+    if (requestGeneration !== projectRefreshGeneration || account !== state.authSession.user?.id || epoch !== conversationStore.epoch) return false;
     setWorkspaceStatus('projects-status', error.message, 'error');
+    return false;
   }
 }
 
@@ -902,8 +923,11 @@ function renderProjectsUI() {
     workspaceProjects.account = state.authSession.user?.id;
     workspaceProjects.archived = false;
     workspaceProjects.archivedProjects = [];
+    workspaceProjects.selectedArchived.clear();
     workspaceProjects.shareProject = null;
     workspaceProjects.renameProject = null;
+    projectDeletionRequest = null;
+    setWorkspaceStatus('projects-status', '');
   }
   byId('projects-signin-required').hidden = authenticated;
   byId('projects-authenticated').hidden = !authenticated;
@@ -917,16 +941,25 @@ function renderProjectsUI() {
   byId('projects-active-filter').setAttribute('aria-pressed', String(!workspaceProjects.archived));
   byId('projects-archived-filter').setAttribute('aria-pressed', String(workspaceProjects.archived));
   byId('projects-archive-hint').hidden = !workspaceProjects.archived;
+  byId('projects-delete-actions').hidden = !workspaceProjects.archived;
+  byId('projects-delete-limit').hidden = !workspaceProjects.archived || projects.length <= 500;
   byId('project-count').textContent = `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`;
+  const archivedVersions = new Map(workspaceProjects.archivedProjects.filter(project => project.archived_at)
+    .map(project => [project.id, project.version]));
+  for (const [id, version] of workspaceProjects.selectedArchived) {
+    if (archivedVersions.get(id) !== version) workspaceProjects.selectedArchived.delete(id);
+  }
   const list = byId('project-list');
   if (projects.length === 0) {
     list.innerHTML = workspaceProjects.archived ? '<div class="empty-list">No archived projects.</div>'
       : '<div class="empty-list">No private projects yet. Create a scenario or save a copy of the current example.</div>';
+    renderProjectDeletionControls();
     if (typeof renderShellControls === 'function') renderShellControls();
     return;
   }
   list.innerHTML = projects.map(project => `
-    <article class="project-card" data-project-card="${escapeAttr(project.id)}">
+    <article class="project-card${project.archived_at ? ' project-card-selectable' : ''}" data-project-card="${escapeAttr(project.id)}">
+      ${project.archived_at ? `<label class="project-select" title="Select for deletion"><input type="checkbox" data-project-select="${escapeAttr(project.id)}" data-project-version="${project.version}" aria-label="Select ${escapeAttr(project.name)} for deletion"${workspaceProjects.selectedArchived.has(project.id) ? ' checked' : ''}></label>` : ''}
       <div class="project-card-main">
         <div>
           <div class="project-card-name">${escapeHtml(project.name)}</div>
@@ -943,6 +976,7 @@ function renderProjectsUI() {
       ${workspaceProjects.renameProject === project.id ? `<form class="project-rename-form" data-project-id="${escapeAttr(project.id)}" data-project-version="${project.version}"><label>Project name<input name="name" value="${escapeAttr(project.name)}" maxlength="120" required></label><button class="btn btn-small" type="submit">Save name</button><button class="btn btn-small" type="button" data-project-action="rename-cancel">Cancel</button></form>` : ''}
     </article>
   `).join('');
+  renderProjectDeletionControls();
   if (typeof renderShellControls === 'function') renderShellControls();
 }
 
@@ -1279,6 +1313,75 @@ async function restoreArchivedProject(button) {
   } catch (error) {
     if (account === state.authSession.user?.id) setWorkspaceStatus('projects-status', error.message, 'error');
   } finally { button.disabled = false; }
+}
+
+function projectDeletionIsCurrent(request) {
+  return projectDeletionRequest === request && state.authSession.authenticated
+    && request.account === state.authSession.user?.id && request.epoch === conversationStore.epoch;
+}
+
+function renderProjectDeletionControls() {
+  const busy = Boolean(projectDeletionRequest && projectDeletionIsCurrent(projectDeletionRequest));
+  const total = workspaceProjects.archivedProjects.length;
+  const selected = workspaceProjects.selectedArchived.size;
+  byId('projects-selected-count').textContent = busy ? 'Deleting...' : `${selected} selected`;
+  byId('projects-delete-selected').disabled = busy || selected === 0 || selected > 500;
+  byId('projects-delete-all').disabled = busy || total === 0 || total > 500;
+  for (const button of byId('project-list').querySelectorAll('[data-project-select], [data-project-action="restore"]')) {
+    button.disabled = busy;
+  }
+}
+
+async function deleteArchivedProjects(all = false) {
+  if (!state.authSession.authenticated || !workspaceProjects.archived || projectDeletionRequest) return;
+  const displayed = workspaceProjects.archivedProjects.filter(project => project.archived_at
+    && (all || workspaceProjects.selectedArchived.get(project.id) === project.version));
+  if (!displayed.length || displayed.length > 500) return;
+  // Freeze exactly what the user saw before confirmation. The server checks every version atomically.
+  const request = { account: state.authSession.user?.id, epoch: conversationStore.epoch,
+    viewRevision: accountView.revision,
+    projects: displayed.map(project => ({ id: project.id, expected_version: project.version })),
+    name: !all && displayed.length === 1 ? displayed[0].name : null };
+  const subject = request.name ? `the archived private project "${request.name}"`
+    : `${all ? 'all ' : ''}${request.projects.length} ${all ? 'currently listed' : 'selected'} archived private ${request.projects.length === 1 ? 'project' : 'projects'}`;
+  if (!window.confirm(`Permanently delete ${subject}?\n\nThis cannot be undone. These private copies and their old share links will be removed. Submitted and published example snapshots will remain.${all ? ' Projects archived later are not included.' : ''}`)) return;
+  if (!state.authSession.authenticated || request.account !== state.authSession.user?.id
+    || request.epoch !== conversationStore.epoch || projectDeletionRequest) return;
+  projectDeletionRequest = request;
+  renderProjectDeletionControls();
+  setWorkspaceStatus('projects-status', 'Deleting archived projects...', 'info');
+  try {
+    const result = await apiRequest('/api/projects/archived/delete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projects: request.projects }),
+    });
+    if (!projectDeletionIsCurrent(request)) return;
+    const deleted = new Set(result.deleted_ids);
+    workspaceProjects.archivedProjects = workspaceProjects.archivedProjects.filter(project => !deleted.has(project.id));
+    for (const id of deleted) workspaceProjects.selectedArchived.delete(id);
+    renderProjectsUI();
+    const refreshed = await refreshProjects({ quiet: true });
+    if (!projectDeletionIsCurrent(request) || request.viewRevision !== accountView.revision || !workspaceProjects.archived) return;
+    const message = request.name ? `Permanently deleted "${request.name}".`
+      : `Permanently deleted ${result.deleted_count} archived ${result.deleted_count === 1 ? 'project' : 'projects'}.`;
+    setWorkspaceStatus('projects-status', refreshed ? message : `${message} Use Refresh to update the project list.`, refreshed ? 'success' : 'info');
+  } catch (error) {
+    if (!projectDeletionIsCurrent(request)) return;
+    const refreshed = await refreshProjects({ quiet: true });
+    if (!projectDeletionIsCurrent(request) || request.viewRevision !== accountView.revision || !workspaceProjects.archived) return;
+    const conflict = error.status === 409 || error.status === 404;
+    const message = conflict ? 'An archived project changed or is no longer available. Nothing was deleted.'
+      : `Deletion could not be confirmed: ${error.message}`;
+    setWorkspaceStatus('projects-status', `${message} ${refreshed ? 'Review the refreshed list' : 'Refresh the list'} before trying again.`, 'error');
+  } finally {
+    if (projectDeletionIsCurrent(request)) {
+      projectDeletionRequest = null;
+      renderProjectDeletionControls();
+      if (workspaceProjects.archived && topModal()?.id === 'modal-workspace' && document.activeElement === document.body) {
+        byId('projects-archived-filter').focus();
+      }
+    }
+  }
 }
 
 async function archiveProject(projectId, name, version) {

@@ -284,7 +284,7 @@ def test_outage_drill_uses_the_configured_qualified_profile(drill_factory, monke
 def test_outage_drill_rejects_unqualified_or_mismatched_routes(drill_factory, monkeypatch, fault):
     _install_runtime(monkeypatch, drill_factory)
     catalog = load_model_catalog()
-    profile = catalog.profiles["balanced"]
+    profile = catalog.profiles[outage_drill.get_settings().llm_default_profile]
     routes, profiles = dict(catalog.routes), dict(catalog.profiles)
     if fault == "unqualified":
         profiles[profile.id] = replace(profile, public_ready=False)

@@ -18,6 +18,8 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from contextlib import contextmanager
+from contextvars import ContextVar, copy_context
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol, TypeVar
 from urllib.parse import urlparse
@@ -54,7 +56,39 @@ class LLMRequestDeadlineError(RuntimeError):
         self.provider_cost_microusd = provider_cost_microusd
 
 
+class LLMRequestCancelledError(LLMRequestDeadlineError):
+    """The caller disconnected; no further provider work is authorized."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.args = ("The AI request was stopped",)
+        self.error_type = "request_cancelled"
+
+
+_REQUEST_CANCELLATION: ContextVar[threading.Event | None] = ContextVar(
+    "llm_request_cancellation", default=None,
+)
+
+
+@contextmanager
+def cancellable_request(cancelled: threading.Event):
+    """Carry cancellation through synchronous calls and their provider workers."""
+    token = _REQUEST_CANCELLATION.set(cancelled)
+    try:
+        check_request_cancelled(provider="unknown")
+        yield
+    finally:
+        _REQUEST_CANCELLATION.reset(token)
+
+
+def check_request_cancelled(*, provider: str) -> None:
+    cancelled = _REQUEST_CANCELLATION.get()
+    if cancelled is not None and cancelled.is_set():
+        raise LLMRequestCancelledError(provider=provider)
+
+
 def remaining_request_seconds(deadline: float | None, *, provider: str) -> float | None:
+    check_request_cancelled(provider=provider)
     if deadline is None:
         return None
     remaining = deadline - time.monotonic()
@@ -107,9 +141,16 @@ def invoke_before_deadline(
     deadline, close its transport and let the caller settle the full reserved
     ceiling. A late result never performs accounting or authorizes more work.
     """
-    remaining = remaining_request_seconds(deadline, provider=provider)
-    if not _PROVIDER_SLOTS.acquire(timeout=remaining):
-        raise LLMRequestDeadlineError(provider=provider)
+    cancelled = _REQUEST_CANCELLATION.get()
+    while True:
+        remaining = remaining_request_seconds(deadline, provider=provider)
+        wait = remaining
+        if cancelled is not None:
+            wait = min(0.1, remaining) if remaining is not None else 0.1
+        if _PROVIDER_SLOTS.acquire(timeout=wait):
+            break
+        if cancelled is None:
+            raise LLMRequestDeadlineError(provider=provider)
     abandoned = threading.Event()
 
     def run() -> _ResponseT:
@@ -131,25 +172,34 @@ def invoke_before_deadline(
 
     try:
         remaining = remaining_request_seconds(deadline, provider=provider)
-        future = _PROVIDER_WORKERS.submit(run)
+        future = _PROVIDER_WORKERS.submit(copy_context().run, run)
     except BaseException:
         _PROVIDER_SLOTS.release()
         raise
-    try:
-        return future.result(
-            timeout=None if deadline is None else max(0.0, deadline - time.monotonic())
-        )
-    except FutureTimeoutError:
-        # Future.result also re-raises a provider's own TimeoutError. Such a
-        # physical timeout still permits retry while the shared budget lasts.
+    while True:
+        # Prefer a completed result so its actual usage can be settled, even
+        # when the browser closes just as the provider finishes.
         if future.done():
             return future.result()
-        abandoned.set()
-        close_llm_client(client)
-        raise LLMRequestDeadlineError(
-            provider=provider,
-            billing_uncertain=getattr(client, "request_dispatched", True),
-        ) from None
+        was_cancelled = cancelled is not None and cancelled.is_set()
+        expired = deadline is not None and time.monotonic() >= deadline
+        if was_cancelled or expired:
+            abandoned.set()
+            close_llm_client(client)
+            error = LLMRequestCancelledError if was_cancelled else LLMRequestDeadlineError
+            raise error(
+                provider=provider,
+                billing_uncertain=getattr(client, "request_dispatched", True),
+            ) from None
+        wait = None if deadline is None else max(0.0, deadline - time.monotonic())
+        if cancelled is not None:
+            wait = min(0.1, wait) if wait is not None else 0.1
+        try:
+            return future.result(timeout=wait)
+        except FutureTimeoutError:
+            # Future.result also re-raises a provider's own TimeoutError.
+            if future.done():
+                return future.result()
 
 
 @dataclass

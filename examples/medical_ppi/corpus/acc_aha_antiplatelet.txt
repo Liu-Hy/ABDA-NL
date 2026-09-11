@@ -20,7 +20,7 @@ The writing committee recommends:
 
 - The evidence base for this recommendation is mixed: the COGENT
   randomized trial (Bhatt et al., 2010) did not show an excess of
-  ischemic events with pantoprazole + clopidogrel, but was
+  ischemic events with omeprazole + clopidogrel, but was
   underpowered for rare events. Pharmacodynamic studies consistently
   show reduced clopidogrel active-metabolite levels with omeprazole.
 

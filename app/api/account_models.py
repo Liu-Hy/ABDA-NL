@@ -97,6 +97,30 @@ class ProjectRestoreRequest(BaseModel):
     expected_version: int = Field(ge=1)
 
 
+class ArchivedProjectDeleteTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=36, strict=True)
+    expected_version: int = Field(ge=1, strict=True)
+
+
+class ArchivedProjectsDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    projects: List[ArchivedProjectDeleteTarget] = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def unique_projects(self) -> ArchivedProjectsDeleteRequest:
+        if len({item.id for item in self.projects}) != len(self.projects):
+            raise ValueError("each project must appear only once")
+        return self
+
+
+class ArchivedProjectsDeleteResponse(BaseModel):
+    deleted_ids: List[str]
+    deleted_count: int
+
+
 class ScenarioFilePreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

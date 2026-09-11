@@ -1,17 +1,10 @@
 title: Fried Chicken V1
 description: >
-  A minimal four-argument scenario adapted from an ArgBlazer demo,
-  encoded as a preference-free (all block 1) ASPIC- rule set. The
-  air-fryer undercut alone is enough to defeat the soggy chain --
-  no preference tiers needed. Baseline grounded matches ArgBlazer's
-  {fryer} exactly: crispy is accepted and the to-go / dine-in pair
-  stays undecided. Suspend the air-fryer assumption and the reduced
-  AF still leaves to-go / dine-in undecided (exactly ArgBlazer's
-  behaviour with the fryer argument removed) while crispy flips to
-  rejected. Contrast with V2, which uses tiered preference blocks
-  (1 / 2 / 3) and makes to-go decisively rejected when the air fryer
-  is off. V1 is the more ArgBlazer-faithful variant; V2 is the more
-  pedagogically decisive one.
+  In this fictional dinner decision, you can eat fried chicken at the
+  restaurant or take it home. A closed takeaway box can make the coating
+  soggy, but an air fryer at home could restore its crispness. This version
+  explores how an available reheating option changes the concern about
+  transport, alongside the appeal of each place to eat.
 
 facts:
   want_chicken:

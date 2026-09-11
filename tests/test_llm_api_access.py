@@ -72,6 +72,22 @@ def test_development_config_also_hides_unvalidated_funded_profiles():
     ]
 
 
+def test_default_selection_uses_funded_flash_and_same_model_backup(monkeypatch):
+    from app.core.config import Settings
+    monkeypatch.delenv("ABDA_LLM_DEFAULT_PROFILE", raising=False)
+    settings = replace(Settings.from_environment(), llm_require_auth=True,
+                       llm_allow_legacy_development=False)
+    router = _StubRouter()
+    select_request_llm_client(
+        None, user=_verified_user(), request_id="default-model", request_kind="chat",
+        legacy_factory=lambda: None, settings=settings, router=router,
+    )
+    assert router.funded_calls[0][0] == "gemini-3-8-flash"
+    profile = router.catalog.profiles["gemini-3-8-flash"]
+    for route_id in (profile.primary_route, profile.fallback_route):
+        assert router.catalog.routes[route_id].model == "gemini-3.8-flash"
+
+
 def test_byok_request_representation_and_json_hide_secret():
     request = BYOKRequest(
         provider="openai",

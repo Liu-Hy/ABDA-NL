@@ -6,6 +6,8 @@
    diff_ops list and POST /state for re-computation.
    ================================================================ */
 
+const AI_CONTEXT_ICON = '<svg class="ai-context-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M9 3.5 10.7 8.3 15.5 10 10.7 11.7 9 16.5 7.3 11.7 2.5 10 7.3 8.3Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M15.5 2.5v4m-2-2h4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>';
+
 const state = {
   scenarios: [],        // [{id, title, description}, ...]
   scenario_id: null,    // currently-loaded scenario id
@@ -196,6 +198,7 @@ function initBaseUI() {
   });
   document.getElementById('kb-search-input')?.addEventListener('input', event => filterKB(event.target.value));
   document.getElementById('chat-send-btn')?.addEventListener('click', () => sendChatMessage());
+  document.getElementById('chat-cancel-btn')?.addEventListener('click', () => cancelChatRequest());
   document.getElementById('edit-instruction')?.addEventListener('keydown', event => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
@@ -781,7 +784,7 @@ function renderConclusions() {
       </div>
       <div class="conclusion-actions">
         ${explain}
-        <button type="button" class="rule-info" data-context-kind="conclusion" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(entry.description)}" title="Add a question about this conclusion" aria-label="Add a question about ${escapeAttr(entry.description)}">?</button>
+        <button type="button" class="rule-info" data-context-kind="conclusion" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(entry.description)}" title="Add this conclusion to chat" aria-label="Add conclusion to chat: ${escapeAttr(entry.description)}">${AI_CONTEXT_ICON}</button>
       </div>
     </div>`;
   }).join('');
@@ -868,7 +871,7 @@ function categoryBadge(cat) {
 
 
 function renderFactLikeCard(id, entry, kind) {
-  const info = 'Add a question about this ' + kind;
+  const info = 'Add this ' + kind + ' to chat';
   const desc = escapeAttr(entry.description);
   const inlineId = `<button type="button" class="inline-id element-inspect-link" data-open-element-kind="${kind}" data-open-element-id="${escapeAttr(id)}" title="Inspect formal representation and derivations">[${escapeHtml(id)}]</button>`;
   const badge = !state.factsGrouped ? categoryBadge(entry.category) : '';
@@ -882,7 +885,7 @@ function renderFactLikeCard(id, entry, kind) {
     return `<div class="${cls}" data-element-kind="${kind}" data-element-id="${escapeAttr(id)}">
       ${text}
       <div class="fact-actions">
-      <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add a question about this ${kind}: ${desc}">?</button>
+      <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add ${kind} to chat: ${desc}">${AI_CONTEXT_ICON}</button>
       <label class="active-control"><input type="checkbox" ${active ? 'checked' : ''} ${state.readOnly ? 'disabled' : ''} data-asm-id="${escapeAttr(id)}" aria-label="${active ? 'Suspend' : 'Unsuspend'} assumption ${desc}"> ${active ? 'Active' : 'Suspended'}</label>
       </div>
     </div>`;
@@ -892,7 +895,7 @@ function renderFactLikeCard(id, entry, kind) {
   return `<div class="${cls}" data-element-kind="${kind}" data-element-id="${escapeAttr(id)}">
     ${text}
     <div class="fact-actions">
-    <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add a question about this ${kind}: ${desc}">?</button>
+    <button type="button" class="rule-info" data-context-kind="${kind}" data-context-id="${escapeAttr(id)}" data-desc="${desc}" title="${info}" aria-label="Add ${kind} to chat: ${desc}">${AI_CONTEXT_ICON}</button>
     </div>
   </div>`;
 }
@@ -1183,7 +1186,7 @@ function renderRuleCard(id, rule) {
   const checkbox = rule.type === 'defeasible'
     ? `<label class="active-control"><input type="checkbox" class="rule-active-toggle" data-rule-id="${escapeAttr(id)}" ${inactive ? '' : 'checked'} ${state.readOnly ? 'disabled' : ''} aria-label="${inactive ? 'Unsuspend' : 'Suspend'} rule ${escapeAttr(id)}"> ${inactive ? 'Suspended' : 'Active'}</label>`
     : '';
-  const info = 'Add a question about this rule';
+  const info = 'Add this rule to chat';
   const idInline = `<button type="button" class="inline-id element-inspect-link" data-open-element-kind="rule" data-open-element-id="${escapeAttr(id)}" aria-label="Inspect derivations for rule ${escapeAttr(id)}">${escapeHtml(id)}</button>`;
 
   const badge = !state.rulesGrouped ? categoryBadge(rule.category) : '';
@@ -1191,10 +1194,10 @@ function renderRuleCard(id, rule) {
   return `<div class="${cls}" data-element-kind="rule" data-element-id="${escapeAttr(id)}">
     <div class="rule-body">
       <div class="rule-text">${body}</div>
+      <div class="rule-meta">${badge} ${idInline}</div>
     </div>
     <div class="rule-actions">
-      <div class="rule-meta">${badge} ${idInline}</div>
-      <button type="button" class="rule-info" data-context-kind="rule" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(plainBody)}" title="${info}" aria-label="Add a question about rule ${escapeAttr(id)}">?</button>
+      <button type="button" class="rule-info" data-context-kind="rule" data-context-id="${escapeAttr(id)}" data-desc="${escapeAttr(plainBody)}" title="${info}" aria-label="Add rule ${escapeAttr(id)} to chat">${AI_CONTEXT_ICON}</button>
       <details class="row-options"><summary aria-label="Actions for rule ${escapeAttr(id)}">⋯</summary><div>
         ${editBtn}
         <button type="button" class="btn btn-small" data-open-element-kind="rule" data-open-element-id="${escapeAttr(id)}">Inspect derivations</button>
@@ -1302,18 +1305,18 @@ function renderChat() {
   const container = document.getElementById('chat-messages');
   if (!container) return;
   syncConversationIdentity();
+  if (activeProposalRequest && !proposalRequestAccountIsCurrent(activeProposalRequest)) closeEditModal();
   renderConversationControls();
   renderQuestionContext();
   container.replaceChildren();
   if (state.chatMessages.length === 0 && !state.chatPending) {
     const empty = document.createElement('div');
     empty.className = 'chat-empty';
-    empty.append('Ask a question about this scenario. Try clicking a ');
+    empty.append('Ask about this scenario, or use ');
     const example = document.createElement('span');
     example.className = 'rule-info-demo';
-    example.textContent = '?';
-    empty.append(example, ' next to any item to draft a question, then edit it and choose Ask.');
-    appendScenarioSuggestions(empty);
+    example.innerHTML = AI_CONTEXT_ICON;
+    empty.append(example, ' beside an item to add it to your message.');
     container.append(empty);
     renderChatAccess();
     return;
@@ -1402,6 +1405,42 @@ function announceChat(text) {
   if (announcement) announcement.textContent = text;
 }
 
+// Runtime request handles stay outside persisted conversation records.
+const chatRequests = new Map();
+
+function cancelChatRequest(record = activeConversation(), { silent = false } = {}) {
+  const request = chatRequests.get(record);
+  if (!request || request.cancelled) return;
+  request.cancelled = true;
+  request.controller.abort();
+  chatRequests.delete(record);
+  record.pending = false;
+  if (request.submitted && request.usesFundedAccess) {
+    // Usage already dispatched can settle after the browser closes the request.
+    for (const delay of [0, 1500]) window.setTimeout(() => {
+      if (request.epoch === conversationStore.epoch && state.authSession.authenticated) refreshTrialBalanceQuietly();
+    }, delay);
+  }
+  if (silent) return;
+  if (request.submitted) record.messages.push({ role: 'assistant', content: 'Answer stopped. Your question is retained.',
+    snapshot_id: request.snapshotId, local_notice: true });
+  if (activeConversation() === record) {
+    state.chatPending = false;
+    state.chatDegraded = false;
+    chatComposer.restoreIfEmpty(request.draft);
+    saveConversationDraft();
+    renderChat();
+    announceChat('Answer stopped. Your question is retained.');
+    chatComposer.focus();
+  } else if (!record.draft) {
+    record.draft = request.draft.text;
+    record.draft_segments = structuredClone(request.draft.segments);
+    record.context_refs = structuredClone(request.draft.refs);
+  }
+  persistConversations(record);
+  renderConversationControls();
+}
+
 async function sendChatMessage(prefilledText) {
   if (state.chatPending || chatComposer.isComposing) return;
   syncConversationIdentity();
@@ -1439,13 +1478,18 @@ async function sendChatMessage(prefilledText) {
   const available = () => epoch === conversationStore.epoch && !conversationStore.deleted.has(record.id)
     && conversationStore.records.includes(record);
   const visible = () => available() && activeConversation() === record;
+  const request = { controller: new AbortController(), cancelled: false, submitted: false,
+    epoch, usesFundedAccess: requestUsesFundedAccess,
+    draft: text === draft.text ? draft : { text, refs: selectedContext } };
+  chatRequests.set(record, request);
   record.pending = true;
   state.chatPending = true;
   renderChat();
   if (typeof prefilledText === 'string') revealChatForNarrowLayout();
   let snapshotId;
   try {
-    const snapshot = await captureConversationSnapshot(requestContext);
+    const snapshot = await captureConversationSnapshot(requestContext, request.controller.signal);
+    if (request.cancelled) return;
     if (!visible() || !modelViewContextIsCurrent(requestContext)) {
       if (available()) showGlobalStatus('The scenario changed while preparing the question. Your draft was retained.', 'info');
       return;
@@ -1455,6 +1499,8 @@ async function sendChatMessage(prefilledText) {
       JSON.stringify({ ...prior, captured_at: null }) === comparableSnapshot);
     snapshotId = existingSnapshot?.[0] || conversationId();
     if (!existingSnapshot) record.snapshots[snapshotId] = snapshot;
+    request.snapshotId = snapshotId;
+    request.submitted = true;
     conversation.push({ role: 'user', content: text, snapshot_id: snapshotId,
       segments: text === draft.text ? structuredClone(draft.segments) : undefined,
       context_refs: selectedContext.map(({ kind, id }) => ({ kind, id })) });
@@ -1465,10 +1511,11 @@ async function sendChatMessage(prefilledText) {
     announceChat('Question sent. Waiting for an answer.');
     const messages = conversation.filter(message => !message.local_notice)
       .slice(-CHAT_TURN_CAP).map(message => ({ role: message.role, content: message.content }));
-    const resp = await apiPostChat(requestContext.scenarioId, requestContext.diffOps, messages, undefined,
+    const resp = await apiPostChat(requestContext.scenarioId, requestContext.diffOps, messages, request.controller.signal,
       selectedContext.map(({ kind, id }) => ({ kind, id })), requestContext);
+    if (request.cancelled) return;
     await refreshConversationRecords();
-    if (!available()) return;
+    if (request.cancelled || !available()) return;
     if (resp.billing_source !== 'byok' && state.authSession.authenticated) refreshTrialBalanceQuietly();
     const earlier = !visible() || !modelViewContextIsCurrent(requestContext);
     const source = resp.billing_source === 'byok' ? 'Own key' : 'Funded';
@@ -1486,8 +1533,9 @@ async function sendChatMessage(prefilledText) {
       announceChat(conversationStore.notice);
     }
   } catch (e) {
+    if (request.cancelled) return;
     await refreshConversationRecords();
-    if (!available()) return;
+    if (request.cancelled || !available()) return;
     if (requestUsesFundedAccess && state.authSession.authenticated) refreshTrialBalanceQuietly();
     const assessment = e.billing_uncertain === true
       ? ' Cost conservatively assessed because complete provider usage was unavailable.' : '';
@@ -1500,6 +1548,9 @@ async function sendChatMessage(prefilledText) {
       announceChat(`The answer could not finish.${assessment} Your question was retained.`);
     } else record.unread = true;
   } finally {
+    // A stopped request may finish after another question has started.
+    if (chatRequests.get(record) !== request) return;
+    chatRequests.delete(record);
     record.pending = false;
     if (available()) {
       if (visible()) {
@@ -1514,7 +1565,7 @@ async function sendChatMessage(prefilledText) {
 }
 
 // Delegated click handler: any `.rule-info[data-desc]` anywhere in the left
-// panel adds an editable question and explicit identity without submitting.
+// panel adds an editable reference with its identity without submitting.
 // The controls are hidden when LLM mode is disabled.
 document.addEventListener('click', (e) => {
   const target = e.target.closest('.rule-info');
@@ -2401,6 +2452,31 @@ const editState = {
   inFlight: false,
 };
 let editRequestGeneration = 0;
+// Abort handles belong to this modal lifecycle, never to saved scenario or chat data.
+let activeProposalRequest = null;
+
+function proposalRequestAccountIsCurrent(request) {
+  const account = state.authSession.authenticated ? state.authSession.user?.id || null : null;
+  return request.epoch === conversationStore.epoch && request.account === account;
+}
+
+function proposalRequestIsCurrent(request) {
+  return activeProposalRequest === request && request.generation === editRequestGeneration
+    && !request.controller.signal.aborted && proposalRequestAccountIsCurrent(request);
+}
+
+function cancelProposalRequest() {
+  const request = activeProposalRequest;
+  if (!request) return;
+  activeProposalRequest = null;
+  request.controller.abort();
+  if (request.submitted && request.usesFundedAccess) {
+    // The server can settle dispatched usage after the browser disconnects.
+    for (const delay of [0, 1500]) window.setTimeout(() => {
+      if (proposalRequestAccountIsCurrent(request) && state.authSession.authenticated) refreshTrialBalanceQuietly();
+    }, delay);
+  }
+}
 
 function openEditModal(task, existingId = null) {
   if (state.readOnly) {
@@ -2413,6 +2489,7 @@ function openEditModal(task, existingId = null) {
     showGlobalStatus(accessIssue.message, 'info');
     return;
   }
+  cancelProposalRequest();
   editRequestGeneration += 1;
   editState.task = task;
   editState.existingId = existingId;
@@ -2461,6 +2538,7 @@ function openEditModal(task, existingId = null) {
 }
 
 function closeEditModal() {
+  cancelProposalRequest();
   editRequestGeneration += 1;
   editState.task = null;
   editState.existingId = null;
@@ -2481,6 +2559,13 @@ async function sendPropose() {
   const requestGeneration = ++editRequestGeneration;
   const requestContext = captureModelViewContext();
   const requestUsesFundedAccess = state.llmAccess.mode !== 'byok';
+  const request = {
+    controller: new AbortController(), generation: requestGeneration,
+    epoch: conversationStore.epoch,
+    account: state.authSession.authenticated ? state.authSession.user?.id || null : null,
+    usesFundedAccess: requestUsesFundedAccess, submitted: false,
+  };
+  activeProposalRequest = request;
   editState.inFlight = true;
   editState.lastProposal = null;
   _setEditStatus('loading', 'Proposing…');
@@ -2501,19 +2586,21 @@ async function sendPropose() {
   if (editState.task === 'modify-rule') payload.existing_id = editState.existingId;
 
   try {
+    request.submitted = true;
     const r = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: request.controller.signal,
     });
     const body = await r.json().catch(() => ({}));
+    if (!proposalRequestIsCurrent(request)) return;
     const responseUsesFundedAccess = body.billing_source
       ? body.billing_source !== 'byok'
       : requestUsesFundedAccess;
     if (responseUsesFundedAccess && state.authSession.authenticated) {
       refreshTrialBalanceQuietly();
     }
-    if (requestGeneration !== editRequestGeneration) return;
     if (!modelViewContextIsCurrent(requestContext)) {
       editState.lastProposal = null;
       document.getElementById('edit-preview').innerHTML = '';
@@ -2533,10 +2620,10 @@ async function sendPropose() {
     _renderProposal(body);
     _setEditStatus('ok', `Proposed in ${body.latency_ms} ms${body.proposer_attempts > 1 ? ` (${body.proposer_attempts} attempts)` : ''}.${body.billing_uncertain ? ' Cost conservatively assessed because complete provider usage was unavailable.' : ''}`);
   } catch (e) {
+    if (!proposalRequestIsCurrent(request)) return;
     if (requestUsesFundedAccess && state.authSession.authenticated) {
       refreshTrialBalanceQuietly();
     }
-    if (requestGeneration !== editRequestGeneration) return;
     if (!modelViewContextIsCurrent(requestContext)) {
       editState.lastProposal = null;
       document.getElementById('edit-preview').innerHTML = '';
@@ -2548,7 +2635,8 @@ async function sendPropose() {
     }
     _setEditStatus('error', `Network error: ${e.message}`);
   } finally {
-    if (requestGeneration === editRequestGeneration) {
+    if (proposalRequestIsCurrent(request)) {
+      activeProposalRequest = null;
       editState.inFlight = false;
       _renderEditFooter();
     }

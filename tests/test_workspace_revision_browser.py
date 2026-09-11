@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import pytest
 
 from test_browser_e2e import BROWSER_ENGINE, BROWSER_TESTS, live_browser_server as browser_server
+from test_exploration_browser import _capture_exploration
 from test_scenario_submissions import PICNIC
 
 live_browser_server = browser_server
@@ -191,6 +192,44 @@ def test_project_share_expiry_archive_and_private_restore(live_browser_server):
             page.locator("#projects-active-filter").click()
             expect(page.locator(f'[data-project-card="{saved["id"]}"]')).to_contain_text("Version 3")
             assert page.request.get(f"{live_browser_server}/api/trial").json() == balance
+        finally:
+            browser.close()
+
+
+def test_archived_checkbox_deletion_uses_real_api_and_preserves_open_project(live_browser_server, tmp_path):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        messages = []
+        page.on("dialog", lambda dialog: (messages.append(dialog.message), dialog.accept()))
+        try:
+            ready(page, live_browser_server)
+            archived = [saved_project(page, live_browser_server) for _ in range(3)]
+            active = saved_project(page, live_browser_server)
+            for project in archived:
+                assert page.request.delete(f"{live_browser_server}/api/projects/{project['id']}?expected_version=1").ok
+            page.evaluate("id => loadProject(id)", active["id"])
+            page.evaluate("() => openWorkspace('projects')")
+            page.locator("#projects-archived-filter").click()
+            expect(page.locator('[data-project-select]')).to_have_count(3)
+            for project in archived[:2]:
+                page.locator(f'[data-project-select="{project["id"]}"]').check()
+            _capture_exploration(page, tmp_path, "archived-project-selection-1280")
+            page.locator("#projects-delete-selected").click()
+            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 2 archived projects")
+            expect(page.locator('[data-project-select]')).to_have_count(1)
+            remaining = page.request.get(f"{live_browser_server}/api/projects?archived=true").json()["projects"]
+            assert [project["id"] for project in remaining] == [archived[2]["id"]]
+            page.locator("#projects-delete-all").click()
+            expect(page.locator("#projects-status")).to_contain_text("Permanently deleted 1 archived project")
+            expect(page.locator("#project-list")).to_contain_text("No archived projects")
+            assert page.request.get(f"{live_browser_server}/api/projects?archived=true").json()["projects"] == []
+            assert page.request.get(f"{live_browser_server}/api/projects/{active['id']}").ok
+            assert page.evaluate("state.activeProject.id") == active["id"]
+            assert page.evaluate("state.diff_ops") == []
+            assert len(messages) == 2 and all("cannot be undone" in message for message in messages)
         finally:
             browser.close()
 

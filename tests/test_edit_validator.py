@@ -106,8 +106,8 @@ def test_modify_rule_with_long_existing_id_is_not_blocked():
     medical.rules[long_id] = Rule(
         id=long_id,
         type="defeasible",
-        premises=["clopidogrel"],
-        conclusion="-needs_cyp2c19_chk",
+        premises=["clopidogrel_post_pci"],
+        conclusion="-cardiac_interaction",
         category="pharmacology",
     )
     assert len(long_id) > MAX_ID_LEN
@@ -117,8 +117,8 @@ def test_modify_rule_with_long_existing_id_is_not_blocked():
         "id": long_id,
         "rule": {
             "type": "defeasible",
-            "premises": ["clopidogrel"],
-            "conclusion": "-needs_cyp2c19_chk",
+            "premises": ["clopidogrel_post_pci"],
+            "conclusion": "-cardiac_interaction",
             "category": "pharmacology",
         },
     }
@@ -139,8 +139,8 @@ def test_add_rule_still_rejects_long_id():
         "id": "a" * (MAX_ID_LEN + 1),
         "rule": {
             "type": "defeasible",
-            "premises": ["clopidogrel"],
-            "conclusion": "cardiac_risk",
+            "premises": ["clopidogrel_post_pci"],
+            "conclusion": "cardiac_interaction",
         },
     }
     assert any(i.code == "id_too_long" for i in validate_op(op, medical))

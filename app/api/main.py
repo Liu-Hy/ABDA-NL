@@ -67,6 +67,7 @@ from app.api.models import (
     StateResponse,
 )
 from app.api.middleware import RequestBodyLimitMiddleware
+from app.api.llm_cancellation import run_cancellable_llm
 from app.db.models import (
     EmergencyBudget,
     EmergencyUsageReservation,
@@ -857,42 +858,45 @@ def _project_scenario_dir(project) -> Path | None:
     response_model=ChatResponse,
     dependencies=[Depends(require_same_origin)],
 )
-def post_chat(
+async def post_chat(
     payload: ChatRequest,
     raw_request: Request,
     user: Optional[User] = Depends(current_user),
     session: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> ChatResponse:
-    if not ENABLE_LLM:
-        raise HTTPException(
-            status_code=503,
-            detail="chat is disabled; restart with ABDA_ENABLE_LLM=1",
+    def operation():
+        if not ENABLE_LLM:
+            raise HTTPException(
+                status_code=503,
+                detail="chat is disabled; restart with ABDA_ENABLE_LLM=1",
+            )
+        enforce_rate_limit(
+            raw_request,
+            session,
+            settings,
+            scope=ACCOUNT_LLM_RATE_SCOPE,
+            limit=settings.llm_requests_per_minute,
+            user_id=user.id if user is not None else None,
         )
-    enforce_rate_limit(
-        raw_request,
-        session,
-        settings,
-        scope=ACCOUNT_LLM_RATE_SCOPE,
-        limit=settings.llm_requests_per_minute,
-        user_id=user.id if user is not None else None,
-    )
 
-    baseline, source_id = resolve_public_scenario(session, payload.scenario_id)
-    scenario_dir = EXAMPLES_ROOT / source_id if source_id else None
-    ops = [op.model_dump() for op in payload.diff_ops]
-    scenario = apply_ops(baseline, ops)
-    bundle = _compute_state_bundle(scenario)
-    return _run_chat_request(
-        payload,
-        raw_request,
-        user,
-        scenario=scenario,
-        bundle=bundle,
-        ops=ops,
-        scenario_dir=scenario_dir,
-        context_kind="example",
-    )
+        baseline, source_id = resolve_public_scenario(session, payload.scenario_id)
+        scenario_dir = EXAMPLES_ROOT / source_id if source_id else None
+        ops = [op.model_dump() for op in payload.diff_ops]
+        scenario = apply_ops(baseline, ops)
+        bundle = _compute_state_bundle(scenario)
+        return _run_chat_request(
+            payload,
+            raw_request,
+            user,
+            scenario=scenario,
+            bundle=bundle,
+            ops=ops,
+            scenario_dir=scenario_dir,
+            context_kind="example",
+        )
+
+    return await run_cancellable_llm(raw_request, operation)
 
 
 @app.post(
@@ -900,41 +904,44 @@ def post_chat(
     response_model=ProposeResponse,
     dependencies=[Depends(require_same_origin)],
 )
-def post_propose(
+async def post_propose(
     payload: ProposeRequest,
     raw_request: Request,
     user: Optional[User] = Depends(current_user),
     session: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> ProposeResponse:
-    if not ENABLE_LLM:
-        raise HTTPException(
-            status_code=503,
-            detail="edit flows are disabled; restart with ABDA_ENABLE_LLM=1",
+    def operation():
+        if not ENABLE_LLM:
+            raise HTTPException(
+                status_code=503,
+                detail="edit flows are disabled; restart with ABDA_ENABLE_LLM=1",
+            )
+        enforce_rate_limit(
+            raw_request,
+            session,
+            settings,
+            scope=ACCOUNT_LLM_RATE_SCOPE,
+            limit=settings.llm_requests_per_minute,
+            user_id=user.id if user is not None else None,
         )
-    enforce_rate_limit(
-        raw_request,
-        session,
-        settings,
-        scope=ACCOUNT_LLM_RATE_SCOPE,
-        limit=settings.llm_requests_per_minute,
-        user_id=user.id if user is not None else None,
-    )
-    baseline, source_id = resolve_public_scenario(session, payload.scenario_id)
-    scenario_dir = EXAMPLES_ROOT / source_id if source_id else None
-    ops = [op.model_dump() for op in payload.diff_ops]
-    scenario = apply_ops(baseline, ops)
-    bundle = _compute_state_bundle(scenario)
-    return _run_propose_request(
-        payload,
-        raw_request,
-        user,
-        scenario=scenario,
-        bundle=bundle,
-        ops=ops,
-        scenario_dir=scenario_dir,
-        context_kind="example",
-    )
+        baseline, source_id = resolve_public_scenario(session, payload.scenario_id)
+        scenario_dir = EXAMPLES_ROOT / source_id if source_id else None
+        ops = [op.model_dump() for op in payload.diff_ops]
+        scenario = apply_ops(baseline, ops)
+        bundle = _compute_state_bundle(scenario)
+        return _run_propose_request(
+            payload,
+            raw_request,
+            user,
+            scenario=scenario,
+            bundle=bundle,
+            ops=ops,
+            scenario_dir=scenario_dir,
+            context_kind="example",
+        )
+
+    return await run_cancellable_llm(raw_request, operation)
 
 
 @app.post("/api/projects/{project_id}/state", response_model=StateResponse)
@@ -965,7 +972,7 @@ def post_project_state(
     response_model=ChatResponse,
     dependencies=[Depends(require_same_origin)],
 )
-def post_project_chat(
+async def post_project_chat(
     project_id: str,
     payload: ProjectChatRequest,
     raw_request: Request,
@@ -973,32 +980,35 @@ def post_project_chat(
     session: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> ChatResponse:
-    if not ENABLE_LLM:
-        raise HTTPException(
-            status_code=503,
-            detail="chat is disabled; restart with ABDA_ENABLE_LLM=1",
+    def operation():
+        if not ENABLE_LLM:
+            raise HTTPException(
+                status_code=503,
+                detail="chat is disabled; restart with ABDA_ENABLE_LLM=1",
+            )
+        enforce_rate_limit(
+            raw_request,
+            session,
+            settings,
+            scope=ACCOUNT_LLM_RATE_SCOPE,
+            limit=settings.llm_requests_per_minute,
+            user_id=user.id,
         )
-    enforce_rate_limit(
-        raw_request,
-        session,
-        settings,
-        scope=ACCOUNT_LLM_RATE_SCOPE,
-        limit=settings.llm_requests_per_minute,
-        user_id=user.id,
-    )
-    project, scenario, bundle, ops = _load_project_working_context(
-        session, user, project_id, payload.expected_version, payload.diff_ops
-    )
-    return _run_chat_request(
-        payload,
-        raw_request,
-        user,
-        scenario=scenario,
-        bundle=bundle,
-        ops=ops,
-        scenario_dir=_project_scenario_dir(project),
-        context_kind="project",
-    )
+        project, scenario, bundle, ops = _load_project_working_context(
+            session, user, project_id, payload.expected_version, payload.diff_ops
+        )
+        return _run_chat_request(
+            payload,
+            raw_request,
+            user,
+            scenario=scenario,
+            bundle=bundle,
+            ops=ops,
+            scenario_dir=_project_scenario_dir(project),
+            context_kind="project",
+        )
+
+    return await run_cancellable_llm(raw_request, operation)
 
 
 @app.post(
@@ -1006,7 +1016,7 @@ def post_project_chat(
     response_model=ProposeResponse,
     dependencies=[Depends(require_same_origin)],
 )
-def post_project_propose(
+async def post_project_propose(
     project_id: str,
     payload: ProjectProposeRequest,
     raw_request: Request,
@@ -1014,32 +1024,35 @@ def post_project_propose(
     session: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> ProposeResponse:
-    if not ENABLE_LLM:
-        raise HTTPException(
-            status_code=503,
-            detail="edit flows are disabled; restart with ABDA_ENABLE_LLM=1",
+    def operation():
+        if not ENABLE_LLM:
+            raise HTTPException(
+                status_code=503,
+                detail="edit flows are disabled; restart with ABDA_ENABLE_LLM=1",
+            )
+        enforce_rate_limit(
+            raw_request,
+            session,
+            settings,
+            scope=ACCOUNT_LLM_RATE_SCOPE,
+            limit=settings.llm_requests_per_minute,
+            user_id=user.id,
         )
-    enforce_rate_limit(
-        raw_request,
-        session,
-        settings,
-        scope=ACCOUNT_LLM_RATE_SCOPE,
-        limit=settings.llm_requests_per_minute,
-        user_id=user.id,
-    )
-    project, scenario, bundle, ops = _load_project_working_context(
-        session, user, project_id, payload.expected_version, payload.diff_ops
-    )
-    return _run_propose_request(
-        payload,
-        raw_request,
-        user,
-        scenario=scenario,
-        bundle=bundle,
-        ops=ops,
-        scenario_dir=_project_scenario_dir(project),
-        context_kind="project",
-    )
+        project, scenario, bundle, ops = _load_project_working_context(
+            session, user, project_id, payload.expected_version, payload.diff_ops
+        )
+        return _run_propose_request(
+            payload,
+            raw_request,
+            user,
+            scenario=scenario,
+            bundle=bundle,
+            ops=ops,
+            scenario_dir=_project_scenario_dir(project),
+            context_kind="project",
+        )
+
+    return await run_cancellable_llm(raw_request, operation)
 
 
 @app.post(

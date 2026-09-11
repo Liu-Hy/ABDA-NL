@@ -40,7 +40,7 @@ def test_real_filename_does_not_make_invented_quotation_pass():
 def test_quote_check_accepts_actual_passage_and_requires_local_citation():
     case = _case("fire-corpus-quote")
     scenario, bundle, _, directory = _scenario_for_case(case)
-    quote = '"exceedance days are off-limits regardless."'
+    quote = '"exceedance days are off-limits under this permit."'
     correct = _chat_semantic_checks(case, quote + " [epa_pm25_standards.txt]", scenario, bundle, directory)
     assert all(correct.values())
     missing = _chat_semantic_checks(case, quote, scenario, bundle, directory)

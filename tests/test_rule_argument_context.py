@@ -42,25 +42,26 @@ def test_popov_keeps_rejected_exclusivity_separate_from_accepted_causes():
 
 def test_inactive_cogent_is_visible_without_becoming_a_current_cause():
     scenario = load_bundled_scenario("medical_ppi")
-    scenario.assumptions["ppi_is_panto"].active = True
+    scenario.assumptions["pantoprazole_contraindicated"].active = True
     af = compute_state_bundle(scenario)["af"]
     text = _summary(scenario, af)
-    line = _line(text, "ppi_blocks_cyp2c19")
-    cause = next(a for a in af["arguments"] if a["top_rule"] == "panto_spares")
-    cardiac = next(a for a in af["arguments"] if a["conclusion"] == "cardiac_risk")
-    assert f"{cardiac['id']} rejected (accepted defeaters: {cause['id']})" in line
-    assert f"panto_spares [{cause['id']} accepted]" in line
-    assert "cogent [no current argument]" in line
+    line = _line(text, "switch_for_interaction")
+    cause = next(a for a in af["arguments"] if a["top_rule"] == "contraindication")
+    switch = next(a for a in af["arguments"] if a["conclusion"] == "switch_to_pantoprazole")
+    assert f"{switch['id']} rejected (accepted defeaters: {cause['id']})" in line
+    assert f"contraindication [{cause['id']} accepted]" in line
+    assert "cogent_reading [no current argument]" in _line(text, "omeprazole_blocks_clopidogrel")
     assert "declared undercutters:" in line
-    assert not scenario.assumptions["cogent_applies"].active
+    assert not scenario.assumptions["cogent_decisive"].active
+    assert af["labels_by_proposition"]["cardiac_interaction"] == "accepted"
 
 
 def test_equal_fire_arguments_stay_undecided_without_collapsing_derivations():
     scenario = load_bundled_scenario("fire_prevention")
     af = compute_state_bundle(scenario)["af"]
     text = _summary(scenario, af)
-    decisions = [a for a in af["arguments"] if a["conclusion"].lstrip("-") == "conduct_burn"]
-    assert len(decisions) == 4
+    decisions = [a for a in af["arguments"] if a["conclusion"].lstrip("-") == "treat_unit"]
+    assert len(decisions) == 3
     for argument in decisions:
         line = _line(text, argument["top_rule"])
         assert f"{argument['id']} undecided" in line
@@ -131,7 +132,7 @@ def test_only_chat_builder_enables_current_rule_argument_status():
 
 def test_context_formatting_does_not_mutate_rules_labels_or_edges():
     scenario = load_bundled_scenario("medical_ppi")
-    scenario.assumptions["ppi_is_panto"].active = True
+    scenario.assumptions["cogent_decisive"].active = True
     af = compute_state_bundle(scenario)["af"]
     before_scenario, before_af = scenario_to_dict(scenario), deepcopy(af)
     text = _summary(scenario, af)

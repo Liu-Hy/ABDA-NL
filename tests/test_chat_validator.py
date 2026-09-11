@@ -186,3 +186,53 @@ def test_retry_that_remains_ungrounded_returns_safe_fallback(
     assert result.billing_source == "emergency"
     assert result.route == "balanced-fallback"
     assert len(client.calls) == 2
+
+
+@pytest.mark.parametrize('first_draft,expected_retry,quote_feedback', [
+    ('"The roof vent destroys the hot air." [maintenance.txt]', True, True),
+    ('The `invented_vent_rule` supports ventilation.', True, False),
+    ('See [quotation_missing.txt] for the ventilation mechanism.', True, False),
+    ('Opening the roof vent is accepted. "The roof vent releases accumulated hot air." [maintenance.txt]', False, False),
+])
+def test_quote_specific_retry_keeps_a_substantive_grounded_answer(
+    first_draft, expected_retry, quote_feedback,
+):
+    from app.scenario.loader import scenario_from_dict
+    from app.scenario.state import compute_state_bundle
+
+    source = 'Maintenance note. The roof vent releases accumulated hot air.'
+    quote = 'The roof vent releases accumulated hot air.'
+    final_text = f'Opening the roof vent is accepted. "{quote}" [maintenance.txt]'
+    scenario = scenario_from_dict({
+        'title': 'Greenhouse ventilation',
+        'facts': {'inside_hot': {'description': 'the greenhouse is hot'}},
+        'conclusions': {'ventilate': {'description': 'open the roof vent'}},
+        'rules': {'cooling': {'type': 'defeasible', 'premises': ['inside_hot'], 'conclusion': 'ventilate'}},
+        'sources': [{'filename': 'maintenance.txt', 'text': source}],
+    })
+    bundle = compute_state_bundle(scenario)
+    client = _SequencedClient([
+        LLMResponse(text=text, stop_reason='end_turn', usage={}, latency_ms=1, model='test-model')
+        for text in (first_draft, final_text)
+    ])
+    question = {'role': 'user', 'content': 'How does the roof vent help cool the greenhouse?'}
+    result = run_turn(scenario, bundle['af'], [], [question], scenario_dir=None, client=client)
+
+    guidance = ('Copy quoted source text exactly, including case and punctuation, '
+                'or paraphrase without quotation marks and cite.')
+    assert client.calls[0]['messages'] == [question]
+    assert guidance not in client.calls[0]['system']
+    assert result.retried is expected_retry
+    assert len(client.calls) == (2 if expected_retry else 1)
+    if expected_retry:
+        retry = client.calls[1]['messages'][-1]['content']
+        assert (guidance in retry) is quote_feedback
+        assert client.calls[1]['system'] == client.calls[0]['system']
+    assert result.text == final_text
+    assert result.stop_reason == 'end_turn'
+    assert result.validator_flags == []
+    assert len(result.evidence) == 1
+    evidence = result.evidence[0]
+    assert evidence['source'] == 'maintenance.txt'
+    assert evidence['evidence_role'] == 'quotation' and evidence['verified'] is True
+    assert source[evidence['start']:evidence['end']] == evidence['quote'] == quote

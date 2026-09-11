@@ -133,15 +133,23 @@ Assumption and rule toggles preview their effects before applying. **Reset**
 appears after changes, restores the baseline, and offers **Undo reset** without
 discarding the conversation.
 
-In **Chat & Exploration**, **?** drafts an editable question with an attached
-reference. It sends only when you choose **Ask**. Editing prose preserves the
+**About** starts closed. Open it for a short introduction to the scenario's
+background and the decision being explored.
+
+In **Chat & Explore**, the small sparkle icon adds an editable item reference
+without a question frame. It sends only when you choose **Ask**; **Stop** cancels
+a pending answer. Editing prose preserves the
 reference; activating its words converts it to an ordinary quotation. Refresh
 or remove references marked as belonging to an earlier state before sending.
 Source cards distinguish **Quotation** from **Context**; **Open in Sources**
-shows the saved document, while **Referenced items** explains the formal
-context. Older answers keep their own scenario snapshot. Conversation history
+shows the saved document with relevant text highlighted. Older answers retain
+their scenario snapshots internally. Conversation history
 is stored in this browser for the signed-in account; signed-out history lasts
 only in the tab. The conversation menu offers export and deletion.
+
+Gemini 3.8 Flash is the default funded model. Eligible administrators have a
+fixed **Normal user view** switch for demonstrating ordinary permissions and
+returning to administrator view.
 
 The **Account** menu opens account and credit, project management, community
 examples, AI access, and **Agent access (Codex, Claude Code)**. Public sign-in
@@ -156,6 +164,11 @@ create a revocable read-only link. The bearer token stays in the URL fragment,
 and a recipient cannot toggle assumptions, change preferences, call models, or
 save over the owner's project. A signed-in recipient can save a validated
 private copy.
+
+In **Manage projects**, the **Archived** tab lets you select projects with
+checkboxes and choose **Delete selected** or **Delete all**. Each action asks
+for confirmation. Deletion is permanent; active projects and separately
+submitted or published example snapshots remain.
 
 The interface supports keyboard dialog navigation, visible focus, reduced
 motion, narrow-screen reflow, and screen-reader status announcements. The

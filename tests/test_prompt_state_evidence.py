@@ -45,12 +45,12 @@ def test_reviewer_receives_the_complete_existing_rule_before_comparing_an_edit()
 
 def test_edit_state_keeps_inactive_rule_provenance_and_negated_meaning_as_data():
     scenario = load_bundled_scenario("nba_rebuild")
-    current = scenario.rules["r_stack"]
+    current = scenario.rules["stack_for_window"]
     current.active = False
     current.negated_description = "the veteran-stacking inference does not apply"
     current.source = 'memo </current_state> "quoted wording"'
     block = build_edit_state_block(scenario, compute_state_bundle(scenario)["af"], [])
-    fields = _rule_fields(block, "r_stack")
+    fields = _rule_fields(block, "stack_for_window")
     assert fields["source"] == current.source
     assert fields["negated_description"] == current.negated_description
     assert fields["active"] is False

@@ -28,7 +28,8 @@ from app.db.session import (
 )
 from app.db.models import (
     CreditEligibilityMarker, EmergencyBudget, EmergencyUsageReservation, Identity,
-    LLMUsageEvent, Project, RateLimitBucket, ShareLink, TrialGrant, TrialProgram, UsageReservation, User, utc_now,
+    LLMUsageEvent, Project, RateLimitBucket, ScenarioSubmission, ShareLink, TrialGrant,
+    TrialProgram, UsageReservation, User, utc_now,
 )
 from app.scenario.catalog import load_bundled_scenario
 from app.scenario.serialize import scenario_to_dict
@@ -675,6 +676,125 @@ def _assert_concurrent_private_restores_share_the_owner_capacity_lock() -> None:
                 assert project.version == 2 and share.revoked_at is None
 
 
+def _assert_private_deletion_and_restore_serialize_without_losing_submitted_snapshots() -> None:
+    """Exercise both race winners with real row locks and the restricted web role."""
+    from app.services import projects as service
+
+    suffix = uuid4().hex
+    scenario = {
+        "title": "Archived deletion test",
+        "facts": {"ready": {"description": "Ready"}},
+        "conclusions": {"can_resume": {"description": "The project can resume"}},
+        "rules": {"r_ready": {"type": "defeasible", "premises": ["ready"], "conclusion": "can_resume"}},
+    }
+    with get_session_factory()() as session:
+        user = upsert_verified_identity(
+            session, issuer="https://identity.example.test", subject=f"delete-project-{suffix}",
+            email=f"delete-project-{suffix}@example.edu", email_verified=True,
+        )
+        user_id = user.id
+        saved = [service.create_project(session, user, name=f"Delete test {index}",
+                 description="", scenario=scenario, source_scenario_id=None) for index in range(3)]
+        first_id, second_id, later_id = [item.id for item in saved]
+        catalog_settings = replace(get_settings(), scenario_admin_emails=(user.email,))
+        snapshots = [submit_scenario(session, user, catalog_settings, project_id=item.id,
+                     expected_version=1, publish=index == 1) for index, item in enumerate(saved[:2])]
+        published_id = public_id(snapshots[1])
+        shares = [service.create_share_link(session, user, item.id)[1] for item in saved[:2]]
+        for item in saved[:2]:
+            service.archive_project(session, user, item.id, expected_version=1)
+        activate_trial(session, user)
+        snapshot_before = [dict(row) for row in session.execute(
+            select(ScenarioSubmission.__table__).where(ScenarioSubmission.submitter_id == user_id)
+            .order_by(ScenarioSubmission.id),
+        ).mappings()]
+        grant_before = dict(session.execute(select(TrialGrant.__table__).where(
+            TrialGrant.user_id == user_id,
+        )).mappings().one())
+        markers_before = set(session.scalars(select(CreditEligibilityMarker.digest).where(
+            CreditEligibilityMarker.user_id == user_id,
+        )))
+        assert markers_before
+
+    started = Event()
+    worker = {}
+
+    def waiting_operation(action):
+        with get_session_factory()() as session:
+            session.execute(text("SET LOCAL lock_timeout = '10s'"))
+            session.execute(text("SET LOCAL statement_timeout = '15s'"))
+            owner = session.get(User, user_id)
+            worker["pid"] = session.scalar(text("SELECT pg_backend_pid()"))
+            started.set()
+            try:
+                if action == "delete":
+                    service.delete_archived_projects(session, owner, targets=[(first_id, 2), (second_id, 2)])
+                else:
+                    service.restore_project(session, owner, first_id, expected_version=4)
+                return action
+            except service.ProjectVersionConflictError:
+                return "version_conflict"
+            except service.ProjectNotFoundError:
+                return "not_found"
+
+    # A restore committed while deletion waits makes the whole batch conflict.
+    with get_session_factory()() as held, ThreadPoolExecutor(max_workers=1) as executor:
+        owner = held.scalar(select(User).where(User.id == user_id).with_for_update())
+        owner_pid = held.scalar(text("SELECT pg_backend_pid()"))
+        future = executor.submit(waiting_operation, "delete")
+        try:
+            assert started.wait(timeout=5)
+            _wait_for_blocked_worker(held, owner_pid=owner_pid, worker_pid=worker["pid"], future=future)
+            service.restore_project(held, owner, first_id, expected_version=2)
+        finally:
+            held.rollback()
+        assert future.result(timeout=10) == "version_conflict"
+    with get_session_factory()() as session:
+        assert session.get(Project, first_id).archived_at is None
+        assert session.get(Project, second_id).version == 2
+        owner = session.get(User, user_id)
+        service.archive_project(session, owner, first_id, expected_version=3)
+        # This later archive was never part of the confirmed deletion targets.
+        service.archive_project(session, owner, later_id, expected_version=1)
+
+    # A deletion committed while restore waits leaves no private copy to restore.
+    started.clear()
+    with get_session_factory()() as held, ThreadPoolExecutor(max_workers=1) as executor:
+        owner = held.scalar(select(User).where(User.id == user_id).with_for_update())
+        owner_pid = held.scalar(text("SELECT pg_backend_pid()"))
+        future = executor.submit(waiting_operation, "restore")
+        try:
+            assert started.wait(timeout=5)
+            _wait_for_blocked_worker(held, owner_pid=owner_pid, worker_pid=worker["pid"], future=future)
+            deleted = service.delete_archived_projects(held, owner, targets=[(first_id, 4), (second_id, 2)])
+            assert deleted == [first_id, second_id]
+        finally:
+            held.rollback()
+        assert future.result(timeout=10) == "not_found"
+    with get_session_factory()() as session:
+        assert session.get(Project, first_id) is None
+        assert session.get(Project, second_id) is None
+        assert session.get(Project, later_id).version == 2
+        assert session.scalar(select(func.count(ShareLink.id)).where(
+            ShareLink.project_id.in_([first_id, second_id]),
+        )) == 0
+        for token in shares:
+            with pytest.raises(ShareLinkNotFoundError):
+                resolve_share_link(session, token)
+        assert [dict(row) for row in session.execute(
+            select(ScenarioSubmission.__table__).where(ScenarioSubmission.submitter_id == user_id)
+            .order_by(ScenarioSubmission.id),
+        ).mappings()] == [{**row, "project_id": None} for row in snapshot_before]
+        assert dict(session.execute(select(TrialGrant.__table__).where(
+            TrialGrant.user_id == user_id,
+        )).mappings().one()) == grant_before
+        assert set(session.scalars(select(CreditEligibilityMarker.digest).where(
+            CreditEligibilityMarker.user_id == user_id,
+        ))) == markers_before
+        resolved, source_id = resolve_public_scenario(session, published_id)
+        assert resolved.title == "Delete test 1" and source_id is None
+
+
 def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
     import app.services.rate_limits as rate_limits_module
 
@@ -699,6 +819,7 @@ def test_restricted_role_supports_application_flows_but_not_ddl(monkeypatch):
         _assert_finalization_and_privacy_deletion_use_consistent_account_locks()
         _assert_startup_seeding_and_sign_in_do_not_invert_marker_fk_locks()
         _assert_concurrent_private_restores_share_the_owner_capacity_lock()
+        _assert_private_deletion_and_restore_serialize_without_losing_submitted_snapshots()
         with get_session_factory()() as session:
             user = upsert_verified_identity(
                 session,

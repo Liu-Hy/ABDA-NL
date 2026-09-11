@@ -8,7 +8,7 @@ import threading
 from contextlib import nullcontext
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, tuple_, update
 from sqlalchemy.orm import Session
 
 from app.db.models import Project, ScenarioSubmission, ShareLink, User, utc_now
@@ -353,6 +353,56 @@ def restore_project(
             session.commit()
             session.refresh(project)
             return project
+        except Exception:
+            session.rollback()
+            raise
+
+
+def delete_archived_projects(
+    session: Session, owner: User, *, targets: list[tuple[str, int]]
+) -> list[str]:
+    """Delete only confirmed archived project versions, atomically for all targets."""
+    if not 1 <= len(targets) <= MAX_TOTAL_PROJECTS:
+        raise ProjectValidationError(f"select between 1 and {MAX_TOTAL_PROJECTS} archived projects")
+    if any(not isinstance(identifier, str) or not 1 <= len(identifier) <= 36
+           or type(version) is not int or version < 1 for identifier, version in targets):
+        raise ProjectValidationError("each project needs an id and a positive expected_version")
+    expected = dict(targets)
+    if len(expected) != len(targets):
+        raise ProjectValidationError("each project must appear only once")
+
+    with (_SQLITE_PROJECT_LOCK if session.get_bind().dialect.name == "sqlite" else nullcontext()):
+        try:
+            current_owner = _lock_active_owner(session, owner.id)
+            if not current_owner.email_verified:
+                raise ProjectNotFoundError("account not found")
+            projects = list(session.execute(
+                select(Project.id, Project.version, Project.archived_at)
+                .where(Project.owner_user_id == current_owner.id, Project.id.in_(expected))
+                .order_by(Project.id).with_for_update()
+            ))
+            if len(projects) != len(expected):
+                raise ProjectNotFoundError("project not found")
+            if any(item.archived_at is None or item.version != expected[item.id] for item in projects):
+                raise ProjectVersionConflictError("archived projects changed since they were loaded")
+
+            # Keep the complete confirmed id/version set in the write predicate.
+            # A concurrent restore or later archive must never expand this set.
+            eligible_owner = select(User.id).where(
+                User.id == current_owner.id, User.status == "active", User.email_verified.is_(True),
+            ).exists()
+            changed = session.execute(delete(Project).where(
+                Project.owner_user_id == current_owner.id,
+                Project.archived_at.is_not(None),
+                tuple_(Project.id, Project.version).in_(targets),
+                eligible_owner,
+            ))
+            if changed.rowcount != len(expected):
+                raise ProjectVersionConflictError("archived projects changed since they were loaded")
+            # Existing foreign keys remove obsolete bearer links and detach
+            # submission pointers. Consented snapshots and audit rows survive.
+            session.commit()
+            return list(expected)
         except Exception:
             session.rollback()
             raise

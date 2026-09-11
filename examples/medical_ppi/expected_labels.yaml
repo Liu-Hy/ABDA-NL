@@ -1,22 +1,19 @@
-# Expected AF labels for this scenario.
-# validate_scenario checks that the computed labels match these.
+# Regression snapshot of the default AF labelling for this scenario.
+# validate_scenario fails if the actual labelling diverges from this.
 # Regenerate with: python -m app.cli.validate_scenario <dir> --update-snapshot
 
 propositions:
   barretts: accepted
   be_indication: accepted
-  bone_risk: accepted
-  cardiac_risk: accepted
-  clopidogrel: accepted
-  cogent_applies: absent
-  continue_ppi: undecided
-  deprescribe_now: rejected
+  cardiac_interaction: accepted
+  clopidogrel_post_pci: accepted
+  cogent_decisive: absent
+  continue_acid_suppression: accepted
   escalate: accepted
-  long_term_ppi: accepted
-  low_bmd: accepted
-  needs_cyp2c19: accepted
-  on_ppi: accepted
-  postmenop: accepted
-  ppi_is_panto: absent
-  recent_pci: accepted
-  switch_panto: accepted
+  fracture_risk: accepted
+  keep_omeprazole: undecided
+  low_bmd_postmenopausal: accepted
+  on_omeprazole: accepted
+  pantoprazole_contraindicated: absent
+  reassess_dose: accepted
+  switch_to_pantoprazole: undecided

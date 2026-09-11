@@ -207,52 +207,47 @@ def test_popov_matches_gold_snapshot(client: TestClient):
     assert resp.json()["af"] == gold
 
 
-# --- Scenario three-regime baseline + toggle regression guards ---
+# --- Scenario decision and toggle regression guards ---
 
 
 def _labels(resp) -> dict[str, str]:
     return resp.json()["af"]["labels_by_proposition"]
 
 
-def test_medical_baseline_three_regimes(client: TestClient):
-    """Medical baseline must simultaneously show one non-trivial accepted,
-    one non-trivial rejected, and one non-trivial undecided key conclusion,
-    per the scenario redesign constraints."""
+def test_medical_baseline_distinguishes_therapy_from_current_drug(client: TestClient):
     resp = client.get("/scenarios/medical_ppi")
     labels = _labels(resp)
-    assert labels["be_indication"] == "accepted"      # regime 1
-    assert labels["deprescribe_now"] == "rejected"    # regime 2
-    assert labels["continue_ppi"] == "undecided"      # regime 3
+    assert labels["continue_acid_suppression"] == "accepted"
+    assert labels["reassess_dose"] == "accepted"
+    assert labels["keep_omeprazole"] == "undecided"
+    assert labels["switch_to_pantoprazole"] == "undecided"
 
 
-def test_medical_pantoprazole_toggle_flips_cardiac_and_continue(client: TestClient):
-    """Toggling ppi_is_panto undercuts the middle link of the cardiac chain,
-    which flips cardiac_risk accepted→rejected and continue_ppi undec→accepted."""
+def test_medical_cogent_toggle_flips_interaction_and_current_drug(client: TestClient):
+    """The decisive-trial what-if undercuts the omeprazole interaction."""
     resp = client.post(
         "/state",
         json={
             "scenario_id": "medical_ppi",
-            "diff_ops": [{"op": "toggle-assumption", "id": "ppi_is_panto"}],
+            "diff_ops": [{"op": "toggle-assumption", "id": "cogent_decisive"}],
         },
     )
     assert resp.status_code == 200
     labels = _labels(resp)
-    assert labels["cardiac_risk"] == "rejected"
-    assert labels["continue_ppi"] == "accepted"
+    assert labels["cardiac_interaction"] == "rejected"
+    assert labels["keep_omeprazole"] == "accepted"
+    assert labels["continue_acid_suppression"] == "accepted"
 
 
-def test_nba_baseline_three_regimes(client: TestClient):
+def test_nba_baseline_competes_without_tanking_or_stacking(client: TestClient):
     resp = client.get("/scenarios/nba_rebuild")
     labels = _labels(resp)
-    assert labels["preserve_flex"] == "accepted"      # regime 1
-    assert labels["tank"] == "rejected"               # regime 2
-    assert labels["lottery_math"] == "undecided"      # regime 3
+    assert labels["compete"] == "accepted"
+    assert labels["tank"] == labels["stack_vets"] == "rejected"
 
 
 def test_nba_expansion_toggle_flips_tank_to_undec(client: TestClient):
-    """Toggling expansion_pending activates the talent-dilution route into
-    pick_premium, equalising strength with the development line and flipping
-    tank from rejected to undecided."""
+    """Expansion revives tanking through scarcity, leaving competing open too."""
     resp = client.post(
         "/state",
         json={
@@ -263,16 +258,16 @@ def test_nba_expansion_toggle_flips_tank_to_undec(client: TestClient):
     assert resp.status_code == 200
     labels = _labels(resp)
     assert labels["tank"] == "undecided"
-    assert labels["pick_premium"] == "accepted"
+    assert labels["compete"] == "undecided"
+    assert labels["high_pick_valuable"] == "accepted"
     assert labels["talent_dilution"] == "accepted"
 
 
-def test_forestry_baseline_three_regimes(client: TestClient):
+def test_forestry_baseline_separates_permission_from_recommendation(client: TestClient):
     resp = client.get("/scenarios/fire_prevention")
     labels = _labels(resp)
-    assert labels["legal_today"] == "accepted"        # regime 1
-    assert labels["short_interval"] == "rejected"     # regime 2
-    assert labels["conduct_burn"] == "undecided"      # regime 3
+    assert labels["burn_permitted"] == "accepted"
+    assert labels["treat_unit"] == labels["burn_today"] == "undecided"
 
 
 # --- POST /chat ---
@@ -1319,23 +1314,22 @@ def test_propose_reviewer_sees_the_proposed_edit(client: TestClient, monkeypatch
     assert "`mob_attacked_popov`" in reviewer_system
 
 
-# --- Original forestry smp-permit regression guard ---
+# --- Forestry permission prerequisite regression guard ---
 
 
-def test_forestry_smp_permit_off_flips_legal_today(client: TestClient):
-    """Toggling the smp_permit assumption off removes the permit-based
-    support for legal_today, leaving only the prudential attacker active;
-    legal_today flips accepted → rejected."""
+def test_forestry_closed_permit_window_removes_burn_day_support(client: TestClient):
+    """Missing permission leaves the cycle question open and the day unsupported."""
     resp = client.post(
         "/state",
         json={
             "scenario_id": "fire_prevention",
-            "diff_ops": [{"op": "toggle-assumption", "id": "smp_permit"}],
+            "diff_ops": [{"op": "toggle-assumption", "id": "permit_window_open"}],
         },
     )
     assert resp.status_code == 200
     labels = _labels(resp)
-    assert labels["legal_today"] == "rejected"
+    assert labels["burn_permitted"] == labels["burn_today"] == "absent"
+    assert labels["treat_unit"] == "undecided"
 
 
 # --- POST /state: each of the 10 op kinds ---
@@ -1672,8 +1666,8 @@ def test_self_referential_rule_is_admitted_with_bounded_args(client: TestClient)
                 "id": "r_loop",
                 "rule": {
                     "type": "defeasible",
-                    "premises": ["continue_ppi"],
-                    "conclusion": "continue_ppi",
+                    "premises": ["continue_acid_suppression"],
+                    "conclusion": "continue_acid_suppression",
                 },
             }
         ],

@@ -68,8 +68,9 @@ def test_argument_ids_are_sequential(_engine):
 
 def test_facts_flagged_is_fact(_engine):
     _, snap = _snapshot_for("examples/medical_ppi/scenario.yaml")
-    fact_ids = {"barretts", "clopidogrel", "recent_pci", "postmenop", "low_bmd", "on_ppi"}
+    fact_ids = {"barretts", "clopidogrel_post_pci", "low_bmd_postmenopausal", "on_omeprazole"}
     fact_args = [a for a in snap["arguments"] if a["top_rule"] in fact_ids]
+    assert len(fact_args) == len(fact_ids)
     for a in fact_args:
         assert a["is_fact"] is True
     non_fact_args = [a for a in snap["arguments"] if a["top_rule"] not in fact_ids]
@@ -77,15 +78,16 @@ def test_facts_flagged_is_fact(_engine):
 
 
 def test_proposition_labels_match_scenario_intent(_engine):
-    # medical_ppi is deliberately undecided at baseline
+    # The current-drug choice is undecided while the indication remains accepted.
     _, snap = _snapshot_for("examples/medical_ppi/scenario.yaml")
-    assert snap["labels_by_proposition"]["continue_ppi"] == "undecided"
+    assert snap["labels_by_proposition"]["keep_omeprazole"] == "undecided"
+    assert snap["labels_by_proposition"]["continue_acid_suppression"] == "accepted"
 
 
 def test_inactive_assumption_is_absent(_engine):
-    # nba_rebuild's over_apron is active:false → no arg concludes it
+    # No argument concludes the inactive hypothetical acquisition condition.
     _, snap = _snapshot_for("examples/nba_rebuild/scenario.yaml")
-    assert snap["labels_by_proposition"]["over_apron"] == "absent"
+    assert snap["labels_by_proposition"]["deal_fits_under_apron"] == "absent"
 
 
 def test_attack_types_present(_engine):
