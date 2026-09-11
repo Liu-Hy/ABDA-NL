@@ -361,29 +361,51 @@ async function captureConversationSnapshot(context, signal) {
   const scenario = structuredClone(context.bundle.scenario);
   const pendingOps = structuredClone(context.diffOps || []);
   const example = state.scenarios.find(item => item.id === context.scenarioId);
-  const sourceId = context.activeProject?.source_scenario_id || context.sharedProject?.source_scenario_id
+  const sourceId = context.sourceScenarioId || context.activeProject?.source_scenario_id || context.sharedProject?.source_scenario_id
     || (context.viewKind === 'example' ? example?.source_scenario_id || context.scenarioId : null);
   const portable = await apiRequest('/api/scenarios/export', { method: 'POST', signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ scenario, source_scenario_id: sourceId || null }) });
   return { captured_at: new Date().toISOString(), scenario: portable, af: structuredClone(context.bundle.af),
     pending_ops: pendingOps, view_kind: context.viewKind,
+    scenario_id: context.scenarioId, source_scenario_id: sourceId || null,
     project_id: context.activeProject?.id || null, project_version: context.activeProject?.version || null };
 }
+
+const CHAT_FORK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l5-1L20 8a2.1 2.1 0 0 0-5-5L4 14Z"/></svg>';
+const CHAT_RETRY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.3 5.7"/></svg>';
 
 function appendConversationTurnControls(messageElement, message, index) {
   if (message.role !== 'user') return;
   const controls = document.createElement('div');
   controls.className = 'conversation-turn-controls';
-  const fork = document.createElement('button');
-  fork.type = 'button';
-  fork.className = 'btn btn-small conversation-edit-turn';
-  fork.textContent = 'Edit in new chat';
-  fork.title = 'Edit this question in a new conversation using the current scenario';
-  fork.disabled = state.chatPending;
-  fork.addEventListener('click', () => forkConversationAt(index));
-  controls.append(fork);
+  for (const [name, label, icon, action] of [
+    ['edit', 'Edit and fork', CHAT_FORK_ICON, forkConversationAt],
+    ['retry', 'Retry', CHAT_RETRY_ICON, retryConversationAt],
+  ]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn conversation-turn-action conversation-${name}-turn`;
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.innerHTML = icon;
+    button.disabled = state.chatPending;
+    button.addEventListener('click', () => action(index));
+    controls.append(button);
+  }
   messageElement.append(controls);
+}
+
+function branchConversationBefore(parent, index, { retry = false } = {}) {
+  const branch = newConversationRecord();
+  branch.fork_of = { conversation_id: parent.id, message_index: index,
+    new_question_scenario: retry ? 'original' : 'current' };
+  branch.title = `${retry ? 'Retry' : 'Fork'}: ${parent.messages[index].content.slice(0, 60)}`;
+  branch.messages = structuredClone(parent.messages.slice(0, index));
+  const used = new Set(branch.messages.map(message => message.snapshot_id));
+  branch.snapshots = Object.fromEntries(Object.entries(parent.snapshots).filter(([id]) => used.has(id)));
+  state.chatMessages = branch.messages;
+  return branch;
 }
 
 function forkConversationAt(index) {
@@ -392,13 +414,7 @@ function forkConversationAt(index) {
   const parent = activeConversation();
   const turn = parent?.messages[index];
   if (!turn || turn.role !== 'user') return;
-  const fork = newConversationRecord();
-  fork.fork_of = { conversation_id: parent.id, message_index: index, new_question_scenario: 'current' };
-  fork.title = `Fork: ${turn.content.slice(0, 60)}`;
-  fork.messages = structuredClone(parent.messages.slice(0, index));
-  const used = new Set(fork.messages.map(message => message.snapshot_id));
-  fork.snapshots = Object.fromEntries(Object.entries(parent.snapshots).filter(([id]) => used.has(id)));
-  state.chatMessages = fork.messages;
+  branchConversationBefore(parent, index);
   const saved = parent.snapshots?.[turn.snapshot_id];
   const bundle = saved ? { scenario: saved.scenario.scenario, af: saved.af } : null;
   const refs = (turn.context_refs || []).map(ref => ({ ...ref,
@@ -410,6 +426,52 @@ function forkConversationAt(index) {
   renderChat();
   showGlobalStatus('Fork created. Earlier turns retain their snapshots; your edited question will use the current scenario. Refresh or remove any earlier context items before asking.', 'info');
   chatComposer.focus();
+}
+
+function retryConversationAt(index) {
+  const parent = activeConversation();
+  const turn = parent?.messages[index];
+  if (!turn || turn.role !== 'user') return;
+  return sendChatMessage(undefined, { parent, turn, index });
+}
+
+function sameConversationValue(left, right) {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object'
+      || Array.isArray(left) !== Array.isArray(right)) return false;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length
+    && keys.every(key => Object.hasOwn(right, key) && sameConversationValue(left[key], right[key]));
+}
+
+async function prepareConversationRetry(saved, viewContext, signal) {
+  if (!saved?.scenario?.scenario || !saved.af) throw new Error('The saved scenario is unavailable');
+  // Old records did not retain a public catalog ID. They can still retry from
+  // the open public scenario, but only after the complete content matches.
+  const scenarioId = saved.scenario_id || (!saved.project_id && viewContext.viewKind === 'example'
+    ? viewContext.scenarioId : null);
+  const project = saved.project_id ? { id: saved.project_id, version: saved.project_version } : null;
+  if (!project && !scenarioId) throw new Error('Open the original scenario to retry this older question');
+  const diffOps = structuredClone(saved.pending_ops || []);
+  const bundle = await apiPostState(scenarioId, diffOps, signal, project);
+  let sourceId = saved.source_scenario_id;
+  if (sourceId === undefined && project && bundle.scenario.corpus?.length) {
+    const original = await apiRequest(`/api/projects/${encodeURIComponent(project.id)}`, { signal });
+    if (original.version !== project.version) throw new Error('The original private scenario version has changed');
+    sourceId = original.source_scenario_id;
+  }
+  const context = { bundle, diffOps, scenarioId, sourceScenarioId: sourceId,
+    viewKind: project ? 'project' : 'example', activeProject: project, sharedProject: null };
+  const candidate = await captureConversationSnapshot(context, signal);
+  if (!sameConversationValue(candidate.scenario.scenario, saved.scenario.scenario)
+      || !sameConversationValue(candidate.af, saved.af)) {
+    throw new Error('The original scenario or its reference documents have changed');
+  }
+  const earlierState = Boolean(project) !== Boolean(viewContext.activeProject)
+    || (project ? project.id !== viewContext.activeProject?.id : scenarioId !== viewContext.scenarioId)
+    || !sameConversationValue(bundle.scenario, viewContext.bundle?.scenario)
+    || !sameConversationValue(bundle.af, viewContext.bundle?.af);
+  return { context, earlierState };
 }
 
 function currentScenarioSignature() {

@@ -17,13 +17,11 @@
 .conversation-actions-list p { margin: 0 0 .5rem; line-height: 1.5; font-size: var(--font-caption, 13px); color: var(--text-dim); }
 .conversation-actions-list button { text-align: left; font-size: var(--font-control, 14px); }
 .conversation-recovery { display: flex; flex-wrap: wrap; gap: .4rem; padding: .3rem .75rem; }
-#right-panel .conversation-turn-controls { justify-content: flex-start; align-items: baseline; font-size: var(--font-caption, 13px); gap: .3rem .6rem; }
-#right-panel .conversation-turn-controls details { width: auto; }
-#right-panel .conversation-turn-controls .btn { font-size: var(--font-control, 14px); padding: .2rem .3rem; min-height: 26px; }
-#right-panel .conversation-turn-controls summary { font-size: var(--font-control, 14px); }
-#right-panel .conversation-turn-controls > span { flex: 0 1 auto; }
-#right-panel .conversation-turn-controls .conversation-edit-turn { min-height: 24px; padding: .1rem .2rem; border-color: transparent; background: transparent; color: var(--text-dim); font-size: var(--font-caption); }
-#right-panel .conversation-turn-controls .conversation-edit-turn:hover { color: var(--accent); background: var(--accent-light); }
+#right-panel .conversation-turn-controls { justify-content: flex-end; align-items: center; gap: .2rem; padding-top: .2rem; }
+#right-panel .conversation-turn-controls .conversation-turn-action { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; min-height: 26px; padding: 4px; border-color: transparent; background: transparent; color: var(--text-dim); }
+#right-panel .conversation-turn-action svg { display: block; width: 16px; height: 16px; pointer-events: none; }
+#right-panel .conversation-turn-action:hover:not(:disabled) { color: var(--accent); background: var(--accent-light); }
+#right-panel .conversation-turn-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #right-panel .chat-input-area { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(64px, 1fr) auto; gap: .35rem; padding: .5rem .65rem; background: #fafbfd; }
 .chat-no-documents { grid-column: 1 / -1; grid-row: 1; margin: 0; font-size: var(--font-caption, 13px); line-height: 1.45; color: var(--text-dim); }
 #chat-input { grid-column: 1; grid-row: 2; min-width: 0; min-height: 64px; max-height: 100%; overflow: auto; padding: .5rem .6rem; border: 1px solid #c9d5e3; border-radius: var(--radius); color: var(--text); background: var(--surface); font: inherit; font-size: var(--font-chat, 14px); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }

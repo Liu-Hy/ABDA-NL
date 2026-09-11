@@ -1775,6 +1775,88 @@ def test_user_authored_content_is_escaped_in_real_browser(live_browser_server):
             browser.close()
 
 
+@pytest.mark.parametrize('mode', ['public', 'private', 'legacy-private'])
+def test_retry_reconstructs_original_context_through_real_state_and_export_apis(live_browser_server, mode):
+    from playwright.sync_api import expect, sync_playwright
+
+    private = mode != 'public'
+    with sync_playwright() as playwright:
+        browser = getattr(playwright, BROWSER_ENGINE).launch(headless=True)
+        page = browser.new_page()
+        requests = []
+
+        def answer(route):
+            requests.append({'path': route.request.url.removeprefix(live_browser_server),
+                             'payload': route.request.post_data_json})
+            route.fulfill(content_type='application/json', body=json.dumps({
+                'message': f'Simulated answer {len(requests)}', 'model': 'browser-test-model',
+                'billing_source': 'trial', 'cost_microusd': 0, 'latency_ms': 1,
+            }))
+
+        # Only inference is simulated. Authentication, state recomputation,
+        # project ownership/version checks and corpus exports use the real app.
+        page.route('**/chat', answer)
+        page.route('**/propose', lambda route: route.abort())
+        try:
+            assert page.request.post(f'{live_browser_server}/api/auth/dev/login',
+                                     data={'email': 'retry-browser@example.org'}).ok
+            assert page.request.post(f'{live_browser_server}/api/trial/activate').ok
+            _goto_ready_demo(page, live_browser_server)
+            page.locator('#scenario-menu-btn').click()
+            page.locator('[data-scenario-key="example:popov_v_hayashi"]').click()
+            expect(page.locator('#scenario-name')).to_contain_text('Popov')
+            project = None
+            if private:
+                response = page.request.post(f'{live_browser_server}/api/projects', data={
+                    'name': 'Private retry study', 'source_scenario_id': 'popov_v_hayashi',
+                })
+                assert response.status == 201, response.text()
+                project = response.json()
+                page.evaluate('id => loadProject(id)', project['id'])
+            page.locator('#chat-input').fill('Who has possession of the baseball?')
+            page.locator('#chat-send-btn').click()
+            expect(page.locator('.chat-msg-assistant').last).to_contain_text('Simulated answer 1')
+            if mode == 'legacy-private':
+                assert page.evaluate('state.bundle.scenario.corpus.length') > 0
+                page.evaluate('''() => {
+                    const record = activeConversation();
+                    const saved = record.snapshots[record.messages[0].snapshot_id];
+                    delete saved.scenario_id; delete saved.source_scenario_id;
+                }''')
+            parent = page.evaluate('activeConversation()')
+            snapshot = parent['snapshots'][parent['messages'][0]['snapshot_id']]
+            sources = snapshot['scenario']['scenario']['sources']
+            assert sources and all(source.get('text') for source in sources)
+            page.locator('#chat-input').fill('Keep this unfinished question.')
+
+            page.locator('#scenario-menu-btn').click()
+            page.locator('[data-scenario-key="example:fire_prevention"]').click()
+            expect(page.locator('#scenario-name')).to_have_text('Prescribed Burn')
+            page.locator('#conversation-select').select_option(parent['id'])
+            preflight_reads = []
+            page.on('request', lambda request: preflight_reads.append(request.url) if request.method == 'GET' else None)
+            page.get_by_role('button', name='Retry', exact=True).click()
+            expect(page.locator('.chat-msg-assistant').last).to_contain_text('Simulated answer 2')
+            assert len(requests) == 2 and requests[0] == requests[1]
+            assert requests[-1]['path'] == (f'/api/projects/{project["id"]}/chat' if private else '/chat')
+            if private:
+                assert requests[-1]['payload']['expected_version'] == project['version']
+                if mode == 'legacy-private':
+                    assert f'{live_browser_server}/api/projects/{project["id"]}' in preflight_reads
+            else:
+                assert requests[-1]['payload']['scenario_id'] == 'popov_v_hayashi'
+            branch = page.evaluate('activeConversation()')
+            assert branch['id'] != parent['id']
+            assert branch['snapshots'][branch['messages'][0]['snapshot_id']] == snapshot
+            assert page.evaluate('state.scenario_id') == 'fire_prevention'
+            expect(page.locator('#scenario-name')).to_have_text('Prescribed Burn')
+            page.locator('#conversation-select').select_option(parent['id'])
+            expect(page.locator('#chat-input')).to_have_text('Keep this unfinished question.')
+            assert page.evaluate('activeConversation().messages') == parent['messages']
+        finally:
+            browser.close()
+
+
 def test_mobile_item_question_reveals_chat(live_browser_server):
     from playwright.sync_api import expect, sync_playwright
 

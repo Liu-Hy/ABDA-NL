@@ -147,6 +147,13 @@ their scenario snapshots internally. Conversation history
 is stored in this browser for the signed-in account; signed-out history lasts
 only in the tab. The conversation menu offers export and deletion.
 
+Each question has a pencil (**Edit and fork**) and a circular arrow (**Retry**).
+The pencil opens an editable branch using the current scenario. Retry asks the
+same question with its original context and prior history in a new branch,
+preserving the old answers and drafts. It uses the model currently selected and
+normal credit or BYOK charging. If the original scenario version is unavailable,
+retry makes no model call and leaves the question available to edit and fork.
+
 Gemini 3.8 Flash is the default funded model. Eligible administrators have a
 fixed **Normal user view** switch for demonstrating ordinary permissions and
 returning to administrator view.

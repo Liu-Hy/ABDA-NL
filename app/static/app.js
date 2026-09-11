@@ -1251,12 +1251,12 @@ function resetChatConversation() {
   saveConversationDraft();
 }
 
-async function apiPostChat(scenario_id, diff_ops, messages, signal, context_refs = [], context = null) {
+async function apiPostChat(scenario_id, diff_ops, messages, signal, context_refs = [], context = null, llm = currentLLMOptions()) {
   const project = context ? context.activeProject : state.activeProject;
   const path = project ? `/api/projects/${encodeURIComponent(project.id)}/chat` : '/chat';
   const payload = project
-    ? { expected_version: project.version, diff_ops, messages, context_refs, llm: currentLLMOptions() }
-    : { scenario_id, diff_ops, messages, context_refs, llm: currentLLMOptions() };
+    ? { expected_version: project.version, diff_ops, messages, context_refs, llm }
+    : { scenario_id, diff_ops, messages, context_refs, llm };
   const r = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1427,12 +1427,12 @@ function cancelChatRequest(record = activeConversation(), { silent = false } = {
   if (activeConversation() === record) {
     state.chatPending = false;
     state.chatDegraded = false;
-    chatComposer.restoreIfEmpty(request.draft);
+    if (request.submitted) chatComposer.restoreIfEmpty(request.draft);
     saveConversationDraft();
     renderChat();
     announceChat('Answer stopped. Your question is retained.');
     chatComposer.focus();
-  } else if (!record.draft) {
+  } else if (request.submitted && !record.draft) {
     record.draft = request.draft.text;
     record.draft_segments = structuredClone(request.draft.segments);
     record.context_refs = structuredClone(request.draft.refs);
@@ -1441,20 +1441,25 @@ function cancelChatRequest(record = activeConversation(), { silent = false } = {
   renderConversationControls();
 }
 
-async function sendChatMessage(prefilledText) {
+async function sendChatMessage(prefilledText, retryTurn = null) {
   if (state.chatPending || chatComposer.isComposing) return;
   syncConversationIdentity();
   const startingEpoch = conversationStore.epoch;
   await conversationStore.ready;
   await currentScenarioSignature().promise;
   if (state.chatPending || startingEpoch !== conversationStore.epoch) return;
+  if (retryTurn && (activeConversation() !== retryTurn.parent
+      || retryTurn.parent.messages[retryTurn.index] !== retryTurn.turn)) return;
   const accessIssue = llmAccessIssue();
   if (accessIssue) {
     if (accessIssue.tab) openWorkspace(accessIssue.tab);
     showGlobalStatus(accessIssue.message, 'info');
     return;
   }
-  const draft = chatComposer.snapshot();
+  const parentDraft = chatComposer.snapshot();
+  const draft = retryTurn ? { text: retryTurn.turn.content,
+    segments: composerModel.restore({ text: retryTurn.turn.content, segments: retryTurn.turn.segments }),
+    refs: structuredClone(retryTurn.turn.context_refs || []) } : parentDraft;
   const text = typeof prefilledText === 'string' ? prefilledText : draft.text;
   if (!text.trim()) return;
   if (hasPendingStateRequest() || !state.bundle) {
@@ -1466,21 +1471,25 @@ async function sendChatMessage(prefilledText) {
     showGlobalStatus('A question can include up to 24 context items. Remove extra items before asking.', 'info');
     return;
   }
-  if (selectedContext.some(ref => !questionContextIsCurrent(ref))) {
+  if (!retryTurn && selectedContext.some(ref => !questionContextIsCurrent(ref))) {
     showGlobalStatus('The selected items belong to an earlier scenario state. Use Refresh on each earlier context item, or remove it, before asking. Your draft is unchanged.', 'info');
     return;
   }
-  const record = activeConversation();
-  const conversation = record.messages;
+  if (retryTurn) saveConversationDraft();
+  let record = activeConversation();
+  let conversation = record.messages;
   const epoch = conversationStore.epoch;
-  const requestContext = captureModelViewContext();
-  const requestUsesFundedAccess = state.llmAccess.mode !== 'byok';
+  const viewContext = captureModelViewContext();
+  let requestContext = viewContext;
+  // Freeze access selection for this request without saving credentials in history.
+  const llm = currentLLMOptions();
+  const requestUsesFundedAccess = !llm?.byok;
   const available = () => epoch === conversationStore.epoch && !conversationStore.deleted.has(record.id)
     && conversationStore.records.includes(record);
   const visible = () => available() && activeConversation() === record;
   const request = { controller: new AbortController(), cancelled: false, submitted: false,
-    epoch, usesFundedAccess: requestUsesFundedAccess,
-    draft: text === draft.text ? draft : { text, refs: selectedContext } };
+    epoch, usesFundedAccess: requestUsesFundedAccess, earlierState: false,
+    draft: retryTurn ? parentDraft : text === draft.text ? draft : { text, refs: selectedContext } };
   chatRequests.set(record, request);
   record.pending = true;
   state.chatPending = true;
@@ -1488,11 +1497,30 @@ async function sendChatMessage(prefilledText) {
   if (typeof prefilledText === 'string') revealChatForNarrowLayout();
   let snapshotId;
   try {
-    const snapshot = await captureConversationSnapshot(requestContext, request.controller.signal);
+    const snapshot = retryTurn ? retryTurn.parent.snapshots?.[retryTurn.turn.snapshot_id]
+      : await captureConversationSnapshot(requestContext, request.controller.signal);
+    if (retryTurn) {
+      const prepared = await prepareConversationRetry(snapshot, viewContext, request.controller.signal);
+      requestContext = prepared.context;
+      request.earlierState = prepared.earlierState;
+    }
     if (request.cancelled) return;
-    if (!visible() || !modelViewContextIsCurrent(requestContext)) {
+    if (!visible() || !modelViewContextIsCurrent(viewContext)) {
       if (available()) showGlobalStatus('The scenario changed while preparing the question. Your draft was retained.', 'info');
       return;
+    }
+    if (retryTurn) {
+      // A failed or cancelled preflight leaves the parent and its draft intact.
+      // Transfer the same cancellation handle only once the original state matches.
+      chatRequests.delete(record);
+      record.pending = false;
+      record = branchConversationBefore(retryTurn.parent, retryTurn.index, { retry: true });
+      conversation = record.messages;
+      request.draft = draft;
+      chatRequests.set(record, request);
+      record.pending = true;
+      state.chatPending = true;
+      state.chatDegraded = false;
     }
     const comparableSnapshot = JSON.stringify({ ...snapshot, captured_at: null });
     const existingSnapshot = Object.entries(record.snapshots).find(([, prior]) =>
@@ -1504,7 +1532,7 @@ async function sendChatMessage(prefilledText) {
     conversation.push({ role: 'user', content: text, snapshot_id: snapshotId,
       segments: text === draft.text ? structuredClone(draft.segments) : undefined,
       context_refs: selectedContext.map(({ kind, id }) => ({ kind, id })) });
-    if (text === draft.text) chatComposer.clearIfUnchanged(draft);
+    if (!retryTurn && text === draft.text) chatComposer.clearIfUnchanged(draft);
     saveConversationDraft();
     persistConversations(record);
     renderChat();
@@ -1512,12 +1540,12 @@ async function sendChatMessage(prefilledText) {
     const messages = conversation.filter(message => !message.local_notice)
       .slice(-CHAT_TURN_CAP).map(message => ({ role: message.role, content: message.content }));
     const resp = await apiPostChat(requestContext.scenarioId, requestContext.diffOps, messages, request.controller.signal,
-      selectedContext.map(({ kind, id }) => ({ kind, id })), requestContext);
+      selectedContext.map(({ kind, id }) => ({ kind, id })), requestContext, llm);
     if (request.cancelled) return;
     await refreshConversationRecords();
     if (request.cancelled || !available()) return;
     if (resp.billing_source !== 'byok' && state.authSession.authenticated) refreshTrialBalanceQuietly();
-    const earlier = !visible() || !modelViewContextIsCurrent(requestContext);
+    const earlier = request.earlierState || !visible() || !modelViewContextIsCurrent(viewContext);
     const source = resp.billing_source === 'byok' ? 'Own key' : 'Funded';
     const cost = resp.cost_microusd > 0 ? `, ${formatUSD(resp.cost_microusd)}` : '';
     const assessment = resp.billing_uncertain ? '. Cost conservatively assessed because complete provider usage was unavailable.' : '';
@@ -1536,7 +1564,15 @@ async function sendChatMessage(prefilledText) {
     if (request.cancelled) return;
     await refreshConversationRecords();
     if (request.cancelled || !available()) return;
-    if (requestUsesFundedAccess && state.authSession.authenticated) refreshTrialBalanceQuietly();
+    if (retryTurn && !request.submitted) {
+      if (visible()) {
+        const notice = `Retry unavailable: ${e.message}. Your conversation is unchanged. Use Edit and fork to ask with the current scenario.`;
+        showGlobalStatus(notice, 'info');
+        announceChat(notice);
+      }
+      return;
+    }
+    if (request.submitted && requestUsesFundedAccess && state.authSession.authenticated) refreshTrialBalanceQuietly();
     const assessment = e.billing_uncertain === true
       ? ' Cost conservatively assessed because complete provider usage was unavailable.' : '';
     conversation.push({ role: 'assistant',

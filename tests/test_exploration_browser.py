@@ -147,11 +147,11 @@ def _expand_sources(page):
         page.locator(".chat-evidence > summary").click()
 
 
-def _capture_exploration(page, tmp_path, name):
+def _capture_exploration(page, tmp_path, name, *, full_page=True):
     directory = Path(os.getenv("ABDA_BROWSER_ARTIFACT_DIR", str(tmp_path)))
     directory.mkdir(parents=True, exist_ok=True)
     engine = os.getenv("ABDA_BROWSER_ENGINE", "chromium")
-    page.screenshot(path=str(directory / f"{engine}-{name}.png"), full_page=True)
+    page.screenshot(path=str(directory / f"{engine}-{name}.png"), full_page=full_page)
 
 
 def _rewrite_prose_keep_references(page, text):
@@ -773,7 +773,7 @@ def test_history_export_snapshot_fork_reload_and_account_isolation(explorer_brow
     page.reload()
     expect(page.locator("#chat-messages")).to_contain_text("Which conclusion changed?")
     _expect_draft(page, "Saved unfinished follow-up")
-    page.get_by_role("button", name="Edit in new chat", exact=True).click()
+    page.get_by_role("button", name="Edit and fork", exact=True).click()
     _expect_draft(page, "Which conclusion changed?")
     expect(page.locator("#conversation-select option")).to_have_count(2)
     assert page.evaluate("activeConversation().fork_of.new_question_scenario") == "current"
@@ -792,6 +792,358 @@ def test_history_export_snapshot_fork_reload_and_account_isolation(explorer_brow
     expect(page.locator("#conversation-select")).to_have_attribute("title", re.compile("this tab while signed out"))
     page.locator('.conversation-actions > summary').click()
     expect(page.locator('#conversation-storage-description')).to_contain_text('this tab while signed out')
+
+
+def _answer_chat_draft(page, runtime, answer, question=None):
+    from playwright.sync_api import expect
+
+    if question is not None:
+        page.locator('#chat-input').fill(question)
+    runtime['response']['message'] = answer
+    page.locator('#chat-send-btn').click()
+    expect(page.locator('.chat-msg-assistant:not(.chat-msg-loading)').last).to_contain_text(answer)
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+
+
+@pytest.mark.parametrize('width', [1440, 390])
+def test_retry_branches_exact_question_history_and_context_without_changing_the_current_view(explorer_browser, tmp_path, width):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    page.set_viewport_size({'width': width, 'height': 900})
+    original_bundle = deepcopy(runtime['bundle'])
+    _answer_chat_draft(page, runtime, 'Earlier answer to retain', 'Earlier question')
+    page.evaluate("() => { activeConversation().messages.push({role: 'assistant', content: 'Local cancelled request notice', local_notice: true}); renderChat(); }")
+    page.locator('#chat-input').fill('Please explain this exact rule.')
+    page.locator('[data-context-kind="rule"][data-context-id="r1"]').click()
+    _answer_chat_draft(page, runtime, 'Selected old answer to preserve')
+    _answer_chat_draft(page, runtime, 'Later old answer to preserve', 'Later question')
+    page.locator('#chat-input').fill('Keep my unfinished parent draft.')
+    page.locator('[data-context-kind="rule"][data-context-id="r2"]').click()
+    parent_draft = page.evaluate('chatComposer.snapshot()')
+    parent = page.evaluate('activeConversation()')
+    selected_index = 3
+    selected = parent['messages'][selected_index]
+    saved = parent['snapshots'][selected['snapshot_id']]
+    assert saved['scenario_id'] == 'test'
+    assert saved['source_scenario_id'] == 'test'
+    assert saved['scenario']['scenario']['sources'][0]['text'].startswith('Complete source text.')
+
+    current_bundle = deepcopy(original_bundle)
+    current_bundle['scenario']['title'] = 'A different current scenario'
+    current_bundle['scenario']['rules']['r1']['description'] = 'A different current rule description'
+    page.evaluate('''bundle => {
+        state.scenario_id = 'current-other'; state.activeProject = null;
+        state.viewKind = 'example'; state.diff_ops = [];
+        state.scenarios.push({id: 'current-other', title: bundle.scenario.title});
+        setBundle(bundle); indexBundle(); renderAll();
+        state.config.profiles.push({id: 'retry-model', label: 'Retry model'});
+        state.llmAccess.profile = 'retry-model'; renderAccessSummary();
+    }''', current_bundle)
+    preflights = []
+
+    def replay(route):
+        payload = route.request.post_data_json
+        preflights.append(payload)
+        bundle = original_bundle if payload['scenario_id'] == 'test' else current_bundle
+        route.fulfill(content_type='application/json', body=json.dumps(bundle))
+
+    page.route('**/state', replay)
+    controls = page.locator('.conversation-turn-controls')
+    expect(controls).to_have_count(3)
+    expect(page.locator('.chat-msg-assistant .conversation-turn-controls')).to_have_count(0)
+    expect(controls.locator('summary')).to_have_count(0)
+    for toolbar in controls.all():
+        expect(toolbar.locator('button')).to_have_count(2)
+        expect(toolbar).not_to_contain_text('Snapshot')
+        for selector, label in [('.conversation-edit-turn', 'Edit and fork'), ('.conversation-retry-turn', 'Retry')]:
+            button = toolbar.locator(selector)
+            expect(button).to_have_accessible_name(label)
+            expect(button).to_have_attribute('title', label)
+            expect(button.locator('svg')).to_have_count(1)
+            assert button.inner_text().strip() == ''
+            box = button.bounding_box()
+            assert box is not None and 24 <= box['width'] <= 40 and 24 <= box['height'] <= 40
+    retry = controls.nth(1).get_by_role('button', name='Retry', exact=True)
+    controls.nth(1).get_by_role('button', name='Edit and fork', exact=True).focus()
+    page.keyboard.press('Tab')
+    expect(retry).to_be_focused()
+    _capture_exploration(page, tmp_path, f'compact-turn-actions-{width}')
+    _capture_exploration(page, tmp_path, f'compact-turn-actions-{width}-viewport', full_page=False)
+    runtime['response']['message'] = 'New retry answer'
+    page.keyboard.press('Enter')
+    expect(page.locator('.chat-msg-assistant').last).to_contain_text('New retry answer')
+    assert len(runtime['chat_requests']) == 4
+    request = runtime['chat_requests'][-1]
+    assert request['scenario_id'] == 'test'
+    assert request['diff_ops'] == saved['pending_ops']
+    assert request['context_refs'] == selected['context_refs']
+    assert request['llm'] == {'profile': 'retry-model'}
+    assert request['messages'] == [
+        {'role': message['role'], 'content': message['content']}
+        for message in parent['messages'][:selected_index + 1] if not message.get('local_notice')
+    ]
+    assert preflights == [{'scenario_id': 'test', 'diff_ops': saved['pending_ops']}]
+    branch = page.evaluate('activeConversation()')
+    assert branch['id'] != parent['id']
+    assert branch['messages'][-2]['content'] == selected['content']
+    assert branch['messages'][-2]['context_refs'] == selected['context_refs']
+    assert branch['snapshots'][branch['messages'][-2]['snapshot_id']]['scenario'] == saved['scenario']
+    assert branch['messages'][-1]['earlier_state'] is True
+    expect(page.locator('#chat-messages')).not_to_contain_text('Selected old answer to preserve')
+    expect(page.locator('#chat-messages')).not_to_contain_text('Later old answer to preserve')
+    assert page.evaluate('state.scenario_id') == 'current-other'
+    assert page.evaluate('state.bundle.scenario') == current_bundle['scenario']
+    preserved = page.evaluate('id => conversationStore.records.find(record => record.id === id)', parent['id'])
+    assert preserved['messages'] == parent['messages']
+    assert preserved['snapshots'] == parent['snapshots']
+    page.locator('#conversation-select').select_option(parent['id'])
+    assert page.evaluate('chatComposer.snapshot()') == parent_draft
+    expect(page.locator('#chat-messages')).to_contain_text('Selected old answer to preserve')
+    expect(page.locator('#chat-messages')).to_contain_text('Later old answer to preserve')
+
+
+def test_retry_uses_the_saved_private_route_version_and_working_operations(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    original_bundle = deepcopy(runtime['bundle'])
+    original_bundle['scenario']['assumptions']['a']['active'] = False
+    original_bundle = compute_state_bundle(scenario_from_dict(original_bundle['scenario']))
+    runtime['bundle'] = original_bundle
+    project = {'id': 'original-private', 'version': 7, 'source_scenario_id': None}
+    ops = [{'op': 'set_assumption_active', 'id': 'a', 'active': False}]
+    page.evaluate('''payload => {
+        state.activeProject = payload.project; state.viewKind = 'project';
+        state.diff_ops = payload.ops; setBundle(payload.bundle); indexBundle(); renderAll();
+    }''', {'project': project, 'ops': ops, 'bundle': original_bundle})
+    _answer_chat_draft(page, runtime, 'Original private answer', 'Question about the saved private working state')
+    parent = page.evaluate('activeConversation()')
+    page.locator('#chat-input').fill('Private draft to keep')
+    page.evaluate('''() => {
+        state.activeProject = {id: 'different-private', version: 20};
+        state.diff_ops = []; state.bundle = structuredClone(state.bundle);
+        state.bundle.scenario.title = 'Different private scenario'; renderAll();
+    }''')
+    preflights = []
+
+    def replay(route):
+        preflights.append({'path': urlsplit(route.request.url).path, 'body': route.request.post_data_json})
+        route.fulfill(content_type='application/json', body=json.dumps(original_bundle))
+
+    page.route('**/api/projects/original-private/state', replay)
+    page.route('**/api/projects/original-private', lambda route: route.fulfill(
+        content_type='application/json', body=json.dumps({**project, **original_bundle})))
+    runtime['response']['message'] = 'Retried private answer'
+    page.get_by_role('button', name='Retry', exact=True).click()
+    expect(page.locator('.chat-msg-assistant').last).to_contain_text('Retried private answer')
+    assert preflights == [{'path': '/api/projects/original-private/state',
+                           'body': {'expected_version': 7, 'diff_ops': ops}}]
+    assert runtime['requests'].count('/api/projects/original-private/chat') == 2
+    assert '/api/projects/different-private/chat' not in runtime['requests']
+    request = runtime['chat_requests'][-1]
+    assert request['expected_version'] == 7 and request['diff_ops'] == ops
+    assert request['messages'] == [{'role': 'user', 'content': parent['messages'][0]['content']}]
+    assert page.evaluate('state.activeProject') == {'id': 'different-private', 'version': 20}
+    assert page.evaluate('state.diff_ops') == []
+    page.locator('#conversation-select').select_option(parent['id'])
+    _expect_draft(page, 'Private draft to keep')
+    expect(page.locator('#chat-messages')).to_contain_text('Original private answer')
+    assert not any(path.endswith(('/import', '/review')) for path in runtime['requests'])
+
+
+@pytest.mark.parametrize('failure', ['scenario-changed', 'source-changed', 'private-version', 'private-unavailable', 'snapshot-missing'])
+def test_retry_blocks_unavailable_or_changed_original_context_before_inference(explorer_browser, failure):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    if failure.startswith('private-'):
+        page.evaluate("() => { state.activeProject = {id: 'original-private', version: 7}; state.viewKind = 'project'; }")
+    _answer_chat_draft(page, runtime, 'Answer to retain', 'Original question to retry')
+    page.locator('#chat-input').fill('Do not replace this unsent draft')
+    if failure == 'snapshot-missing':
+        page.evaluate('() => { activeConversation().snapshots = {}; }')
+    parent = page.evaluate('activeConversation()')
+    original_count = page.locator('#conversation-select option').count()
+    changed = deepcopy(runtime['bundle'])
+    if failure == 'scenario-changed':
+        changed['scenario']['rules']['r1']['description'] = 'The original rule changed'
+    if failure == 'source-changed':
+        changed['scenario']['sources'][0]['text'] += ' The source has been revised.'
+    if failure.startswith('private-'):
+        status = 409 if failure == 'private-version' else 404
+        error = {'detail': {'code': 'project_version_conflict' if status == 409 else 'project_not_found',
+                            'message': 'The original scenario is unavailable or changed'}}
+        page.route('**/api/projects/original-private/state', lambda route: route.fulfill(
+            status=status, content_type='application/json', body=json.dumps(error)))
+        page.route('**/api/projects/original-private', lambda route: route.fulfill(
+            status=status, content_type='application/json', body=json.dumps(error)))
+    else:
+        page.route('**/state', lambda route: route.fulfill(content_type='application/json', body=json.dumps(changed)))
+    page.evaluate('() => retryConversationAt(0)')
+    expect(page.locator('#global-status')).to_contain_text(re.compile('fork', re.I))
+    assert len(runtime['chat_requests']) == 1
+    assert page.evaluate('conversationStore.activeId') == parent['id']
+    expect(page.locator('#conversation-select option')).to_have_count(original_count)
+    assert page.evaluate('activeConversation().messages') == parent['messages']
+    _expect_draft(page, 'Do not replace this unsent draft')
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+
+
+@pytest.mark.parametrize('changed', [False, True])
+def test_legacy_retry_compares_complete_snapshot_and_keeps_exact_words_without_segments(explorer_browser, changed):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    portable = export_scenario(runtime['bundle']['scenario'], None)
+    snapshot = {'scenario': portable, 'af': runtime['bundle']['af'], 'pending_ops': [],
+                'view_kind': 'example', 'project_id': None, 'project_version': None,
+                'captured_at': '2026-09-10T00:00:00Z'}
+    question = '  My exact earlier wording.\nNo added question frame.  '
+    page.evaluate('''payload => {
+        const record = activeConversation();
+        record.messages = [{role: 'user', content: payload.question, snapshot_id: 'legacy',
+                            context_refs: [{kind: 'rule', id: 'r1'}]},
+                           {role: 'assistant', content: 'Old answer', snapshot_id: 'legacy'}];
+        record.snapshots = {legacy: payload.snapshot}; useConversation(record); renderChat();
+    }''', {'question': question, 'snapshot': snapshot})
+    parent = page.evaluate('activeConversation()')
+    page.locator('#chat-input').fill('Legacy parent draft')
+    if changed:
+        updated = deepcopy(runtime['bundle'])
+        updated['scenario']['sources'][0]['text'] = 'Different source text'
+        page.route('**/state', lambda route: route.fulfill(content_type='application/json', body=json.dumps(updated)))
+    runtime['response']['message'] = 'New legacy retry answer'
+    page.evaluate('() => retryConversationAt(0)')
+    if changed:
+        assert runtime['chat_requests'] == []
+        assert page.evaluate('conversationStore.activeId') == parent['id']
+        _expect_draft(page, 'Legacy parent draft')
+        expect(page.locator('#global-status')).to_contain_text(re.compile('fork', re.I))
+    else:
+        expect(page.locator('.chat-msg-assistant').last).to_contain_text('New legacy retry answer')
+        assert len(runtime['chat_requests']) == 1
+        assert runtime['chat_requests'][0]['messages'] == [{'role': 'user', 'content': question}]
+        assert runtime['chat_requests'][0]['context_refs'] == [{'kind': 'rule', 'id': 'r1'}]
+        assert page.evaluate('activeConversation().messages[0].content') == question
+        page.locator('#conversation-select').select_option(parent['id'])
+        _expect_draft(page, 'Legacy parent draft')
+        expect(page.locator('#chat-messages')).to_contain_text('Old answer')
+
+
+@pytest.mark.parametrize('change_account', [False, True])
+def test_retry_preparation_deduplicates_clicks_and_cannot_cross_accounts(explorer_browser, change_account):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _answer_chat_draft(page, runtime, 'Original answer', 'Retry this question')
+    parent = page.evaluate('activeConversation()')
+    page.locator('#chat-input').fill('Keep the parent draft')
+    held = []
+    page.route('**/state', lambda route: held.append(route))
+    page.evaluate('''() => {
+        window.__firstRetry = retryConversationAt(0);
+        window.__secondRetry = retryConversationAt(0);
+    }''')
+    expect(page.get_by_role('button', name='Retry', exact=True)).to_be_disabled()
+    expect(page.get_by_role('button', name='Edit and fork', exact=True)).to_be_disabled()
+    page.wait_for_timeout(50)
+    assert len(held) == 1
+    if change_account:
+        runtime['user'] = 'researcher-b'
+        page.evaluate("() => { state.authSession.user = {id: 'researcher-b', email: 'other@example.edu'}; renderAccountUI(); }")
+        page.locator('#chat-input').fill('New account draft')
+    runtime['response']['message'] = 'Only one retry answer'
+    held.pop().fulfill(content_type='application/json', body=json.dumps(runtime['bundle']))
+    page.evaluate('() => Promise.allSettled([window.__firstRetry, window.__secondRetry])')
+    if change_account:
+        assert len(runtime['chat_requests']) == 1
+        expect(page.locator('#chat-messages')).not_to_contain_text('Original answer')
+        expect(page.locator('#chat-messages')).not_to_contain_text('Only one retry answer')
+        _expect_draft(page, 'New account draft')
+        assert page.evaluate('conversationStore.owner') == 'researcher-b'
+    else:
+        assert len(runtime['chat_requests']) == 2
+        expect(page.locator('.chat-msg-assistant').last).to_contain_text('Only one retry answer')
+        expect(page.locator('#conversation-select option')).to_have_count(2)
+        page.locator('#conversation-select').select_option(parent['id'])
+        _expect_draft(page, 'Keep the parent draft')
+        assert page.evaluate('activeConversation().messages') == parent['messages']
+
+
+@pytest.mark.parametrize('current_draft', ['', 'A different draft typed during retry preparation'])
+def test_cancelled_retry_preflight_keeps_the_current_parent_draft_without_sending(explorer_browser, current_draft):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _answer_chat_draft(page, runtime, 'The parent answer remains', 'The original question')
+    parent = page.evaluate('activeConversation()')
+    page.locator('#chat-input').fill('Draft from before retry preparation')
+    held = []
+    page.route('**/state', lambda route: held.append(route))
+    with page.expect_request('**/state'):
+        page.evaluate('() => { window.__retryPreparation = retryConversationAt(0); }')
+    expect(page.get_by_role('button', name='Retry', exact=True)).to_be_disabled()
+    expect(page.locator('#chat-cancel-btn')).to_be_visible()
+    page.locator('#chat-input').fill(current_draft)
+    page.locator('#chat-cancel-btn').focus()
+    page.keyboard.press('Enter')
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+    _expect_draft(page, current_draft)
+    assert len(held) == 1
+    held.pop().fulfill(content_type='application/json', body=json.dumps(runtime['bundle']))
+    page.evaluate('() => window.__retryPreparation')
+    assert len(runtime['chat_requests']) == 1
+    assert page.evaluate('conversationStore.activeId') == parent['id']
+    assert page.evaluate('activeConversation().messages') == parent['messages']
+    expect(page.locator('#conversation-select option')).to_have_count(1)
+    expect(page.locator('#chat-messages')).not_to_contain_text('Answer stopped')
+    _expect_draft(page, current_draft)
+    page.evaluate('() => flushConversationWrites()')
+    page.unroute('**/state')
+    page.reload()
+    _wait_for_history(page)
+    _expect_draft(page, current_draft)
+    assert page.evaluate('activeConversation().messages') == parent['messages']
+
+
+def test_retry_cancellation_preserves_both_branches_and_newer_drafts(explorer_browser):
+    from playwright.sync_api import expect
+
+    page, runtime = explorer_browser
+    _answer_chat_draft(page, runtime, 'Original answer remains', 'Question to retry and stop')
+    parent = page.evaluate('activeConversation()')
+    page.locator('#chat-input').fill('Parent draft stays here')
+    runtime['hold_chat'] = True
+    page.evaluate('''() => {
+        const original = apiPostChat;
+        apiPostChat = (...args) => { window.__retryChatSignal = args[3]; return original(...args); };
+    }''')
+    with page.expect_request('**/chat'):
+        page.get_by_role('button', name='Retry', exact=True).click()
+    expect(page.locator('#chat-cancel-btn')).to_be_visible()
+    page.wait_for_function("activeConversation().id !== " + json.dumps(parent['id']))
+    branch = page.evaluate('activeConversation().id')
+    page.locator('#chat-input').fill('New draft typed while retry is pending')
+    page.locator('#chat-cancel-btn').focus()
+    page.keyboard.press('Enter')
+    assert page.evaluate('window.__retryChatSignal.aborted') is True
+    expect(page.locator('.chat-msg-loading')).to_have_count(0)
+    _expect_draft(page, 'New draft typed while retry is pending')
+    assert len(runtime['chat_requests']) == 2 and len(runtime['held']) == 1
+    runtime['held'].pop().fulfill(content_type='application/json', body=json.dumps({**runtime['response'], 'message': 'Obsolete retry answer'}))
+    page.evaluate('() => flushConversationWrites()')
+    expect(page.locator('#chat-messages')).not_to_contain_text('Obsolete retry answer')
+    expect(page.locator('#chat-messages')).to_contain_text('Answer stopped')
+    page.locator('#conversation-select').select_option(parent['id'])
+    _expect_draft(page, 'Parent draft stays here')
+    assert page.evaluate('activeConversation().messages') == parent['messages']
+    page.locator('#conversation-select').select_option(branch)
+    page.reload()
+    _wait_for_history(page)
+    _expect_draft(page, 'New draft typed while retry is pending')
+    expect(page.locator('#chat-messages')).not_to_contain_text('Obsolete retry answer')
+    expect(page.locator('#chat-messages')).to_contain_text('Answer stopped')
 
 
 def test_individual_derivations_preserve_shared_top_rules_and_navigation(explorer_browser):
@@ -1148,7 +1500,7 @@ def test_stale_refresh_limit_and_forked_context_keep_editable_text(explorer_brow
     expect(page.locator(".chat-reference-stale")).to_have_count(0)
     page.locator("#chat-send-btn").click()
     expect(page.locator(".chat-msg-assistant")).to_contain_text("The claim is undecided")
-    page.get_by_role("button", name="Edit in new chat", exact=True).click()
+    page.get_by_role("button", name="Edit and fork", exact=True).click()
     expect(page.locator(".chat-reference-stale")).to_have_count(1)
     page.get_by_role("button", name="Refresh rule r1 for the current scenario").click()
     expect(page.locator(".chat-reference-stale")).to_have_count(0)
@@ -1600,7 +1952,7 @@ def test_legacy_reference_draft_and_fork_keep_original_words_without_matching(ex
     _expect_draft(page, 'Compare these two rules.\n"First rule"\n"Second rule"')
     expect(page.locator('#chat-input .chat-reference-token')).to_have_count(2)
     assert page.evaluate('activeConversation().messages[0].content') == 'My exact earlier wording.'
-    page.get_by_role('button', name='Edit in new chat', exact=True).click()
+    page.get_by_role('button', name='Edit and fork', exact=True).click()
     assert _draft_text(page).startswith('My exact earlier wording.\n')
     assert [item['id'] for item in page.evaluate('state.chatContextRefs')] == ['r1', 'r2']
     expect(page.locator('#chat-input .chat-reference-stale')).to_have_count(2)
