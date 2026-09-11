@@ -17,6 +17,18 @@ candidate uses schema 0008 and has not been deployed to the hosted site. Hosted
 receipts below describe the earlier release. Review existing foundations as well as this diff
 wherever R01-R16 or E01-E07 depend on them.
 
+The owner requested hosted deployment on September 11 UTC. The exact tested
+source `2037b60` now has a [verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34548232508),
+digest `sha256:4efdc30522dcf9c2826d12f66315f413a029cc20333f6d9b6859adaf1efd5a0e`.
+Publication, container smoke/security checks, and source-pinned GitHub/registry
+provenance verification passed. The bounded Azure resource read failed with
+`AADSTS700082`, requiring renewal of the private operator login. No hosted
+configuration or database changes were made. The prepared transition drains
+old writers before migration and preserves the funded provider configuration;
+recovery after migration must support schema 0008 and the stable eligibility
+key. The checkpoint receipt is
+`artifacts/evals/ui-hosted-release-preparation-20260911.json`.
+
 `Requirements.docx` was read directly and has SHA-256
 `fb934fec9ab180586774a80f01f5d57d23693f3814eb61fa0db6f0e54b240606`.
 The contract also incorporates every indexed colleague Demo/More radical idea,
