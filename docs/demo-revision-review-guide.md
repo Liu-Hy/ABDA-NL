@@ -11,9 +11,15 @@ The recent revision work starts after `85bd4ae75d09a55fb65d1cd254d2ab1d833e8e18`
 Tim reviewed code snapshot `026fde9f0c5024c48a4d1c935b05d459d9e29349`.
 The subsequent correction work starts from `94febed`; inspect the current
 commit and the correction status below for its validation boundary.
-Review existing foundations as well as this diff wherever R01-R24 or E01-E07
-depend on them. The later refinement adds R17-R24 and supersedes the earlier
+Review existing foundations as well as this diff wherever R01-R25 or E01-E07
+depend on them. The later refinement adds R17-R25 and supersedes the earlier
 question-frame, starter, Snapshot-control, typography, About and default-model choices.
+
+The subsequent R25 change labels strict and defeasible rules within each existing
+preference block. Twelve importer/editor checks and nine browser cases passed
+across Chromium, Firefox and WebKit, including all six bundled scenarios at
+desktop and narrow widths. All 36 modal/Copy payloads retained the same imported
+rules and preferences. This source change awaits its own release verification.
 
 The latest hosted source is `6b6e8699387a978ed24ca86edfbe4759eb1b6648`, deployed
 to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
@@ -78,6 +84,7 @@ reviewer should judge whether it adequately fulfills the contract.
 | Forks and retries | Edit and fork opens an editable question in a separate conversation using the current scenario. Retry creates a separate branch with the exact question, references and preceding history, excluding the previous answer and later turns. It verifies the original route/version, working edits, full scenario, sources and AF before inference; unavailable versions leave the parent intact with fork guidance. Retry uses the model selected when clicked. Neither action changes the workspace; later new questions use its current scenario. These are engineering choices. |
 | Retry verification boundary | New snapshots retain the public scenario ID or private ID/version and source ID. Older public records require the original scenario to be open and a complete content match. Private APIs enforce version checks again at inference. The public catalog comparison is not atomic across a deployment; no new snapshot-chat endpoint or backend authorization path was introduced. |
 | Derivation graph | The inspector shows individual arguments and their local neighborhood alongside the grouped overview; it is not a full ungrouped global graph. This implements the review's bounded proposal and remains reviewable for adequacy. |
+| ASPIC- comments | Strict and defeasible rules have separate headings within each preference block, followed by explicitly labeled categories. Brief explanations also distinguish facts and challengeable assumptions. Grouping by inference type makes the arrows readable to newcomers without changing rule semantics or block preferences. The wording and grouping are engineering choices. |
 | Edit identifiers | New LLM-generated identifiers allow 24 characters; manual editing allows 100, and modifying existing longer rule IDs remains supported. The larger generated-ID limit is an engineering choice intended to keep proposals readable. |
 | Proposal scope | Omitted rule fields preserve existing values; explicit proposed values survive, and null or blank optional text clears that field. The complete before/after preview is the user's decision point. No keyword list guesses which natural-language phrasings authorize a change. An unavailable advisory review retains a validated proposal with a warning and all settled charges. |
 | Evidence and precision | Source cards distinguish a matched answer quotation from a contextual source excerpt. Both verify source-span integrity; neither proves every paraphrase's entailment. A short general instruction requests directly relevant evidence or requested citations and omits irrelevant citations. The application constructs the cards from verified citations, without a separate model tool call. Repetitive formal-reference footers are removed. Minor terminology/count/grouping errors remain tolerable; wrong labels, operative causes, polarity, or counterfactual outcomes are material. |
@@ -260,6 +267,7 @@ interpretation and should themselves be challenged.
 | Requirements | Principal code and tests |
 | --- | --- |
 | R01, R13-R15: engine and scenario integrity | [scenario code](../app/scenario/), [portable exchange](../app/scenario/portable.py), [app.js](../app/static/app.js), [scenarios.js](../app/static/scenarios.js); `tests/test_scenario_*`, `test_rule_argument_context.py`, `test_accepted_defeater_context.py`. |
+| R25: ASPIC- readability | `buildAspicText` in [app.js](../app/static/app.js); `test_exported_aspic_preserves_bundled_argumentation` in [browser tests](../tests/test_browser_e2e.py), importer/editor tests, and the private `artifacts/evals/aspic-rule-groups-20260911/` modal/Copy audit. Verify comment wording separately from semantic round-trip results. |
 | R03, E03/E06/E07: identity and accounting | [credit policy](../app/services/credit_policy.py), [trials](../app/services/trials.py), [billing](../app/services/llm_billing.py), [accounts](../app/services/accounts.py), [projects](../app/services/projects.py), [migrations](../migrations/); `test_named_credit*`, `test_accounts_projects_trials.py`, `test_llm_routing_billing.py`, privacy tests. |
 | R04-R06, E04/E05: routing and admission | [catalog](../app/llm/models.yaml), [catalog validation](../app/llm/catalog.py), [routing](../app/llm/routing.py), [providers](../app/llm/providers.py), [API access](../app/api/llm_access.py); `test_revision_llm_contracts.py`, `test_llm_api_access.py`, `test_provider_resilience.py`, `test_provider_clients.py`. |
 | R07/R08/R12: prompts and qualification | [prompts](../app/prompts/), [model guidance](../app/llm/prompts.py), [chat](../app/llm/chat_service.py), [evidence](../app/llm/evidence.py), [evaluation code](../app/evals/), [budget](../app/evals/budget.py), [suite](../evals/llm_suite.yaml); `test_model_prompt_guidance.py`, `test_chat_validator.py`, `test_llm_eval.py`, proposer/reviewer/context tests. |

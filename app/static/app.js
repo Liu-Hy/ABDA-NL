@@ -3086,9 +3086,9 @@ function buildAspicText(scn) {
   // Facts, grouped by category.
   const factIds = Object.keys(scn.facts || {});
   if (factIds.length > 0) {
-    lines.push('', '# Facts');
+    lines.push('', '# Facts (taken as given)');
     for (const [cat, ids] of groupIdsByCategory(factIds, id => scn.facts[id])) {
-      lines.push(`# ${cat}`);
+      lines.push(`# Category: ${cat}`);
       for (const id of ids) lines.push(`-> ${id}`);
     }
   }
@@ -3096,9 +3096,9 @@ function buildAspicText(scn) {
   // Assumptions, grouped by category.
   const assumptionIds = Object.keys(scn.assumptions || {});
   if (assumptionIds.length > 0) {
-    lines.push('', '# Assumptions');
+    lines.push('', '# Assumptions (can be challenged)');
     for (const [cat, ids] of groupIdsByCategory(assumptionIds, id => scn.assumptions[id])) {
-      lines.push(`# ${cat}`);
+      lines.push(`# Category: ${cat}`);
       for (const id of ids) {
         const data = scn.assumptions[id];
         lines.push(`# Block ${data.block ?? 1}`);
@@ -3108,7 +3108,7 @@ function buildAspicText(scn) {
     }
   }
 
-  // Rules, organised by block, then by category within block.
+  // Rules, organised by preference block, then inference type and category.
   const byBlock = new Map();
   for (const [id, r] of Object.entries(scn.rules || {})) {
     const block = r.block ?? 1;
@@ -3123,19 +3123,26 @@ function buildAspicText(scn) {
          : '')
       : '';
     lines.push('', `# Block ${block}${label}`);
-    const byCat = groupIdsByCategory(
-      byBlock.get(block).map(it => it.id),
-      id => byBlock.get(block).find(it => it.id === id).data
-    );
-    for (const [cat, ids] of byCat) {
-      lines.push(`# ${cat}`);
-      for (const id of ids) {
-        const { data } = byBlock.get(block).find(it => it.id === id);
-        const arrow = data.type === 'strict' ? '->' : '=>';
-        const premises = (data.premises || []).join(', ');
-        const body = premises ? `${premises} ${arrow} ${data.conclusion}` : `${arrow} ${data.conclusion}`;
-        const mark = (data.active === false) ? '# [suspended] ' : '';
-        lines.push(`${mark}${body} [${id}]`);
+    for (const strict of [true, false]) {
+      const typedRules = byBlock.get(block).filter(({ data }) => (data.type === 'strict') === strict);
+      if (!typedRules.length) continue;
+      const arrow = strict ? '->' : '=>';
+      lines.push(strict
+        ? '# Strict rules (->): conclusions follow from their premises'
+        : '# Defeasible rules (=>): conclusions normally follow');
+      const byCat = groupIdsByCategory(
+        typedRules.map(it => it.id),
+        id => typedRules.find(it => it.id === id).data
+      );
+      for (const [cat, ids] of byCat) {
+        lines.push(`# Category: ${cat}`);
+        for (const id of ids) {
+          const { data } = typedRules.find(it => it.id === id);
+          const premises = (data.premises || []).join(', ');
+          const body = premises ? `${premises} ${arrow} ${data.conclusion}` : `${arrow} ${data.conclusion}`;
+          const mark = (data.active === false) ? '# [suspended] ' : '';
+          lines.push(`${mark}${body} [${id}]`);
+        }
       }
     }
   }
