@@ -17,7 +17,7 @@ from app.llm.providers import (
 
 def test_catalog_profiles_reference_valid_routes_and_models():
     catalog = load_model_catalog()
-    assert catalog.version == 5
+    assert catalog.version == 6
     assert catalog.public_profiles()
     for profile in catalog.profiles.values():
         primary = catalog.routes[profile.primary_route]
