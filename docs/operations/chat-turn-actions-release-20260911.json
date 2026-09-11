@@ -1,0 +1,251 @@
+{
+  "result": "CHAT_TURN_ACTIONS_RELEASE_VERIFIED",
+  "recorded_utc": "2026-09-11T15:41:03.607978+00:00",
+  "origin": "https://demo.abda-nl.org",
+  "source_commit": "6b6e8699387a978ed24ca86edfbe4759eb1b6648",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:7de958e6073f2bb4e099785b631624c048d71af9a87fddcd40489519a36a18b5",
+  "revision": "abda-nl-stg-web--chat-6b6e869-0911",
+  "previous_source_commit": "f65a8518ea9c7492b568892ab41c28ee97f3d3b2",
+  "changes": [
+    "Use compact per-question pencil and circular-arrow controls with short hover labels and accessible names.",
+    "Edit and fork preserves the original conversation and opens an editable branch using the current scenario.",
+    "Retry preserves original answers and drafts, and sends the same question, references and preceding history in a separate branch using its original scenario and the model selected when clicked.",
+    "Verify original scenario, sources, working edits and private version before retry; unavailable context makes no inference request.",
+    "Keep Snapshot controls removed and preserve cancellation, access and ordinary charging."
+  ],
+  "release": {
+    "source_ci_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615744317",
+    "codeql_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615744419",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615742349",
+    "tag": "service-image-chat-turns-6b6e869-20260911",
+    "ci_jobs_passed": 8,
+    "codeql_findings": 0,
+    "tests": [
+      {
+        "name": "Python 3.13",
+        "passed": 1925,
+        "skipped": 168
+      },
+      {
+        "name": "Python 3.10",
+        "passed": 1925,
+        "skipped": 168
+      },
+      {
+        "name": "postgres-acceptance",
+        "passed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (chromium)",
+        "passed": 167,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (firefox)",
+        "passed": 167,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (webkit)",
+        "passed": 167,
+        "skipped": 0
+      }
+    ],
+    "all_image_steps_passed": true,
+    "github_and_registry_provenance_verified": true,
+    "exact_source_signer_tag_and_subject_verified": true,
+    "container_security": {
+      "total_vulnerabilities": 251,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "duplicate_tag_ci": {
+      "run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615742323",
+      "status": "cancelled",
+      "reason": "The identical development source CI remained authoritative and passed."
+    }
+  },
+  "rollout": {
+    "checked_utc": "2026-09-11T15:37:20.118896+00:00",
+    "checks": {
+      "web_configuration_identity_and_other_template_fields_preserved": true,
+      "manual_job_entirely_unchanged": true,
+      "ready_revision": true,
+      "running": true,
+      "single_healthy_active_revision": true,
+      "new_replicas_present": true,
+      "old_replicas_absent": true,
+      "manual_jobs_terminal": true
+    },
+    "patch_count": 1,
+    "changed_template_leaves": [
+      "/containers/0/image",
+      "/revisionSuffix"
+    ],
+    "new_replica_count": 1,
+    "default_profile_preserved": "gemini-3-8-flash",
+    "manual_migration_job_changed": false,
+    "migration_run": false,
+    "compatible_schema": "20260910_0008",
+    "schema_requeried": false,
+    "secret_values_requested": false,
+    "drift_check": "Fresh comparison before one PATCH; no server-side ETag condition.",
+    "recovery": "Use a fresh revision suffix and a schema 0008 compatible image; retain the stable eligibility key."
+  },
+  "acceptance": {
+    "final_local_checks": [
+      {
+        "label": "unit",
+        "exit_code": 0,
+        "counts": {
+          "tests": 26,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "chromium",
+        "exit_code": 0,
+        "counts": {
+          "tests": 77,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "firefox",
+        "exit_code": 0,
+        "counts": {
+          "tests": 77,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "webkit",
+        "exit_code": 0,
+        "counts": {
+          "tests": 77,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "final_local_total_passed": 257,
+    "new_parameterized_browser_cases": 18,
+    "actual_state_export_and_private_version_routes_tested": true,
+    "authenticated_inference_simulated": true,
+    "hosted_and_managed_assets_each": 20,
+    "complete_scenarios_each": 6,
+    "live_browser_engines": [
+      "chromium",
+      "webkit"
+    ],
+    "live_turn_actions": "Browser-local synthetic turns; real icon rendering, geometry and keyboard fork; no authenticated inference.",
+    "live_source_export_seconds": {
+      "chromium": 0.573,
+      "webkit": 0.678
+    },
+    "new_paid_model_calls": 0,
+    "new_presentation_device_acceptance": false
+  },
+  "limits_and_preserved_findings": [
+    "Private inference checks the expected version again; public preflight comparison is not atomic across a deployment.",
+    "Old public conversation records require the original scenario to be open and its complete contents to match.",
+    "A review-found preflight Stop issue could restore an intentionally cleared draft; the submitted-only restoration fix and regression tests passed.",
+    "The first managed live helper run failed because a route callback default was overwritten by Playwright; the helper was corrected and the original failure retained.",
+    "The first hosted source-reader check exceeded its five-second visibility wait. The response-aware follow-up passed; the initial cause was not established."
+  ],
+  "qualification": {
+    "implementation_fingerprint": "5fbca7cdd56397022937c3ecd62c4cdd22b1afa255800c67cffe7629eb9e7dcb",
+    "unchanged": true,
+    "preceding_evidence": "scenario-refinement-release-20260911.json",
+    "new_paid_evaluation_calls": 0
+  },
+  "evidence": [
+    {
+      "label": "source_ci",
+      "path": "artifacts/evals/chat-turn-actions-20260911/ci-6b6e869/receipt.json",
+      "sha256": "8da0fe76f6ca6cfc733bb9b248d7a16501dece7babc294b3f37134899f9e6ab3"
+    },
+    {
+      "label": "initial_local_matrix",
+      "path": "artifacts/evals/chat-turn-actions-20260911/matrix-20260911T150511/receipt.json",
+      "sha256": "b564ca2006144a683b0752f1fc565320b7df3dd46a6c32e825227f483e5470b2"
+    },
+    {
+      "label": "final_local_matrix",
+      "path": "artifacts/evals/chat-turn-actions-20260911/matrix-20260911T151404/receipt.json",
+      "sha256": "3b3b8ee2aacf6fd43fd7cc920195e3e329e3ab401257772f4ef7820ecef41b31"
+    },
+    {
+      "label": "qualification_unchanged",
+      "path": "artifacts/evals/chat-turn-actions-20260911/unchanged-qualification.json",
+      "sha256": "3b389c596ac3a2ccd7edbfe34c00ce1ab02a1c6e1649429e1c3fdc28fff73d29"
+    },
+    {
+      "label": "hosted_api",
+      "path": "artifacts/evals/chat-turn-actions-20260911/hosted-api.json",
+      "sha256": "2a18193eb6df030293274cf41e14affa4a33bfe4ad8765b1db4614a1a1185c59"
+    },
+    {
+      "label": "managed_api",
+      "path": "artifacts/evals/chat-turn-actions-20260911/managed-api.json",
+      "sha256": "fc44a75b52cbdb67fe3ff6bd176ce3a72e789589bf41efa031e852d1faf25d0b"
+    },
+    {
+      "label": "hosted_browser",
+      "path": "artifacts/evals/chat-turn-actions-20260911/hosted-browser-final/receipt.json",
+      "sha256": "8f9a23303e6116541ac1e430b55349a7cc89a4d47df62861af618508a0fd1091"
+    },
+    {
+      "label": "managed_browser",
+      "path": "artifacts/evals/chat-turn-actions-20260911/managed-browser-final/receipt.json",
+      "sha256": "86cf03fcdab6b6bd9ab4c836963c6090222d04dd7a19d0b8a1e27acb25d28e7b"
+    },
+    {
+      "label": "hosted_visual_review",
+      "path": "artifacts/evals/chat-turn-actions-20260911/hosted-browser-final/inspection.json",
+      "sha256": "805caeb2cb527e21394ef7a9dcb20e552cdefa350f550de85689f248b7f9471a"
+    },
+    {
+      "label": "initial_managed_helper_failure",
+      "path": "artifacts/evals/chat-turn-actions-20260911/managed-browser/receipt.json",
+      "sha256": "b1410b1be47e715b97ba661d94fb92941bcc37dff8d6bf5338df1d800b510a32"
+    },
+    {
+      "label": "initial_hosted_source_timeout",
+      "path": "artifacts/evals/chat-turn-actions-20260911/hosted-browser/receipt.json",
+      "sha256": "a9b6467e61e5bac13753b4295cce7cd7daeefe21be3fb579527a108750bb8592"
+    },
+    {
+      "label": "worker_cleanup",
+      "path": "artifacts/evals/chat-turn-actions-20260911/worker-cleanup.json",
+      "sha256": "4f54583508e263e02242c792fd3f2851c23e56b21ad24754c128e8ca0a183f62"
+    }
+  ],
+  "private_evidence_sha256": {
+    "verified_release_image": "028520c1f6774713f8eff88de099dee7b9c7e200b3f5287d7bbadca271535f46",
+    "root_release_binding": "6ceea4ba5aa832b7324a30343ca9eea6dceb1c606efd802b424f66ac0a312624",
+    "final_azure_verification": "ba17edbc82451672fe3a425d4efaa1f20e8ccc6138c0eb2c6813af65dcd67b9c"
+  },
+  "cleanup": {
+    "checked_utc": "2026-09-11T15:41:03.600891+00:00",
+    "allocation": 21964633,
+    "allocation_completed_with_exit_zero": true,
+    "all_steps_terminal": true,
+    "initial_failed_steps_preserved": true,
+    "temporary_forwards_closed": true
+  }
+}

@@ -15,43 +15,39 @@ Review existing foundations as well as this diff wherever R01-R24 or E01-E07
 depend on them. The later refinement adds R17-R24 and supersedes the earlier
 question-frame, starter, Snapshot-control, typography, About and default-model choices.
 
-The R24 follow-up restores recognizable per-turn fork controls and adds retry.
-Its release verification is in progress; the deployed baseline below is unchanged.
-
-The R22/R23 follow-up enlarges the interface, removes the duplicate graph tooltip
-and standardizes scenario terminology. The latest hosted source is
-`f65a8518ea9c7492b568892ab41c28ee97f3d3b2`, deployed
+The latest hosted source is `6b6e8699387a978ed24ca86edfbe4759eb1b6648`, deployed
 to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
-`abda-nl-stg-web--ui-f65a851-0911`. The
-[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581275692)
-is `sha256:0ec13c9bc4e648d49c9a628a16c3e0a07942701a94c8bd4e88f9247262d19b03`.
-All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581105462) and
-[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581105316) passed:
-1,925 tests/150 skips per Python version, 149 tests per browser engine, and
+`abda-nl-stg-web--chat-6b6e869-0911`. R24 adds compact pencil and circular-arrow
+controls for per-turn editing/forking and retry. The
+[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615742349)
+is `sha256:7de958e6073f2bb4e099785b631624c048d71af9a87fddcd40489519a36a18b5`.
+All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615744317) and
+[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34615744419) passed:
+1,925 tests/168 skips per Python version, 167 tests per browser engine, and
 restricted-role PostgreSQL. The opt-in browser and PostgreSQL checks ran separately.
 
-The [UI release receipt](operations/ui-scale-terminology-release-20260911.json)
-binds source, image provenance and live checks. Hosted and managed checks each
-matched 20 assets, six complete scenarios and the six-model pool, with Flash as
-default. Anonymous Chromium/WebKit checks verified the enlargement, one graph
-tooltip, About defaults, editable references, source highlighting and desktop/phone
-layouts. Authenticated workflows were tested with disposable fixtures. The initial
-local failures and final passing regressions remain in the evidence directory.
-No paid inference or new presentation-device acceptance was added; the
-[preceding scenario release](operations/scenario-refinement-release-20260911.json)
+The [turn-action release receipt](operations/chat-turn-actions-release-20260911.json)
+binds source, image provenance and live checks. Local checks passed 77 cases per
+browser and 26 frontend/composer contracts, including actual state/export APIs
+for public, private and older private conversations. Inference was simulated.
+Hosted and managed checks each matched 20 assets, six scenarios and the model
+pool. Anonymous Chromium/WebKit checks verified icon rendering and keyboard
+forking with browser-local synthetic turns, plus existing layout, About, graph
+and source-reader behavior. The receipt retains a corrected helper callback
+failure and an initial source-reader timeout whose cause was not established;
+the response-aware follow-up passed. No paid inference or new presentation-device
+acceptance was added. The [preceding scenario release](operations/scenario-refinement-release-20260911.json)
 retains the unchanged model qualification and budget evidence.
 
-The image rollout changed only the web image and revision suffix. It preserved
-the default model, other runtime settings, identity, secret references and saved
-manual-job definition. Separately, the owner's requested test publication was
-retracted through the existing unpublish service, preserving its private source,
-publication snapshot and other publications. Two execution overrides of the
-existing manual job performed the inspection and unpublication; neither changed
-the saved job or schema. Target identifiers remain in private receipts. No schema
-migration or secret-value request was made. Recovery must retain the stable
-eligibility key and use a schema `20260910_0008` compatible image; the
-[preceding rollout](operations/hosted-ui-rollout-result-20260911.json) records
-that migration's data/accounting comparisons and backup limits.
+This rollout changed only the web image and revision suffix, preserving runtime
+settings, identity, secret references and the saved manual job. It performed no
+migration or secret-value request. The [preceding UI release](operations/ui-scale-terminology-release-20260911.json)
+records enlargement, terminology, the graph-tooltip correction and the owner's
+requested test-publication retraction, which preserved its private source and
+other publications. Recovery must retain the stable eligibility key and use a
+schema `20260910_0008` compatible image; the
+[earlier rollout](operations/hosted-ui-rollout-result-20260911.json) records that
+migration's data/accounting comparisons and backup limits.
 
 `Requirements.docx` was read directly and has SHA-256
 `fb934fec9ab180586774a80f01f5d57d23693f3814eb61fa0db6f0e54b240606`.
