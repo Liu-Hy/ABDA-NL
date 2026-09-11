@@ -179,16 +179,22 @@ identity or inference configuration. The model implementation fingerprint is
 still `ef801af4d8861155efcb846818e73464e7f28701dabcba6dc0c90186da11a6f0`.
 No paid model calls were needed for this presentation work.
 
-Local Slurm verification passed 1,718 deterministic/backend tests (113 skips,
-including opt-in browsers and PostgreSQL). The complete Chromium run passed
-116 of 117 cases, exposing a keyboard-inaccessible About scroller at 200% zoom.
-After correcting that and two inherited game-control contrast issues, all 17
-focused integration cases passed, including the full research workflow and
-seven viewport sizes. Seventeen checked color pairs have contrast ratios of
-at least 4.58. Screenshots of the explorer, authoring, publication, chat, and
-saved-source reader were inspected, along with three color-vision simulations.
-The full browser/CI and managed-demo receipts will establish the final boundary;
-these local results alone are not hosted deployment or conference-device acceptance.
+Implementation `2037b60118f481e1e787d5713e999af39a19b923` passed all eight
+[CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624149) and
+[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624291):
+1,762 tests/120 skips on each of Python 3.10 and 3.13, restricted-role PostgreSQL,
+and 119 tests per browser engine (Chromium, Firefox and WebKit). CodeQL reported
+zero findings. Logs and their hashes are retained in
+`artifacts/evals/final-ui-ci-2037b60-20260910/`.
+
+Earlier failed runs remain intact. Integration corrections cover authoring blur
+events, composer line breaks and clipboard behavior, native selector overflow,
+keyboard access to the About scroller, and PostgreSQL contention observation.
+The full browser suite includes the research workflow and seven viewport sizes.
+Seventeen checked color pairs have contrast ratios of at least 4.58.
+Screenshots of the explorer, authoring, publication, chat, and saved-source
+reader were inspected, along with three color-vision simulations. These checks
+do not establish hosted deployment or conference-device acceptance.
 
 The managed Delta demo now serves the candidate interface on schema 0008.
 The additive migration preserved every existing column value and assigned no
@@ -196,12 +202,13 @@ existing submission an attribution opt-in. Readiness checks verified all 17
 served assets, unchanged accounting, the seven-model menus, and all five named
 administrator identities. Receipts are
 `artifacts/evals/ui-local-upgrade-20260910T234436Z.json` and
-`artifacts/evals/ui-local-final-readiness-5698a84-20260910.json`.
+`artifacts/evals/ui-local-final-readiness-2037b60-20260910.json`.
 
-The fresh six-frame [offline pack](../artifacts/conference/ui-5698a84-20260910T235259Z.zip)
+The fresh six-frame offline pack,
+`artifacts/conference/ui-2037b60-20260911T003006Z.zip`,
 was captured from the clean local candidate, with matching served asset hashes,
 only 26 allowed requests, and verified offline image loading/navigation. Its
-source receipt is `artifacts/evals/ui-conference-20260910T235259Z.json`.
+source receipt is `artifacts/evals/ui-conference-20260911T003006Z.json`.
 The pack and detailed receipts are retained locally, outside Git. The
 [playbook](operations/comma-2026-demo-playbook.md) describes laptop preparation
 and rehearsals. Hosted deployment and personal sign-in acceptance remain pending.
