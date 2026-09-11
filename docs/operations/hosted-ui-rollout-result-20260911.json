@@ -1,0 +1,168 @@
+{
+  "result": "HOSTED_UI_ROLLOUT_VERIFIED",
+  "recorded_utc": "2026-09-11T01:56:34.536227+00:00",
+  "origin": "https://demo.abda-nl.org",
+  "source_commit": "2037b60118f481e1e787d5713e999af39a19b923",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:4efdc30522dcf9c2826d12f66315f413a029cc20333f6d9b6859adaf1efd5a0e",
+  "revision": "abda-nl-stg-web--ui-2037b60-0911",
+  "schema": "20260910_0008",
+  "resources": {
+    "app": "abda-nl-stg-web",
+    "migration_job": "abda-nl-stg-migrate",
+    "resource_group": "abda-nl-staging",
+    "checked_utc": "2026-09-11T01:45:35.992330+00:00",
+    "active_healthy_revisions": 1,
+    "ready_replicas": 1,
+    "old_revision_replicas": 0,
+    "all_jobs_terminal": true,
+    "persistent_migration_job_uses_same_image": true,
+    "reviewed_settings_identity_and_existing_secret_values_preserved": true,
+    "dedicated_durable_eligibility_key_added_to_app_and_job": true,
+    "cloudbank_azure_and_vertex_funding_and_adc_project_pins_preserved": true
+  },
+  "release": {
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34548232508",
+    "source_ci_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624149",
+    "codeql_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34546624291",
+    "all_release_steps_passed": true,
+    "github_and_registry_provenance_verified": true,
+    "exact_source_signer_tag_and_subject_verified": true,
+    "pytest_per_python_version": {
+      "passed": 1762,
+      "skipped": 120
+    },
+    "browser_tests_per_engine": 119,
+    "restricted_role_postgresql_acceptance_passed": true,
+    "codeql_findings": 0,
+    "container_security": {
+      "total_vulnerabilities": 249,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    }
+  },
+  "migration": {
+    "from_schema": "20260909_0006",
+    "to_schema": "20260910_0008",
+    "execution": "abda-nl-stg-migrate-dgvhi78",
+    "command": "python -m app.cli.migrate",
+    "old_writers_absent_and_all_jobs_terminal_before_migration": true,
+    "pre_migration_recovery_utc": "2026-09-11T01:32:58.924444+00:00",
+    "backup_log_propagation_wait_seconds": 334.868819,
+    "before_and_after_inspections_read_only_with_restricted_role": true,
+    "all_existing_rows_and_column_values_preserved_except_schema_version": true,
+    "existing_submission_count": 0,
+    "existing_submission_attribution_opt_in": 0,
+    "nonempty_publication_migration_coverage": "Covered by source CI; hosted database had no existing submissions.",
+    "eligibility_key_matches_initialized_policy": true,
+    "expected_eligibility_markers": 2,
+    "missing_eligibility_markers": 0,
+    "mismatched_marker_kind_or_owner": 0,
+    "historical_deleted_public_identities_reconstructable": false
+  },
+  "accounting": {
+    "complete_accounting_unchanged_through_migration_and_startup": true,
+    "named_lifetime_grant_usd_each": 50,
+    "registered_named_accounts": 1,
+    "future_named_entitlements": 4,
+    "named_pool_usd": 250,
+    "public_pool_places": 100,
+    "public_grant_usd_each": 5,
+    "independent_openrouter_emergency_cap_usd": 500,
+    "pending_reservations": 0,
+    "credit_maintenance_preview_applied": false,
+    "new_allocations_proposed": 0
+  },
+  "post_reopening_activity": {
+    "successful_authenticated_project_archive_requests": 8,
+    "request_window_utc": [
+      "2026-09-11T01:44:30.3134794Z",
+      "2026-09-11T01:44:49.9144558Z"
+    ],
+    "archive_count_and_version_increment_match_requests": true,
+    "project_row_count_content_and_identity_unchanged": true,
+    "changed_project_columns": [
+      "archived_at",
+      "updated_at",
+      "version"
+    ],
+    "writes_by_release_agents": false,
+    "activity_preserved": true,
+    "rate_limit_housekeeping_also_expected": true
+  },
+  "backup_and_recovery": {
+    "automatic_full_backups_at_preflight": 7,
+    "latest_full_backup_utc": "2026-09-10T17:13:47.010058+00:00",
+    "point_in_time_recovery_retention_days": 7,
+    "on_demand_backup_created": false,
+    "on_demand_rejection": "CustomerOnDemandBackupCannotBePerformedOnBurstableServer",
+    "tier_changed": false,
+    "restore_rehearsal_executed": false,
+    "documentation": "https://learn.microsoft.com/en-us/azure/postgresql/backup-restore/concepts-backup-restore",
+    "requirement": "Preserve the stable eligibility key. Use a schema 0008 compatible image or forward repair. Historical schema 0006/0007 images cannot start against this database; do not downgrade or delete retained credit markers as routine recovery."
+  },
+  "public_browser": {
+    "checked_utc": "2026-09-11T01:40:09.615251+00:00",
+    "engine": "chromium",
+    "slurm_job": 21958944,
+    "served_assets_matched_to_source": 20,
+    "deterministic_scenarios_matched_to_source": 6,
+    "public_models": [
+      "claude-opus-5",
+      "claude-sonnet-5",
+      "gemini-3.1-pro-preview",
+      "gemini-3.8-flash",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "kimi-k3"
+    ],
+    "funded_and_applicable_byok_menus_consistent": true,
+    "editable_questions_and_references_without_inference": true,
+    "draft_preserved_across_six_examples": true,
+    "keyboard_derivation_navigation_and_graph_return": true,
+    "desktop_and_phone_layouts_checked_pixels": [
+      1440,
+      390
+    ],
+    "runtime_errors_or_failed_requests": 0,
+    "authenticated_administrator_workflow_exercised": false,
+    "baseline_state_posts_replaced_by_public_gets": true,
+    "receipt_path": "artifacts/evals/ui-hosted-2037b60-chromium-20260911T014001742949Z/receipt.json",
+    "receipt_sha256": "17e4bded6fc992f47b0caa86f624e27d27fd4cd6c248145f361cdbc027dcaa5c"
+  },
+  "public_api": {
+    "checked_utc": "2026-09-11T01:49:51.380956+00:00",
+    "state_edit_status": 200,
+    "state_reset_status": 200,
+    "edited_af_matches_source_engine": true,
+    "public_scenario_unchanged": true,
+    "anonymous_trial_status": 401,
+    "anonymous_mcp_status": 401,
+    "persistent_project_or_account_writes": 0
+  },
+  "paid_inference_calls_for_this_rollout": 0,
+  "remaining_acceptance_scope": [
+    "Personal authenticated administrator sign-in and presentation-device or screen-reader rehearsal.",
+    "Live paid-provider and OpenRouter fallback acceptance was not exercised by this rollout.",
+    "The three additional routing alerts remain undeployed, as recorded in the review guide."
+  ],
+  "private_evidence_sha256": {
+    "prepared-summary.json": "b178de0473f66478e8387e654c6dd3c4406d065b0b7f76e164a20806322db1df",
+    "before-inspection-verified.json": "4cfe2eb5b1a29914359d6376084791b6fbc6b05b527968b3802b9371d7d2ef71",
+    "after-migration-inspection-verified.json": "2679b5589b830e0e149245d7a8a3803273c0643f126e9cde71d0fe2a9b09969f",
+    "migration-verified.json": "b3508d0e45440aeebb754dc756cb062c8d5c16617b57bf6df6521dc6e9c65480",
+    "credit-preview-verified.json": "69bd9306cec36dfb489ca53125f7184de3dc95434d5f2c60d738c69595f29510",
+    "after-startup-inspection-fresh-verified.json": "a5f59c8a35c6bd879650ed5f8baa07827e39936c5639a1bc3b4d783d55b2fb50",
+    "startup-preservation-verified.json": "91df653376663b7c26ea225e7e12889d8474c701fcfd5c45ddb333b75f0dde62",
+    "final-resources-verified.json": "02b2be9f9bbb52613dbba4904677c1031585fa2d52b09e4f2298e0e98680c1c6",
+    "public-api-verified.json": "50c5aac751774e46797b6a940efbdd343b17a24a22fdd2f1fbe54255878f09e1",
+    "backup-verified.json": "0772e3d0950f02a6e8f7a7734a29377fa7b607cfa79eb92040c0eceb5ebe1889",
+    "pre-migration-gate.json": "927724b91be4a89ee17e997b2f78fe82f164105451aed91486f79ade7708abf9",
+    "verified-release-summary.json": "54d78639093258a8c2ecba81895d209639a04a41a8b895d2650e29da717e44d1"
+  }
+}

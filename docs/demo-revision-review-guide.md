@@ -11,23 +11,29 @@ The recent revision work starts after `85bd4ae75d09a55fb65d1cd254d2ab1d833e8e18`
 Tim reviewed code snapshot `026fde9f0c5024c48a4d1c935b05d459d9e29349`.
 The subsequent correction work starts from `94febed`; inspect the current
 commit and the correction status below for its validation boundary.
-The last verified hosted source is
-`234ffc97522b5d82e0a4a4d05082d88a4ab0c173`, on schema 0006. The correction
-candidate uses schema 0008 and has not been deployed to the hosted site. Hosted
-receipts below describe the earlier release. Review existing foundations as well as this diff
-wherever R01-R16 or E01-E07 depend on them.
+Review existing foundations as well as this diff wherever R01-R16 or E01-E07
+depend on them.
 
-The owner requested hosted deployment on September 11 UTC. The exact tested
-source `2037b60` now has a [verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34548232508),
-digest `sha256:4efdc30522dcf9c2826d12f66315f413a029cc20333f6d9b6859adaf1efd5a0e`.
-Publication, container smoke/security checks, and source-pinned GitHub/registry
-provenance verification passed. The bounded Azure resource read failed with
-`AADSTS700082`, requiring renewal of the private operator login. No hosted
-configuration or database changes were made. The prepared transition drains
-old writers before migration and preserves the funded provider configuration;
-recovery after migration must support schema 0008 and the stable eligibility
-key. The checkpoint receipt is
-`artifacts/evals/ui-hosted-release-preparation-20260911.json`.
+The latest hosted source is `2037b60118f481e1e787d5713e999af39a19b923`, deployed
+to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
+`abda-nl-stg-web--ui-2037b60-0911`, on schema `20260910_0008`. Its
+[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34548232508)
+has digest `sha256:4efdc30522dcf9c2826d12f66315f413a029cc20333f6d9b6859adaf1efd5a0e`.
+After the operator renewed Azure sign-in, old writers were drained before
+migration. Existing data, accounting, funded provider settings and secrets were
+preserved; a dedicated eligibility key was added and its marker coverage verified.
+Recovery must retain that key and support schema 0008. The
+[rollout receipt](operations/hosted-ui-rollout-result-20260911.json) records the
+backup limits, migration comparisons, image provenance and live checks.
+
+Public acceptance verified 20 served assets against the deployed source, all six
+examples, seven-model menus, editable question drafts, keyboard navigation and
+desktop/phone layouts. Actual state-edit/reset requests and anonymous account/MCP
+denials also passed. Eight authenticated project archives after reopening matched
+live requests and were left intact; project content and credit stayed unchanged.
+No paid inference or authenticated administrator workflow was exercised by this
+deployment check. Personal sign-in and presentation-device acceptance remain
+separate from these automated results.
 
 `Requirements.docx` was read directly and has SHA-256
 `fb934fec9ab180586774a80f01f5d57d23693f3814eb61fa0db6f0e54b240606`.
@@ -223,7 +229,7 @@ only 26 allowed requests, and verified offline image loading/navigation. Its
 source receipt is `artifacts/evals/ui-conference-20260911T003006Z.json`.
 The pack and detailed receipts are retained locally, outside Git. The
 [playbook](operations/comma-2026-demo-playbook.md) describes laptop preparation
-and rehearsals. Hosted deployment and personal sign-in acceptance remain pending.
+and rehearsals. Personal sign-in and presentation-device acceptance remain pending.
 
 ## Current qualified model pool
 
@@ -270,10 +276,10 @@ interpretation and should themselves be challenged.
    never restart it or create a fresh $100 allowance for review. Verify that
    timeout, correction, cached-token and reasoning-token paths remain accounted
    for and cannot switch evaluation to personal funding.
-3. **Hosted credit and release:** schema 0006, one registered administrator's
+3. **Earlier hosted credit and release:** schema 0006, one registered administrator's
    $50 total with prior usage retained, and four future entitlements were
    verified. The hosted native fixtures were synthetic; the real administrator's
-   own OIDC/browser sign-in was not exercised in this release. See the
+   own OIDC/browser sign-in was not exercised in that release. See the
    [release receipt](operations/hosted-final-rollout-result-20260910.md).
 4. **MCP:** both actual subscribed clients completed six tool calls and a
    versioned edit/readback. Separate HTTPS/browser checks covered owner data,
