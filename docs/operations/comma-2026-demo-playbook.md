@@ -106,7 +106,7 @@ Briefly show **Conclusion graph** or **ASPIC- text**, then explain that the same
 application runs at the public URL, on an ordinary laptop, and through the
 Delta `demo` launcher. **Download scenario (.json)** in the scenario menu
 includes the rules, meanings, and reference text for import elsewhere.
-Mention private projects and scoped MCP access only if time permits. Do not
+Mention private scenarios and scoped MCP access only if time permits. Do not
 create or reveal an MCP token during the talk.
 
 ## Recovery ladder
@@ -152,13 +152,13 @@ or a model call:
 
 Choose a fresh output path for each capture. The command refuses to overwrite
 an existing directory or ZIP. It captures the six deterministic narrative views
-from the included Popov example in a new anonymous Chromium context, checks the
+from the built-in Popov scenario in a new anonymous Chromium context, checks the
 equity conclusion and Reset behavior, and writes a local HTML gallery, PNGs,
 SHA-256 manifest, and adjacent ZIP. It verifies the gallery with browser
 network access disabled. A request allowlist blocks model, project, token,
 login, and unrelated network operations. The anonymous session-status read
 is permitted. State computation may create expiring rate-limit counters but
-does not save a project or alter the bundled example.
+does not save a private scenario or alter the built-in scenario.
 
 After the UI settles, regenerate the pack from the candidate being rehearsed.
 For a local candidate, add `--base-url http://127.0.0.1:PORT` using the actual

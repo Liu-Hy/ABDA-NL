@@ -8,8 +8,8 @@
 ABDA-NL is a browser-based natural-language scenario explorer for
 argument-based reasoning.
 
-Try the hosted service at <https://demo.abda-nl.org>. You can explore the bundled
-examples without signing in. For model assistance, sign in with an email code.
+Try the hosted service at <https://demo.abda-nl.org>. You can explore built-in
+scenarios without signing in. For model assistance, sign in with an email code.
 Use **Account > Sign in...**, then **Account and credit...** to activate a
 funded trial and view its balance. Choose a funded model from the top AI menu,
 or select **Use your own API key...**. The workflows below describe this
@@ -102,8 +102,8 @@ kept out of the public list until they pass the repository evaluation gate.
 
 ### Browser workspace
 
-Open the scenario-name menu to choose an included example, a community example,
-or one of your private projects:
+Open the scenario-name menu to choose from **Built-in scenarios**,
+**Community scenarios**, or your **Private scenarios**:
 
 - **New scenario** and **Import scenario file** lead into one common editor.
   Write statements and rules in **Guided**, or switch to **Rule text** for
@@ -113,11 +113,11 @@ or one of your private projects:
   validates and saves; **Preview** lets you inspect the computed results first.
   Warnings require review before saving. No model call or trial credit is
   needed. References provide AI context without becoming logical facts.
-- **Manage projects** reopens saved work. **Download scenario (.json)** exports
+- **Private scenarios** reopens saved work. **Download scenario (.json)** exports
   rules, meanings, and full reference text, including bundled corpus content,
   in one self-contained JSON file. Import does not need the original server.
   PDF content uses extracted text, not page layout. **Edit scenario** opens
-  the same editor for the current private project. **Sources and glossary**
+  the same editor for the current private scenario. **Sources and glossary**
   opens a read-only reader with document search and statement meanings.
   Downloads do not include chat, account identifiers, share links, or API keys.
 
@@ -151,24 +151,24 @@ Gemini 3.8 Flash is the default funded model. Eligible administrators have a
 fixed **Normal user view** switch for demonstrating ordinary permissions and
 returning to administrator view.
 
-The **Account** menu opens account and credit, project management, community
-examples, AI access, and **Agent access (Codex, Claude Code)**. Public sign-in
+The **Account** menu opens account and credit, **Private scenarios**,
+**Community scenarios**, AI access, and **Agent access (Codex, Claude Code)**. Public sign-in
 uses verified-email OIDC; development login is visibly labeled. A personal
 provider key stays only in the current tab's memory and clears on reload or
 sign-out. Agent credentials are disclosed once and can be revoked.
 
-**Save** creates a private project or updates the current one using its version
+**Save** creates a private scenario or updates the current one using its version
 to prevent silent overwrites from another tab. Its adjacent menu offers private
-copies, sharing, community submission, and downloads. A project owner can
+copies, sharing, community submission, and downloads. A scenario owner can
 create a revocable read-only link. The bearer token stays in the URL fragment,
 and a recipient cannot toggle assumptions, change preferences, call models, or
-save over the owner's project. A signed-in recipient can save a validated
+save over the owner's scenario. A signed-in recipient can save a validated
 private copy.
 
-In **Manage projects**, the **Archived** tab lets you select projects with
+In **Private scenarios**, the **Archived** tab lets you select scenarios with
 checkboxes and choose **Delete selected** or **Delete all**. Each action asks
-for confirmation. Deletion is permanent; active projects and separately
-submitted or published example snapshots remain.
+for confirmation. Deletion is permanent; active scenarios and separately
+submitted or published scenario snapshots remain.
 
 The interface supports keyboard dialog navigation, visible focus, reduced
 motion, narrow-screen reflow, and screen-reader status announcements. The
@@ -185,8 +185,8 @@ The token is displayed once, expires after 90 days by default, and can be
 revoked at any time. The server stores only an HMAC-SHA-256 digest. Each token
 can receive any subset of these scopes:
 
-- `projects:read` lists examples and reads private projects.
-- `projects:write` creates projects and applies version-checked edits.
+- `projects:read` lists built-in and community scenarios and reads private scenarios.
+- `projects:write` creates private scenarios and applies version-checked edits.
 - `llm:use` asks grounded questions and proposes edits using trial credit.
 
 Set the one-time token with a hidden prompt, then export it to clients started
@@ -209,7 +209,7 @@ tool_timeout_sec = 180
 ```
 
 The write approval mode lets Codex use read-only exploration directly while
-asking before project mutations. The longer tool timeout accommodates funded
+asking before scenario changes. The longer tool timeout accommodates funded
 model calls, which can legitimately exceed Codex's default MCP timeout.
 
 Claude Code accepts the same endpoint and expands environment variables in HTTP
@@ -240,8 +240,8 @@ The MCP tools never accept a provider API key. Use the browser BYOK flow for a
 personal Anthropic, OpenAI, Google, or OpenRouter key. That keeps the provider
 secret request-scoped and out of agent transcripts and MCP configuration.
 
-MCP writes require the project version returned by the preceding read. An LLM
-proposal never changes a project. Review its operation and advisory issues,
+MCP writes require the scenario version returned by the preceding read. An LLM
+proposal never changes a scenario. Review its operation and advisory issues,
 then call `apply_project_ops` explicitly with the unchanged expected version.
 
 ## Public service operation

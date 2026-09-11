@@ -1,0 +1,288 @@
+{
+  "result": "UI_SCALE_TERMINOLOGY_RELEASE_VERIFIED",
+  "recorded_utc": "2026-09-11T09:11:08.553391+00:00",
+  "origin": "https://demo.abda-nl.org",
+  "source_commit": "f65a8518ea9c7492b568892ab41c28ee97f3d3b2",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:0ec13c9bc4e648d49c9a628a16c3e0a07942701a94c8bd4e88f9247262d19b03",
+  "revision": "abda-nl-stg-web--ui-f65a851-0911",
+  "previous_source_commit": "9a06436e76055997524e1e29cf438078461831e7",
+  "changes": [
+    "Enlarge the interface to the requested 110% appearance, retaining responsive layouts and popup alignment.",
+    "Keep one white graph explanation card, wrapped metadata, accessible names and keyboard inspection.",
+    "Use Built-in scenarios, Private scenarios and Community scenarios in current UI copy, preserving technical identifiers and saved data."
+  ],
+  "release": {
+    "source_ci_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581105462",
+    "codeql_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581105316",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581275692",
+    "tag": "service-image-ui-scale-f65a851-20260911",
+    "ci_jobs_passed": 8,
+    "codeql_findings": 0,
+    "tests": [
+      {
+        "name": "Python 3.13",
+        "passed": 1925,
+        "skipped": 150
+      },
+      {
+        "name": "Python 3.10",
+        "passed": 1925,
+        "skipped": 150
+      },
+      {
+        "name": "postgres-acceptance",
+        "passed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (chromium)",
+        "passed": 149,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (webkit)",
+        "passed": 149,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (firefox)",
+        "passed": 149,
+        "skipped": 0
+      }
+    ],
+    "all_image_steps_passed": true,
+    "github_and_registry_provenance_verified": true,
+    "exact_source_signer_tag_and_subject_verified": true,
+    "container_security": {
+      "total_vulnerabilities": 251,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "duplicate_tag_ci": {
+      "run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581275691",
+      "status": "cancelled",
+      "reason": "The identical development source CI remained authoritative and passed."
+    }
+  },
+  "rollout": {
+    "checked_utc": "2026-09-11T09:06:51.988761+00:00",
+    "checks": {
+      "web_configuration_identity_and_other_template_fields_preserved": true,
+      "manual_job_entirely_unchanged": true,
+      "ready_revision": true,
+      "running": true,
+      "single_healthy_active_revision": true,
+      "new_replicas_present": true,
+      "old_replicas_absent": true,
+      "manual_jobs_terminal": true
+    },
+    "new_replica_count": 1,
+    "patch_count": 1,
+    "changed_template_leaves": [
+      "/containers/0/image",
+      "/revisionSuffix"
+    ],
+    "default_profile_preserved": "gemini-3-8-flash",
+    "manual_migration_job_changed": false,
+    "migration_run": false,
+    "compatible_schema": "20260910_0008",
+    "schema_requeried_during_image_rollout": false,
+    "secret_values_requested": false,
+    "drift_check": "Fresh comparison before one PATCH; no server-side ETag condition.",
+    "recovery": "Use a fresh revision suffix and a schema 0008 compatible image. Retain the stable eligibility key; do not downgrade the database."
+  },
+  "requested_retraction": {
+    "completed": true,
+    "service": "review_submission(action=unpublish)",
+    "private_source_preserved": true,
+    "publication_snapshot_and_attribution_preserved": true,
+    "other_publications_preserved": true,
+    "public_catalog_entry_removed": true,
+    "public_entry_http_status_after_image_rollout": 404,
+    "existing_manual_job_execution_overrides": 2,
+    "inspection_and_service_action_only": true,
+    "saved_job_definition_preserved": true,
+    "target_identity_and_content": "Retained only in private evidence."
+  },
+  "acceptance": {
+    "final_local_checks": [
+      {
+        "label": "unit",
+        "exit_code": 0,
+        "counts": {
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "chromium",
+        "exit_code": 0,
+        "counts": {
+          "tests": 31,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "firefox",
+        "exit_code": 0,
+        "counts": {
+          "tests": 31,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "webkit",
+        "exit_code": 0,
+        "counts": {
+          "tests": 31,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "initial_failures_preserved": true,
+    "corrected_local_findings": [
+      "Stale terminology expectations and an irrelevant tooltip rule-order assertion.",
+      "Clipped phone AI-access label.",
+      "Transient archived-filter contrast during background-only animation."
+    ],
+    "scale_reference_commit": "37852512b2abb20c880224ca864ffeaefa11e937",
+    "scale_measurements_within_px_of_110_percent": 0.5,
+    "hosted_and_managed_assets_each": 20,
+    "complete_scenarios_each": 6,
+    "hosted_and_managed_browser_engines": [
+      "chromium",
+      "webkit"
+    ],
+    "desktop_reading_font_px": 14.3,
+    "single_graph_tooltip": true,
+    "about_paragraphs_checked_each": 6,
+    "editable_reference_without_sending": true,
+    "committed_source_text_and_search_highlight": true,
+    "models": {
+      "default_profile": "gemini-3-8-flash",
+      "funded_profiles": [
+        "balanced",
+        "claude-opus-5",
+        "gemini-3-1-pro",
+        "gemini-3-8-flash",
+        "gpt-5-6-sol",
+        "gpt-5-6-terra"
+      ],
+      "byok_model_counts": {
+        "anthropic": 2,
+        "openai": 2,
+        "google": 2,
+        "openrouter": 6
+      },
+      "public_model_ids": [
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "gemini-3.1-pro-preview",
+        "gemini-3.8-flash",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra"
+      ],
+      "withheld_kimi_absent": true,
+      "funded_byok_pool_consistent": true
+    },
+    "final_live_checks_anonymous": true,
+    "paid_model_calls": 0,
+    "live_browser_account_mutations": 0,
+    "limits": [
+      "Authenticated workflows were covered by source tests and disposable browser fixtures, not these anonymous live checks.",
+      "No new paid provider, subscribed MCP client, native Safari, screen-reader or presentation-device acceptance was performed.",
+      "The separate requested unpublication is described above; live browser checks did not mutate account data."
+    ]
+  },
+  "model_qualification": {
+    "implementation_fingerprint": "5fbca7cdd56397022937c3ecd62c4cdd22b1afa255800c67cffe7629eb9e7dcb",
+    "matches_previous_qualification": true,
+    "previous_evidence": "docs/operations/scenario-refinement-release-20260911.json",
+    "new_paid_evaluation_calls": 0
+  },
+  "evidence": [
+    {
+      "label": "source_ci",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/ci-f65a851/receipt.json",
+      "sha256": "e5ccdafb3230248b9bc32452844e4ba3f1246d1908261c352efdfad4ba9a5ea5"
+    },
+    {
+      "label": "initial_local_matrix_with_failures",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/matrix-20260911T082714/receipt.json",
+      "sha256": "39d488bfc347965173b6692515a1d0a49516cb2287f1e83d47f4d378b1502522"
+    },
+    {
+      "label": "final_focused_checks",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/final-checks-20260911T084751/receipt.json",
+      "sha256": "97d69096ec68f995223d51d5cc2e62a40596b542f315d0f291a9916693ebd068"
+    },
+    {
+      "label": "physical_scale_comparison",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/relative-scale-final/receipt.json",
+      "sha256": "09ed838b5601d4b29ba8fc45b0c95ecb6726ac57f9f732409f070f82ce3687c3"
+    },
+    {
+      "label": "qualification_unchanged",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/unchanged-qualification.json",
+      "sha256": "6c986ef5fc2299b756ad0cb9d2c80343a3619b2d94f399884d44ff25391b9e53"
+    },
+    {
+      "label": "hosted_api",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/hosted-api.json",
+      "sha256": "5a7befab3a229674f18b9a7afc3f7dbbaeb9b1938dac33b6a176db409d8edaf6"
+    },
+    {
+      "label": "managed_api",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/managed-api.json",
+      "sha256": "165570b70cdea6f7cff27a8bdda18a64d7ef7f8d079527dbc9d7deb5fcdf9abf"
+    },
+    {
+      "label": "hosted_browser",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/hosted-browser/receipt.json",
+      "sha256": "daabd9fc202a772c4de5a3a40cebb158b6e9fa7b8483874be8285099113c2e49"
+    },
+    {
+      "label": "managed_browser",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/managed-browser/receipt.json",
+      "sha256": "5edfc57e3b2ba7186560ed0de8d163570e6f19ed1ee25affefadaf014b197bb0"
+    },
+    {
+      "label": "hosted_visual_review",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/hosted-browser/inspection.json",
+      "sha256": "c937b65af993e6d9b939b453d9cb974e85f362ea0f820ad89ebbb66ee8a2239c"
+    },
+    {
+      "label": "worker_cleanup",
+      "path": "artifacts/evals/ui-scale-tooltip-20260911/worker-cleanup.json",
+      "sha256": "6b158f96c68df989279447b852134b41daa40b12665e1f72512cd66dd49ca250"
+    }
+  ],
+  "private_evidence_sha256": {
+    "verified_release_image": "41c95dbfa226fac0e20c961c44af7564d5731d77c5b3923d902faf7a5cba82c0",
+    "root_release_binding": "f1a8cfb42f12c2a64966b5793a9ee054fcf4c7350aaec13e0f8d994fd9643e83",
+    "final_azure_verification": "8e01342833b35279b9338487e97dfa1979d118bd9d6403fd52d5eacc39502962",
+    "requested_retraction": "e0f75091759f262747ddb3db9190862ce96fa3a27e6bb281e01f0725cdd62883",
+    "retraction_post_release_readcheck": "84ca9b933cad852316a5b87ee4982aedc18b0ac662e85cedaac9faca3cd82cb1"
+  },
+  "cleanup": {
+    "released_slurm_allocation": 21962449,
+    "allocation_completed_with_exit_zero": true,
+    "all_steps_terminal": true,
+    "initial_failed_steps_preserved": true,
+    "temporary_forward_closed": true
+  }
+}

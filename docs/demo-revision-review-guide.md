@@ -15,32 +15,38 @@ Review existing foundations as well as this diff wherever R01-R23 or E01-E07
 depend on them. The later refinement adds R17-R23 and supersedes the earlier
 question-frame, starter, Snapshot-control, typography, About and default-model choices.
 
-The subsequent R22/R23 follow-up enlarges the interface, removes the duplicate
-graph tooltip and standardizes scenario terminology. Its release verification
-is in progress; the deployed baseline below remains the prior scenario release.
-
-The latest hosted source is `9a06436e76055997524e1e29cf438078461831e7`, deployed
+The R22/R23 follow-up enlarges the interface, removes the duplicate graph tooltip
+and standardizes scenario terminology. The latest hosted source is
+`f65a8518ea9c7492b568892ab41c28ee97f3d3b2`, deployed
 to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
-`abda-nl-stg-web--scenarios-9a06436-0911`. The
-[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571442559)
-is `sha256:3c6e35cc01acdc9ade553a5eca76189cb4209d07d176e5932e4af9f916e6abb0`.
-All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571039640) and
-[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34571039703) passed:
-1,925 tests/141 skips per Python version, 140 tests per browser engine, and
+`abda-nl-stg-web--ui-f65a851-0911`. The
+[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581275692)
+is `sha256:0ec13c9bc4e648d49c9a628a16c3e0a07942701a94c8bd4e88f9247262d19b03`.
+All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581105462) and
+[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34581105316) passed:
+1,925 tests/150 skips per Python version, 149 tests per browser engine, and
 restricted-role PostgreSQL. The opt-in browser and PostgreSQL checks ran separately.
 
-The [release receipt](operations/scenario-refinement-release-20260911.json)
-binds source, image provenance, qualification and live checks. Both hosted and
-managed checks matched 20 assets, six complete scenarios and the six-model pool,
-with Flash as default. Anonymous Chromium/WebKit checks verified About defaults,
-editable references, source highlighting and desktop/phone layouts. They add no
-paid inference, authenticated account workflow or presentation-device acceptance.
+The [UI release receipt](operations/ui-scale-terminology-release-20260911.json)
+binds source, image provenance and live checks. Hosted and managed checks each
+matched 20 assets, six complete scenarios and the six-model pool, with Flash as
+default. Anonymous Chromium/WebKit checks verified the enlargement, one graph
+tooltip, About defaults, editable references, source highlighting and desktop/phone
+layouts. Authenticated workflows were tested with disposable fixtures. The initial
+local failures and final passing regressions remain in the evidence directory.
+No paid inference or new presentation-device acceptance was added; the
+[preceding scenario release](operations/scenario-refinement-release-20260911.json)
+retains the unchanged model qualification and budget evidence.
 
-This rollout changed the web image, revision suffix and default-model setting.
-It preserved other runtime settings, identity and secret references, and kept
-the manual migration job unchanged. No migration, secret-value request or database
-row comparison was performed. Recovery must retain the stable eligibility key
-and use a schema `20260910_0008` compatible image; the
+The image rollout changed only the web image and revision suffix. It preserved
+the default model, other runtime settings, identity, secret references and saved
+manual-job definition. Separately, the owner's requested test publication was
+retracted through the existing unpublish service, preserving its private source,
+publication snapshot and other publications. Two execution overrides of the
+existing manual job performed the inspection and unpublication; neither changed
+the saved job or schema. Target identifiers remain in private receipts. No schema
+migration or secret-value request was made. Recovery must retain the stable
+eligibility key and use a schema `20260910_0008` compatible image; the
 [preceding rollout](operations/hosted-ui-rollout-result-20260911.json) records
 that migration's data/accounting comparisons and backup limits.
 
@@ -127,7 +133,7 @@ Intentional refinements:
   reference, removes starter questions and per-turn Snapshot controls, and uses
   the shorter Chat & Explore heading. Stored snapshots and exports remain.
 - Keep the system font stack and compact proportions, enlarged uniformly by
-  10% following the owner's later comparison at 110% browser zoom. Explorer,
+  10% following the owner's later comparison at 110% browser zoom. Desktop explorer,
   control and chat text now render at 14.3, 13.2 and 15.4 px respectively at
   normal browser zoom; narrow-screen reading text is 15.4 px. The restrained
   blue-gray heading band remains. Root CSS zoom scales graphics and controls
@@ -258,7 +264,7 @@ interpretation and should themselves be challenged.
 | R03/R16: administrator roles and normal user view | [settings](../app/core/config.py), [view-mode policy](../app/services/admin_view.py), [account routes](../app/api/account_routes.py), [effective permissions](../app/api/dependencies.py), [scenario routes](../app/api/scenario_routes.py), [curation UI](../app/static/curation.js), [workspace](../app/static/workspace.js); `test_admin_view.py`, `test_named_credit.py`, browser view-mode tests. |
 | R17/R20: bundled scenarios and About | [examples](../examples/), [scenario acceptance](../tests/test_reconstructed_scenarios.py), [shell](../app/static/ui-shell.js), `test_ui_shell_browser.py`. |
 | R18/R19: cancellation and cost | [disconnect handling](../app/api/llm_cancellation.py), [provider worker](../app/llm/client.py), [billing](../app/services/llm_billing.py), `test_llm_cancellation.py`, `test_llm_routing_billing.py`; offline cost audit above. |
-| R21: archived private project deletion | [project service](../app/services/projects.py), [account routes](../app/api/account_routes.py), [workspace](../app/static/workspace.js); `test_archived_project_deletion.py`, `test_exploration_browser.py`, `test_postgres_acceptance.py`. Check confirmed ID/version sets, atomic ownership and restore conflicts, snapshot preservation, and unchanged accounting. |
+| R21: archived private scenario deletion | [project service](../app/services/projects.py), [account routes](../app/api/account_routes.py), [workspace](../app/static/workspace.js); `test_archived_project_deletion.py`, `test_exploration_browser.py`, `test_postgres_acceptance.py`. Check confirmed ID/version sets, atomic ownership and restore conflicts, snapshot preservation, and unchanged accounting. |
 | R02, E01/E02/E07: operation | [launcher configuration](../.demo.json), [repository rules](../AGENTS.md), [Azure deployment](../deploy/azure/), [CI](../.github/workflows/ci.yml). Preserve managed lifecycle, image/schema compatibility, restricted roles, and budget/configuration invariants. |
 
 ## Earlier release evidence and remaining limits
