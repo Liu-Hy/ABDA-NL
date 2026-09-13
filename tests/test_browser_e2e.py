@@ -32,13 +32,14 @@ def _available_port() -> int:
 
 
 @pytest.fixture
-def live_browser_server(tmp_path):
+def live_browser_server(tmp_path, request):
     root = Path(__file__).resolve().parents[1]
     # Accounts and rate-limit windows belong to one test, not to the suite.
     # Fast CI browsers otherwise exhaust the real login limit across tests.
     state_root = tmp_path
     log_path = state_root / "server.log"
     port = _available_port()
+    enable_llm = getattr(request, "param", True)
     environment = os.environ.copy()
     for name in tuple(environment):
         if name.startswith(("AZURE_", "ANTHROPIC_", "OPENAI_", "OPENROUTER_", "GOOGLE_", "GCP_")):
@@ -57,7 +58,7 @@ def live_browser_server(tmp_path):
             "ABDA_AUTO_CREATE_DB": "1",
             "ABDA_SESSION_SECRET": "browser-session-secret-with-32-characters",
             "ABDA_MCP_TOKEN_PEPPER": "browser-mcp-pepper-with-32-characters",
-            "ABDA_ENABLE_LLM": "1",
+            "ABDA_ENABLE_LLM": "1" if enable_llm else "0",
             "ABDA_LLM_BACKEND": "ollama",
             "ABDA_LLM_REQUIRE_AUTH": "1",
             "ABDA_LLM_ALLOW_BYOK": "1",
@@ -78,7 +79,7 @@ def live_browser_server(tmp_path):
         "--port",
         str(port),
         "--no-browser",
-        "--llm",
+        "--llm" if enable_llm else "--basic",
     ]
     with log_path.open("w+b") as output:
         process = subprocess.Popen(

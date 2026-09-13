@@ -125,13 +125,15 @@ def test_make_llm_client_routes_claude_through_foundry(monkeypatch):
 # --- Preflight: startup-time backend prereq check ---
 
 
-def test_preflight_disabled_llm_noop(monkeypatch):
+@pytest.mark.parametrize("environment", ["development", "staging", "production"])
+def test_preflight_disabled_llm_noop(monkeypatch, environment):
     """Non-LLM mode must skip all preflight checks."""
     from app.api.main import _preflight_llm_config
     from app.core import config as config_module
-    monkeypatch.setattr(config_module, "get_settings", lambda: replace(
-        get_settings(), llm_allow_legacy_development=True,
-    ))
+    settings = replace(get_settings(), environment=environment,
+                       llm_allow_legacy_development=False, llm_allow_byok=False,
+                       openrouter_failover_enabled=False)
+    monkeypatch.setattr(config_module, "get_settings", lambda: settings)
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("ABDA_LLM_BACKEND", "claude")

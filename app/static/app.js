@@ -37,6 +37,7 @@ const state = {
     apiKey: '',
   },
   // UI state
+  presentationNoAI: false,
   conclusionFilter: 'key',
   factsFilter: 'facts',
   factsChangedOnly: false,
@@ -64,6 +65,41 @@ const state = {
 // history to this many user+assistant pairs before POSTing so the backend
 // never has to reject a too-long message list.
 const CHAT_TURN_CAP = 20;
+
+function isAIEnabled() {
+  return Boolean(state.config?.llm_enabled) && !state.presentationNoAI;
+}
+
+function initializePresentationMode() {
+  try { state.presentationNoAI = sessionStorage.getItem('abda.presentation.no-ai') === '1'; }
+  catch (_) { state.presentationNoAI = false; }
+  document.body.classList.toggle('llm-disabled', !isAIEnabled());
+}
+
+function setPresentationNoAI(disabled) {
+  const focused = document.activeElement;
+  state.presentationNoAI = Boolean(disabled);
+  try {
+    if (state.presentationNoAI) sessionStorage.setItem('abda.presentation.no-ai', '1');
+    else sessionStorage.removeItem('abda.presentation.no-ai');
+  } catch (_) { /* The preference still works for this page. */ }
+  if (!isAIEnabled()) {
+    for (const record of [...chatRequests.keys()]) cancelChatRequest(record);
+    cancelProposalRequest();
+    if (editState.inFlight) {
+      editRequestGeneration += 1;
+      editState.inFlight = false;
+      _setEditStatus('error', 'AI is off. Your instruction is retained.');
+      _renderEditFooter();
+    }
+  }
+  document.body.classList.toggle('llm-disabled', !isAIEnabled());
+  renderAISettings();
+  renderAccessSummary();
+  if (focused?.isConnected && modalControlIsVisible(focused)) focused.focus();
+  showGlobalStatus(isAIEnabled() ? 'AI is on for this tab.'
+    : 'AI is off for this tab. Scenarios, derivations and manual edits remain available.', 'info');
+}
 
 // Assistant text is untrusted even when it came from a funded provider. Keep
 // the Markdown surface deliberately smaller than DOMPurify's general HTML
@@ -255,7 +291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     state.authSession = await authSessionForCurrentView(authSession, viewRevision);
     state.scenarios = scenarios;
     initializeLLMAccess(config);
-    document.body.classList.toggle('llm-disabled', !config.llm_enabled);
+    initializePresentationMode();
     populateScenarioSelect();
     renderAccountUI();
     renderAISettings();
@@ -1252,6 +1288,7 @@ function resetChatConversation() {
 }
 
 async function apiPostChat(scenario_id, diff_ops, messages, signal, context_refs = [], context = null, llm = currentLLMOptions()) {
+  if (!isAIEnabled()) throw new Error('AI is off for this view. Turn it on from the AI menu.');
   const project = context ? context.activeProject : state.activeProject;
   const path = project ? `/api/projects/${encodeURIComponent(project.id)}/chat` : '/chat';
   const payload = project
@@ -2589,6 +2626,10 @@ function closeEditModal() {
 
 async function sendPropose() {
   if (editState.inFlight) return;
+  if (!isAIEnabled()) {
+    _setEditStatus('error', 'AI is off for this view. Turn it on from the AI menu.');
+    return;
+  }
   const ta = document.getElementById('edit-instruction');
   const instruction = ta.value.trim();
   if (!instruction) {

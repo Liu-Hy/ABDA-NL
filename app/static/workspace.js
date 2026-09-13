@@ -723,7 +723,13 @@ function renderAISettings() {
   byId('byok-api-key').value = state.llmAccess.apiKey || '';
   byId('byok-choice-card').hidden = !config.byok_enabled;
   if (!config.byok_enabled && state.llmAccess.mode === 'byok') state.llmAccess.mode = 'funded';
-  const selectedMode = state.llmAccess.mode;
+  const selectedMode = isAIEnabled() ? state.llmAccess.mode : 'off';
+  for (const input of document.querySelectorAll('input[name="ai-mode"]')) {
+    input.disabled = input.value !== 'off' && !config.llm_enabled;
+  }
+  byId('ai-off-description').textContent = config.llm_enabled
+    ? 'Explore scenarios, inspect derivations and edit manually without model calls.'
+    : 'AI is disabled on this server. Scenarios and manual reasoning remain available.';
   const radio = document.querySelector(`input[name="ai-mode"][value="${selectedMode}"]`);
   if (radio) radio.checked = true;
   toggleAIFormMode();
@@ -776,6 +782,11 @@ function toggleAIFormMode() {
 function applyAISettings(event) {
   event.preventDefault();
   const mode = document.querySelector('input[name="ai-mode"]:checked')?.value || 'funded';
+  if (mode === 'off' || !state.config?.llm_enabled) {
+    setPresentationNoAI(true);
+    setWorkspaceStatus('ai-access-status', 'AI is off for this browser tab.', 'success');
+    return;
+  }
   if (mode === 'byok') {
     const apiKey = byId('byok-api-key').value.trim();
     if (!apiKey) {
@@ -791,6 +802,7 @@ function applyAISettings(event) {
     state.llmAccess.mode = 'funded';
     state.llmAccess.profile = byId('funded-profile-select').value;
   }
+  setPresentationNoAI(false);
   setWorkspaceStatus('ai-access-status', 'AI access setting applied to this browser tab.', 'success');
   renderAccessSummary();
   renderChatAccess();
@@ -810,6 +822,7 @@ function currentLLMOptions() {
 }
 
 function llmAccessIssue() {
+  if (state.presentationNoAI) return { message: 'AI is off for this tab. Turn it on from the AI menu.' };
   if (!state.config?.llm_enabled) return { tab: 'ai', message: 'Language-model features are disabled on this server.' };
   if (state.readOnly) return { tab: null, message: 'Chat and edits are disabled in a shared read-only view.' };
   if (state.config.llm_auth_required && !state.authSession.authenticated) {

@@ -157,10 +157,10 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ── LLM-gated elements ──────────────────────────────── */
-/* Hidden when the server reports ABDA_ENABLE_LLM=0 (the default).
-   app.js toggles body.llm-disabled after fetching GET /config. */
+/* The server flag or the tab's AI off preference hides model controls.
+   Fill the available space even after the user has resized the panels. */
 body.llm-disabled .llm-only { display: none !important; }
-body.llm-disabled .left-panel { width: 100%; }
+body.llm-disabled .left-panel { width: 100% !important; flex: 1 1 auto; }
 
 /* ── Two-Panel Layout ────────────────────────────────── */
 .main-area { flex: 1; display: flex; overflow: hidden; }

@@ -21,6 +21,8 @@ earlier choices about question wording, starter questions, visible Snapshot
 controls, default model, typography, and administrator-mode navigation.
 September 11 feedback further requests the appearance of 110% browser zoom,
 one graph hover explanation, and consistent scenario terminology.
+September 13 adds conference fallback readiness, complete MCP scenario import,
+and a non-LLM option integrated into both existing AI access menus.
 
 Below, **O** refers to the original product questions in `Requirements.docx`;
 **G** refers to the colleague's Demo or More radical ideas indices; **U1-U6**
@@ -62,6 +64,8 @@ not establish readiness on the actual conference laptop, network, or projector.
 | R23 | Use Scenario as the main user-facing term. Distinguish Built-in scenarios, Private scenarios and Community scenarios where origin or access matters, with clear shared-scenario and publication wording. Apply the terminology consistently to navigation, saving, importing, archiving, deletion and publication. Preserve compatibility of saved data, API names and technical integrations. | Later terminology decision delegated to implementation, September 11 |
 | R24 | Add per-turn Retry to ask the same question again. Use compact pencil and circular-arrow icons for editing/forking and retry, with one to six explanatory words on hover and accessible names. Keep icons visible without persistent explanation text or Snapshot/download controls. Preserve the original answers and drafts; retry must use the selected question's prior history, references and scenario context. Retain ordinary access, charging, cancellation and account-isolation safeguards. | Later per-turn fork and retry request, September 11 |
 | R25 | In ASPIC- text, distinguish strict and defeasible rules using concise comment headings and explanations in plain English. Keep category names distinct from rule types. Preserve facts, assumptions, identifiers, suspension states, preference blocks, and the meaning of copied or reimported text. The owner delegated the precise wording and grouping. | Later ASPIC- readability request, September 11 |
+| R26 | Provide a discreet AI off option in the existing top-bar model menu and Account → AI access. Keep both controls synchronized. Preserve deterministic exploration, manual editing and conversation drafts; cancel pending model work under R18. Remember the choice for the current tab. Also permit managed servers to start with LLMs disabled while retaining identity, database and accounting safeguards. Refresh the offline conference pack and presentation instructions. | Conference-readiness recommendations authorized September 13; later placement clarification |
+| R27 | Let Codex and Claude Code import complete, new YAML/JSON scenarios through MCP. Reuse browser validation and private-scenario creation, preserve embedded sources and meanings, and provide deterministic readback. Require scoped ownership without ABDA model credit. Reject invalid or incomplete files before saving; never publish an import implicitly. | MCP import investigation and recommended implementation authorized September 13 |
 
 The owner also authorizes retracting the community entries explicitly identified
 in the conversation, preserving their private sources and other publications.
@@ -79,7 +83,7 @@ The R03 identity list is exact, using the sign-in system's email normalization:
 ## Interface acceptance, September 10
 
 These criteria condense the consolidated review's P01-P29 proposals. The guide
-records implementation choices and deliberate departures. Preserve R01-R25 and
+records implementation choices and deliberate departures. Preserve R01-R27 and
 E01-E07 throughout, including account isolation and late-response protection.
 
 | Area | Acceptance criteria | Review |

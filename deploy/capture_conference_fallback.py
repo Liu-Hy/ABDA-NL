@@ -205,6 +205,13 @@ def capture(output: Path, base_url: str = ORIGIN) -> Path:
                 raise AssertionError("capture requires the included Popov example")
             if page.evaluate("state.authSession.authenticated") is not False:
                 raise AssertionError("capture requires an anonymous browser context")
+            page.locator("#ai-access-btn").focus()
+            page.locator("#ai-access-btn").press("Enter")
+            page.locator("#ai-menu").get_by_role("menuitemradio", name="AI off", exact=True).press("Enter")
+            expect(page.locator("#ai-access-btn")).to_have_text("AI off")
+            expect(page.locator("#chat-input")).to_be_hidden()
+            # Keep the screenshots free of the temporary mode-change notice.
+            page.locator("#global-status .status-dismiss").click()
             # Reserve room, then frame the accepted claims within the key list.
             divider = page.locator("#h-resize-left")
             divider.press("ArrowDown")
@@ -291,6 +298,7 @@ def capture(output: Path, base_url: str = ORIGIN) -> Path:
         **tool_source,
         "source_note": "Capture-tool checkout only; the served application revision is not asserted.",
         "authenticated": False, "model_called": False, "project_saved": False,
+        "presentation_mode": "ai_off",
         "offline_verified": True, "request_count": counters["requests"],
         "files": {path.name: hashlib.sha256(path.read_bytes()).hexdigest()
                   for path in sorted(output.iterdir()) if path.is_file()},

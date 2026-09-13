@@ -94,9 +94,9 @@ def _preflight_llm_config(enable_llm: bool) -> None:
     from app.core.config import get_settings
 
     settings = get_settings()
-    if settings.environment in {"staging", "production"} and not enable_llm:
-        raise RuntimeError("staging and production require ABDA_ENABLE_LLM=1")
     if not enable_llm:
+        # Manual presentation must also work on a managed deployment without
+        # provider credentials. Account and database safeguards remain active.
         return
     from app.llm import resolve_backend
     from app.llm.catalog import load_model_catalog

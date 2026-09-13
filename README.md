@@ -196,6 +196,20 @@ can receive any subset of these scopes:
 - `projects:write` creates private scenarios and applies version-checked edits.
 - `llm:use` asks grounded questions and proposes edits using trial credit.
 
+To upload a complete new scenario, ask the connected agent to read its local
+YAML or JSON file and call `import_project` with the file's exact text in
+`document`. It accepts standalone scenario files and portable ABDA exports;
+an optional `name` overrides the title in your private library. Include reference
+text in `sources` entries with `filename` and `text`. A filename or URL alone
+does not upload a document. Files with missing external references are rejected;
+the browser import flow can attach those documents separately.
+
+For example: “Read picnic.yaml, import it as a new private scenario using
+import_project, then use get_project to check the saved rules, sources and
+conclusions.” Import validates and analyzes before saving, needs `projects:write`,
+and consumes no ABDA model credit. Reading it back also needs `projects:read`.
+The complete MCP request, including JSON encoding, must fit within 1 MiB.
+
 Set the one-time token with a hidden prompt, then export it to clients started
 from that shell. This keeps the token out of shell history:
 
@@ -247,9 +261,17 @@ The MCP tools never accept a provider API key. Use the browser BYOK flow for a
 personal Anthropic, OpenAI, Google, or OpenRouter key. That keeps the provider
 secret request-scoped and out of agent transcripts and MCP configuration.
 
-MCP writes require the scenario version returned by the preceding read. An LLM
+Edits to existing scenarios require the version returned by the preceding read.
+New imports create a private scenario at version 1. An LLM
 proposal never changes a scenario. Review its operation and advisory issues,
 then call `apply_project_ops` explicitly with the unchanged expected version.
+
+For a manual presentation, choose **AI off** in the top-bar model menu, or
+**Account → AI access → AI off → Use this access setting**. This tab remembers
+the choice across reloads. Select a model or apply funded/BYOK access to restore
+AI. Manual reasoning still needs a reachable application server. For a fully
+local presentation, prepare `abda-nl --basic` and the
+[conference fallback pack](docs/operations/comma-2026-demo-playbook.md) beforehand.
 
 ## Public service operation
 

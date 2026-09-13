@@ -48,7 +48,7 @@
         <span class="admin-view-toggle-track" aria-hidden="true"><span class="admin-view-toggle-thumb"></span></span>
         <span>Normal user view</span>
       </button>
-      <div class="shell-popup-anchor llm-only">
+      <div class="shell-popup-anchor">
         <button class="btn access-chip" id="ai-access-btn" type="button" data-shell-menu="ai-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="ai-menu">AI access</button>
         <div class="shell-popover shell-menu" id="ai-menu" role="menu" aria-label="AI access" hidden></div>
       </div>
@@ -207,7 +207,7 @@
           <button class="workspace-tab active" id="workspace-tab-account" type="button" role="tab" aria-selected="true" aria-controls="workspace-panel-account" data-workspace-tab="account">Account</button>
           <button class="workspace-tab" id="workspace-tab-projects" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-projects" data-workspace-tab="projects">Private scenarios</button>
           <button class="workspace-tab" id="workspace-tab-examples" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-examples" data-workspace-tab="examples" hidden>Community scenarios <span id="examples-tab-count"></span></button>
-          <button class="workspace-tab llm-only" id="workspace-tab-ai" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-ai" data-workspace-tab="ai">AI access</button>
+          <button class="workspace-tab" id="workspace-tab-ai" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-ai" data-workspace-tab="ai">AI access</button>
           <button class="workspace-tab" id="workspace-tab-mcp" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-mcp" data-workspace-tab="mcp">Agent access</button>
         </div>
         <div class="workspace-panels">
@@ -348,10 +348,17 @@
 
           <section class="workspace-panel" id="workspace-panel-ai" role="tabpanel" aria-labelledby="workspace-tab-ai" tabindex="0" hidden>
             <h2>AI access</h2>
-            <p class="workspace-lead">Choose funded trial access or bring your own provider key. These settings apply only to this browser tab. The LLM translates and explains. ABDA still computes every argument and conclusion label.</p>
+            <p class="workspace-lead">Choose AI access or turn it off for a manual presentation. These settings apply only to this browser tab. ABDA computes every argument and conclusion label, with or without AI.</p>
             <form class="workspace-form" id="ai-access-form">
               <fieldset class="choice-card-group">
-                <legend>Usage source</legend>
+                <legend>AI access</legend>
+                <label class="choice-card">
+                  <input type="radio" name="ai-mode" value="off">
+                  <span>
+                    <strong>AI off</strong>
+                    <small id="ai-off-description">Explore scenarios, inspect derivations and edit manually without model calls.</small>
+                  </span>
+                </label>
                 <label class="choice-card">
                   <input type="radio" name="ai-mode" value="funded" checked>
                   <span>

@@ -1,4 +1,4 @@
-"""Bounded, data-only YAML/JSON import for the browser scenario library."""
+"""Bounded, data-only YAML/JSON import shared by the browser and MCP."""
 from __future__ import annotations
 
 import yaml

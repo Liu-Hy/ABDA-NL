@@ -50,6 +50,7 @@ from app.scenario.catalog import (
     load_bundled_scenario,
 )
 from app.scenario.diff_ops import DiffOpError, apply as apply_ops
+from app.scenario.exchange import ScenarioFileError, parse_scenario_file
 from app.scenario.loader import ScenarioValidationError, scenario_from_dict
 from app.scenario.materials import MaterialError
 from app.scenario.serialize import scenario_to_dict
@@ -269,6 +270,7 @@ def _tool_boundary(operation: str) -> Iterator[None]:
         ShareLinkLimitError,
         ProjectValidationError,
         MaterialError,
+        ScenarioFileError,
     ) as exc:
         raise MCPToolUserError(str(exc)) from exc
     except Exception as exc:
@@ -565,6 +567,57 @@ def create_project(
             return _project_payload(project)
 
 
+@_mcp_tool(annotations=ADDITIVE_WRITE)
+def import_project(
+    document: str,
+    name: str | None = None,
+    description: str = "",
+) -> dict[str, Any]:
+    """Import a complete YAML or JSON file as a new private scenario.
+
+    Read the file locally and send its exact UTF-8 text in document, not a
+    filename or URL. Accepts standalone scenarios and ABDA portable exports.
+    Embed reference documents as sources entries with filename and text;
+    local file references cannot be uploaded through this tool. The optional
+    library name defaults to the scenario title. Validation and deterministic
+    analysis must succeed before anything is saved. Returns the new ID,
+    version, scenario and grounded outcomes; use get_project to verify them.
+    Requires projects:write; no server LLM, llm:use scope or ABDA credit.
+    The complete MCP request must fit within 1 MiB, including JSON encoding.
+    """
+    with _tool_boundary("import_project"):
+        with get_session_factory()() as session:
+            user = _active_user(session, MCP_SCOPE_PROJECTS_WRITE)
+            _limit_mcp(
+                session, user, "mcp_project_mutation",
+                get_settings().mutation_requests_per_minute,
+            )
+            # Do not strip document: trailing whitespace can belong to an
+            # embedded YAML source block. The shared parser bounds UTF-8 bytes.
+            raw, source_id, warnings = parse_scenario_file(document)
+            if warnings:
+                raise MCPToolUserError(
+                    "Reference documents are not embedded in this file. Include "
+                    "their text in sources entries with filename and text, or "
+                    "use browser import to attach them. Nothing was saved."
+                )
+            try:
+                scenario = scenario_from_dict(raw)
+            except ScenarioValidationError as exc:
+                # This validation examines only the caller's submitted data.
+                # Return bounded diagnostics so a client can correct the file.
+                details = "\n".join(exc.errors[:8])[:2000]
+                raise MCPToolUserError(f"Invalid scenario. Nothing was saved.\n{details}") from exc
+            project = create_project_record(
+                session, user,
+                name=name if name is not None else scenario.title,
+                description=description,
+                scenario=scenario_to_dict(scenario),
+                source_scenario_id=source_id,
+            )
+            return _project_payload(project)
+
+
 @_mcp_tool(annotations=PROJECT_EDIT)
 def apply_project_ops(
     project_id: str,
@@ -797,6 +850,9 @@ def create_mcp_runtime() -> MCPRuntime:
             "With a Codex or Claude Code subscription, use your own model to explain the returned "
             "formal outcomes or construct an edit. Show the proposed edit to the user, apply it "
             "only when authorized, and read back the changed scenario and grounded outcomes. "
+            "To upload a complete new scenario, read its YAML or JSON file locally and send "
+            "the file text to import_project. Include source text, not local document paths. "
+            "Import creates a private scenario and never publishes it. "
             "ask_project and propose_project_edit invoke the ABDA server LLM, require llm:use, "
             "and consume ABDA credit even with a client subscription. Language model proposals "
             "never apply themselves. Never send provider API keys "

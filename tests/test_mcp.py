@@ -1,11 +1,13 @@
 """Credential invariants and authenticated MCP protocol integration tests."""
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -315,12 +317,15 @@ def test_mcp_wire_authentication_discovery_and_read_tools(client: TestClient):
         "list_projects",
         "get_project",
         "create_project",
+        "import_project",
         "apply_project_ops",
         "update_project_metadata",
         "ask_project",
         "propose_project_edit",
     }
     assert tools["get_project"]["annotations"]["readOnlyHint"] is True
+    assert tools["import_project"]["annotations"]["destructiveHint"] is False
+    assert tools["import_project"]["inputSchema"]["required"] == ["document"]
     assert tools["apply_project_ops"]["annotations"]["destructiveHint"] is True
     from app.llm.catalog import public_profile_ids
     for name in ("ask_project", "propose_project_edit"):
@@ -635,6 +640,91 @@ def test_mcp_scopes_optimistic_writes_and_cross_user_isolation(client: TestClien
     assert revoked.status_code == 204
     after_revoke = _initialize(client, other_token_record["token"])
     assert after_revoke.status_code == 401
+
+
+@pytest.mark.parametrize("encoding", ["yaml", "json"])
+def test_mcp_imports_complete_private_scenario_without_model_credit(client, monkeypatch, encoding):
+    user = _login(client, f"mcp-import-{encoding}@example.edu")
+    token = _create_token(client, name="Import a file", scopes=["projects:read", "projects:write"])["token"]
+    original = {
+        "title": "A new picnic in Barcelona",
+        "description": "Friends are deciding where to hold a picnic.",
+        "facts": {"sunny": {"description": "The forecast is sunny"}},
+        "conclusions": {"outside": {"description": "Hold the picnic outside"}},
+        "rules": {"r1": {"type": "defeasible", "premises": ["sunny"], "conclusion": "outside"}},
+        "sources": [{"filename": "forecast.txt", "text": "Forecast for Barcelona: sunny.\nCafé opens at noon.\n\n"}],
+    }
+    export = {"format": "abda-nl-scenario", "version": 3, "scenario": original}
+    if encoding == "yaml":
+        document = yaml.safe_dump({key: value for key, value in original.items() if key != "sources"})
+        document += "sources:\n  - filename: forecast.txt\n    text: |+\n      Forecast for Barcelona: sunny.\n      Café opens at noon.\n\n"
+    else:
+        document = json.dumps(export, ensure_ascii=False)
+
+    def no_model(*_args, **_kwargs):
+        pytest.fail("Import must not select a model or spend ABDA credit")
+
+    monkeypatch.setattr(mcp_module, "select_request_llm_client", no_model)
+    before_credit = client.get("/api/trial").json()
+    arguments = {"document": document}
+    if encoding == "json":
+        arguments.update(name="My picnic copy", description="Private library note")
+    result = _call_tool(client, token, "import_project", arguments)
+    assert not result.get("isError"), result
+    imported = result["structuredContent"]
+    assert imported["version"] == 1
+    assert imported["name"] == arguments.get("name", original["title"])
+    assert imported["source_scenario_id"] is None
+    assert imported["scenario"]["sources"] == original["sources"]
+    assert imported["scenario"]["title"] == original["title"]
+    assert imported["scenario"]["description"] == original["description"]
+    assert imported["scenario"]["facts"]["sunny"]["description"] == original["facts"]["sunny"]["description"]
+    assert imported["scenario"]["conclusions"]["outside"]["description"] == original["conclusions"]["outside"]["description"]
+    assert imported["scenario"]["rules"]["r1"]["premises"] == ["sunny"]
+    assert imported["scenario"]["rules"]["r1"]["type"] == "defeasible"
+    assert imported["af_summary"]["labels_by_proposition"]["outside"] == "accepted"
+    readback = _call_tool(client, token, "get_project", {"project_id": imported["id"]})["structuredContent"]
+    for key in ("id", "version", "name", "source_scenario_id", "scenario", "af_summary"):
+        assert readback[key] == imported[key]
+    browser = client.get(f'/api/projects/{imported["id"]}').json()
+    assert browser["scenario"] == imported["scenario"]
+    preview = client.post("/api/projects/import/preview", json={"text": json.dumps({**export, "scenario": browser["scenario"]})})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["scenario"] == imported["scenario"]
+    assert client.get("/api/trial").json() == before_credit
+    with get_session_factory()() as session:
+        assert not session.scalars(select(LLMUsageEvent).where(LLMUsageEvent.user_id == user["id"])).all()
+        assert not session.scalars(select(UsageReservation).where(UsageReservation.user_id == user["id"])).all()
+    assert all(item["title"] != original["title"] for item in client.get("/scenarios").json()["scenarios"])
+    _login(client, f"mcp-import-other-{encoding}@example.edu")
+    other = _create_token(client, name="Other owner", scopes=["projects:read"])["token"]
+    denied = _call_tool(client, other, "get_project", {"project_id": imported["id"]})
+    assert denied["isError"] and "not found" in denied["content"][0]["text"]
+    assert client.get(f'/api/projects/{imported["id"]}').status_code == 404
+
+
+def test_mcp_import_requires_write_scope_and_rejects_incomplete_files_atomically(client):
+    _login(client, "mcp-import-invalid@example.edu")
+    read_token = _create_token(client, name="Read", scopes=["projects:read"])["token"]
+    denied = _call_tool(client, read_token, "import_project", {"document": "title: Test"})
+    assert denied["isError"] and "projects:write" in denied["content"][0]["text"]
+    token = _create_token(client, name="Write", scopes=["projects:read", "projects:write"])["token"]
+    before = client.get("/api/projects").json()
+    documents = [
+        ("title: One\ntitle: Two", "Duplicate field"),
+        ("title: &a Test\ndescription: *a", "aliases"),
+        ("title: Test\ncorpus: [../../.env]", "Nothing was saved"),
+        ("/tmp/scenario.yaml", "Choose a scenario YAML or JSON file"),
+        (json.dumps({"title": "Bad references", "facts": {}, "conclusions": {},
+                     "rules": {"r": {"type": "strict", "premises": ["missing"], "conclusion": "unknown"}}}), "missing"),
+        (json.dumps({"title": "Bad source", "facts": {}, "conclusions": {}, "rules": {},
+                     "sources": [{"filename": "../../.env", "text": "do not read a local path"}]}), "filename"),
+    ]
+    for document, message in documents:
+        result = _call_tool(client, token, "import_project", {"document": document})
+        assert result.get("isError"), result
+        assert message in result["content"][0]["text"], result
+        assert client.get("/api/projects").json() == before
 
 
 @pytest.mark.parametrize("custom", [False, True])

@@ -94,19 +94,24 @@ function renderShellMenus() {
   const save = byId('save-menu');
   const account = byId('account-menu');
   if (!ai || !save || !account) return;
-  ai.replaceChildren(shellMenuNote(state.trial?.active
+  const serverAI = Boolean(state.config?.llm_enabled);
+  ai.replaceChildren(shellMenuItem('AI off', () => setPresentationNoAI(true),
+    { checked: !isAIEnabled() }));
+  ai.append(shellMenuNote(!serverAI ? 'AI is disabled on this server.' : state.trial?.active
     ? `Funded credit: ${formatUSD(state.trial.available_microusd)} available` : 'Choose a funded model'));
   for (const profile of state.config?.profiles || []) {
     ai.append(shellMenuItem(profile.display_name || profile.label || profile.id, () => {
       state.llmAccess.mode = 'funded';
       state.llmAccess.profile = profile.id;
-      renderAISettings();
-      renderAccessSummary();
-      renderShellControls();
+      setPresentationNoAI(false);
       showGlobalStatus('Funded model selected for your next question.', 'success');
-    }, { checked: state.llmAccess.mode === 'funded' && state.llmAccess.profile === profile.id }));
+    }, { checked: isAIEnabled() && state.llmAccess.mode === 'funded' && state.llmAccess.profile === profile.id,
+      disabled: !serverAI }));
   }
-  ai.append(shellMenuItem('Use your own API key...', () => openWorkspace('ai')));
+  ai.append(shellMenuItem('Use your own API key...', () => {
+    setPresentationNoAI(false);
+    openWorkspace('ai');
+  }, { disabled: !serverAI }));
   ai.append(shellMenuItem('AI access settings...', () => openWorkspace('ai')));
   const hasProject = Boolean(state.activeProject);
   save.replaceChildren(
@@ -252,7 +257,8 @@ function renderShellControls() {
     const model = access.mode === 'byok' ? provider?.models?.find(item => item.id === access.model)
       : (state.config.profiles || []).find(item => item.id === access.profile);
     const label = model?.display_name || model?.label || model?.id || 'Default';
-    byId('ai-access-btn').textContent = `AI: ${label} · ${access.mode === 'byok' ? 'own key' : 'funded'}`;
+    byId('ai-access-btn').textContent = isAIEnabled()
+      ? `AI: ${label} · ${access.mode === 'byok' ? 'own key' : 'funded'}` : 'AI off';
     byId('ai-access-btn').title = byId('ai-access-btn').textContent;
   }
   const background = state.bundle?.scenario.description || '';
