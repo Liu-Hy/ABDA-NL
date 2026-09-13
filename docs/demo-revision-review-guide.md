@@ -14,44 +14,46 @@ commit and the correction status below for its validation boundary.
 Review existing foundations as well as this diff wherever R01-R27 or E01-E07
 depend on them. The later refinement adds R17-R25 and supersedes the earlier
 question-frame, starter, Snapshot-control, typography, About and default-model choices.
+The September 13 conference-readiness work adds R26 and R27.
 
-The latest hosted source is `697a6cd9dd363052c20bb9a7d490044f2bb40822`, deployed
-to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 11 UTC as revision
-`abda-nl-stg-web--aspic-697a6cd-0911`. R25 adds explicit strict/defeasible rule
-headings and distinguishes categories from inference types. The
-[verified release image](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648106111)
-is `sha256:e3bc5b7fdc8642075a9661aaa706d5dcb150078ce3c92d29ac2177e69922157b`.
-All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648105921) and
-[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34648105927) passed:
-1,925 tests/168 skips per Python version, 167 tests per browser engine, and
-restricted-role PostgreSQL. The opt-in browser and PostgreSQL checks ran separately.
+The latest hosted source is `ad2bb72f1da2f82ad0b5a087ac9a9b3c06083f4b`, deployed
+to [demo.abda-nl.org](https://demo.abda-nl.org/) on September 13 UTC as revision
+`abda-nl-stg-web--comma-ad2bb72-0913`. R26 adds synchronized AI off controls and
+managed basic startup. R27 adds complete private YAML/JSON import over MCP.
+The [release receipt](operations/comma-readiness-release-20260913.json) binds
+source, signed image provenance, security checks and live verification.
+All eight [CI jobs](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34771729492) and
+[CodeQL](https://github.com/Liu-Hy/ABDA-NL/actions/runs/34771729509) passed:
+1,930 tests/173 skips per Python version, 172 tests per browser engine, and
+restricted-role PostgreSQL. Browser and PostgreSQL checks ran separately from
+the default Python suite. Container checks exercised the normal startup command
+with `ABDA_ENABLE_LLM=0`; the image retains AI enabled by default.
 
-The [ASPIC- release receipt](operations/aspic-rule-groups-release-20260911.json)
-binds source, image provenance and live checks. Twelve importer/editor checks
-and nine browser cases passed across Chromium, Firefox and WebKit. All 36
-modal/Copy checks covered six scenarios at desktop and narrow widths, preserving
-facts, assumptions, rule IDs/types, active states and preference blocks on import.
-Hosted and managed API checks each matched 20 assets, six complete scenarios and
-the model pool. Hosted and managed Chromium/WebKit checks verified the new
-headings and Copy behavior alongside the existing layout, About, graph, draft
-and source-reader checks. No paid inference or new presentation-device acceptance was added.
+Both actual subscribed clients read local YAML and JSON files, imported them
+through MCP, and verified private browser readback, embedded sources and
+outcomes. These tests used a disposable application with server AI disabled
+and no activated ABDA credit. Public checks matched 20 assets, six complete
+scenarios and the model pool. Chromium and WebKit verified both AI off controls,
+draft retention, reload persistence and desktop/narrow layouts. The refreshed
+six-image offline gallery passed with networking disabled. Actual laptop,
+conference-network, projector and screen-reader rehearsals remain separate.
 
-The owner's newly identified community entry was retracted through the existing
-versioned review service under the restricted application database role. Exact
-readback and public-route checks confirmed that its private source, immutable
-publication snapshot/attribution and other publications were preserved. Private
-receipts retain the target identifiers and two corrected execution/collection
-helper issues; the public record contains hashes and results only.
+The rollout changed only the image and revision suffix, preserving runtime
+settings, identity, secret references and the saved maintenance job. It performed
+no migration or secret-value request. Schema compatibility remains
+`20260910_0008`; the schema was not requeried. Model code, prompts, catalog and
+scenarios are unchanged, with no new paid CloudBank or OpenRouter tests.
+The qualification fingerprint changed from `5fbca7cd` to `2a1b0f03` only because
+the shared parser's module docstring changed; its executable AST is identical.
+The earlier qualification and its limits therefore still apply.
 
-The web rollout changed only the image and revision suffix, preserving runtime
-settings, identity, secret references and the saved manual job. It performed no
-migration or secret-value request. Schema `20260910_0008` was verified during the
-separate retraction inspection. Recovery must retain the stable eligibility key
-and use a compatible image. Earlier [turn actions](operations/chat-turn-actions-release-20260911.json),
+Earlier [ASPIC comments and community retraction](operations/aspic-rule-groups-release-20260911.json),
+[turn actions](operations/chat-turn-actions-release-20260911.json),
 [UI refinement](operations/ui-scale-terminology-release-20260911.json),
 [model qualification](operations/scenario-refinement-release-20260911.json) and
 [migration evidence](operations/hosted-ui-rollout-result-20260911.json) remain
-supporting records for the unchanged features and their documented limits.
+supporting records for unchanged features. Recovery must retain the stable
+credit-eligibility key and use a schema-compatible image.
 
 `Requirements.docx` was read directly and has SHA-256
 `fb934fec9ab180586774a80f01f5d57d23693f3814eb61fa0db6f0e54b240606`.

@@ -1,0 +1,330 @@
+{
+  "result": "COMMA_READINESS_RELEASE_VERIFIED",
+  "recorded_utc": "2026-09-13T17:47:37.331634+00:00",
+  "origin": "https://demo.abda-nl.org",
+  "source_commit": "ad2bb72f1da2f82ad0b5a087ac9a9b3c06083f4b",
+  "image": "ghcr.io/liu-hy/abda-nl@sha256:844908d9641dcb44599e82c44a11472d8a2cd749d868b8478454ea28cca3880d",
+  "revision": "abda-nl-stg-web--comma-ad2bb72-0913",
+  "previous_source_commit": "697a6cd9dd363052c20bb9a7d490044f2bb40822",
+  "changes": [
+    "Synchronized, tab-local AI off in the existing model menu and Account AI access, preserving drafts and canceling pending calls.",
+    "Complete private YAML/JSON scenario import through shared MCP, preserving embedded sources and deterministic outcomes.",
+    "Managed basic startup honors ABDA_ENABLE_LLM=0, including the default container command.",
+    "Refresh the conference playbook and offline screenshot gallery.",
+    "Apply the Debian PCRE2 security fix required by the unchanged container security policy."
+  ],
+  "release": {
+    "source_ci_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34771729492",
+    "codeql_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34771729509",
+    "publication_run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34771939681",
+    "tag": "service-image-comma-ad2bb72-20260913",
+    "ci_jobs_passed": 8,
+    "tests": [
+      {
+        "name": "Python 3.13",
+        "passed": 1930,
+        "skipped": 173
+      },
+      {
+        "name": "browser-acceptance (firefox)",
+        "passed": 172,
+        "skipped": 0
+      },
+      {
+        "name": "Python 3.10",
+        "passed": 1930,
+        "skipped": 173
+      },
+      {
+        "name": "postgres-acceptance",
+        "passed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (webkit)",
+        "passed": 172,
+        "skipped": 0
+      },
+      {
+        "name": "browser-acceptance (chromium)",
+        "passed": 172,
+        "skipped": 0
+      }
+    ],
+    "all_image_steps_passed": true,
+    "github_and_registry_provenance_verified": true,
+    "exact_source_signer_tag_and_subject_verified": true,
+    "container_security": {
+      "total_vulnerabilities": 246,
+      "high_critical_vulnerabilities": 60,
+      "reviewed_unfixed_high_critical": 60,
+      "unreviewed_unfixed_high_critical": 0,
+      "stale_baseline_entries": 0,
+      "actionable_high_critical": 0,
+      "secret_findings": 0,
+      "misconfiguration_failures": 0,
+      "result": "CONTAINER_SECURITY_POLICY_VERIFIED"
+    },
+    "duplicate_tag_ci": {
+      "run": "https://github.com/Liu-Hy/ABDA-NL/actions/runs/34771939610",
+      "status": "cancelled",
+      "reason": "The identical development source CI remained authoritative and passed."
+    }
+  },
+  "rollout": {
+    "checked_utc": "2026-09-13T17:46:01.015686+00:00",
+    "checks": {
+      "web_configuration_identity_and_other_template_fields_preserved": true,
+      "manual_job_entirely_unchanged": true,
+      "ready_revision": true,
+      "running": true,
+      "single_healthy_active_revision": true,
+      "new_replicas_present": true,
+      "old_replicas_absent": true,
+      "manual_jobs_terminal": true
+    },
+    "patch_count": 1,
+    "changed_template_leaves": [
+      "/containers/0/image",
+      "/revisionSuffix"
+    ],
+    "default_profile_preserved": "gemini-3-8-flash",
+    "migration_run": false,
+    "compatible_schema": "20260910_0008",
+    "schema_requeried": false,
+    "secret_values_requested": false,
+    "drift_check": "Fresh comparison before one PATCH; no server-side ETag condition."
+  },
+  "acceptance": {
+    "public_assets_matched": 20,
+    "complete_scenarios_matched": 6,
+    "default_and_funded_byok_pool_preserved": {
+      "default_profile": "gemini-3-8-flash",
+      "funded_profiles": [
+        "balanced",
+        "claude-opus-5",
+        "gemini-3-1-pro",
+        "gemini-3-8-flash",
+        "gpt-5-6-sol",
+        "gpt-5-6-terra"
+      ],
+      "byok_model_counts": {
+        "anthropic": 2,
+        "openai": 2,
+        "google": 2,
+        "openrouter": 6
+      },
+      "public_model_ids": [
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "gemini-3.1-pro-preview",
+        "gemini-3.8-flash",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra"
+      ],
+      "withheld_kimi_absent": true,
+      "funded_byok_pool_consistent": true
+    },
+    "public_browser_engines": [
+      {
+        "engine": "chromium",
+        "success": true,
+        "tab_preference_persisted": true,
+        "controls_synchronized": true,
+        "draft_preserved": true,
+        "widths": [
+          1440,
+          390
+        ],
+        "layout_samples": [
+          {
+            "width": 1440,
+            "samples": [
+              {
+                "scroll": 1440,
+                "viewport": 1440
+              }
+            ]
+          },
+          {
+            "width": 390,
+            "samples": [
+              {
+                "scroll": 390,
+                "viewport": 390
+              }
+            ]
+          }
+        ],
+        "page_errors": [],
+        "blocked_requests": []
+      },
+      {
+        "engine": "webkit",
+        "success": true,
+        "tab_preference_persisted": true,
+        "controls_synchronized": true,
+        "draft_preserved": true,
+        "widths": [
+          1440,
+          390
+        ],
+        "layout_samples": [
+          {
+            "width": 1440,
+            "samples": [
+              {
+                "scroll": 1440,
+                "viewport": 1440
+              }
+            ]
+          },
+          {
+            "width": 390,
+            "samples": [
+              {
+                "scroll": 390,
+                "viewport": 390
+              }
+            ]
+          }
+        ],
+        "page_errors": [],
+        "blocked_requests": []
+      }
+    ],
+    "native_mcp_clients": [
+      {
+        "client": "codex",
+        "status": "passed",
+        "local_files_read": 2,
+        "imports": 2,
+        "mcp_calls": 4,
+        "verbatim_document_text": true,
+        "browser_readback": true,
+        "scenario_sha256": "eb21232ceb67c48034c7bff77ae9b02a92c08f6e94a6282ab768da3d584486e8",
+        "server_llm_calls": 0,
+        "abda_credit_spent": 0,
+        "token_revoked": true
+      },
+      {
+        "client": "claude-code",
+        "status": "passed",
+        "local_files_read": 2,
+        "imports": 2,
+        "mcp_calls": 4,
+        "verbatim_document_text": true,
+        "browser_readback": true,
+        "scenario_sha256": "eb21232ceb67c48034c7bff77ae9b02a92c08f6e94a6282ab768da3d584486e8",
+        "server_llm_calls": 0,
+        "abda_credit_spent": 0,
+        "token_revoked": true
+      }
+    ],
+    "native_mcp_target": "disposable local application",
+    "native_mcp_server_llm_enabled": false,
+    "native_mcp_abda_credit_activated": false,
+    "native_mcp_disposable_resources_removed": true,
+    "new_paid_cloudbank_or_openrouter_calls": 0
+  },
+  "offline_pack": {
+    "path": "artifacts/conference/comma-readiness-ad2bb72-20260913.zip",
+    "sha256": "295691c31a11c7141bcfe00561d6f0ed8979a42c4692a0cd34079178075bfe6d",
+    "origin": "https://demo.abda-nl.org",
+    "presentation_mode": "ai_off",
+    "screenshots": 6,
+    "gallery_verified_with_network_disabled": true,
+    "interactive": false
+  },
+  "qualification": {
+    "checked_at": "2026-09-13T17:34:16.391319+00:00",
+    "source_commit": "ad2bb72f1da2f82ad0b5a087ac9a9b3c06083f4b",
+    "previous_implementation_fingerprint": "5fbca7cdd56397022937c3ecd62c4cdd22b1afa255800c67cffe7629eb9e7dcb",
+    "implementation_fingerprint": "2a1b0f03cab19ce1f11d83de59473c519d8a0835e31a5a27742770e0475ed68c",
+    "changed_fingerprinted_files": [
+      "app/scenario/exchange.py"
+    ],
+    "change": "Module docstring says the parser is shared by browser and MCP. AST excluding module docstring is identical.",
+    "llm_code_prompts_catalog_and_scenarios_unchanged": true,
+    "new_paid_model_calls": 0
+  },
+  "limits_and_preserved_findings": [
+    "Real subscribed clients imported YAML and JSON against a disposable application; this is not a new authenticated write against the public deployment.",
+    "No live OpenRouter generation was performed. Existing provider retry, fallback, cancellation, deadline and accounting regression tests passed; deployed routing settings were preserved.",
+    "Initial candidates failed container security or the selected menu item accessibility check and were not deployed. Both causes were corrected before the successful source and image gates.",
+    "One earlier local Chromium run hit an existing transient pointer-interception case. That case and the final CI browser suites passed afterward.",
+    "An initial public WebKit check asserted layout immediately after viewport resize. Final acceptance retains viewport settling samples and screenshots.",
+    "Native-client setup and exact-argument harness failures remain in local evidence; the final client receipt has no corrected argument errors.",
+    "Browser acceptance is automated. Conference Wi-Fi, actual Safari, screen readers, laptop offline startup and projector rehearsals remain unverified.",
+    "The tab preference still needs a reachable application server. The offline archive is a screenshot gallery.",
+    "Detailed source, browser, client and cloud receipts remain in ignored or private storage."
+  ],
+  "evidence": [
+    {
+      "label": "source_ci",
+      "path": "artifacts/evals/comma-readiness-20260913/ci-ad2bb72/receipt.json",
+      "sha256": "ddb034411dda299539b117bc3bbd3b0f7a8dfc9cf5e33a5cb63326a2687b8c8d"
+    },
+    {
+      "label": "public_api",
+      "path": "artifacts/evals/comma-readiness-20260913/hosted-api.json",
+      "sha256": "06a354a8ebb84e10ad14f3ff6af35de61b7b39c0a1e5e551a111b7c0bcc34443"
+    },
+    {
+      "label": "public_browser_and_offline_capture",
+      "path": "artifacts/evals/comma-readiness-20260913/hosted-browser-final/receipt.json",
+      "sha256": "3bf57189fc5a7a760fbe064888f48be45aca7d077eb7189a5f01cd4b4376a4c9"
+    },
+    {
+      "label": "native_client_import",
+      "path": "artifacts/evals/comma-readiness-20260913/native-import-170743.json",
+      "sha256": "972c2ee511d4a34420077bc5e85d7fd56426c165298876b82e16bca5cadae4e6"
+    },
+    {
+      "label": "qualification_continuity",
+      "path": "artifacts/evals/comma-readiness-20260913/qualification-continuity-ad2bb72.json",
+      "sha256": "9be2cb046376fbbd6e45c3f6b84917c9e8180e5393e06f325cad18933788b3be"
+    },
+    {
+      "label": "offline_manifest",
+      "path": "artifacts/conference/comma-readiness-ad2bb72-20260913/manifest.json",
+      "sha256": "5d31aeb0c3a2e40dcf70131b68d02047611ae3d4dbe4e07f687925aebbe1a8f5"
+    },
+    {
+      "label": "verified_release",
+      "path": "private/verified-release-summary.json",
+      "sha256": "2d4eb3a9bfdfa2c58b82470548d6375efedfaea7be8b179da72ba40800ab5988"
+    },
+    {
+      "label": "rollout_verification",
+      "path": "private/runs/20260913T174556-verify-ed3ba0c1/verification.json",
+      "sha256": "c8cdd44f5b4d27a82f68724eedd24aa5091b749035d2f20279a60e7028910025"
+    },
+    {
+      "label": "cleanup",
+      "path": "artifacts/evals/comma-readiness-20260913/cleanup.json",
+      "sha256": "02bc147b1a30193fe41a11497eb6211a484297d6bcc9e36d2d54f4fdda55905c"
+    }
+  ],
+  "cleanup": {
+    "checked_utc": "2026-09-13T17:49:58.325827+00:00",
+    "allocations": [
+      {
+        "job_id": "22034589",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed": "00:51:21"
+      },
+      {
+        "job_id": "22035161",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed": "00:08:41"
+      }
+    ],
+    "all_steps_terminal": true,
+    "step_count": 32,
+    "earlier_nonzero_steps_preserved": 15,
+    "native_tokens_revoked_and_disposable_server_removed": true
+  }
+}

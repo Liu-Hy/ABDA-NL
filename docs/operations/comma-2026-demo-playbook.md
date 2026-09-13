@@ -1,10 +1,10 @@
 # COMMA 2026 demonstration playbook
 
-State: September 13 conference-readiness update; presentation-hardware acceptance remains pending
+State: hosted source `ad2bb72` verified September 13 UTC; presentation-hardware acceptance remains pending
 
-These labels describe the current development UI. Confirm the deployed version
-before rehearsing the public URL; a local candidate capture is not evidence of
-a hosted update.
+The [release receipt](comma-readiness-release-20260913.json) records the hosted
+checks. Recheck the deployed version before the event; a local candidate
+capture alone does not verify the public URL.
 
 This playbook keeps the live demonstration focused on the research contribution
 while preserving a deterministic path when an external model, identity service,
@@ -163,6 +163,11 @@ talk, use the deterministic fallback instead of attempting a restore or
 database cutover.
 
 ## Offline screenshot backup
+
+The September 13 verified pack is
+`artifacts/conference/comma-readiness-ad2bb72-20260913.zip`. It was captured from
+the hosted release above and verified with networking disabled. The release
+receipt records its SHA-256 and the separate served-source checks.
 
 The agent can prepare the network-independent visual backup without an account
 or a model call:
