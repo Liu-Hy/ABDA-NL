@@ -24,7 +24,14 @@ LABEL org.opencontainers.image.source="${ABDA_IMAGE_SOURCE}" \
       org.opencontainers.image.licenses="GPL-3.0-only"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    ABDA_ENABLE_LLM=1
+
+# Apply the Debian security backport missing from the pinned base image.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends --only-upgrade \
+      libpcre2-8-0=10.42-1+deb12u1 \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN python -m pip uninstall --yes pip \
     && groupadd --system --gid 10001 abda \
@@ -45,4 +52,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["/opt/venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
 
-CMD ["/opt/venv/bin/python", "-m", "app.cli.serve", "--host", "0.0.0.0", "--port", "8000", "--no-browser", "--allow-non-loopback", "--llm"]
+CMD ["/opt/venv/bin/python", "-m", "app.cli.serve", "--host", "0.0.0.0", "--port", "8000", "--no-browser", "--allow-non-loopback"]

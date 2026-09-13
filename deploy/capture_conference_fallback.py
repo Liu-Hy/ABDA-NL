@@ -199,19 +199,22 @@ def capture(output: Path, base_url: str = ORIGIN) -> Path:
             response = page.goto(base_url, wait_until="domcontentloaded", timeout=30_000)
             if response is None or response.status != 200:
                 raise AssertionError("the anonymous explorer did not load")
+            page.wait_for_load_state("load")
             expect(page.locator("#scenario-name")).to_have_text("Popov v. Hayashi")
             expect(page.locator('[data-explain-id="popov_legit_claim"]')).to_be_visible()
             if page.evaluate("state.scenario_id") != SCENARIO:
                 raise AssertionError("capture requires the included Popov example")
             if page.evaluate("state.authSession.authenticated") is not False:
                 raise AssertionError("capture requires an anonymous browser context")
-            page.locator("#ai-access-btn").focus()
-            page.locator("#ai-access-btn").press("Enter")
-            page.locator("#ai-menu").get_by_role("menuitemradio", name="AI off", exact=True).press("Enter")
+            if page.evaluate("state.config.llm_enabled"):
+                page.locator("#ai-access-btn").focus()
+                page.locator("#ai-access-btn").press("Enter")
+                page.locator("#ai-menu").get_by_role("menuitemradio", name="AI off", exact=True).press("Enter")
             expect(page.locator("#ai-access-btn")).to_have_text("AI off")
             expect(page.locator("#chat-input")).to_be_hidden()
             # Keep the screenshots free of the temporary mode-change notice.
-            page.locator("#global-status .status-dismiss").click()
+            if page.locator("#global-status .status-dismiss").count():
+                page.locator("#global-status .status-dismiss").click()
             # Reserve room, then frame the accepted claims within the key list.
             divider = page.locator("#h-resize-left")
             divider.press("ArrowDown")
