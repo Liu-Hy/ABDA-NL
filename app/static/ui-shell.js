@@ -63,6 +63,7 @@ function openShellPopup(trigger, panel) {
   trigger.setAttribute('aria-expanded', 'true');
   activeShellPopup = { panel, trigger };
   const first = panel.querySelector('[role="option"][aria-selected="true"]')
+    || panel.querySelector('[role="menuitemradio"][aria-checked="true"]:not(:disabled)')
     || panel.querySelector('[role="option"], [role^="menuitem"]:not(:disabled), button:not(:disabled)');
   first?.focus();
 }
@@ -73,6 +74,8 @@ function shellMenuItem(label, action, options = {}) {
   button.setAttribute('role', options.checked === undefined ? 'menuitem' : 'menuitemradio');
   if (options.checked !== undefined) button.setAttribute('aria-checked', String(options.checked));
   button.textContent = label;
+  // The CSS checkmark is decorative; aria-checked conveys selection.
+  button.setAttribute('aria-label', label);
   button.disabled = Boolean(options.disabled);
   button.addEventListener('click', event => {
     closeShellPopup();

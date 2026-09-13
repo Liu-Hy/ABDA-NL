@@ -26,6 +26,9 @@ def test_ai_off_is_synchronized_preserves_work_and_is_scoped_to_the_tab(explorer
     from playwright.sync_api import expect
 
     page, runtime = explorer_browser
+    page.locator("#ai-access-btn").click()
+    expect(page.locator("#ai-menu").get_by_role("menuitemradio", name="Balanced", exact=True)).to_be_focused()
+    page.keyboard.press("Escape")
     page.locator("#chat-input").fill("Keep this unfinished question.")
     page.locator("#resize-handle").press("ArrowLeft")
     page.wait_for_function("""() => {
