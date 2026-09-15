@@ -7,6 +7,15 @@
    ================================================================ */
 
 const AI_CONTEXT_ICON = '<svg class="ai-context-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M9 3.5 10.7 8.3 15.5 10 10.7 11.7 9 16.5 7.3 11.7 2.5 10 7.3 8.3Z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M15.5 2.5v4m-2-2h4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>';
+const RECOMMENDED_FUNDED_PROFILE_ID = 'gemini-3-8-flash';
+
+function fundedProfileOptionLabel(profile, detailed = false) {
+  const name = profile.display_name || profile.label || profile.id;
+  if (profile.id !== RECOMMENDED_FUNDED_PROFILE_ID) return name;
+  return detailed
+    ? `${name} (Recommended for the best balance of performance, cost, and latency)`
+    : `${name} (recommended)`;
+}
 
 const state = {
   scenarios: [],        // [{id, title, description}, ...]

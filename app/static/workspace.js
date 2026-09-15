@@ -704,7 +704,7 @@ function renderAISettings() {
   for (const profile of config.profiles || []) {
     const option = document.createElement('option');
     option.value = profile.id;
-    option.textContent = profile.display_name;
+    option.textContent = fundedProfileOptionLabel(profile, true);
     profileSelect.appendChild(option);
   }
   profileSelect.value = state.llmAccess.profile || '';

@@ -1,308 +1,163 @@
+<div align="center">
+
 # ABDA-NL
 
-> **Development branch:** This branch contains experimental hosted-service,
-> identity, usage-quota, model-routing, and MCP work. For the stable demo that
-> accompanies the COMMA 2026 paper, use the
-> [`idaks/ABDA-NL` main branch](https://github.com/idaks/ABDA-NL/tree/main).
+### Explore argument-based reasoning in plain language
 
-ABDA-NL is a browser-based natural-language scenario explorer for
-argument-based reasoning.
+ABDA-NL turns facts, assumptions, and rules into arguments you can inspect,
+question, and revise in your browser.
 
-Try the hosted service at <https://demo.abda-nl.org>. You can explore built-in
-scenarios without signing in. For model assistance, sign in with an email code.
-Use **Account > Sign in...**, then **Account and credit...** to activate a
-funded trial and view its balance. Choose a funded model from the top AI menu,
-or select **Use your own API key...**. The workflows below describe this
-development branch; the hosted release may still show earlier labels.
+<p>
+  <a href="https://demo.abda-nl.org/"><strong>Open the live demo</strong></a>
+  &nbsp;·&nbsp;
+  <a href="docs/scenarios.md">Create a scenario</a>
+  &nbsp;·&nbsp;
+  <a href="CITATION.cff">Cite the project</a>
+</p>
 
-## Run the demo
+<p>
+  <a href="https://demo.abda-nl.org/"><img alt="Live demo" src="https://img.shields.io/badge/live_demo-demo.abda--nl.org-3569a8"></a>
+  <a href="https://github.com/idaks/ABDA-NL/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/idaks/ABDA-NL/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Python 3.10 to 3.13" src="https://img.shields.io/badge/Python-3.10_to_3.13-3776ab">
+  <a href="LICENSE"><img alt="GPL 3.0 only" src="https://img.shields.io/badge/license-GPL--3.0--only-59636e"></a>
+</p>
 
-Python 3.10 or newer is supported. Create the local environment and install the
-application:
+</div>
+
+> [!TIP]
+> **Try it now at [demo.abda-nl.org](https://demo.abda-nl.org/).** You can
+> explore the built-in and community scenarios immediately. Registration with
+> an email code takes about 30 seconds. The first 100 registered users can
+> activate **$5 of free AI credit**, enough for roughly 200 typical LLM calls.
+> The exact number depends on the chosen model and the length of each exchange.
+
+![The ABDA-NL browser interface showing conclusions, facts, assumptions, rules, and Chat and Explore](docs/screenshot.png)
+
+ABDA-NL makes structured argumentation approachable without hiding the formal
+reasoning underneath. The ABDA engine computes the arguments, attacks, and
+conclusion labels. The optional AI assistant helps explain those results in
+natural language, find relevant source passages, and draft changes for human
+review.
+
+## What you can do
+
+| | |
+|---|---|
+| **Follow the reasoning** | See which conclusions are accepted, rejected, undecided, or absent, then inspect the supporting and attacking arguments. |
+| **Ask what changed** | Toggle assumptions and defeasible rules, preview the effects, reset the scenario, or undo the reset. |
+| **Talk with the scenario** | Ask grounded questions, open highlighted evidence, stop a slow response, retry an answer, or edit and fork the conversation. |
+| **Build your own case** | Create a scenario in a guided editor, write ASPIC- rules directly, or import YAML and JSON. |
+| **Bring source material** | Attach text, Markdown, and text-based PDFs as context for explanations and citations. |
+| **Keep work portable** | Save private scenarios, share a read-only view, publish a community scenario, or export a self-contained JSON file. |
+| **Work through an agent** | Connect Codex or Claude Code through scoped MCP access to inspect, create, import, and revise scenarios. |
+| **Present without an LLM** | Choose **AI off** and keep the complete deterministic explorer available. |
+
+The interface is designed for argumentation researchers, students, teachers,
+and anyone curious about how reasons support or challenge a conclusion. You do
+not need to know ASPIC- notation to begin.
+
+## A two-minute tour
+
+1. Open the [live demo](https://demo.abda-nl.org/) and choose a scenario from
+   the title menu.
+2. Select **Explain** beside a conclusion to inspect its derivation.
+3. Change an assumption or rule and preview how the conclusion labels respond.
+4. Ask the AI assistant why a conclusion holds, or request supporting sources.
+5. Open **New scenario** or **Import scenario file** when you are ready to try
+   your own example.
+
+AI is optional throughout this flow. It can describe the formal result and
+suggest edits, but it never decides which conclusions follow. Proposed edits
+must pass validation and remain under the user's control.
+
+## AI access
+
+Gemini 3.8 Flash is the default funded model because it offers a strong balance
+of capability, speed, and cost. Other qualified Gemini, Claude, and GPT models
+are available from the same menu.
+
+For registered users, CloudBank supplies the primary funded route. Eligible
+provider outages can fall back to the same model through OpenRouter. You can
+also bring your own Anthropic, OpenAI, Google, or OpenRouter key. A personal key
+stays in the current browser tab and is not stored by the service.
+
+Choose **AI off** from the model menu, or from **Account > AI access**, for a
+manual presentation. Scenario exploration, formal explanations, editing,
+import, and export continue to work without a model call.
+
+## Create, import, and share scenarios
+
+The guided editor lets you describe statements and connect them with strict or
+defeasible rules. The Rule text view exposes the corresponding ASPIC- syntax.
+Both views edit the same knowledge base.
+
+You can add reference documents, preview computed results before saving, and
+export the complete scenario with its glossary and source text. Imports accept
+complete ABDA-NL YAML or JSON files, as well as separate rules, glossary files,
+and supporting documents.
+
+See [Your own scenarios](docs/scenarios.md) for a short walkthrough and the
+supported formats.
+
+## Run locally
+
+ABDA-NL supports Python 3.10 through 3.13.
 
 ```bash
+git clone https://github.com/idaks/ABDA-NL.git
+cd ABDA-NL
 python3 -m venv .venv
 make install
 .venv/bin/abda-nl
 ```
 
-`make install` selects a hash-pinned lock for the active Python version.
-Python 3.10 has dedicated locks because several current scientific packages
-have ended 3.10 support. Python 3.11 through 3.13 use the main locks. Use
-`make install-dev` for the test and browser tooling. Native Python 3.10 and
-3.13 CI jobs independently regenerate their locks, so a lock update cannot
-silently drop the advertised minimum version.
-
-The last command starts on loopback, waits for the application to be ready,
-and opens the default browser. It enables LLM features when a valid local
-configuration exists, otherwise it starts the complete deterministic demo.
-Use `abda-nl --basic`, `abda-nl --llm`, or `abda-nl --no-browser` to choose
-explicit behavior.
-
-For managed CloudBank access, follow the funded provider configuration in
-[public deployment](docs/operations/public-deployment.md) and
-[model promotion](docs/operations/model-promotion.md). Keep credentials in the
-gitignored `.env`, never in project files. The
-[CloudBank setup tutorial](https://github.com/Liu-Hy/cloudbank-llm-setup)
-explains provisioning for Azure and GCP. Direct development provider access
-requires a separate explicit opt-in; a provider key alone does not activate
-managed funded access.
-
-On NCSA Delta, start the full demo through the user-level launcher:
+The last command starts the app on your computer and opens a browser. When no
+LLM configuration is present, it starts as a complete deterministic demo. You
+can also choose the mode explicitly:
 
 ```bash
-demo
+.venv/bin/abda-nl --basic       # deterministic explorer, no LLM
+.venv/bin/abda-nl --llm         # require configured LLM access
+.venv/bin/abda-nl --no-browser  # start without opening a browser
 ```
 
-The launcher uses the repository's `.demo.json`, runs the process detached,
-and always serves it through the same bookmarked address,
-<http://127.0.0.1:8765>. Run `demo status`, `demo logs`, or `demo stop` from any
-directory. On the laptop, keep one ordinary `ssh delta-demo` session open while
-using the browser. That session carries the loopback port forward. Run
-`demo doctor` on Delta to inspect the pinned launcher profile. This login-node
-mode is for short, lightweight development sessions; use a Delta Open OnDemand
-or Slurm session for persistent hosting or heavy work.
-
-The server-only repository command remains available on other systems:
+For development and tests:
 
 ```bash
-make run
+make install-dev
+make test
 ```
 
-Then open <http://127.0.0.1:8000>. `make run-basic` starts the deterministic
-argumentation UI without an LLM, `make demo-local` opens a local browser, and
-`make test` runs the test suite.
+On NCSA Delta, run `demo`. The shared launcher manages the process and the
+loopback tunnel described in this repository's `AGENTS.md`.
 
-## Funded models and BYOK
+## Guides for deeper use
 
-Public funded requests require a verified account and an activated trial. The
-public service offers the first 100 successful activations $5 of metered model
-usage each, with a $500 total trial cap. The server reserves credit before each
-physical provider call and settles recorded usage. If a dispatched request has
-no reliable billing result, it conservatively charges the reserved amount
-instead of making the same credit available to spend again.
-
-CloudBank Azure or GCP supplies each model's primary funded route. OpenRouter
-provides same-model fallback for eligible CloudBank provider failures, with
-bounded retries where applicable. A deployment-scoped recent-failure circuit
-can skip repeated CloudBank probes. See the [review guide](docs/demo-revision-review-guide.md)
-for the routing contract. The project-paid OpenRouter ledger defaults to a hard $500 cap.
-Increasing it above $500 requires an explicit deployment acknowledgement, and
-the application refuses values above $1,000.
-
-Registered users may instead include a provider key in the `llm.byok` object of
-a `/chat` or `/propose` request. BYOK supports Anthropic, OpenAI, Google Gemini,
-and OpenRouter through fixed official endpoints. The key is request-scoped and
-is never persisted by the server. BYOK calls do not require or consume trial
-credit. Never place an API key in a URL, project record, or share link.
-
-`GET /config` lists the currently available funded profiles and supported BYOK
-models without exposing deployment credentials. Candidate funded profiles are
-kept out of the public list until they pass the repository evaluation gate.
-
-### Browser workspace
-
-Open the scenario-name menu to choose from **Built-in scenarios**,
-**Community scenarios**, or your **Private scenarios**:
-
-- **New scenario** and **Import scenario file** lead into one common editor.
-  Write statements and rules in **Guided**, or switch to **Rule text** for
-  ASPIC-. Statement descriptions are the linked glossary. Import a complete
-  YAML/JSON scenario, or rules, glossary, and reference documents together.
-- Add optional text, Markdown, or text-based PDF references. **Check & save**
-  validates and saves; **Preview** lets you inspect the computed results first.
-  Warnings require review before saving. No model call or trial credit is
-  needed. References provide AI context without becoming logical facts.
-- **Private scenarios** reopens saved work. **Download scenario (.json)** exports
-  rules, meanings, and full reference text, including bundled corpus content,
-  in one self-contained JSON file. Import does not need the original server.
-  PDF content uses extracted text, not page layout. **Edit scenario** opens
-  the same editor for the current private scenario. **Sources and glossary**
-  opens a read-only reader with document search and statement meanings.
-  Downloads do not include chat, account identifiers, share links, or API keys.
-
-Sign in before creating or importing private work. The builder draft stays in
-the current tab when you close the dialog, but is not saved until creation;
-refreshing or signing out discards it. Document text is reviewed before saving;
-original PDFs are not retained and source URLs are not fetched. See the
-[scenario guide](docs/scenarios.md) for a short example and supported formats.
-
-**Explain** explores an individual argument and its supports. **Conclusion
-graph** groups arguments by conclusion; **ASPIC- text** shows the formal rules.
-Assumption and rule toggles preview their effects before applying. **Reset**
-appears after changes, restores the baseline, and offers **Undo reset** without
-discarding the conversation.
-
-**About** starts closed. Open it for a short introduction to the scenario's
-background and the decision being explored.
-
-In **Chat & Explore**, the small sparkle icon adds an editable item reference
-without a question frame. It sends only when you choose **Ask**; **Stop** cancels
-a pending answer. Editing prose preserves the
-reference; activating its words converts it to an ordinary quotation. Refresh
-or remove references marked as belonging to an earlier state before sending.
-Source cards distinguish **Quotation** from **Context**; **Open in Sources**
-shows the saved document with relevant text highlighted. Older answers retain
-their scenario snapshots internally. Conversation history
-is stored in this browser for the signed-in account; signed-out history lasts
-only in the tab. The conversation menu offers export and deletion.
-
-Each question has a pencil (**Edit and fork**) and a circular arrow (**Retry**).
-The pencil opens an editable branch using the current scenario. Retry asks the
-same question with its original context and prior history in a new branch,
-preserving the old answers and drafts. It uses the model currently selected and
-normal credit or BYOK charging. If the original scenario version is unavailable,
-retry makes no model call and leaves the question available to edit and fork.
-
-Gemini 3.8 Flash is the default funded model. Eligible administrators have a
-fixed **Normal user view** switch for demonstrating ordinary permissions and
-returning to administrator view.
-
-The **Account** menu opens account and credit, **Private scenarios**,
-**Community scenarios**, AI access, and **Agent access (Codex, Claude Code)**. Public sign-in
-uses verified-email OIDC; development login is visibly labeled. A personal
-provider key stays only in the current tab's memory and clears on reload or
-sign-out. Agent credentials are disclosed once and can be revoked.
-
-**Save** creates a private scenario or updates the current one using its version
-to prevent silent overwrites from another tab. Its adjacent menu offers private
-copies, sharing, community submission, and downloads. A scenario owner can
-create a revocable read-only link. The bearer token stays in the URL fragment,
-and a recipient cannot toggle assumptions, change preferences, call models, or
-save over the owner's scenario. A signed-in recipient can save a validated
-private copy.
-
-In **Private scenarios**, the **Archived** tab lets you select scenarios with
-checkboxes and choose **Delete selected** or **Delete all**. Each action asks
-for confirmation. Deletion is permanent; active scenarios and separately
-submitted or published scenario snapshots remain.
-
-The interface supports keyboard dialog navigation, visible focus, reduced
-motion, narrow-screen reflow, and screen-reader status announcements. The
-argumentation panels and all workspace panels pass the repository's automated
-WCAG A and AA browser scan. Automated checks complement, but do not replace,
-manual keyboard and assistive-technology review before a public release.
-Filter buttons expose their selected state, and each layout divider can be
-focused and adjusted with the arrow keys, Home, End, or Shift plus an arrow key.
-
-## Codex and Claude Code through MCP
-
-A verified user can create a personal MCP token through `POST /api/mcp/tokens`.
-The token is displayed once, expires after 90 days by default, and can be
-revoked at any time. The server stores only an HMAC-SHA-256 digest. Each token
-can receive any subset of these scopes:
-
-- `projects:read` lists built-in and community scenarios and reads private scenarios.
-- `projects:write` creates private scenarios and applies version-checked edits.
-- `llm:use` asks grounded questions and proposes edits using trial credit.
-
-To upload a complete new scenario, ask the connected agent to read its local
-YAML or JSON file and call `import_project` with the file's exact text in
-`document`. It accepts standalone scenario files and portable ABDA exports;
-an optional `name` overrides the title in your private library. Include reference
-text in `sources` entries with `filename` and `text`. A filename or URL alone
-does not upload a document. Files with missing external references are rejected;
-the browser import flow can attach those documents separately.
-
-For example: “Read picnic.yaml, import it as a new private scenario using
-import_project, then use get_project to check the saved rules, sources and
-conclusions.” Import validates and analyzes before saving, needs `projects:write`,
-and consumes no ABDA model credit. Reading it back also needs `projects:read`.
-The complete MCP request, including JSON encoding, must fit within 1 MiB.
-
-Set the one-time token with a hidden prompt, then export it to clients started
-from that shell. This keeps the token out of shell history:
-
-```bash
-read -rsp 'ABDA-NL MCP token: ' ABDA_NL_MCP_TOKEN
-printf '\n'
-export ABDA_NL_MCP_TOKEN
-```
-
-Then add this entry to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.abda_nl]
-url = "https://YOUR_ABDA_HOST/mcp/"
-bearer_token_env_var = "ABDA_NL_MCP_TOKEN"
-default_tools_approval_mode = "writes"
-tool_timeout_sec = 180
-```
-
-The write approval mode lets Codex use read-only exploration directly while
-asking before scenario changes. The longer tool timeout accommodates funded
-model calls, which can legitimately exceed Codex's default MCP timeout.
-
-Claude Code accepts the same endpoint and expands environment variables in HTTP
-headers. Keep the header in single quotes so the shell stores the variable
-reference instead of the token itself. User scope makes the service available
-across the user's Claude Code projects:
-
-```bash
-claude mcp add --transport http --scope user \
-  --header 'Authorization: Bearer ${ABDA_NL_MCP_TOKEN}' \
-  -- abda-nl "https://YOUR_ABDA_HOST/mcp/"
-```
-
-Run `claude mcp get abda-nl` to check the connection. Start Claude Code from a
-shell where `ABDA_NL_MCP_TOKEN` is set. Revoking the token in ABDA-NL makes the
-saved client configuration harmless until it is removed or given a new token.
-Unset the shell value when the session is finished:
-
-```bash
-unset ABDA_NL_MCP_TOKEN
-```
-
-The current configuration fields and HTTP transport are documented by the
-[Codex MCP guide](https://developers.openai.com/codex/mcp/) and the
-[Claude Code MCP guide](https://code.claude.com/docs/en/mcp).
-
-The MCP tools never accept a provider API key. Use the browser BYOK flow for a
-personal Anthropic, OpenAI, Google, or OpenRouter key. That keeps the provider
-secret request-scoped and out of agent transcripts and MCP configuration.
-
-Edits to existing scenarios require the version returned by the preceding read.
-New imports create a private scenario at version 1. An LLM
-proposal never changes a scenario. Review its operation and advisory issues,
-then call `apply_project_ops` explicitly with the unchanged expected version.
-
-For a manual presentation, choose **AI off** in the top-bar model menu, or
-**Account → AI access → AI off → Use this access setting**. This tab remembers
-the choice across reloads. Select a model or apply funded/BYOK access to restore
-AI. Manual reasoning still needs a reachable application server. For a fully
-local presentation, prepare `abda-nl --basic` and the
-[conference fallback pack](docs/operations/comma-2026-demo-playbook.md) beforehand.
-
-## Public service operation
-
-The public service uses the same application entrypoint in a non-root,
-hash-locked container, with Azure Container Apps, private PostgreSQL, verified
-email OIDC, and an explicit migration job. Operator documentation is tracked in:
-
-- [Operations index and current release sequence](docs/operations/README.md)
-- [Operator account and domain bootstrap](docs/operations/operator-service-bootstrap.md)
-- [Azure deployment](docs/operations/public-deployment.md)
-- [Auth0 email OTP](docs/operations/auth0-email-otp.md)
-- [Funded model promotion](docs/operations/model-promotion.md)
-- [Staging MCP client acceptance](docs/operations/staging-mcp-client-acceptance.md)
-- [Privacy request operations](docs/operations/privacy-requests.md)
-- [PostgreSQL recovery](docs/operations/database-recovery.md)
-- [Public and COMMA release checklist](docs/operations/release-checklist.md)
+- [Scenario authoring, imports, and exports](docs/scenarios.md)
+- [Codex and Claude Code through MCP](docs/operations/mcp-subscription-workflow.md)
 - [COMMA 2026 demonstration playbook](docs/operations/comma-2026-demo-playbook.md)
-- [Public security and operations decision](docs/decisions/0006-public-service-security-and-operations.md)
+- [Model selection and routing](docs/decisions/0003-model-routing-and-cost-controls.md)
+- [Architecture and design decisions](docs/decisions/)
+- [Service operation and deployment](docs/operations/README.md)
+- [PostgreSQL backup and recovery](docs/operations/database-recovery.md)
 
-Local and Delta launch behavior remains independent of public hosting. A normal
-local `abda-nl` command opens the browser automatically. Delta continues to use
-`demo` plus the laptop's persistent `ssh delta-demo` tunnel.
+If you consider ABDA-NL useful for research, teaching, or exploration, please
+**star ⭐ this repository**. It helps other people find the project.
 
-## License and attribution
+## Research and citation
 
-This development distribution uses [GNU GPL version 3](LICENSE)
-(`GPL-3.0-only`) and is supplied without warranty. The original MIT notice,
-component licenses, and [corresponding-source instructions](THIRD_PARTY_NOTICES.md#corresponding-source)
-are preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-The paper and cited research material are not relicensed by this change.
+ABDA-NL was created by Shawn Bowers, Martin Caminada, Haoyang Liu, and Bertram
+Ludäscher for the COMMA 2026 demonstration track. Citation metadata is provided
+in [`CITATION.cff`](CITATION.cff).
 
-ABDA-NL includes the [ABDA engine](https://github.com/Schirmi136/ABDA).
-Martin Caminada led ABDA and proposed ABDA-NL. The imported engine's public
-Git history credits Sören Uebis. See the notices for detailed provenance.
+The project combines a natural-language workspace with the
+[ABDA engine](https://github.com/Schirmi136/ABDA) for deterministic
+argumentation semantics. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+for component attribution and corresponding-source information.
+
+## License
+
+This distribution is licensed under
+[GNU GPL version 3](LICENSE) (`GPL-3.0-only`). The original MIT notice is
+preserved in [`LICENSES/ABDA-NL-MIT.txt`](LICENSES/ABDA-NL-MIT.txt). The paper
+and cited research material are not relicensed by this repository.

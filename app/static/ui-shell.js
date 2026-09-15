@@ -103,7 +103,7 @@ function renderShellMenus() {
   ai.append(shellMenuNote(!serverAI ? 'AI is disabled on this server.' : state.trial?.active
     ? `Funded credit: ${formatUSD(state.trial.available_microusd)} available` : 'Choose a funded model'));
   for (const profile of state.config?.profiles || []) {
-    ai.append(shellMenuItem(profile.display_name || profile.label || profile.id, () => {
+    ai.append(shellMenuItem(fundedProfileOptionLabel(profile), () => {
       state.llmAccess.mode = 'funded';
       state.llmAccess.profile = profile.id;
       setPresentationNoAI(false);
@@ -150,6 +150,13 @@ function renderShellMenus() {
     link.setAttribute('role', 'menuitem');
     account.append(link);
   }
+  const starLink = document.createElement('a');
+  starLink.href = 'https://github.com/idaks/ABDA-NL';
+  starLink.target = '_blank';
+  starLink.rel = 'noopener noreferrer';
+  starLink.textContent = 'Star ABDA-NL on GitHub ⭐';
+  starLink.setAttribute('role', 'menuitem');
+  account.append(starLink);
   if (user) account.append(shellMenuItem('Sign out', event => handleLogout(event)));
 }
 

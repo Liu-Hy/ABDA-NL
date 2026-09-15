@@ -68,6 +68,10 @@ def test_about_starts_closed_and_resets_on_scenario_and_project_switch(explorer_
     expect(about).to_be_visible()
     expect(button).to_be_focused()
     expect(button).to_have_attribute('aria-expanded', 'true')
+    expect(button).to_have_css('background-color', 'rgb(232, 238, 247)')
+    expect(button.locator('.scenario-about-toggle-icon')).to_have_css(
+        'transform', 'matrix(-1, 0, 0, -1, 0, 0)'
+    )
     page.evaluate('() => renderAll()')
     expect(about).to_be_visible()
     page.keyboard.press('Enter')
@@ -107,6 +111,43 @@ def test_about_starts_closed_and_resets_on_scenario_and_project_switch(explorer_
     expect(about).to_be_hidden()
     expect(button).to_be_focused()
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+    assert runtime['chat_requests'] == []
+
+
+def test_recommended_model_labels_and_repository_link(explorer_browser):
+    from playwright.sync_api import expect
+    page, runtime = explorer_browser
+    page.evaluate("""() => {
+      state.config.profiles.push({
+        id: 'gemini-3-8-flash',
+        display_name: 'Gemini 3.8 Flash',
+        description: 'Fast funded model'
+      });
+      state.llmAccess.profile = 'gemini-3-8-flash';
+      renderAISettings();
+      renderShellControls();
+    }""")
+
+    expect(page.locator('#ai-access-btn')).to_have_text('AI: Gemini 3.8 Flash · funded')
+    page.locator('#ai-access-btn').click()
+    recommended = page.locator('#ai-menu').get_by_role(
+        'menuitemradio', name='Gemini 3.8 Flash (recommended)', exact=True
+    )
+    expect(recommended).to_be_visible()
+    expect(recommended).to_have_attribute('aria-checked', 'true')
+    expect(page.locator('#funded-profile-select option[value="gemini-3-8-flash"]')).to_have_text(
+        'Gemini 3.8 Flash '
+        '(Recommended for the best balance of performance, cost, and latency)'
+    )
+
+    page.keyboard.press('Escape')
+    page.locator('#workspace-btn').click()
+    star = page.locator('#account-menu').get_by_role(
+        'menuitem', name='Star ABDA-NL on GitHub ⭐', exact=True
+    )
+    expect(star).to_be_visible()
+    expect(star).to_have_attribute('href', 'https://github.com/idaks/ABDA-NL')
+    expect(star).to_have_attribute('target', '_blank')
     assert runtime['chat_requests'] == []
 
 

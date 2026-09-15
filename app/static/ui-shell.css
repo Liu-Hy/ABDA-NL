@@ -28,6 +28,11 @@ button, input, select, textarea { font: inherit; }
 .af-scope-btn, .modal-footer button { font-size: var(--font-control); line-height: 1.35; min-height: 26px; }
 .btn, .btn-small { padding: .25rem .55rem; }
 .btn-tertiary { background: transparent; border-color: transparent; color: var(--accent); }
+.scenario-about-toggle { display: inline-flex; align-items: center; gap: .28rem; }
+.scenario-about-toggle-icon { display: inline-block; font-size: 13px; line-height: 1; transition: transform .15s ease; }
+.scenario-about-toggle[aria-expanded="true"] { background: var(--accent-light); border-color: #c3d2e5; color: #244f86; }
+.scenario-about-toggle[aria-expanded="true"] .scenario-about-toggle-icon { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .scenario-about-toggle-icon { transition: none; } }
 .btn-explain { background: #f4f7fc; color: var(--accent); border: 1px solid #c3d2e5; border-radius: 5px; padding: .2rem .5rem; font-weight: 600; }
 .btn-explain:hover { background: var(--accent-light); border-color: #91aacb; color: #244a88; }
 .btn-explain:disabled { background: var(--bg); color: var(--text-dim); border-color: var(--border); }
